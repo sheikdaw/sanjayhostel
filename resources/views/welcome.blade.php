@@ -1,4 +1,4 @@
-@verbatim
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1539,7 +1539,7 @@
       });
     }, { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
+@verbatim
     // JSON-LD schema
     const script = document.createElement('script');
     script.type = 'application/ld+json';
@@ -1556,8 +1556,8 @@
       "telephone": "+919876543210",
       "openingHours": "Mo-Su 00:00-23:59"
     });
+    @endverbatim
     document.head.appendChild(script);
   </script>
 </body>
 </html>
-@endverbatim
