@@ -231,7 +231,7 @@ class BiometricController extends Controller
             $message = '';
             
             // LOGIC: Before 10th - Always OPEN | After 10th - Check Payment
-            if ($currentDay <= 10) {
+            if ($currentDay <= 5) {
                 $doorStatus = 'OPEN';
                 $action = 'Door opened (Before 10th - Free Access)';
                 $message = '🚪 Door opened! (Before 10th - No payment required)';
@@ -304,7 +304,7 @@ class BiometricController extends Controller
                 'year' => $currentYear,
                 'action' => $action,
                 'message' => $message,
-                'rule_applied' => $currentDay <= 10 ? 'Before 10th - Free Access' : ($hasPaid ? 'Payment Verified' : 'Payment Pending')
+                'rule_applied' => $currentDay <= 5 ? 'Before 10th - Free Access' : ($hasPaid ? 'Payment Verified' : 'Payment Pending')
             ]);
             
         } catch (\Exception $e) {
@@ -341,7 +341,7 @@ class BiometricController extends Controller
                 ->first();
             
             $doorStatus = 'LOCKED';
-            if ($currentDay <= 10) {
+            if ($currentDay <= 5) {
                 $doorStatus = 'OPEN (Before 10th - Free)';
             } elseif ($hasPaid) {
                 $doorStatus = 'OPEN (Paid)';
@@ -417,7 +417,7 @@ class BiometricController extends Controller
                 $doorStatus = 'LOCKED';
                 
                 // Apply rules
-                if ($currentDay <= 10) {
+                if ($currentDay <= 5) {
                     $doorStatus = 'OPEN';
                     if (!$resident->biometric_access) {
                         $result = $this->mockService->enableEmployee($employeeCode);
@@ -486,7 +486,7 @@ class BiometricController extends Controller
                 'day_of_month' => $currentDay,
                 'month' => $currentMonth,
                 'year' => $currentYear,
-                'rule' => $currentDay <= 10 ? 'Before 10th - All Access Open' : 'After 10th - Payment Check Required',
+                'rule' => $currentDay <= 5 ? 'Before 10th - All Access Open' : 'After 10th - Payment Check Required',
                 'data' => $results
             ]);
             
