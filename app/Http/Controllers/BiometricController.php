@@ -231,7 +231,7 @@ class BiometricController extends Controller
             $message = '';
             
             // LOGIC: Before 10th - Always OPEN | After 10th - Check Payment
-            if ($currentDay <= 5) {
+            if ($currentDay <= 10) {
                 $doorStatus = 'OPEN';
                 $action = 'Door opened (Before 10th - Free Access)';
                 $message = '🚪 Door opened! (Before 10th - No payment required)';
