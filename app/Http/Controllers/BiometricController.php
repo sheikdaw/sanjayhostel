@@ -39,11 +39,14 @@ class BiometricController extends Controller
     }
 
     /**
-     * Generate employee code: RES_010001, RES_010002
+     * Generate employee code with hostel ID: RES_H{hostel_id}_{resident_id+10000}
+     * Example: RES_H1_010001, RES_H2_010002
      */
-    private function generateEmployeeCode($residentId)
+    private function generateEmployeeCode($resident)
     {
-        return 'RES_' . str_pad($residentId + 10000, 6, '0', STR_PAD_LEFT);
+        $hostelId = $resident->hostel_id ?? 1; // Default to 1 if not set
+        $code = $resident->id + 10000;
+        return 'RES_H' . $hostelId . '_' . str_pad($code, 6, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -59,8 +62,8 @@ class BiometricController extends Controller
             return $resident->employee_code;
         }
         
-        // Generate new employee code
-        $employeeCode = $this->generateEmployeeCode($resident->id);
+        // Generate new employee code with hostel ID
+        $employeeCode = $this->generateEmployeeCode($resident);
         
         // Save to database
         $resident->employee_code = $employeeCode;
@@ -104,6 +107,7 @@ class BiometricController extends Controller
                 'message' => 'Resident synced successfully',
                 'employee_code' => $employeeCode,
                 'resident' => $resident->name,
+                'hostel_id' => $resident->hostel_id ?? 1,
                 'device_sync' => $result
             ]);
             
@@ -153,6 +157,7 @@ class BiometricController extends Controller
                     $results[] = [
                         'resident_id' => $resident->id,
                         'name' => $resident->name,
+                        'hostel_id' => $resident->hostel_id ?? 1,
                         'employee_code' => $employeeCode,
                         'status' => 'success'
                     ];
@@ -226,7 +231,7 @@ class BiometricController extends Controller
             $message = '';
             
             // LOGIC: Before 10th - Always OPEN | After 10th - Check Payment
-            if ($currentDay <= 5) {
+            if ($currentDay <= 10) {
                 $doorStatus = 'OPEN';
                 $action = 'Door opened (Before 10th - Free Access)';
                 $message = '🚪 Door opened! (Before 10th - No payment required)';
@@ -284,6 +289,7 @@ class BiometricController extends Controller
                 'success' => $doorStatus === 'OPEN',
                 'resident' => $resident->name,
                 'resident_id' => $resident->id,
+                'hostel_id' => $resident->hostel_id ?? 1,
                 'employee_code' => $employeeCode,
                 'door' => $doorStatus,
                 'has_paid' => $hasPaid,
@@ -347,6 +353,7 @@ class BiometricController extends Controller
                 'success' => true,
                 'resident' => $resident->name,
                 'resident_id' => $resident->id,
+                'hostel_id' => $resident->hostel_id ?? 1,
                 'employee_code' => $resident->employee_code ?? 'Not synced',
                 'has_paid' => $hasPaid,
                 'payment_details' => $payment ? [
@@ -410,7 +417,7 @@ class BiometricController extends Controller
                 $doorStatus = 'LOCKED';
                 
                 // Apply rules
-                if ($currentDay <= 5) {
+                if ($currentDay <= 10) {
                     $doorStatus = 'OPEN';
                     if (!$resident->biometric_access) {
                         $result = $this->mockService->enableEmployee($employeeCode);
@@ -458,6 +465,7 @@ class BiometricController extends Controller
                 $results[] = [
                     'resident_id' => $resident->id,
                     'name' => $resident->name,
+                    'hostel_id' => $resident->hostel_id ?? 1,
                     'employee_code' => $employeeCode,
                     'has_paid' => $hasPaid,
                     'payment_amount' => $payment ? $payment->rent_amount : 0,
@@ -564,6 +572,7 @@ class BiometricController extends Controller
                     'id' => $resident->id,
                     'name' => $resident->name,
                     'email' => $resident->email ?? 'N/A',
+                    'hostel_id' => $resident->hostel_id ?? 1,
                     'employee_code' => $resident->employee_code ?? 'Not synced',
                     'biometric_access' => $resident->biometric_access ? 'Enabled' : 'Disabled',
                     'last_sync_at' => $resident->last_sync_at ? $resident->last_sync_at->format('Y-m-d H:i:s') : 'Never'
