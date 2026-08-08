@@ -1540,7 +1540,22 @@
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
     // JSON-LD schema
-    
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "Sanjay Boys Hostel & Harini Girls Hostel",
+      "description": "PG in Alandur, St. Thomas Mount, Perungalathur – AC/Non-AC, WiFi, CCTV, food, near metro and railway.",
+      "address": [
+        { "@type": "PostalAddress", "addressLocality": "Alandur", "addressRegion": "Chennai" },
+        { "@type": "PostalAddress", "addressLocality": "St. Thomas Mount", "addressRegion": "Chennai" },
+        { "@type": "PostalAddress", "addressLocality": "Perungalathur", "addressRegion": "Chennai" }
+      ],
+      "telephone": "+919876543210",
+      "openingHours": "Mo-Su 00:00-23:59"
+    });
+    document.head.appendChild(script);
   </script>
 </body>
 </html>
