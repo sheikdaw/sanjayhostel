@@ -44,7 +44,7 @@ class BiometricController extends Controller
      */
     private function generateEmployeeCode($resident)
     {
-        $hostelId = $resident->hostel_id ?? 1; // Default to 1 if not set
+        $hostelId = $resident->hostel_id ?? 1;
         $code = $resident->id + 10000;
         return 'RES_H' . $hostelId . '_' . str_pad($code, 6, '0', STR_PAD_LEFT);
     }
@@ -54,13 +54,7 @@ class BiometricController extends Controller
      */
     private function getOrCreateEmployeeCode($resident)
     {
-        // Check if columns exist
         $this->checkBiometricColumns();
-        
-        // If already has employee code, return it
-        // if (!empty($resident->employee_code)) {
-        //     return $resident->employee_code;
-        // }
         
         // Generate new employee code with hostel ID
         $employeeCode = $this->generateEmployeeCode($resident);
@@ -93,7 +87,6 @@ class BiometricController extends Controller
             
             $employeeCode = $this->getOrCreateEmployeeCode($resident);
             
-            // Sync to device
             $result = $this->mockService->updateEmployee([
                 'employee_code' => $employeeCode,
                 'employee_name' => $resident->name,
@@ -144,7 +137,6 @@ class BiometricController extends Controller
                 try {
                     $employeeCode = $this->getOrCreateEmployeeCode($resident);
                     
-                    // Sync to device
                     $result = $this->mockService->updateEmployee([
                         'employee_code' => $employeeCode,
                         'employee_name' => $resident->name,
@@ -190,7 +182,7 @@ class BiometricController extends Controller
     }
 
     /**
-     * 3. PUNCH / DOOR ACCESS
+     * 3. PUNCH / DOOR ACCESS - FIXED PAYMENT CHECK
      */
     public function punch(Request $request)
     {
@@ -210,8 +202,6 @@ class BiometricController extends Controller
 
             // Get or create employee code
             $employeeCode = $this->getOrCreateEmployeeCode($resident);
-            
-            // Refresh resident
             $resident->refresh();
             
             // Get current date details
@@ -219,7 +209,7 @@ class BiometricController extends Controller
             $currentMonth = now()->month;
             $currentYear = now()->year;
             
-            // INDIVIDUAL PAYMENT CHECK
+            // INDIVIDUAL PAYMENT CHECK - Check if resident has paid for current month
             $hasPaid = Payment::where('resident_id', $resident->id)
                 ->where('month', $currentMonth)
                 ->where('year', $currentYear)
@@ -230,12 +220,17 @@ class BiometricController extends Controller
             $action = null;
             $message = '';
             
-            // LOGIC: Before 10th - Always OPEN | After 10th - Check Payment
-            if ($currentDay <= 5) {
+            // DOOR LOGIC:
+            // Before 10th: ALWAYS OPEN (No payment check)
+            // After 10th: Check payment - OPEN if PAID, LOCKED if NOT PAID
+            
+            if ($currentDay <= 10) {
+                // ✅ BEFORE 10TH - DOOR ALWAYS OPEN
                 $doorStatus = 'OPEN';
                 $action = 'Door opened (Before 10th - Free Access)';
                 $message = '🚪 Door opened! (Before 10th - No payment required)';
                 
+                // Ensure access is enabled
                 if (!$resident->biometric_access) {
                     $result = $this->mockService->enableEmployee($employeeCode);
                     if ($result['success'] ?? false) {
@@ -248,6 +243,7 @@ class BiometricController extends Controller
                 }
                 
             } elseif ($hasPaid) {
+                // ✅ AFTER 10TH AND PAID - DOOR OPEN
                 $doorStatus = 'OPEN';
                 $action = 'Door opened (Payment verified)';
                 $message = '🚪 Door opened! Payment verified ✅';
@@ -264,6 +260,7 @@ class BiometricController extends Controller
                 }
                 
             } else {
+                // ❌ AFTER 10TH AND NOT PAID - DOOR LOCKED
                 $doorStatus = 'LOCKED';
                 $action = 'Door locked (Payment pending)';
                 $message = '🔒 Door locked! Please pay rent for this month';
@@ -304,7 +301,7 @@ class BiometricController extends Controller
                 'year' => $currentYear,
                 'action' => $action,
                 'message' => $message,
-                'rule_applied' => $currentDay <= 5 ? 'Before 10th - Free Access' : ($hasPaid ? 'Payment Verified' : 'Payment Pending')
+                'rule_applied' => $currentDay <= 10 ? 'Before 10th - Free Access' : ($hasPaid ? 'Payment Verified' : 'Payment Pending')
             ]);
             
         } catch (\Exception $e) {
@@ -341,7 +338,7 @@ class BiometricController extends Controller
                 ->first();
             
             $doorStatus = 'LOCKED';
-            if ($currentDay <= 5) {
+            if ($currentDay <= 10) {
                 $doorStatus = 'OPEN (Before 10th - Free)';
             } elseif ($hasPaid) {
                 $doorStatus = 'OPEN (Paid)';
@@ -417,7 +414,7 @@ class BiometricController extends Controller
                 $doorStatus = 'LOCKED';
                 
                 // Apply rules
-                if ($currentDay <= 5) {
+                if ($currentDay <= 10) {
                     $doorStatus = 'OPEN';
                     if (!$resident->biometric_access) {
                         $result = $this->mockService->enableEmployee($employeeCode);
@@ -486,7 +483,7 @@ class BiometricController extends Controller
                 'day_of_month' => $currentDay,
                 'month' => $currentMonth,
                 'year' => $currentYear,
-                'rule' => $currentDay <= 5 ? 'Before 10th - All Access Open' : 'After 10th - Payment Check Required',
+                'rule' => $currentDay <= 10 ? 'Before 10th - All Access Open' : 'After 10th - Payment Check Required',
                 'data' => $results
             ]);
             
