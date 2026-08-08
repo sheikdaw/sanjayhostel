@@ -58,9 +58,9 @@ class BiometricController extends Controller
         $this->checkBiometricColumns();
         
         // If already has employee code, return it
-        if (!empty($resident->employee_code)) {
-            return $resident->employee_code;
-        }
+        // if (!empty($resident->employee_code)) {
+        //     return $resident->employee_code;
+        // }
         
         // Generate new employee code with hostel ID
         $employeeCode = $this->generateEmployeeCode($resident);
