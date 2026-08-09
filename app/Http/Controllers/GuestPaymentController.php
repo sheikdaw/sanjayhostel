@@ -113,29 +113,22 @@ class GuestPaymentController extends Controller
         $totalDue = $currentPayment ? $currentPayment->rent_amount : ($resident->rent_amount ?? 0);
     }
 
-    // Apply discount based on current date
     $currentDay = now()->day;
     $discount = 0;
     $discountType = 'none';
 
     if ($currentDay >= 1 && $currentDay <= 5) {
-        // Less 250 (discount of 250)
         $discount = 250;
         $discountType = 'early_discount_250';
     } elseif ($currentDay >= 6 && $currentDay <= 10) {
-        // Less 125 (discount of 125)
         $discount = 125;
         $discountType = 'early_discount_125';
     } else {
-        // Full amount (no discount)
         $discount = 0;
         $discountType = 'no_discount';
     }
 
-    // Calculate final amount after discount
     $finalAmount = max(0, $totalDue - $discount);
-
-    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
 
     return response()->json([
         'success' => true,
@@ -149,10 +142,9 @@ class GuestPaymentController extends Controller
             'total_due' => $totalDue,
             'discount' => $discount,
             'discount_type' => $discountType,
-            'final_amount' => $finalAmount,
+            'final_amount' => $finalAmount,  // <-- This is the key field
             'current_date' => now()->format('Y-m-d'),
             'pending_count' => $pendingPayments->count(),
-            'reference' => $reference,
             'has_pending' => $pendingPayments->count() > 0
         ]
     ]);
