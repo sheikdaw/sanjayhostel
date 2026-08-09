@@ -131,7 +131,8 @@ class GuestPaymentController extends Controller
     $finalAmount = max(0, $totalDue - $discount);
 
     // Generate reference here - this was missing
-    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+
+        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
 
     return response()->json([
         'success' => true,
