@@ -339,32 +339,76 @@
         @endif
     </div>
     <div class="d-flex gap-2">
-        <div class="dropdown">
-            <button class="rv-submit dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false"
-                style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
-                <i class="bi bi-download"></i>
-                Export
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:280px; padding:0.5rem;">
-                <li class="dropdown-header">📊 Payment Reports</li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.all') }}"><i class="bi bi-file-earmark-text me-2 text-primary"></i> All Payments</a></li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.paid') }}"><i class="bi bi-check-circle me-2 text-success"></i> Paid Payments</a></li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.unpaid') }}"><i class="bi bi-exclamation-circle me-2 text-danger"></i> Unpaid Payments</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li class="dropdown-header">🏢 Hostel Wise Reports</li>
-                @foreach($hostels as $hostel)
-                    <li>
-                        <a class="dropdown-item" href="#" onclick="exportHostelWise({{ $hostel->id }})" style="font-size:0.8rem; padding:0.3rem 1rem;">
-                            <i class="bi bi-building me-2 text-warning"></i> {{ $hostel->hostel_name }}
-                            <span style="font-size:0.6rem; color:#6b7280;">({{ $hostelSummary[$hostel->id]['total_count'] ?? 0 }})</span>
-                        </a>
-                    </li>
-                @endforeach
-                <li><hr class="dropdown-divider"></li>
-                <li class="dropdown-header">📈 Summary</li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.summary') }}"><i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary Report</a></li>
-            </ul>
-        </div>
+       <div class="dropdown">
+    <button class="rv-submit dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+        style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
+        <i class="bi bi-download"></i>
+        Export
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:320px; padding:0.5rem;">
+        <li class="dropdown-header">📊 Payment Reports</li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.export.all') }}">
+                <i class="bi bi-file-earmark-text me-2 text-primary"></i> All Payments (CSV)
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.pdf.all') }}">
+                <i class="bi bi-file-pdf me-2 text-danger"></i> All Payments (PDF)
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">🏢 Hostel Wise Reports</li>
+        @foreach($hostels as $hostel)
+            <li>
+                <a class="dropdown-item" href="#" onclick="exportHostelWise({{ $hostel->id }})" style="font-size:0.8rem; padding:0.3rem 1rem;">
+                    <i class="bi bi-building me-2 text-warning"></i> {{ $hostel->hostel_name }} (CSV)
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ route('admin.payments.pdf.hostel-wise', ['hostel_id' => $hostel->id]) }}" style="font-size:0.8rem; padding:0.3rem 1rem;">
+                    <i class="bi bi-file-pdf me-2 text-danger"></i> {{ $hostel->hostel_name }} (PDF)
+                </a>
+            </li>
+        @endforeach
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">📈 Summary</li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.export.summary') }}">
+                <i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (CSV)
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.pdf.summary') }}">
+                <i class="bi bi-file-pdf me-2 text-danger"></i> Payment Summary (PDF)
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">🔴 Unpaid Reports</li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.export.unpaid') }}">
+                <i class="bi bi-exclamation-circle me-2 text-danger"></i> Unpaid (CSV)
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.pdf.unpaid') }}">
+                <i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid (PDF)
+            </a>
+        </li>
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">✅ Paid Reports</li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.export.paid') }}">
+                <i class="bi bi-check-circle me-2 text-success"></i> Paid (CSV)
+            </a>
+        </li>
+        <li>
+            <a class="dropdown-item" href="{{ route('admin.payments.pdf.paid') }}">
+                <i class="bi bi-file-pdf me-2 text-danger"></i> Paid (PDF)
+            </a>
+        </li>
+    </ul>
+</div>
         <button type="button" class="rv-submit" id="bulkPaymentBtn"
             style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
             <i class="bi bi-collection"></i>
