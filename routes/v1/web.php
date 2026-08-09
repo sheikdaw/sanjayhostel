@@ -38,7 +38,7 @@ Route::prefix('api/test')->group(function () {
 });
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('home');
 });
 
 Route::middleware('guest')->group(function () {
