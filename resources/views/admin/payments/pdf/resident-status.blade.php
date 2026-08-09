@@ -71,7 +71,7 @@
                 @php
                     $payment = $payments->get($resident->id);
                     $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
-                    $bedNo = $resident->bed_number ?? 'N/A';
+                    $bedNo = $resident->bed_no ?? 'N/A';
                     $rent = $resident->rent_amount ?? 0;
                 @endphp
                 <tr>

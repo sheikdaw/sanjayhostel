@@ -157,7 +157,7 @@ class PaymentController extends Controller
             $query->whereIn('hostel_id', $hostelIds);
         }
 
-        $residents = $query->get(['id', 'name', 'resident_code', 'hostel_id', 'room_id', 'rent_amount', 'bed_number']);
+        $residents = $query->get(['id', 'name', 'resident_code', 'hostel_id', 'room_id', 'rent_amount', 'bed_no']);
 
         return response()->json([
             'success' => true,
@@ -776,11 +776,11 @@ class PaymentController extends Controller
     private function getRoomDetails($resident)
     {
         if (!$resident->room) {
-            return ['room_no' => 'N/A', 'bed_number' => 'N/A'];
+            return ['room_no' => 'N/A', 'bed_no' => 'N/A'];
         }
         return [
             'room_no' => $resident->room->room_no ?? 'N/A',
-            'bed_number' => $resident->bed_number ?? 'N/A'
+            'bed_no' => $resident->bed_no ?? 'N/A'
         ];
     }
 
@@ -855,7 +855,7 @@ class PaymentController extends Controller
                 $csv .= $serialNo . ",";
                 $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
                 $csv .= $roomDetails['room_no'] . ",";
-                $csv .= $roomDetails['bed_number'] . ",";
+                $csv .= $roomDetails['bed_no'] . ",";
                 $csv .= $this->csvString($resident->name) . ",";
                 $csv .= $this->csvString($resident->phone ?? '') . ",";
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
@@ -869,7 +869,7 @@ class PaymentController extends Controller
                 $csv .= $serialNo . ",";
                 $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
                 $csv .= $roomDetails['room_no'] . ",";
-                $csv .= $roomDetails['bed_number'] . ",";
+                $csv .= $roomDetails['bed_no'] . ",";
                 $csv .= $this->csvString($resident->name) . ",";
                 $csv .= $this->csvString($resident->phone ?? '') . ",";
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
@@ -964,7 +964,7 @@ class PaymentController extends Controller
                 $csv .= $serialNo . ",";
                 $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
                 $csv .= $roomDetails['room_no'] . ",";
-                $csv .= $roomDetails['bed_number'] . ",";
+                $csv .= $roomDetails['bed_no'] . ",";
                 $csv .= $this->csvString($resident->name) . ",";
                 $csv .= $this->csvString($resident->phone ?? '') . ",";
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
@@ -1178,7 +1178,7 @@ class PaymentController extends Controller
                 $csv .= $serialNo . ",";
                 $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
                 $csv .= $roomDetails['room_no'] . ",";
-                $csv .= $roomDetails['bed_number'] . ",";
+                $csv .= $roomDetails['bed_no'] . ",";
                 $csv .= $this->csvString($resident->name) . ",";
                 $csv .= $this->csvString($resident->phone ?? '') . ",";
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
@@ -1278,7 +1278,7 @@ class PaymentController extends Controller
                 $csv .= $this->csvString($resident->name ?? 'N/A') . ",";
                 $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
                 $csv .= $roomDetails['room_no'] . ",";
-                $csv .= $roomDetails['bed_number'] . ",";
+                $csv .= $roomDetails['bed_no'] . ",";
                 $csv .= $status . ",";
                 $csv .= $this->csvNumber($dueAmount) . ",";
                 $csv .= $this->csvString($resident->phone ?? '') . ",";
@@ -1379,7 +1379,7 @@ class PaymentController extends Controller
             $csv .= $serialNo . ",";
             $csv .= $this->csvString($resident->name) . ",";
             $csv .= $roomDetails['room_no'] . ",";
-            $csv .= $roomDetails['bed_number'] . ",";
+            $csv .= $roomDetails['bed_no'] . ",";
             $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
             $csv .= $this->csvNumber($totalPaid) . ",";
             $csv .= $this->csvNumber($totalBalance) . ",";

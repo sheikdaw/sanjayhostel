@@ -79,7 +79,7 @@
             </div>
             <div class="row">
                 <span class="label">Bed Number</span>
-                <span class="value">{{ $resident->bed_number ?? 'N/A' }}</span>
+                <span class="value">{{ $resident->bed_no ?? 'N/A' }}</span>
             </div>
             <div class="row">
                 <span class="label">Phone</span>

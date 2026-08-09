@@ -132,7 +132,7 @@
             </div>
             <div class="row">
                 <span class="label">Room</span>
-                <span class="value">#{{ $payment->resident->room->room_no ?? 'N/A' }} | Bed: {{ $payment->resident->bed_number ?? 'N/A' }}</span>
+                <span class="value">#{{ $payment->resident->room->room_no ?? 'N/A' }} | Bed: {{ $payment->resident->bed_no ?? 'N/A' }}</span>
             </div>
             <div class="row">
                 <span class="label">Month</span>

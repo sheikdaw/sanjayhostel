@@ -70,7 +70,7 @@
                 @php
                     $resident = $item['resident'];
                     $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
-                    $bedNo = $resident->bed_number ?? 'N/A';
+                    $bedNo = $resident->bed_no ?? 'N/A';
                     $status = $item['status'];
                     $statusClass = strtolower(str_replace(' ', '-', $status));
                 @endphp

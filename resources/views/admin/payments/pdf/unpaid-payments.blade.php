@@ -68,7 +68,7 @@
                     @php
                         $resident = $item['resident'];
                         $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
-                        $bedNo = $resident->bed_number ?? 'N/A';
+                        $bedNo = $resident->bed_no ?? 'N/A';
                         $status = $item['status'];
                         $statusClass = strtolower(str_replace(' ', '-', $status));
                         $paid = $item['payment'] ? ($item['payment']->cash_paid_amount + $item['payment']->upi_paid_amount) : 0;
