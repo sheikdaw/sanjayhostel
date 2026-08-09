@@ -130,6 +130,9 @@ class GuestPaymentController extends Controller
 
     $finalAmount = max(0, $totalDue - $discount);
 
+    // Generate reference here - this was missing
+    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+
     return response()->json([
         'success' => true,
         'data' => [
@@ -142,10 +145,10 @@ class GuestPaymentController extends Controller
             'total_due' => $totalDue,
             'discount' => $discount,
             'discount_type' => $discountType,
-            'final_amount' => $finalAmount,  // <-- This is the key field
+            'final_amount' => $finalAmount,
             'current_date' => now()->format('Y-m-d'),
             'pending_count' => $pendingPayments->count(),
-            'reference' => $reference,
+            'reference' => $reference,  // Now this is defined
             'has_pending' => $pendingPayments->count() > 0
         ]
     ]);
@@ -343,7 +346,8 @@ class GuestPaymentController extends Controller
     {
         $authHeader = $request->header('Authorization', '');
 
-        $expected = hash('sha256',
+        $expected = hash(
+            'sha256',
             config('phonepe.webhook_username') . ':' . config('phonepe.webhook_password')
         );
 
