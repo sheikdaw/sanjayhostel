@@ -62,7 +62,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     });
-    
+
     Route::middleware(['auth', 'role:account'])->prefix('account')->name('account.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
     });
@@ -178,24 +178,24 @@ Route::middleware(['auth'])->group(function () {
             // ============================================================
             // PAYMENT EXPORT ROUTES - All export functionality
             // ============================================================
-            
+
             // 1. Basic Exports
             Route::get('/export/all', [PaymentController::class, 'exportAll'])->name('export.all');
             Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
             Route::get('/export/unpaid', [PaymentController::class, 'exportUnpaid'])->name('export.unpaid');
-            
+
             // 2. Status-Specific Exports
             Route::get('/export/pending-only', [PaymentController::class, 'exportPendingOnly'])->name('export.pending-only');
             Route::get('/export/partial-only', [PaymentController::class, 'exportPartialOnly'])->name('export.partial-only');
-            
+
             // 3. Monthly Unpaid Report - Shows residents who haven't paid for specific month
             Route::get('/export/monthly-unpaid', [PaymentController::class, 'exportMonthlyUnpaid'])->name('export.monthly-unpaid');
-            
+
             // 4. Hostel-Wise Exports
             Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
             Route::get('/export/hostel-wise-paid', [PaymentController::class, 'exportHostelWisePaid'])->name('export.hostel-wise-paid');
             Route::get('/export/hostel-wise-unpaid', [PaymentController::class, 'exportHostelWiseUnpaid'])->name('export.hostel-wise-unpaid');
-            
+
             // 5. Summary Reports
             Route::get('/export/summary', [PaymentController::class, 'exportPaymentSummary'])->name('export.summary');
                Route::get('pdf/resident-status', [PaymentController::class, 'pdfResidentPaymentStatus'])->name('pdf.resident-status');

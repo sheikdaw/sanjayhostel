@@ -145,6 +145,7 @@ class GuestPaymentController extends Controller
             'final_amount' => $finalAmount,  // <-- This is the key field
             'current_date' => now()->format('Y-m-d'),
             'pending_count' => $pendingPayments->count(),
+            'reference' => $reference,
             'has_pending' => $pendingPayments->count() > 0
         ]
     ]);
