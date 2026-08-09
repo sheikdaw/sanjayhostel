@@ -66,70 +66,97 @@ class GuestPaymentController extends Controller
      * Get resident details by mobile number.
      * POST /guest/payment/resident
      */
-    public function getResident(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'mobile' => 'required|string|min:10|max:15',
-            'hostel_id' => 'required|exists:hostels,id'
-        ]);
+   public function getResident(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'mobile' => 'required|string|min:10|max:15',
+        'hostel_id' => 'required|exists:hostels,id'
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'errors' => $validator->errors()
+        ], 422);
+    }
 
-        $resident = Resident::where('phone', $request->mobile)
-            ->where('hostel_id', $request->hostel_id)
-            ->where('status', 'ACTIVE')
+    $resident = Resident::where('phone', $request->mobile)
+        ->where('hostel_id', $request->hostel_id)
+        ->where('status', 'ACTIVE')
+        ->first();
+
+    if (!$resident) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No resident found with this mobile number in this hostel.'
+        ], 404);
+    }
+
+    $pendingPayments = Payment::where('resident_id', $resident->id)
+        ->whereIn('status', ['PENDING', 'PARTIAL'])
+        ->orderBy('year', 'asc')
+        ->orderBy('month', 'asc')
+        ->get();
+
+    $totalDue = $pendingPayments->sum('balance_amount');
+
+    // If no pending payments, check current month
+    if ($totalDue == 0) {
+        $currentMonth = now()->month;
+        $currentYear = now()->year;
+
+        $currentPayment = Payment::where('resident_id', $resident->id)
+            ->where('month', $currentMonth)
+            ->where('year', $currentYear)
             ->first();
 
-        if (!$resident) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No resident found with this mobile number in this hostel.'
-            ], 404);
-        }
-
-        $pendingPayments = Payment::where('resident_id', $resident->id)
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->orderBy('year', 'asc')
-            ->orderBy('month', 'asc')
-            ->get();
-
-        $totalDue = $pendingPayments->sum('balance_amount');
-
-        if ($totalDue == 0) {
-            $currentMonth = now()->month;
-            $currentYear = now()->year;
-
-            $currentPayment = Payment::where('resident_id', $resident->id)
-                ->where('month', $currentMonth)
-                ->where('year', $currentYear)
-                ->first();
-
-            $totalDue = $currentPayment ? $currentPayment->rent_amount : ($resident->rent_amount ?? 0);
-        }
-
-        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'resident_id' => $resident->id,
-                'name' => $resident->name,
-                'email' => $resident->email,
-                'phone' => $resident->phone,
-                'room_no' => $resident->room->room_no ?? 'N/A',
-                'rent_amount' => $resident->rent_amount ?? 0,
-                'total_due' => $totalDue,
-                'pending_count' => $pendingPayments->count(),
-                'reference' => $reference,
-                'has_pending' => $pendingPayments->count() > 0
-            ]
-        ]);
+        $totalDue = $currentPayment ? $currentPayment->rent_amount : ($resident->rent_amount ?? 0);
     }
+
+    // Apply discount based on current date
+    $currentDay = now()->day;
+    $discount = 0;
+    $discountType = 'none';
+
+    if ($currentDay >= 1 && $currentDay <= 5) {
+        // Less 250 (discount of 250)
+        $discount = 250;
+        $discountType = 'early_discount_250';
+    } elseif ($currentDay >= 6 && $currentDay <= 10) {
+        // Less 125 (discount of 125)
+        $discount = 125;
+        $discountType = 'early_discount_125';
+    } else {
+        // Full amount (no discount)
+        $discount = 0;
+        $discountType = 'no_discount';
+    }
+
+    // Calculate final amount after discount
+    $finalAmount = max(0, $totalDue - $discount);
+
+    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'resident_id' => $resident->id,
+            'name' => $resident->name,
+            'email' => $resident->email,
+            'phone' => $resident->phone,
+            'room_no' => $resident->room->room_no ?? 'N/A',
+            'rent_amount' => $resident->rent_amount ?? 0,
+            'total_due' => $totalDue,
+            'discount' => $discount,
+            'discount_type' => $discountType,
+            'final_amount' => $finalAmount,
+            'current_date' => now()->format('Y-m-d'),
+            'pending_count' => $pendingPayments->count(),
+            'reference' => $reference,
+            'has_pending' => $pendingPayments->count() > 0
+        ]
+    ]);
+}
 
     /**
      * Create a real PhonePe payment order and return the hosted
