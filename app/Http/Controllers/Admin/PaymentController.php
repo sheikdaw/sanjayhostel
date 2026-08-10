@@ -140,31 +140,30 @@ class PaymentController extends Controller
         ));
     }
 
-    /**
-     * Get residents by room for cascading dropdown
-     */
-    public function getResidentsByRoom($roomId)
-    {
-        $user = auth()->user();
+   /**
+ * Get residents by room for cascading dropdown
+ */
+public function getResidentsByRoom($roomId)
+{
+    $user = auth()->user();
 
-        $query = Resident::where('room_id', $roomId)
-            ->where('status', 'ACTIVE')
-            ->orderBy('name');
+    $query = Resident::where('room_id', $roomId)
+        ->where('status', 'ACTIVE')
+        ->orderBy('name');
 
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $query->whereIn('hostel_id', $hostelIds);
-        }
-
-        // Removed bed_no as it doesn't exist in the table
-        $residents = $query->get(['id', 'name', 'resident_code', 'hostel_id', 'room_id', 'rent_amount']);
-
-        return response()->json([
-            'success' => true,
-            'data' => $residents
-        ]);
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $query->whereIn('hostel_id', $hostelIds);
     }
 
+    // IMPORTANT: Removed 'bed_no' from the select
+    $residents = $query->get(['id', 'name', 'resident_code', 'hostel_id', 'room_id', 'rent_amount']);
+
+    return response()->json([
+        'success' => true,
+        'data' => $residents
+    ]);
+}
     /**
      * Store a newly created payment.
      */
