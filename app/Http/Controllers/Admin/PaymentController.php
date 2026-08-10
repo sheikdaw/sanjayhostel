@@ -157,7 +157,6 @@ class PaymentController extends Controller
             $query->whereIn('hostel_id', $hostelIds);
         }
 
-        // Remove 'bed_no' if it doesn't exist in your table
         $residents = $query->get(['id', 'name', 'resident_code', 'hostel_id', 'room_id', 'rent_amount']);
 
         return response()->json([
