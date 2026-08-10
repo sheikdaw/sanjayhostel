@@ -221,6 +221,7 @@
       before publishing. Search engines penalize structured data that doesn't
       match what's on the page or in Google Business Profile.
     -->
+    @verbatim
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -352,6 +353,7 @@
       ]
     }
     </script>
+    @endverbatim
   </head>
   <body>
     <header>
