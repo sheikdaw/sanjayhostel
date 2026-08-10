@@ -239,12 +239,14 @@
         padding: 0.85rem;
         margin-bottom: 1.25rem;
     }
-    .filter-group select {
+    .filter-group select,
+    .filter-group input {
         border: 1px solid #d1d5db;
         border-radius: 8px;
         padding: 0.4rem 0.6rem;
         font-size: 0.8rem;
         background: #fafafa;
+        width: 100%;
     }
     .search-box {
         position: relative;
@@ -291,7 +293,6 @@
     .stat-card .number { font-size: 1.3rem; font-weight: 700; color: var(--sanjay-primary); }
     .stat-card .label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.15rem; }
 
-    /* Toast notifications (matches hostel management page) */
     .toast-container {
         position: fixed;
         top: 80px;
@@ -323,6 +324,59 @@
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(100%); opacity: 0; }
     }
+
+    /* Enhanced Filter Styles */
+    .filter-section .form-select-sm,
+    .filter-section .form-control-sm {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background-color: #fafafa;
+        width: 100%;
+    }
+    .filter-section .form-select-sm:focus,
+    .filter-section .form-control-sm:focus {
+        border-color: var(--sanjay-gold);
+        box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
+        background-color: white;
+    }
+    .filter-section .form-select-sm {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        background-size: 12px 12px;
+        padding-right: 2rem;
+        appearance: none;
+    }
+    .filter-section .form-control-sm::placeholder {
+        color: #9ca3af;
+        font-size: 0.7rem;
+    }
+    #filterCountBadge {
+        background: var(--sanjay-primary);
+        color: white;
+        font-weight: 600;
+    }
+    .quick-filter-btn {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        transition: all 0.2s;
+    }
+    .quick-filter-btn:hover {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+    }
+    .filter-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #6b7280;
+        margin-bottom: 0.15rem;
+        display: block;
+    }
 </style>
 @endpush
 
@@ -339,76 +393,36 @@
         @endif
     </div>
     <div class="d-flex gap-2">
-       <div class="dropdown">
-    <button class="rv-submit dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false"
-        style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
-        <i class="bi bi-download"></i>
-        Export
-    </button>
-    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:320px; padding:0.5rem;">
-        <li class="dropdown-header">📊 Payment Reports</li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.export.all') }}">
-                <i class="bi bi-file-earmark-text me-2 text-primary"></i> All Payments (CSV)
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.pdf.all') }}">
-                <i class="bi bi-file-pdf me-2 text-danger"></i> All Payments (PDF)
-            </a>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li class="dropdown-header">🏢 Hostel Wise Reports</li>
-        @foreach($hostels as $hostel)
-            <li>
-                <a class="dropdown-item" href="#" onclick="exportHostelWise({{ $hostel->id }})" style="font-size:0.8rem; padding:0.3rem 1rem;">
-                    <i class="bi bi-building me-2 text-warning"></i> {{ $hostel->hostel_name }} (CSV)
-                </a>
-            </li>
-            <li>
-                <a class="dropdown-item" href="{{ route('admin.payments.pdf.hostel-wise', ['hostel_id' => $hostel->id]) }}" style="font-size:0.8rem; padding:0.3rem 1rem;">
-                    <i class="bi bi-file-pdf me-2 text-danger"></i> {{ $hostel->hostel_name }} (PDF)
-                </a>
-            </li>
-        @endforeach
-        <li><hr class="dropdown-divider"></li>
-        <li class="dropdown-header">📈 Summary</li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.export.summary') }}">
-                <i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (CSV)
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.pdf.summary') }}">
-                <i class="bi bi-file-pdf me-2 text-danger"></i> Payment Summary (PDF)
-            </a>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li class="dropdown-header">🔴 Unpaid Reports</li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.export.unpaid') }}">
-                <i class="bi bi-exclamation-circle me-2 text-danger"></i> Unpaid (CSV)
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.pdf.unpaid') }}">
-                <i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid (PDF)
-            </a>
-        </li>
-        <li><hr class="dropdown-divider"></li>
-        <li class="dropdown-header">✅ Paid Reports</li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.export.paid') }}">
-                <i class="bi bi-check-circle me-2 text-success"></i> Paid (CSV)
-            </a>
-        </li>
-        <li>
-            <a class="dropdown-item" href="{{ route('admin.payments.pdf.paid') }}">
-                <i class="bi bi-file-pdf me-2 text-danger"></i> Paid (PDF)
-            </a>
-        </li>
-    </ul>
-</div>
+        <div class="dropdown">
+            <button class="rv-submit dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
+                <i class="bi bi-download"></i>
+                Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:320px; padding:0.5rem;">
+                <li class="dropdown-header">📊 Payment Reports</li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.export.all') }}"><i class="bi bi-file-earmark-text me-2 text-primary"></i> All Payments (CSV)</a></li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.all') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> All Payments (PDF)</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">🏢 Hostel Wise Reports</li>
+                @foreach($hostels as $hostel)
+                    <li><a class="dropdown-item" href="#" onclick="exportHostelWise({{ $hostel->id }})" style="font-size:0.8rem; padding:0.3rem 1rem;"><i class="bi bi-building me-2 text-warning"></i> {{ $hostel->hostel_name }} (CSV)</a></li>
+                    <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.hostel-wise', ['hostel_id' => $hostel->id]) }}" style="font-size:0.8rem; padding:0.3rem 1rem;"><i class="bi bi-file-pdf me-2 text-danger"></i> {{ $hostel->hostel_name }} (PDF)</a></li>
+                @endforeach
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">📈 Summary</li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.export.summary') }}"><i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (CSV)</a></li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.summary') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Payment Summary (PDF)</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">🔴 Unpaid Reports</li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.export.unpaid') }}"><i class="bi bi-exclamation-circle me-2 text-danger"></i> Unpaid (CSV)</a></li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.unpaid') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid (PDF)</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">✅ Paid Reports</li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.export.paid') }}"><i class="bi bi-check-circle me-2 text-success"></i> Paid (CSV)</a></li>
+                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.paid') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Paid (PDF)</a></li>
+            </ul>
+        </div>
         <button type="button" class="rv-submit" id="bulkPaymentBtn"
             style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
             <i class="bi bi-collection"></i>
@@ -551,50 +565,125 @@
     <button class="btn-action" onclick="clearSelection()" title="Clear Selection"><i class="bi bi-x"></i> Clear</button>
 </div>
 
-{{-- Filter Section --}}<!-- Monthly Unpaid Report Export Form -->
+{{-- Enhanced Filter Section --}}
 <div class="filter-section">
-    <form action="{{ route('admin.payments.export.monthly-unpaid') }}" method="GET" target="_blank" class="d-flex flex-wrap gap-2 align-items-center">
-        <div class="filter-group">
-            <label style="font-size:0.8rem; font-weight:600;">Month:</label>
-            <select name="month" required>
-                @for($m = 1; $m <= 12; $m++)
-                    <option value="{{ $m }}" {{ $m == date('n') ? 'selected' : '' }}>
-                        {{ date('F', mktime(0,0,0,$m,1)) }}
-                    </option>
-                @endfor
-            </select>
+    <div class="row g-2 w-100">
+        <div class="col-md-3">
+            <div class="search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" id="searchPayment" placeholder="Search by name, receipt, txn ID...">
+            </div>
         </div>
-        <div class="filter-group">
-            <label style="font-size:0.8rem; font-weight:600;">Year:</label>
-            <select name="year" required>
-                @for($y = date('Y'); $y >= date('Y') - 5; $y--)
-                    <option value="{{ $y }}" {{ $y == date('Y') ? 'selected' : '' }}>
-                        {{ $y }}
-                    </option>
-                @endfor
-            </select>
+        <div class="col-md-2">
+            <div class="filter-group">
+                <select id="filterStatus" class="form-select form-select-sm">
+                    <option value="">All Status</option>
+                    <option value="PENDING">⏳ Pending</option>
+                    <option value="PARTIAL">🟡 Partial</option>
+                    <option value="PAID">✅ Paid</option>
+                </select>
+            </div>
         </div>
-        <div class="filter-group">
-            <label style="font-size:0.8rem; font-weight:600;">Hostel:</label>
-            <select name="hostel_id">
-                <option value="">All Hostels</option>
-                @foreach($hostels as $hostel)
-                    <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
-                @endforeach
-            </select>
+        <div class="col-md-2">
+            <div class="filter-group">
+                <select id="filterHostel" class="form-select form-select-sm">
+                    <option value="">All Hostels</option>
+                    @foreach($hostels as $hostel)
+                        <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
-        <button type="submit" class="rv-submit" style="width:auto; padding:0 1.5rem; height:38px; border-radius:9px; display:inline-flex; align-items:center; gap:6px; animation:none; background:#dc2626;">
-            <i class="bi bi-file-earmark-excel"></i>
-            Export Monthly Unpaid
-        </button>
-    </form>
+        <div class="col-md-2">
+            <div class="filter-group">
+                <select id="filterRoom" class="form-select form-select-sm">
+                    <option value="">All Rooms</option>
+                </select>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="d-flex gap-2">
+                <div class="filter-group" style="flex:1;">
+                    <input type="month" id="filterMonthYear" class="form-control form-control-sm"
+                           value="{{ date('Y-m') }}">
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()" title="Clear Filters">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+                <button class="btn btn-sm btn-primary" onclick="applyFilters()" title="Apply Filters">
+                    <i class="bi bi-funnel"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
+
+{{-- Advanced Filter Section --}}
+<div class="filter-section" style="background:#f8fafc; border-color:#d1d5db; margin-top:-0.5rem;">
+    <div class="row g-2 w-100 align-items-end">
+        <div class="col-md-2">
+            <div class="filter-group">
+                <label class="filter-label">Payment Date From</label>
+                <input type="date" id="filterDateFrom" class="form-control form-control-sm">
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="filter-group">
+                <label class="filter-label">Payment Date To</label>
+                <input type="date" id="filterDateTo" class="form-control form-control-sm">
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="filter-group">
+                <label class="filter-label">Min Amount (₹)</label>
+                <input type="number" id="filterMinAmount" class="form-control form-control-sm" placeholder="0" min="0">
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="filter-group">
+                <label class="filter-label">Max Amount (₹)</label>
+                <input type="number" id="filterMaxAmount" class="form-control form-control-sm" placeholder="10000" min="0">
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="filter-group">
+                <label class="filter-label">Payment Mode</label>
+                <select id="filterPaymentMode" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="cash">Cash Only</option>
+                    <option value="upi">UPI Only</option>
+                    <option value="both">Both</option>
+                </select>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="d-flex gap-1 flex-wrap">
+                <button class="btn btn-sm btn-outline-secondary quick-filter-btn" onclick="filterThisMonth()">
+                    <i class="bi bi-calendar"></i> This Month
+                </button>
+                <button class="btn btn-sm btn-outline-secondary quick-filter-btn" onclick="filterByAmountRange(0, 5000)">
+                    <i class="bi bi-currency-rupee"></i> ≤ ₹5000
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Filter Status --}}
+<div class="d-flex align-items-center justify-content-between mb-2">
+    <span style="font-size:0.75rem; color:#6b7280;">
+        <i class="bi bi-funnel"></i>
+        <span id="visibleCount">{{ $payments->count() }}</span> of
+        <span id="totalCount">{{ $payments->count() }}</span> payments shown
+    </span>
+</div>
+
 {{-- Payments Grid --}}
 <div id="paymentsContainer">
     @if($payments->count() > 0)
         <div class="row g-4" id="paymentsGrid">
             @foreach($payments as $payment)
-                <div class="col-xl-4 col-lg-6"
+                <div class="col-xl-4 col-lg-6 payment-card-item"
                     data-id="{{ $payment->id }}"
                     data-status="{{ $payment->status }}"
                     data-hostel="{{ $payment->resident->hostel_id ?? '' }}"
@@ -603,7 +692,11 @@
                     data-month="{{ $payment->month }}"
                     data-year="{{ $payment->year }}"
                     data-receipt="{{ strtolower($payment->receipt_no) }}"
-                    data-resident="{{ strtolower($payment->resident->name ?? '') }}">
+                    data-resident="{{ strtolower($payment->resident->name ?? '') }}"
+                    data-payment-date="{{ $payment->payment_date->format('Y-m-d') }}"
+                    data-rent="{{ $payment->rent_amount }}"
+                    data-paid="{{ $payment->cash_paid_amount + $payment->upi_paid_amount }}"
+                    data-balance="{{ $payment->balance_amount }}">
                     <div class="payment-card">
                         <div class="card-checkbox">
                             <input type="checkbox" class="payment-checkbox" value="{{ $payment->id }}" onclick="updateBulkActions()">
@@ -728,7 +821,6 @@
                 <input type="hidden" id="editId" name="edit_id">
                 <div class="modal-body">
                     <div class="row g-3">
-                        {{-- Cascading Hostel -> Room -> Resident selection --}}
                         <div class="col-md-4">
                             <label class="form-label">Hostel <span class="required">*</span></label>
                             <div class="rv-input-box">
@@ -980,8 +1072,26 @@ $(document).ready(function() {
         calculateBalance();
     });
 
-    $('#filterStatus, #filterHostel, #filterMonth, #filterYear').on('change', function() { applyFilters(); });
+    // Enhanced filter event listeners
+    $('#filterStatus, #filterHostel, #filterRoom, #filterPaymentMode').on('change', function() {
+        applyFilters();
+    });
 
+    $('#filterMonthYear, #filterDateFrom, #filterDateTo, #filterMinAmount, #filterMaxAmount').on('change', function() {
+        applyFilters();
+    });
+
+    $('#searchPayment').on('keyup', function() {
+        debouncedApplyFilters();
+    });
+
+    $('#searchPayment').on('keypress', function(e) {
+        if (e.which === 13) {
+            applyFilters();
+        }
+    });
+
+    // Hostel -> Room filter
     $('#filterHostel').on('change', function() {
         var hostelId = $(this).val();
         var roomSelect = $('#filterRoom');
@@ -996,24 +1106,14 @@ $(document).ready(function() {
                         $.each(response.data, function(key, room) {
                             roomSelect.append('<option value="' + room.id + '">Room #' + room.room_no + '</option>');
                         });
-                    } else {
-                        roomSelect.append('<option value="">No rooms available</option>');
                     }
-                },
-                error: function() { roomSelect.append('<option value="">No rooms available</option>'); }
+                }
             });
         }
+        applyFilters();
     });
 
-    $('#filterRoom').on('change', function() { applyFilters(); });
-
-    let searchTimeout;
-    $('#searchPayment').on('keyup', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(function() { applyFilters(); }, 300);
-    });
-
-    // ---- Cascading Hostel -> Room -> Resident selects in the Add/Edit modal ----
+    // Modal cascading
     $('#modal_hostel_id').on('change', function() {
         var hostelId = $(this).val();
         var roomSelect = $('#modal_room_id');
@@ -1042,8 +1142,7 @@ $(document).ready(function() {
                 } else {
                     roomSelect.append('<option value="">No rooms available</option>');
                 }
-            },
-            error: function() { roomSelect.append('<option value="">Failed to load rooms</option>'); }
+            }
         });
     });
 
@@ -1073,8 +1172,7 @@ $(document).ready(function() {
                 } else {
                     residentSelect.append('<option value="">No residents in this room</option>');
                 }
-            },
-            error: function() { residentSelect.append('<option value="">Failed to load residents</option>'); }
+            }
         });
     });
 
@@ -1089,8 +1187,7 @@ $(document).ready(function() {
                         $('#rent_amount').val(response.data.rent_amount);
                         calculateBalance();
                     }
-                },
-                error: function(xhr) { showToast('Failed to load rent amount', 'error'); }
+                }
             });
 
             let month = $('#month').val();
@@ -1105,100 +1202,168 @@ $(document).ready(function() {
         let year = $('#year').val();
         if (residentId && month && year) checkPendingPrevious(residentId, month, year);
     });
+
+    // Apply initial filters
+    applyFilters();
 });
 
-function calculateBalance() {
-    let rent = parseFloat($('#rent_amount').val()) || 0;
-    let discount = parseFloat($('#discount_amount').val()) || 0;
-    let fine = parseFloat($('#fine_amount').val()) || 0;
-    let cash = parseFloat($('#cash_paid_amount').val()) || 0;
-    let upi = parseFloat($('#upi_paid_amount').val()) || 0;
-
-    let total = rent - discount + fine;
-    let paid = cash + upi;
-    let balance = total - paid;
-
-    if (balance <= 0) {
-        $('#status').val('PAID');
-    } else if (paid > 0 && balance > 0) {
-        $('#status').val('PARTIAL');
-    } else {
-        $('#status').val('PENDING');
-    }
-}
-
-function checkPendingPrevious(residentId, month, year) {
-    $.ajax({
-        url: '/admin/payments/resident/' + residentId + '/check-pending/' + month + '/' + year,
-        type: 'GET',
-        success: function(response) {
-            if (response.success && response.has_pending) {
-                $('#pendingWarning').remove();
-                let warning = `
-                    <div id="pendingWarning" class="alert alert-warning mt-2" style="font-size:0.8rem; padding:0.5rem 0.75rem;">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <strong>Warning:</strong> Previous months have pending payments.
-                        Please clear them before adding this payment.
-                    </div>
-                `;
-                $('#resident_id').closest('.col-md-4').after(warning);
-                $('#saveBtn').prop('disabled', true);
-            } else {
-                $('#pendingWarning').remove();
-                $('#saveBtn').prop('disabled', false);
-            }
-        }
-    });
-}
+// ========== FILTER FUNCTIONS ==========
 
 function applyFilters() {
     var status = $('#filterStatus').val();
     var hostel = $('#filterHostel').val();
     var room = $('#filterRoom').val();
-    var month = $('#filterMonth').val();
-    var year = $('#filterYear').val();
-    var search = $('#searchPayment').val().toLowerCase();
+    var search = $('#searchPayment').val().toLowerCase().trim();
+    var monthYear = $('#filterMonthYear').val();
+    var dateFrom = $('#filterDateFrom').val();
+    var dateTo = $('#filterDateTo').val();
+    var minAmount = parseFloat($('#filterMinAmount').val()) || 0;
+    var maxAmount = parseFloat($('#filterMaxAmount').val()) || Infinity;
+    var paymentMode = $('#filterPaymentMode').val();
 
-    $('#paymentsGrid .col-xl-4').each(function() {
+    // Parse month/year
+    var month = null;
+    var year = null;
+    if (monthYear) {
+        var parts = monthYear.split('-');
+        year = parseInt(parts[0]);
+        month = parseInt(parts[1]);
+    }
+
+    var visibleCount = 0;
+    var totalCount = 0;
+
+    $('#paymentsGrid .payment-card-item').each(function() {
         var show = true;
-        var paymentStatus = $(this).data('status');
-        var paymentHostel = $(this).data('hostel');
-        var paymentRoom = $(this).data('room');
-        var paymentMonth = $(this).data('month');
-        var paymentYear = $(this).data('year');
-        var paymentReceipt = $(this).data('receipt') || '';
-        var paymentResident = $(this).data('resident') || '';
+        var $item = $(this);
 
+        // Get all data attributes
+        var paymentStatus = $item.data('status');
+        var paymentHostel = $item.data('hostel');
+        var paymentRoom = $item.data('room');
+        var paymentMonth = $item.data('month');
+        var paymentYear = $item.data('year');
+        var paymentReceipt = $item.data('receipt') || '';
+        var paymentResident = $item.data('resident') || '';
+        var paymentDate = $item.data('payment-date');
+        var rent = parseFloat($item.data('rent')) || 0;
+        var paid = parseFloat($item.data('paid')) || 0;
+        var balance = parseFloat($item.data('balance')) || 0;
+
+        // Get payment mode from the card
+        var cashMatch = $item.find('.payment-body').text().match(/Cash:\s*₹([\d,]+)/);
+        var upiMatch = $item.find('.payment-body').text().match(/UPI:\s*₹([\d,]+)/);
+        var cashAmount = cashMatch ? parseFloat(cashMatch[1].replace(/,/g, '')) || 0 : 0;
+        var upiAmount = upiMatch ? parseFloat(upiMatch[1].replace(/,/g, '')) || 0 : 0;
+
+        // --- Apply filters ---
+
+        // Status filter
         if (status && paymentStatus !== status) show = false;
+
+        // Hostel filter
         if (hostel && paymentHostel != hostel) show = false;
+
+        // Room filter
         if (room && paymentRoom != room) show = false;
+
+        // Month/Year filter
         if (month && paymentMonth != month) show = false;
         if (year && paymentYear != year) show = false;
+
+        // Search filter
         if (search) {
-            var match = paymentReceipt.includes(search) || paymentResident.includes(search);
+            var match = paymentReceipt.includes(search) ||
+                       paymentResident.includes(search) ||
+                       $item.find('.payment-meta:contains("Txn ID:")').text().toLowerCase().includes(search);
             if (!match) show = false;
         }
 
-        $(this).toggle(show);
+        // Date range filter
+        if (paymentDate && dateFrom && paymentDate < dateFrom) show = false;
+        if (paymentDate && dateTo && paymentDate > dateTo) show = false;
+
+        // Amount range filter (based on rent)
+        if (rent < minAmount || rent > maxAmount) show = false;
+
+        // Payment mode filter
+        if (paymentMode) {
+            if (paymentMode === 'cash' && cashAmount === 0) show = false;
+            if (paymentMode === 'upi' && upiAmount === 0) show = false;
+            if (paymentMode === 'both' && (cashAmount === 0 || upiAmount === 0)) show = false;
+        }
+
+        // Show/Hide
+        if (show) {
+            $item.show();
+            visibleCount++;
+        } else {
+            $item.hide();
+        }
+        totalCount++;
     });
+
+    // Update counts
+    $('#visibleCount').text(visibleCount);
+    $('#totalCount').text(totalCount);
+}
+
+function clearFilters() {
+    $('#filterStatus, #filterHostel, #filterRoom, #filterPaymentMode').val('');
+    $('#searchPayment').val('');
+    $('#filterDateFrom, #filterDateTo').val('');
+    $('#filterMinAmount, #filterMaxAmount').val('');
+    $('#filterMonthYear').val('{{ date("Y-m") }}');
+    applyFilters();
 }
 
 function filterPending() {
     $('#filterStatus').val('PENDING');
+    $('#filterMonthYear').val('{{ date("Y-m") }}');
     applyFilters();
     $('html, body').animate({ scrollTop: $('#paymentsContainer').offset().top - 100 }, 500);
 }
 
-function clearFilters() {
-    $('#filterStatus, #filterHostel, #filterRoom, #filterMonth, #filterYear').val('');
-    $('#searchPayment').val('');
+function filterThisMonth() {
+    var now = new Date();
+    var year = now.getFullYear();
+    var month = String(now.getMonth() + 1).padStart(2, '0');
+    $('#filterMonthYear').val(year + '-' + month);
+    $('#filterDateFrom').val('');
+    $('#filterDateTo').val('');
     applyFilters();
 }
+
+function filterByAmountRange(min, max) {
+    $('#filterMinAmount').val(min || '');
+    $('#filterMaxAmount').val(max || '');
+    applyFilters();
+}
+
+function filterByDateRange(from, to) {
+    if (from) $('#filterDateFrom').val(from);
+    if (to) $('#filterDateTo').val(to);
+    applyFilters();
+}
+
+function filterByPaymentMode(mode) {
+    $('#filterPaymentMode').val(mode);
+    applyFilters();
+}
+
+let filterTimeout;
+function debouncedApplyFilters() {
+    clearTimeout(filterTimeout);
+    filterTimeout = setTimeout(function() {
+        applyFilters();
+    }, 300);
+}
+
+// ========== BULK ACTIONS ==========
 
 function updateBulkActions() {
     var checked = $('.payment-checkbox:checked');
     var count = checked.length;
-
     if (count > 0) {
         $('#bulkActions').addClass('show');
         $('#selectedCount').text(count);
@@ -1221,12 +1386,10 @@ function getSelectedIds() {
 function bulkStatusUpdate() {
     var ids = getSelectedIds();
     var status = $('#bulkStatusSelect').val();
-
     if (ids.length === 0 || !status) {
         showToast('Please select payments and a status', 'error');
         return;
     }
-
     Swal.fire({
         title: 'Update Status?',
         text: "Are you sure you want to update " + ids.length + " payments to " + status + "?",
@@ -1256,7 +1419,6 @@ function bulkStatusUpdate() {
 function bulkDelete() {
     var ids = getSelectedIds();
     if (ids.length === 0) return;
-
     Swal.fire({
         title: 'Delete Payments?',
         text: "Are you sure you want to delete " + ids.length + " payments? This action cannot be undone!",
@@ -1283,18 +1445,20 @@ function bulkDelete() {
     });
 }
 
+// ========== EXPORT ==========
+
 function exportHostelWise(hostelId) {
     var month = $('#filterMonth').val() || '';
     var year = $('#filterYear').val() || '';
     var status = $('#filterStatus').val() || '';
-
     var url = "{{ route('admin.payments.export.hostel-wise') }}?hostel_id=" + hostelId;
     if (month) url += '&month=' + month;
     if (year) url += '&year=' + year;
     if (status) url += '&status=' + status;
-
     window.location.href = url;
 }
+
+// ========== MODAL FUNCTIONS ==========
 
 function openAddModal() {
     resetForm();
@@ -1328,8 +1492,6 @@ function resetForm() {
     $('#payment_date').val(new Date().toISOString().split('T')[0]);
     $('#pendingWarning').remove();
     $('#saveBtn').prop('disabled', false);
-
-    // Reset the cascading hostel/room/resident chain
     $('#modal_hostel_id').val('');
     $('#modal_room_id').empty().append('<option value="">Select Hostel First</option>').prop('disabled', true);
     $('#resident_id').empty().append('<option value="">Select Room First</option>').prop('disabled', true);
@@ -1343,21 +1505,60 @@ function resetBulkForm() {
     $('#bulk_payment_date').val(new Date().toISOString().split('T')[0]);
 }
 
+function calculateBalance() {
+    let rent = parseFloat($('#rent_amount').val()) || 0;
+    let discount = parseFloat($('#discount_amount').val()) || 0;
+    let fine = parseFloat($('#fine_amount').val()) || 0;
+    let cash = parseFloat($('#cash_paid_amount').val()) || 0;
+    let upi = parseFloat($('#upi_paid_amount').val()) || 0;
+    let total = rent - discount + fine;
+    let paid = cash + upi;
+    let balance = total - paid;
+    if (balance <= 0) {
+        $('#status').val('PAID');
+    } else if (paid > 0 && balance > 0) {
+        $('#status').val('PARTIAL');
+    } else {
+        $('#status').val('PENDING');
+    }
+}
+
+function checkPendingPrevious(residentId, month, year) {
+    $.ajax({
+        url: '/admin/payments/resident/' + residentId + '/check-pending/' + month + '/' + year,
+        type: 'GET',
+        success: function(response) {
+            if (response.success && response.has_pending) {
+                $('#pendingWarning').remove();
+                let warning = `
+                    <div id="pendingWarning" class="alert alert-warning mt-2" style="font-size:0.8rem; padding:0.5rem 0.75rem;">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>Warning:</strong> Previous months have pending payments.
+                        Please clear them before adding this payment.
+                    </div>
+                `;
+                $('#resident_id').closest('.col-md-4').after(warning);
+                $('#saveBtn').prop('disabled', true);
+            } else {
+                $('#pendingWarning').remove();
+                $('#saveBtn').prop('disabled', false);
+            }
+        }
+    });
+}
+
 function submitForm() {
     let id = document.getElementById('editId').value;
     let url = "{{ route('admin.payments.store') }}";
     let formData = new FormData(document.getElementById('paymentForm'));
-
     if (id) {
         url = "{{ url('admin/payments') }}/" + id;
         formData.append('_method', 'PUT');
     }
-
     if ($('#pendingWarning').length > 0) {
         showToast('Please clear previous pending payments first!', 'error');
         return;
     }
-
     $.ajax({
         url: url,
         type: 'POST',
@@ -1375,23 +1576,7 @@ function submitForm() {
                 var modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
                 if (modal) modal.hide();
                 showToast(response.message, 'success');
-
-                let paymentData = response.data;
-                Swal.fire({
-                    title: 'Payment Saved!',
-                    text: 'Send the bill to the resident on WhatsApp now?',
-                    icon: 'success',
-                    showCancelButton: true,
-                    confirmButtonColor: '#25D366',
-                    cancelButtonColor: '#6b7280',
-                    confirmButtonText: 'Send on WhatsApp',
-                    cancelButtonText: 'Not now'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        openWhatsAppBill(paymentData);
-                    }
-                    setTimeout(() => location.reload(), 600);
-                });
+                setTimeout(() => location.reload(), 1500);
             }
         },
         error: function(xhr) {
@@ -1423,7 +1608,6 @@ function submitForm() {
 function submitBulkForm() {
     let url = "{{ route('admin.payments.bulk') }}";
     let formData = new FormData(document.getElementById('bulkPaymentForm'));
-
     $.ajax({
         url: url,
         type: 'POST',
@@ -1440,11 +1624,7 @@ function submitBulkForm() {
             if (response.success) {
                 var modal = bootstrap.Modal.getInstance(document.getElementById('bulkPaymentModal'));
                 if (modal) modal.hide();
-                let message = response.message;
-                if (response.errors && response.errors.length > 0) {
-                    message += ' Errors: ' + response.errors.join(', ');
-                }
-                showToast(message, 'success');
+                showToast(response.message, 'success');
                 setTimeout(() => location.reload(), 1500);
             }
         },
@@ -1483,7 +1663,6 @@ function editPayment(id) {
                 let data = response.data;
                 document.getElementById('modalTitle').textContent = 'Edit Payment';
                 document.getElementById('editId').value = data.id;
-
                 document.getElementById('month').value = data.month;
                 document.getElementById('year').value = data.year;
                 document.getElementById('rent_amount').value = data.rent_amount;
@@ -1492,27 +1671,22 @@ function editPayment(id) {
                 document.getElementById('cash_paid_amount').value = data.cash_paid_amount;
                 document.getElementById('upi_paid_amount').value = data.upi_paid_amount;
                 document.getElementById('transaction_id').value = data.transaction_id || '';
-
                 if (data.payment_date) {
                     const paymentDate = new Date(data.payment_date);
                     document.getElementById('payment_date').value = paymentDate.toISOString().split('T')[0];
                 }
-
                 document.getElementById('status').value = data.status;
                 document.getElementById('saveBtnText').textContent = 'Update';
-
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
                 $('#pendingWarning').remove();
                 $('#saveBtn').prop('disabled', false);
 
-                // Rebuild the Hostel -> Room -> Resident chain for this payment's resident
                 let hostelId = data.resident ? data.resident.hostel_id : null;
                 let roomId = data.resident ? data.resident.room_id : null;
                 let residentId = data.resident_id;
 
                 $('#modal_hostel_id').val(hostelId || '');
-
                 if (hostelId && roomId) {
                     $.ajax({
                         url: '/admin/rooms/hostel/' + hostelId + '/rooms',
@@ -1526,7 +1700,6 @@ function editPayment(id) {
                                 });
                             }
                             roomSelect.val(roomId);
-
                             $.ajax({
                                 url: '/admin/payments/room/' + roomId + '/residents',
                                 type: 'GET',
@@ -1544,7 +1717,6 @@ function editPayment(id) {
                         }
                     });
                 }
-
                 var modal = new bootstrap.Modal(document.getElementById('paymentModal'));
                 modal.show();
             }
@@ -1610,23 +1782,7 @@ function markAsPaid(id) {
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
-
-                        let paymentData = response.data;
-                        Swal.fire({
-                            title: 'Marked as Paid!',
-                            text: 'Send the bill to the resident on WhatsApp now?',
-                            icon: 'success',
-                            showCancelButton: true,
-                            confirmButtonColor: '#25D366',
-                            cancelButtonColor: '#6b7280',
-                            confirmButtonText: 'Send on WhatsApp',
-                            cancelButtonText: 'Not now'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                openWhatsAppBill(paymentData);
-                            }
-                            setTimeout(() => location.reload(), 600);
-                        });
+                        setTimeout(() => location.reload(), 1500);
                     }
                 },
                 error: function(xhr) {
@@ -1640,8 +1796,6 @@ function markAsPaid(id) {
         }
     });
 }
-
-// ---- WhatsApp bill (no API — opens wa.me click-to-chat with the bill pre-filled) ----
 
 function sendWhatsAppBill(id) {
     $.ajax({
@@ -1665,21 +1819,15 @@ function sendWhatsAppBill(id) {
 
 function openWhatsAppBill(payment) {
     let resident = payment.resident || {};
-
-    // Adjust this list if your Resident model uses a different column name for phone number.
     let rawPhone = resident.phone || resident.mobile || resident.contact_number || resident.phone_number || resident.whatsapp_number || '';
     let phone = rawPhone.toString().replace(/\D/g, '');
-
     if (!phone) {
-        showToast('No phone number on file for this resident! Add one to send a WhatsApp bill.', 'error');
+        showToast('No phone number on file for this resident!', 'error');
         return;
     }
-
-    // Assume Indian 10-digit numbers if no country code was stored.
     if (phone.length === 10) {
         phone = '91' + phone;
     }
-
     let message = buildBillMessage(payment, resident);
     let url = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(message);
     window.open(url, '_blank');
@@ -1732,10 +1880,8 @@ function showToast(message, type = 'success') {
         document.body.appendChild(newContainer);
         container = newContainer;
     }
-
     const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
     const color = type === 'success' ? '#10b981' : '#dc2626';
-
     const toast = document.createElement('div');
     toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
     toast.innerHTML = `
@@ -1744,7 +1890,6 @@ function showToast(message, type = 'success') {
         <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
     `;
     container.appendChild(toast);
-
     setTimeout(() => {
         if (toast.parentElement) {
             toast.style.animation = 'slideOutRight 0.3s ease forwards';
