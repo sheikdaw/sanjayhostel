@@ -7,7 +7,6 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://www.sanjayandharinihostels.com/">
     <meta name="description" content="Sanjay Boys Hostel & Harini Girls Hostel offer safe, affordable PG accommodation in Alandur, St. Thomas Mount and Perungalathur, Chennai — AC/non-AC rooms, home-style food, WiFi, CCTV and 24/7 security for students and working professionals.">
-        <meta name="keywords" content="PG in Alandur, boys hostel Alandur, girls hostel Alandur, PG near Alandur Metro, hostel St Thomas Mount, PG Perungalathur, ladies hostel Chennai, mens PG Chennai, AC PG Chennai, hostel near Guindy, hostel near Chennai airport, lunch box delivery Chennai, working professionals PG, students PG Chennai, Sanjay Boys Hostel, Harini Girls Hostel">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Sanjay & Harini Hostels | Boys & Girls PG in Alandur, St. Thomas Mount & Perungalathur">
     <meta property="og:description" content="Safe, affordable PG for men and women in Alandur, St. Thomas Mount and Perungalathur, Chennai. AC/non-AC rooms, home food, WiFi, CCTV, 24/7 security.">
@@ -223,7 +222,7 @@
       before publishing. Search engines penalize structured data that doesn't
       match what's on the page or in Google Business Profile.
     -->
-    
+
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -424,371 +423,103 @@
       </div>
     </section>
 
-    <!-- BRANCH HIGHLIGHTS -->
-    <section>
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Our Locations</span>
-          <h2>PG in Alandur, St. Thomas Mount & Perungalathur</h2>
-          <p>Choose your branch – all close to metro, railway, IT parks, and the airport.</p>
+  <!-- BRANCH HIGHLIGHTS -->
+  <section>
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Our Locations</span>
+        <h2>PG in Alandur, St. Thomas Mount & Perungalathur</h2>
+        <p>Choose your branch – all close to metro, railway, IT parks, and the airport. <a href="{{ route('about') }}">Read more about each location →</a></p>
+      </div>
+      @verbatim
+      <div class="identity-grid reveal">
+        <div class="identity-card boys">
+          <span class="tag-pill">Sanjay Boys Hostel</span>
+          <h3>Men's PG in Alandur & St. Thomas Mount</h3>
+          <div class="branch-loc">📍 Alandur – Near Alandur Metro, Guindy, Nanganallur</div>
+          <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount Station, Kathipara, Airport Metro</div>
+          <ul>
+            <li>AC / Non-AC rooms</li>
+            <li>WiFi, CCTV, power backup</li>
+            <li>Home-style food (veg/non-veg)</li>
+            <li>Laundry, housekeeping</li>
+          </ul>
+      @endverbatim
+          <a href="{{ route('contact') }}" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--amber);text-decoration:underline;">Check room availability at Sanjay Boys Hostel →</a>
         </div>
-        <div class="identity-grid reveal">
-          <div class="identity-card boys">
-            <span class="tag-pill">Sanjay Boys Hostel</span>
-            <h3>Alandur & St. Thomas Mount</h3>
-            <div class="branch-loc">📍 Alandur – Near Alandur Metro, Guindy, Nanganallur</div>
-            <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount Station, Kathipara, Airport Metro</div>
-            <ul>
-              <li>AC / Non-AC rooms</li>
-              <li>WiFi, CCTV, power backup</li>
-              <li>Home-style food (veg/non-veg)</li>
-              <li>Laundry, housekeeping</li>
-            </ul>
-            <a href="#contact" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--amber);text-decoration:underline;">Check room availability at Sanjay Boys Hostel →</a>
-          </div>
-          <div class="identity-card girls">
-            <span class="tag-pill">Harini Ladies Hostel</span>
-            <h3>Alandur & St. Thomas Mount</h3>
-            <div class="branch-loc">📍 Alandur – Near Alandur Metro, Ekkatuthangal, Nanganallur</div>
-            <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount, Airport Metro, Guindy</div>
-            <ul>
-              <li>Women-only safe accommodation</li>
-              <li>24/7 CCTV & visitor tracking</li>
-              <li>Single, double, triple sharing</li>
-              <li>RO water, ironing, study hall</li>
-            </ul>
-            <a href="#contact" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--rose);text-decoration:underline;">Check room availability at Harini Girls Hostel →</a>
-          </div>
-        </div>
-        <div style="margin-top:32px;text-align:center;background:rgba(217,203,180,.06);border-radius:20px;padding:28px;">
-          <span class="tag-pill" style="background:var(--rose);color:var(--ivory);padding:6px 20px;border-radius:999px;">Perungalathur – Boys Only</span>
-          <p style="color:var(--stone);margin-top:12px;">Sanjay Boys Hostel at Perungalathur – near Perungalathur railway station, Tambaram, Vandalur, GST Road. Ideal for students and professionals. <a href="#contact" style="color:var(--rose);text-decoration:underline;font-weight:700;">Enquire about the Perungalathur branch →</a></p>
+        @verbatim
+        <div class="identity-card girls">
+          <span class="tag-pill">Harini Ladies Hostel</span>
+          <h3>Women's PG in Alandur & St. Thomas Mount</h3>
+          <div class="branch-loc">📍 Alandur – Near Alandur Metro, Ekkatuthangal, Nanganallur</div>
+          <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount, Airport Metro, Guindy</div>
+          <ul>
+            <li>Women-only safe accommodation</li>
+            <li>24/7 CCTV & visitor tracking</li>
+            <li>Single, double, triple sharing</li>
+            <li>RO water, ironing, study hall</li>
+          </ul>
+        @endverbatim
+          <a href="{{ route('contact') }}" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--rose);text-decoration:underline;">Check room availability at Harini Girls Hostel →</a>
         </div>
       </div>
-    </section>
-
-    <!-- FACILITIES -->
-    <section class="panel-ivory" id="facilities">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Amenities</span>
-          <h2>Facilities – AC, WiFi, CCTV, Food & More</h2>
-          <p>Everything you need for a comfortable stay – from furnished rooms to daily meals.</p>
-        </div>
-        <div class="facility-tabs reveal">
-          <button class="tab-btn active" data-tab="rooms">Room Types</button>
-          <button class="tab-btn" data-tab="furnish">Furnishing</button>
-          <button class="tab-btn" data-tab="amenities">Amenities</button>
-        </div>
-        <div class="tab-panel grid-cards active" id="rooms">
-          <div class="fac-card"><div class="ic">🛏️</div><h4>Single Sharing</h4><p>Private room for professionals.</p></div>
-          <div class="fac-card"><div class="ic">🛏️</div><h4>Double Sharing</h4><p>Comfortable for two.</p></div>
-          <div class="fac-card"><div class="ic">🛏️</div><h4>Triple Sharing</h4><p>Budget-friendly.</p></div>
-          <div class="fac-card"><div class="ic">🏠</div><h4>Dormitory</h4><p>For short stays.</p></div>
-          <div class="fac-card"><div class="ic">❄️</div><h4>AC Rooms</h4><p>Climate controlled.</p></div>
-          <div class="fac-card"><div class="ic">🌬️</div><h4>Non-AC Rooms</h4><p>Ceiling fan cooled.</p></div>
-          <div class="fac-card"><div class="ic">🚿</div><h4>Attached Bathroom</h4><p>In select rooms.</p></div>
-          <div class="fac-card"><div class="ic">🌿</div><h4>Balcony Rooms</h4><p>Subject to availability.</p></div>
-        </div>
-        <div class="tab-panel grid-cards" id="furnish">
-          <div class="fac-card"><div class="ic">🛌</div><h4>Cot & Mattress</h4></div>
-          <div class="fac-card"><div class="ic">📚</div><h4>Study Table & Chair</h4></div>
-          <div class="fac-card"><div class="ic">🚪</div><h4>Wardrobe & Locker</h4></div>
-          <div class="fac-card"><div class="ic">🔌</div><h4>Charging Points</h4></div>
-          <div class="fac-card"><div class="ic">💡</div><h4>LED Lights</h4></div>
-          <div class="fac-card"><div class="ic">🌀</div><h4>Ceiling Fans</h4></div>
-        </div>
-        <div class="tab-panel grid-cards" id="amenities">
-          <div class="fac-card"><div class="ic">📶</div><h4>High-Speed WiFi</h4></div>
-          <div class="fac-card"><div class="ic">🚰</div><h4>RO Water 24x7</h4></div>
-          <div class="fac-card"><div class="ic">🔒</div><h4>CCTV & Biometric</h4></div>
-          <div class="fac-card"><div class="ic">⚡</div><h4>Power Backup</h4></div>
-          <div class="fac-card"><div class="ic">🛗</div><h4>Lift Facility</h4></div>
-          <div class="fac-card"><div class="ic">🧹</div><h4>Daily Housekeeping</h4></div>
-          <div class="fac-card"><div class="ic">👕</div><h4>Laundry & Ironing</h4></div>
-          <div class="fac-card"><div class="ic">📖</div><h4>Study Hall</h4></div>
-          <div class="fac-card"><div class="ic">🅿️</div><h4>Parking</h4></div>
-        </div>
+      <div style="margin-top:32px;text-align:center;background:rgba(217,203,180,.06);border-radius:20px;padding:28px;">
+        <span class="tag-pill" style="background:var(--rose);color:var(--ivory);padding:6px 20px;border-radius:999px;">Perungalathur – Boys Only</span>
+        <h3 style="margin-top:14px;font-size:1.3rem;">Men's PG Hostel in Perungalathur, Chennai</h3>
+        <p style="color:var(--stone);margin-top:8px;">Sanjay Boys Hostel at Perungalathur – near Perungalathur railway station, Tambaram, Vandalur, GST Road. Ideal for students and professionals.
+          <a href="{{ route('contact') }}" style="color:var(--rose);text-decoration:underline;font-weight:700;">Enquire about the Perungalathur branch →</a>
+        </p>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- SAFETY -->
-    <section class="safety" id="safety">
-      <div class="wrap">
-        <div class="safety-grid">
-          <div class="reveal">
-            <span class="eyebrow">Safety First</span>
-            <h2 style="font-size:clamp(1.8rem,3.2vw,2.5rem);">24/7 Security – CCTV, Wardens & More</h2>
-            <p style="color:var(--stone);margin-bottom:32px;">Both hostels have separate buildings, monitored entry, biometric access, and on-site wardens. Women's safety is our priority.</p>
-            <div class="safety-list">
-              <div class="safety-item"><span class="ic">●</span><div><h4>CCTV Coverage</h4><p>All corridors & entry points.</p></div></div>
-              <div class="safety-item"><span class="ic">●</span><div><h4>Biometric Entry</h4><p>Secure access.</p></div></div>
-              <div class="safety-item"><span class="ic">●</span><div><h4>Warden Supervision</h4><p>On-site support.</p></div></div>
-              <div class="safety-item"><span class="ic">●</span><div><h4>Visitor Tracking</h4><p>Strict logging.</p></div></div>
-              <div class="safety-item"><span class="ic">●</span><div><h4>Fire Safety</h4><p>Extinguishers & exits.</p></div></div>
-              <div class="safety-item"><span class="ic">●</span><div><h4>Separate Buildings</h4><p>Boys & girls.</p></div></div>
-            </div>
-          </div>
-          <div class="safety-visual reveal">
-            <img src="https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=900" alt="24/7 CCTV monitored entrance, Harini Girls Hostel">
-          </div>
-        </div>
+  @verbatim
+  <!-- WHY CHOOSE -->
+  <section>
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Why Stay With Us</span>
+        <h2>Best PG in Alandur, St. Thomas Mount & Perungalathur</h2>
       </div>
-    </section>
-
-    <!-- FOOD -->
-    <section class="panel-ivory" id="food">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Food & Lunch Box</span>
-          <h2>Home-Style Meals Daily</h2>
-          <p>Vegetarian & non-vegetarian options. Lunch box delivery for working professionals.</p>
-        </div>
-        <div class="food-grid reveal">
-          <div>
-            <h3 style="font-size:1.3rem;">4 Meals a Day</h3>
-            <div class="meal-tags">
-              <div class="meal-tag">Breakfast</div>
-              <div class="meal-tag">Lunch</div>
-              <div class="meal-tag">Snacks</div>
-              <div class="meal-tag">Dinner</div>
-            </div>
-            <p style="color:var(--ink-soft);">Freshly cooked with RO water. South Indian & North Indian options. Weekly specials.</p>
-            <h3 style="margin-top:30px;">Lunch Box Delivery</h3>
-            <p style="color:var(--ink-soft);">For office employees, IT staff, college students, and senior citizens. Bulk orders for corporates.</p>
-            <div class="plan-grid">
-              <div class="plan-card"><span class="tag-pill">Veg</span><h4>Daily Veg</h4><p>Simple & healthy</p></div>
-              <div class="plan-card"><span class="tag-pill">Premium</span><h4>Veg / Non-Veg</h4><p>Choice every day</p></div>
-              <div class="plan-card"><span class="tag-pill">Corporate</span><h4>Bulk Supply</h4><p>For teams</p></div>
-            </div>
-          </div>
-          <div class="food-visual">
-            <img src="https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=900" alt="Home-style meals served at Sanjay & Harini Hostels, Chennai">
-          </div>
-        </div>
+      <div class="why-grid reveal">
+        <div class="why-item"><span class="tick-circ">✓</span><p>Affordable Rent</p></div>
+        <div class="why-item"><span class="tick-circ">✓</span><p>Near Metro & Railway</p></div>
+        <div class="why-item"><span class="tick-circ">✓</span><p>AC / Non-AC</p></div>
+        <div class="why-item"><span class="tick-circ">✓</span><p>WiFi & CCTV</p></div>
+        <div class="why-item"><span class="tick-circ">✓</span><p>Home Food</p></div>
+        <div class="why-item"><span class="tick-circ">✓</span><p>Laundry</p></div>
+        <div class="why-item"><span class="tick-circ">✓</span><p>Power Backup</p></div>
+        <div class="why-item"><span class="tick-circ">✓</span><p>Safe for Women</p></div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- NEARBY LANDMARKS -->
-    <section>
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Location Highlights</span>
-          <h2>Nearby Metro, Railway & IT Parks</h2>
-          <p>Perfectly placed for commuters – Alandur Metro, St. Thomas Mount, Perungalathur station, Guindy, Tambaram and more.</p>
-        </div>
-        <div class="nearby-row reveal">
-          <span class="nearby-chip">📍 Alandur Metro (1 min)</span>
-          <span class="nearby-chip">📍 St. Thomas Mount Railway Station</span>
-          <span class="nearby-chip">📍 Perungalathur Railway Station</span>
-          <span class="nearby-chip">📍 Guindy Industrial Estate</span>
-          <span class="nearby-chip">📍 Chennai Airport (7 km)</span>
-          <span class="nearby-chip">📍 Kathipara Junction</span>
-          <span class="nearby-chip">📍 Ekkatuthangal Metro</span>
-          <span class="nearby-chip">📍 Nanganallur</span>
-          <span class="nearby-chip">📍 Tambaram</span>
-          <span class="nearby-chip">📍 Vandalur</span>
-          <span class="nearby-chip">📍 GST Road</span>
-          <span class="nearby-chip">📍 Velachery Railway Station</span>
-        </div>
+  <!-- TESTIMONIALS -->
+  <section class="panel-ivory">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="eyebrow">Testimonials</span>
+        <h2>What Our Residents Say</h2>
       </div>
-    </section>
-
-    <!-- WHY CHOOSE -->
-    <section>
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Why Stay With Us</span>
-          <h2>Best PG in Alandur, St. Thomas Mount & Perungalathur</h2>
-        </div>
-        <div class="why-grid reveal">
-          <div class="why-item"><span class="tick-circ">✓</span><p>Affordable Rent</p></div>
-          <div class="why-item"><span class="tick-circ">✓</span><p>Near Metro & Railway</p></div>
-          <div class="why-item"><span class="tick-circ">✓</span><p>AC / Non-AC</p></div>
-          <div class="why-item"><span class="tick-circ">✓</span><p>WiFi & CCTV</p></div>
-          <div class="why-item"><span class="tick-circ">✓</span><p>Home Food</p></div>
-          <div class="why-item"><span class="tick-circ">✓</span><p>Laundry</p></div>
-          <div class="why-item"><span class="tick-circ">✓</span><p>Power Backup</p></div>
-          <div class="why-item"><span class="tick-circ">✓</span><p>Safe for Women</p></div>
-        </div>
+      <div class="testi-grid reveal">
+        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"Best PG near Alandur Metro. Clean rooms, good food, and safe for women."</p><div class="who">Harini Girls Hostel resident</div></div>
+        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"I work at the airport. This hostel is close, affordable, and has great WiFi."</p><div class="who">Sanjay Boys, St. Thomas Mount</div></div>
+        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"Perfect for IT professionals. Attached bathroom, study table, and power backup."</p><div class="who">Working professional, Alandur</div></div>
       </div>
-    </section>
+    </div>
+  </section>
+  @endverbatim
 
-    <!-- TESTIMONIALS -->
-    <section class="panel-ivory">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Testimonials</span>
-          <h2>What Our Residents Say</h2>
-        </div>
-        <div class="testi-grid reveal">
-          <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"Best PG near Alandur Metro. Clean rooms, good food, and safe for women."</p><div class="who">Harini Girls Hostel resident</div></div>
-          <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"I work at the airport. This hostel is close, affordable, and has great WiFi."</p><div class="who">Sanjay Boys, St. Thomas Mount</div></div>
-          <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"Perfect for IT professionals. Attached bathroom, study table, and power backup."</p><div class="who">Working professional, Alandur</div></div>
-        </div>
+  <!-- FINAL CTA -->
+  <section class="final-cta">
+    <div class="wrap">
+      <div class="strap">Trusted by 500+ residents</div>
+      <h2>Your Home Away From Home</h2>
+      <p class="lead">Sanjay Boys Hostel & Harini Girls Hostel – the best PG in Alandur, St. Thomas Mount & Perungalathur.</p>
+      <div class="hero-actions">
+        <a href="{{ route('contact') }}" class="btn btn-primary">Book Now →</a>
+        <a href="{{ route('contact') }}" class="btn btn-ghost">Contact Us</a>
       </div>
-    </section>
-
-    <!-- GALLERY -->
-    <section id="gallery">
-      <div class="wrap">
-        <div class="section-head reveal"><span class="eyebrow">Gallery</span><h2>Inside Our Hostels</h2></div>
-        <div class="gallery-grid reveal">
-          <a class="g1" href="#"><img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?q=80&w=700" alt="Sanjay Boys Hostel building, Alandur, near Guindy"></a>
-          <a><img src="https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?q=80&w=500" alt="Furnished AC room, Sanjay & Harini Hostels"></a>
-          <a><img src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=500" alt="Common area at Harini Girls Hostel, Alandur"></a>
-          <a><img src="https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=500" alt="Dining area, Sanjay Boys Hostel"></a>
-          <a class="g5" href="#"><img src="https://images.unsplash.com/photo-1486325212027-8081e485255e?q=80&w=700" alt="Reception desk, Sanjay & Harini Hostels"></a>
-          <a><img src="https://images.unsplash.com/photo-1556909114-44e3e9699e2b?q=80&w=500" alt="Study hall, Harini Girls Hostel"></a>
-          <a><img src="https://images.unsplash.com/photo-1545048702-79362596cdc9?q=80&w=500" alt="Laundry and ironing area, PG hostel Chennai"></a>
-        </div>
-      </div>
-    </section>
-
-    <!-- FAQ -->
-    <section id="faq">
-      <div class="wrap">
-        <div class="section-head reveal"><span class="eyebrow">FAQ</span><h2>Frequently Asked Questions</h2></div>
-        <div class="faq-list reveal">
-          <div class="faq-item"><button class="faq-q">What room types are available? <span class="plus">+</span></button><div class="faq-a">Single, double, triple, and dormitory – AC & non-AC.</div></div>
-          <div class="faq-item"><button class="faq-q">Is WiFi included? <span class="plus">+</span></button><div class="faq-a">Yes, high-speed WiFi is free for all residents.</div></div>
-          <div class="faq-item"><button class="faq-q">Are meals provided? <span class="plus">+</span></button><div class="faq-a">Yes, 4 meals daily (breakfast, lunch, snacks, dinner). Lunch box delivery also available.</div></div>
-          <div class="faq-item"><button class="faq-q">Is parking available? <span class="plus">+</span></button><div class="faq-a">Yes, bike and car parking available.</div></div>
-          <div class="faq-item"><button class="faq-q">Is laundry service available? <span class="plus">+</span></button><div class="faq-a">Yes, washing machine and ironing area on-site.</div></div>
-          <div class="faq-item"><button class="faq-q">Are visitors allowed? <span class="plus">+</span></button><div class="faq-a">Visitors allowed during set hours with proper tracking.</div></div>
-          <div class="faq-item"><button class="faq-q">Do you have power backup? <span class="plus">+</span></button><div class="faq-a">Yes, generator backup for 24/7 power.</div></div>
-          <div class="faq-item"><button class="faq-q">Is the hostel safe for women? <span class="plus">+</span></button><div class="faq-a">Harini Girls Hostel is exclusively for women with 24/7 CCTV and warden.</div></div>
-          <div class="faq-item"><button class="faq-q">Which branches have AC rooms? <span class="plus">+</span></button><div class="faq-a">All branches offer AC and non-AC rooms.</div></div>
-          <div class="faq-item"><button class="faq-q">How to book a room? <span class="plus">+</span></button><div class="faq-a">Fill the enquiry form or call us. We'll help you with availability.</div></div>
-          <div class="faq-item"><button class="faq-q">Is lunch box delivery available for non-residents? <span class="plus">+</span></button><div class="faq-a">Yes, we deliver lunch boxes to offices, colleges, and homes.</div></div>
-          <div class="faq-item"><button class="faq-q">Are there attached bathrooms? <span class="plus">+</span></button><div class="faq-a">Yes, in select rooms.</div></div>
-          <div class="faq-item"><button class="faq-q">Do you have study tables? <span class="plus">+</span></button><div class="faq-a">Yes, every room has a study table and chair.</div></div>
-          <div class="faq-item"><button class="faq-q">Is there a lift? <span class="plus">+</span></button><div class="faq-a">Yes, in multi-floor buildings.</div></div>
-          <div class="faq-item"><button class="faq-q">Do you provide RO water? <span class="plus">+</span></button><div class="faq-a">Yes, 24/7 RO drinking water.</div></div>
-          <div class="faq-item"><button class="faq-q">What are the nearby landmarks? <span class="plus">+</span></button><div class="faq-a">Alandur Metro, St. Thomas Mount station, Perungalathur station, Guindy, Tambaram, Airport.</div></div>
-          <div class="faq-item"><button class="faq-q">Is there a warden? <span class="plus">+</span></button><div class="faq-a">Yes, on-site warden for both hostels.</div></div>
-          <div class="faq-item"><button class="faq-q">Can I get a single room? <span class="plus">+</span></button><div class="faq-a">Yes, subject to availability.</div></div>
-          <div class="faq-item"><button class="faq-q">Do you have a common TV area? <span class="plus">+</span></button><div class="faq-a">Yes, common lounge with TV.</div></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- CONTACT -->
-    <section id="contact">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <span class="eyebrow">Contact</span>
-          <h2>Book Your Stay Today</h2>
-          <p>PG in Alandur, St. Thomas Mount & Perungalathur – affordable, safe, and comfortable.</p>
-        </div>
-        <div class="contact-grid reveal">
-          <div class="contact-card boys-c">
-            <span class="tag-pill">Sanjay Boys Hostel</span>
-            <h3>Men's PG – Alandur, St. Mount & Perungalathur</h3>
-            <div class="contact-row"><span class="ic">📍</span><span>Alandur, St. Thomas Mount, Perungalathur</span></div>
-            <div class="contact-row"><span class="ic">📞</span><span>+91 98765 43210</span></div>
-            <div class="contact-row"><span class="ic">📧</span><span>sanjayboys@hostel.in</span></div>
-          </div>
-          <div class="contact-card girls-c">
-            <span class="tag-pill">Harini Ladies Hostel</span>
-            <h3>Women's PG – Alandur & St. Thomas Mount</h3>
-            <div class="contact-row"><span class="ic">📍</span><span>Alandur, St. Thomas Mount</span></div>
-            <div class="contact-row"><span class="ic">📞</span><span>+91 98765 43211</span></div>
-            <div class="contact-row"><span class="ic">📧</span><span>harinigirls@hostel.in</span></div>
-          </div>
-        </div>
-        <div class="form-shell reveal">
-          <h3>Enquiry Form – Room & Lunch Box</h3>
-          <p>Fill in your details and we'll get back to you with availability.</p>
-          <form onsubmit="event.preventDefault(); alert('Thank you! We will contact you shortly.');">
-            <div class="form-row">
-              <div><label>Full Name</label><input type="text" required placeholder="Your name"></div>
-              <div><label>Phone</label><input type="tel" required placeholder="+91 XXXXX XXXXX"></div>
-            </div>
-            <div class="form-row">
-              <div><label>Interest</label>
-                <select>
-                  <option>Sanjay Boys – Room</option>
-                  <option>Harini Girls – Room</option>
-                  <option>Lunch Box Delivery</option>
-                  <option>General Enquiry</option>
-                </select>
-              </div>
-              <div><label>Branch</label>
-                <select>
-                  <option>Alandur</option>
-                  <option>St. Thomas Mount</option>
-                  <option>Perungalathur (Boys only)</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-full"><label>Message</label><textarea rows="3" placeholder="Room type, move-in date, AC preference..."></textarea></div>
-            <button type="submit" class="form-submit">Send Enquiry</button>
-          </form>
-        </div>
-      </div>
-    </section>
-
-    <!-- FINAL CTA -->
-    <section class="final-cta">
-      <div class="wrap">
-        <div class="strap">Trusted by 500+ residents</div>
-        <h2>Your Home Away From Home</h2>
-        <p class="lead">Sanjay Boys Hostel & Harini Girls Hostel – the best PG in Alandur, St. Thomas Mount & Perungalathur.</p>
-        <div class="hero-actions">
-          <a href="#contact" class="btn btn-primary">Book Now →</a>
-          <a href="#contact" class="btn btn-ghost">Contact Us</a>
-        </div>
-      </div>
-    </section>
-
-    <footer>
-      <div class="wrap">
-        <div class="footer-grid">
-          <div><div class="brand-mark" style="margin-bottom:14px;"><span class="split"></span> Sanjay & Harini Hostels</div>
-            <p style="color:var(--stone);font-size:.9rem;">PG in Alandur, St. Thomas Mount, Perungalathur – AC/Non-AC, WiFi, CCTV, home food, near metro & railway.</p>
-          </div>
-          <div><h4>Quick Links</h4><ul><li><a href="#about">About</a></li><li><a href="#facilities">Facilities</a></li><li><a href="#food">Food</a></li><li><a href="#gallery">Gallery</a></li></ul></div>
-          <div><h4>Support</h4><ul><li><a href="#faq">FAQ</a></li><li><a href="#contact">Contact</a></li><li><a href="#contact">Book a Room</a></li></ul></div>
-        </div>
-        <div class="footer-bottom">
-          <span>© 2026 Sanjay Boys Hostel & Harini Girls Hostel. All rights reserved.</span>
-          <span>Best PG in Alandur, St. Thomas Mount & Perungalathur.</span>
-        </div>
-      </div>
-    </footer>
-
-    <a class="wa-float" href="https://wa.me/919876543210" target="_blank" aria-label="Chat on WhatsApp">💬</a>
-
-    <script>
-      const navToggle = document.getElementById('navToggle');
-      const navLinks = document.getElementById('navLinks');
-      navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
-      navLinks.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navLinks.classList.remove('open')));
-
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-          btn.classList.add('active');
-          document.getElementById(btn.dataset.tab).classList.add('active');
-        });
-      });
-
-      document.querySelectorAll('.faq-item').forEach(item => {
-        item.querySelector('.faq-q').addEventListener('click', () => {
-          const wasOpen = item.classList.contains('open');
-          document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-          if (!wasOpen) item.classList.add('open');
-        });
-      });
-
-      const observer = new IntersectionObserver(entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) entry.target.classList.add('in');
-        });
-      }, { threshold: 0.12 });
-      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-    </script>
-  </body>
-  </html>
+    </div>
+  </section>
+@endsection

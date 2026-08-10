@@ -37,10 +37,27 @@ Route::prefix('api/test')->group(function () {
     Route::get('stats', [BiometricController::class, 'stats']);
 });
 
+
 Route::get('/', function () {
     return view('home');
-});
-
+})->name('home');
+ 
+Route::get('/about', function () {
+    return view('about');
+})->name('about');
+ 
+Route::get('/rooms', function () {
+    return view('rooms');
+})->name('rooms');
+ 
+Route::get('/gallery', function () {
+    return view('gallery');
+})->name('gallery');
+ 
+Route::get('/contact', function () {
+    return view('contact');
+})->name('contact');
+ 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'submitLogin'])->name('login.submit');
