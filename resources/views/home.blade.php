@@ -7,18 +7,26 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://www.sanjayandharinihostels.com/">
     <meta name="description" content="Sanjay Boys Hostel & Harini Girls Hostel offer safe, affordable PG accommodation in Alandur, St. Thomas Mount and Perungalathur, Chennai — AC/non-AC rooms, home-style food, WiFi, CCTV and 24/7 security for students and working professionals.">
-    
-    <meta name="keywords" content="Sanjai Men’s PG Hostel,best pg in alandur, Sanjai PG Hostel, men’s PG in Alandur, men’s PG in Guindy, best men’s PG in Chennai, working men hostel Guindy, bachelor hostel Alandur, budget PG in Guindy Chennai, affordable PG for men Chennai, PG near Guindy Metro, PG near St Thomas Mount Metro, PG with food in Guindy, AC PG for men Chennai, non AC PG Guindy, single sharing PG Guindy, double sharing PG Alandur, triple sharing PG Chennai, safe men’s hostel Chennai, furnished PG for working professionals, hostel near Guindy railway station"><meta property="og:type" content="website">
+    <meta name="keywords" content="Sanjai Men's PG Hostel,best pg in alandur, Sanjai PG Hostel, men's PG in Alandur, men's PG in Guindy, best men's PG in Chennai, working men hostel Guindy, bachelor hostel Alandur, budget PG in Guindy Chennai, affordable PG for men Chennai, PG near Guindy Metro, PG near St Thomas Mount Metro, PG with food in Guindy, AC PG for men Chennai, non AC PG Guindy, single sharing PG Guindy, double sharing PG Alandur, triple sharing PG Chennai, safe men's hostel Chennai, furnished PG for working professionals, hostel near Guindy railway station">
+    <meta property="og:type" content="website">
     <meta property="og:title" content="Sanjay & Harini Hostels | Boys & Girls PG in Alandur, St. Thomas Mount & Perungalathur">
     <meta property="og:description" content="Safe, affordable PG for men and women in Alandur, St. Thomas Mount and Perungalathur, Chennai. AC/non-AC rooms, home food, WiFi, CCTV, 24/7 security.">
     <meta property="og:url" content="https://www.sanjayandharinihostels.com/">
     <meta property="og:image" content="https://www.sanjayandharinihostels.com/images/sanjay-harini-hostel-exterior.jpg">
+    <meta property="og:site_name" content="Sanjay & Harini Hostels">
+    <meta property="og:locale" content="en_IN">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Sanjay & Harini Hostels | Boys & Girls PG in Alandur, St. Thomas Mount & Perungalathur">
+    <meta name="twitter:description" content="Safe, affordable PG for men and women in Alandur, St. Thomas Mount and Perungalathur, Chennai. AC/non-AC rooms, home food, WiFi, CCTV, 24/7 security.">
+    <meta name="twitter:image" content="https://www.sanjayandharinihostels.com/images/sanjay-harini-hostel-exterior.jpg">
+    <meta name="geo.region" content="IN-TN">
+    <meta name="geo.placename" content="Chennai">
+    <meta name="theme-color" content="#C77B3D">
     <!-- NOTE: og:image / geo data above use placeholder paths — swap in your real hosted image and confirmed address before launch -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    @verbatim
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@@9..144,300..900&family=Inter:wght@@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+    @verbatim
       :root {
         --ink: #1B1612;
         --ink-soft: #2A231D;
@@ -110,7 +118,7 @@
       .identity-card .tag-pill { display:inline-block; padding:5px 14px; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:18px; }
       .boys .tag-pill { background:var(--amber); color:var(--ink); }
       .girls .tag-pill { background:var(--rose); color:var(--ivory); }
-      .identity-card h3 { font-size:1.8rem; margin-bottom:10px; }
+      .identity-card h1 { font-size:1.8rem; margin-bottom:10px; font-family:var(--font-display); font-weight:600; letter-spacing:-0.01em; }
       .identity-card p { color:var(--stone); margin-bottom:22px; }
       .identity-card ul { display:flex; flex-direction:column; gap:10px; }
       .identity-card li { display:flex; align-items:baseline; gap:10px; font-size:.92rem; color:var(--ivory); }
@@ -216,6 +224,7 @@
       .reveal.in { opacity:1; transform:translateY(0); }
       @media(prefers-reduced-motion:reduce){ .reveal { transition:none; opacity:1; transform:none; } .wa-float { animation:none; } html { scroll-behavior:auto; } }
       .branch-loc { font-size:.95rem; color:var(--stone); border-left:3px solid var(--amber); padding-left:14px; margin-bottom:18px; }
+    @endverbatim
     </style>
     <!--
       SCHEMA NOTE: Replace the streetAddress, postalCode, telephone, email and
@@ -223,17 +232,49 @@
       before publishing. Search engines penalize structured data that doesn't
       match what's on the page or in Google Business Profile.
     -->
-    
     <script type="application/ld+json">
+    @verbatim
     {
       "@context": "https://schema.org",
       "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.sanjayandharinihostels.com/#organization",
+          "name": "Sanjay & Harini Hostels",
+          "url": "https://www.sanjayandharinihostels.com/",
+          "logo": "https://www.sanjayandharinihostels.com/images/sanjay-harini-hostels-logo.png",
+          "sameAs": []
+        },
+        {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://www.sanjayandharinihostels.com/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Facilities",
+              "item": "https://www.sanjayandharinihostels.com/#facilities"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Contact / Book Now",
+              "item": "https://www.sanjayandharinihostels.com/#contact"
+            }
+          ]
+        },
         {
           "@type": "LodgingBusiness",
           "@id": "https://www.sanjayandharinihostels.com/#sanjay-alandur",
           "name": "Sanjay Boys Hostel - Alandur",
           "description": "Men's PG hostel in Alandur, Chennai with AC/non-AC rooms, WiFi, CCTV, home-style food and 24/7 security.",
           "url": "https://www.sanjayandharinihostels.com/#contact",
+          "brand": { "@id": "https://www.sanjayandharinihostels.com/#organization" },
           "telephone": "+91-XXXXXXXXXX",
           "priceRange": "₹₹",
           "address": {
@@ -259,6 +300,7 @@
           "name": "Harini Girls Hostel - Alandur",
           "description": "Women-only PG hostel in Alandur, Chennai with 24/7 CCTV, warden supervision, WiFi and home-style food.",
           "url": "https://www.sanjayandharinihostels.com/#contact",
+          "brand": { "@id": "https://www.sanjayandharinihostels.com/#organization" },
           "telephone": "+91-XXXXXXXXXX",
           "priceRange": "₹₹",
           "address": {
@@ -283,6 +325,7 @@
           "name": "Sanjay Boys Hostel - St. Thomas Mount",
           "description": "Men's PG hostel near St. Thomas Mount railway station, Chennai, close to Kathipara and the airport metro.",
           "url": "https://www.sanjayandharinihostels.com/#contact",
+          "brand": { "@id": "https://www.sanjayandharinihostels.com/#organization" },
           "telephone": "+91-XXXXXXXXXX",
           "priceRange": "₹₹",
           "address": {
@@ -298,6 +341,7 @@
           "name": "Harini Girls Hostel - St. Thomas Mount",
           "description": "Women-only PG hostel near St. Thomas Mount railway station, Chennai, with 24/7 security and warden supervision.",
           "url": "https://www.sanjayandharinihostels.com/#contact",
+          "brand": { "@id": "https://www.sanjayandharinihostels.com/#organization" },
           "telephone": "+91-XXXXXXXXXX",
           "priceRange": "₹₹",
           "address": {
@@ -313,6 +357,7 @@
           "name": "Sanjay Boys Hostel - Perungalathur",
           "description": "Men's PG hostel near Perungalathur railway station, Chennai, close to Tambaram, Vandalur and GST Road.",
           "url": "https://www.sanjayandharinihostels.com/#contact",
+          "brand": { "@id": "https://www.sanjayandharinihostels.com/#organization" },
           "telephone": "+91-XXXXXXXXXX",
           "priceRange": "₹₹",
           "address": {
@@ -354,8 +399,8 @@
         }
       ]
     }
-    </script>
     @endverbatim
+    </script>
   </head>
   <body>
     <header>
@@ -435,7 +480,7 @@
         <div class="identity-grid reveal">
           <div class="identity-card boys">
             <span class="tag-pill">Sanjay Boys Hostel</span>
-            <h3>Alandur & St. Thomas Mount</h3>
+            <h1>Sanjay Boys Hostel – Men's PG in Alandur & St. Thomas Mount</h1>
             <div class="branch-loc">📍 Alandur – Near Alandur Metro, Guindy, Nanganallur</div>
             <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount Station, Kathipara, Airport Metro</div>
             <ul>
@@ -448,7 +493,7 @@
           </div>
           <div class="identity-card girls">
             <span class="tag-pill">Harini Ladies Hostel</span>
-            <h3>Alandur & St. Thomas Mount</h3>
+            <h1>Harini Girls Hostel – Women's PG in Alandur & St. Thomas Mount</h1>
             <div class="branch-loc">📍 Alandur – Near Alandur Metro, Ekkatuthangal, Nanganallur</div>
             <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount, Airport Metro, Guindy</div>
             <ul>
@@ -462,7 +507,8 @@
         </div>
         <div style="margin-top:32px;text-align:center;background:rgba(217,203,180,.06);border-radius:20px;padding:28px;">
           <span class="tag-pill" style="background:var(--rose);color:var(--ivory);padding:6px 20px;border-radius:999px;">Perungalathur – Boys Only</span>
-          <p style="color:var(--stone);margin-top:12px;">Sanjay Boys Hostel at Perungalathur – near Perungalathur railway station, Tambaram, Vandalur, GST Road. Ideal for students and professionals. <a href="#contact" style="color:var(--rose);text-decoration:underline;font-weight:700;">Enquire about the Perungalathur branch →</a></p>
+          <h3 style="margin-top:14px;font-size:1.3rem;">Men's PG Hostel in Perungalathur, Chennai</h3>
+          <p style="color:var(--stone);margin-top:8px;">Sanjay Boys Hostel at Perungalathur – near Perungalathur railway station, Tambaram, Vandalur, GST Road. Ideal for students and professionals. <a href="#contact" style="color:var(--rose);text-decoration:underline;font-weight:700;">Enquire about the Perungalathur branch →</a></p>
         </div>
       </div>
     </section>
@@ -687,14 +733,14 @@
             <h3>Men's PG – Alandur, St. Mount & Perungalathur</h3>
             <div class="contact-row"><span class="ic">📍</span><span>Alandur, St. Thomas Mount, Perungalathur</span></div>
             <div class="contact-row"><span class="ic">📞</span><span>+91 98765 43210</span></div>
-            <div class="contact-row"><span class="ic">📧</span><span>sanjayboys@hostel.in</span></div>
+            <div class="contact-row"><span class="ic">📧</span><span>sanjayboys@@hostel.in</span></div>
           </div>
           <div class="contact-card girls-c">
             <span class="tag-pill">Harini Ladies Hostel</span>
             <h3>Women's PG – Alandur & St. Thomas Mount</h3>
             <div class="contact-row"><span class="ic">📍</span><span>Alandur, St. Thomas Mount</span></div>
             <div class="contact-row"><span class="ic">📞</span><span>+91 98765 43211</span></div>
-            <div class="contact-row"><span class="ic">📧</span><span>harinigirls@hostel.in</span></div>
+            <div class="contact-row"><span class="ic">📧</span><span>harinigirls@@hostel.in</span></div>
           </div>
         </div>
         <div class="form-shell reveal">
