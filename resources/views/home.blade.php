@@ -16,6 +16,7 @@
     <!-- NOTE: og:image / geo data above use placeholder paths — swap in your real hosted image and confirmed address before launch -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    @verbatim
     <style>
       :root {
         --ink: #1B1612;
@@ -221,7 +222,7 @@
       before publishing. Search engines penalize structured data that doesn't
       match what's on the page or in Google Business Profile.
     -->
-    @verbatim
+    
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
