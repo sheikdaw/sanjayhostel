@@ -7,6 +7,7 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://www.sanjayandharinihostels.com/">
     <meta name="description" content="Sanjay Boys Hostel & Harini Girls Hostel offer safe, affordable PG accommodation in Alandur, St. Thomas Mount and Perungalathur, Chennai — AC/non-AC rooms, home-style food, WiFi, CCTV and 24/7 security for students and working professionals.">
+        <meta name="keywords" content="PG in Alandur, boys hostel Alandur, girls hostel Alandur, PG near Alandur Metro, hostel St Thomas Mount, PG Perungalathur, ladies hostel Chennai, mens PG Chennai, AC PG Chennai, hostel near Guindy, hostel near Chennai airport, lunch box delivery Chennai, working professionals PG, students PG Chennai, Sanjay Boys Hostel, Harini Girls Hostel">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Sanjay & Harini Hostels | Boys & Girls PG in Alandur, St. Thomas Mount & Perungalathur">
     <meta property="og:description" content="Safe, affordable PG for men and women in Alandur, St. Thomas Mount and Perungalathur, Chennai. AC/non-AC rooms, home food, WiFi, CCTV, 24/7 security.">
