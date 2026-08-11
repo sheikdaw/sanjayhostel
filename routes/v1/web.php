@@ -41,23 +41,23 @@ Route::prefix('api/test')->group(function () {
 Route::get('/', function () {
     return view('home');
 })->name('home');
- 
+
 Route::get('/about', function () {
     return view('about');
 })->name('about');
- 
+
 Route::get('/rooms', function () {
     return view('rooms');
 })->name('rooms');
- 
+
 Route::get('/gallery', function () {
     return view('gallery');
 })->name('gallery');
- 
+
 Route::get('/contact', function () {
     return view('contact');
 })->name('contact');
- 
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'submitLogin'])->name('login.submit');
@@ -292,10 +292,8 @@ Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
 Route::get('/payment-links', function () {
     $hostels = \App\Models\Hostel::where('status', 'ACTIVE')->get();
     $encodedLinks = [];
-
     foreach ($hostels as $hostel) {
         $encodedLinks[$hostel->id] = url('/guest/payment/' . \Illuminate\Support\Facades\Crypt::encryptString($hostel->id));
     }
-
     return view('admin.payment-links', compact('hostels', 'encodedLinks'));
 })->name('admin.payment-links');
