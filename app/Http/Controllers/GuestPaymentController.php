@@ -273,7 +273,7 @@ public function generateQR(Request $request)
     return response()->json([
         'success' => true,
         'qr_code' => $qrCode,
-        'upi_url' => $upiUrl,
+        'redirect_url' => $upiUrl,
         'amount' => $amount,
         'reference' => $reference,
         'upi_id' => $upiId,
