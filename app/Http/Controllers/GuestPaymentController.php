@@ -335,7 +335,7 @@ class GuestPaymentController extends Controller
             'redirectUrl' => route('guest.payment.callback'),
             'callbackUrl' => route('guest.payment.webhook'),
             'merchantName' => env('MERCHANT_NAME', 'Hostel Payment'),
-            'transactionNote' => "Rent - {$resident->name} - Room {$resident->room->room_no ?? 'N/A'}"
+            'transactionNote' => "Rent - " . $resident->name . " - Room " . ($resident->room->room_no ?? 'N/A'),
         ];
 
         $payloadBase64 = base64_encode(json_encode($payload));
