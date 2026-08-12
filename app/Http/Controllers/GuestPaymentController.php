@@ -432,7 +432,7 @@ public function success(Request $request)
         // Load resident relationship
         $payment->load('resident');
 
-        return response()->json([
+        return response()->json([ 
             'success' => true,
             'message' => 'Payment recorded successfully!',
             'data' => [
