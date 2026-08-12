@@ -577,6 +577,7 @@
                 },
                 success: function(response) {
                     console.log(response);
+                    console.log("data");
                     if (response.success && response.redirect_url) {
                         window.location.href = response.redirect_url;
                     } else {
