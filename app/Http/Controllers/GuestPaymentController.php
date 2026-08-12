@@ -259,17 +259,17 @@ public function generateQR(Request $request)
     // Add resident name and room to transaction note
     $residentName = $resident ? $resident->name : 'Resident';
     $transactionNote = "Rent-" . $residentName . "-Room" . $roomNo;
-
-    
-
-    // Generate QR code as SVG
-    $qrCode = QrCode::size(300)->generate($upiUrl);
-    $result = $this->phonePe->createPayment(
+ $result = $this->phonePe->createPayment(
                     $reference,
                     (int) round($amount * 100), // rupees -> paise
                     route('guest.payment.callback', ['merchant_order_id' => $reference]),
                     "Rent - {$residentName} - Room {$roomNo}"
                 );
+    $upiUrl = 'redirect_url' => $result['redirectUrl'] ;
+
+    // Generate QR code as SVG
+    $qrCode = QrCode::size(300)->generate($upiUrl);
+   
     return response()->json([
         'success' => true,
         'qr_code' => $qrCode,
