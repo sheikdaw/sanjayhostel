@@ -1,377 +1,36 @@
-<!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sanjay & Harini Hostels | Boys & Girls PG in Alandur, St. Thomas Mount & Perungalathur, Chennai</title>
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://www.sanjayandharinihostels.com/">
-    <meta name="description" content="Sanjay Boys Hostel & Harini Girls Hostel offer safe, affordable PG accommodation in Alandur, St. Thomas Mount and Perungalathur, Chennai — AC/non-AC rooms, home-style food, WiFi, CCTV and 24/7 security for students and working professionals.">
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Sanjay & Harini Hostels | Boys & Girls PG in Alandur, St. Thomas Mount & Perungalathur">
-    <meta property="og:description" content="Safe, affordable PG for men and women in Alandur, St. Thomas Mount and Perungalathur, Chennai. AC/non-AC rooms, home food, WiFi, CCTV, 24/7 security.">
-    <meta property="og:url" content="https://www.sanjayandharinihostels.com/">
-    <meta property="og:image" content="https://www.sanjayandharinihostels.com/images/sanjay-harini-hostel-exterior.jpg">
-    <meta name="twitter:card" content="summary_large_image">
-    <!-- NOTE: og:image / geo data above use placeholder paths — swap in your real hosted image and confirmed address before launch -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    @verbatim
-    <style>
-      :root {
-        --ink: #1B1612;
-        --ink-soft: #2A231D;
-        --ivory: #FBF7F0;
-        --ivory-dim: #F1E9DC;
-        --amber: #C77B3D;
-        --amber-deep: #A8612C;
-        --rose: #8C2F39;
-        --rose-deep: #74232B;
-        --sage: #3E5C4E;
-        --sage-light: #5A7C6C;
-        --stone: #D9CBB4;
-        --stone-dim: #B9A98C;
-        --font-display: 'Fraunces', serif;
-        --font-body: 'Inter', sans-serif;
-      }
-      * { margin:0; padding:0; box-sizing:border-box; }
-      html { scroll-behavior:smooth; }
-      body { font-family:var(--font-body); background:var(--ink); color:var(--ivory); line-height:1.6; overflow-x:hidden; }
-      img { max-width:100%; display:block; }
-      a { color:inherit; text-decoration:none; }
-      button { font-family:inherit; cursor:pointer; border:none; background:none; }
-      ul { list-style:none; }
-      .wrap { max-width:1240px; margin:0 auto; padding:0 28px; }
-      .seam { position:relative; }
-      .seam::before { content:''; position:absolute; top:0; bottom:0; left:50%; width:3px; background:linear-gradient(180deg,var(--amber),var(--rose)); transform:translateX(-50%); opacity:.55; z-index:2; }
-      @media(max-width:860px){ .seam::before { display:none; } }
-      .eyebrow { font-family:var(--font-body); font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; font-weight:700; color:var(--stone-dim); }
-      h1,h2,h3,h4 { font-family:var(--font-display); font-weight:600; letter-spacing:-0.01em; }
-      header { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(27,22,18,.86); backdrop-filter:blur(14px); border-bottom:1px solid rgba(217,203,180,.12); }
-      nav { display:flex; align-items:center; justify-content:space-between; padding:16px 28px; max-width:1240px; margin:0 auto; }
-      .brand-mark { display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-size:1.15rem; font-weight:700; }
-      .brand-mark .split { display:inline-flex; width:14px; height:14px; border-radius:50%; background:linear-gradient(135deg,var(--amber) 50%,var(--rose) 50%); }
-      .nav-links { display:flex; gap:32px; align-items:center; }
-      .nav-links a { font-size:.88rem; font-weight:500; color:var(--stone); transition:color .2s; }
-      .nav-links a:hover { color:var(--ivory); }
-      .nav-cta { background:var(--amber); color:var(--ink); padding:10px 20px; border-radius:999px; font-weight:700; font-size:.85rem; transition:transform .2s, background .2s; }
-      .nav-cta:hover { background:var(--ivory); transform:translateY(-1px); }
-      .nav-toggle { display:none; font-size:1.6rem; color:var(--ivory); background:none; }
-      @media(max-width:900px){ .nav-links { position:fixed; top:64px; left:0; right:0; background:var(--ink-soft); flex-direction:column; gap:0; max-height:0; overflow:hidden; transition:max-height .3s ease; border-bottom:1px solid rgba(217,203,180,.12); } .nav-links.open { max-height:420px; } .nav-links a { width:100%; padding:16px 28px; border-bottom:1px solid rgba(217,203,180,.08); } .nav-cta { margin:16px 28px; display:inline-block; } .nav-toggle { display:block; } }
-      .hero { padding:148px 0 96px; position:relative; overflow:hidden; }
-      .hero-bg { position:absolute; inset:0; display:grid; grid-template-columns:1fr 1fr; z-index:0; }
-      .hero-bg .side { position:relative; overflow:hidden; }
-      .hero-bg .side img { width:100%; height:100%; object-fit:cover; opacity:.32; }
-      .hero-bg .side.left::after { content:''; position:absolute; inset:0; background:linear-gradient(120deg,var(--ink) 30%,rgba(27,22,18,.5) 100%); }
-      .hero-bg .side.right::after { content:''; position:absolute; inset:0; background:linear-gradient(240deg,var(--ink) 30%,rgba(27,22,18,.5) 100%); }
-      .hero-content { position:relative; z-index:1; max-width:880px; margin:0 auto; text-align:center; padding:0 28px; }
-      .hero-tag { display:inline-flex; align-items:center; gap:8px; padding:7px 16px; border:1px solid rgba(217,203,180,.3); border-radius:999px; font-size:.76rem; letter-spacing:.1em; text-transform:uppercase; font-weight:600; color:var(--stone); margin-bottom:28px; }
-      .hero h1 { font-size:clamp(2.6rem,6vw,4.6rem); line-height:1.04; margin-bottom:22px; }
-      .hero h1 em { font-style:italic; background:linear-gradient(90deg,var(--amber),var(--rose)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-      .hero p.sub { font-size:1.15rem; color:var(--stone); max-width:620px; margin:0 auto 40px; }
-      .hero-actions { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-bottom:56px; }
-      .btn { padding:15px 30px; border-radius:10px; font-weight:700; font-size:.95rem; transition:transform .2s,box-shadow .2s,background .2s; display:inline-flex; align-items:center; gap:8px; }
-      .btn-primary { background:linear-gradient(95deg,var(--amber),var(--rose)); color:var(--ivory); }
-      .btn-primary:hover { transform:translateY(-2px); box-shadow:0 12px 24px -8px rgba(199,123,61,.5); }
-      .btn-ghost { background:transparent; border:1.5px solid rgba(217,203,180,.35); color:var(--ivory); }
-      .btn-ghost:hover { border-color:var(--ivory); background:rgba(255,255,255,.04); }
-      .badge-row { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-      .badge { display:flex; align-items:center; gap:7px; background:rgba(217,203,180,.07); border:1px solid rgba(217,203,180,.16); padding:8px 14px; border-radius:999px; font-size:.82rem; font-weight:500; color:var(--stone); }
-      .badge .tick { color:var(--sage-light); font-weight:800; }
-      section { padding:108px 0; position:relative; }
-      .section-head { max-width:680px; margin:0 auto 64px; text-align:center; }
-      .section-head h2 { font-size:clamp(1.9rem,3.4vw,2.7rem); margin:14px 0 16px; color:var(--ivory); }
-      .section-head p { color:var(--stone); font-size:1.05rem; }
-      .section-head .eyebrow { display:block; margin-bottom:4px; }
-      .panel-ivory { background:var(--ivory); color:var(--ink); }
-      .panel-ivory .eyebrow { color:var(--stone-dim); }
-      .panel-ivory .section-head h2 { color:var(--ink); }
-      .panel-ivory .section-head p { color:var(--ink-soft); }
-      .about { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
-      .about-copy .eyebrow { margin-bottom:14px; display:block; }
-      .about-copy h2 { font-size:clamp(1.8rem,3.2vw,2.5rem); margin-bottom:20px; }
-      .about-copy p { color:var(--ink-soft); margin-bottom:16px; font-size:1.02rem; }
-      .about-stats { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:32px; }
-      .stat { padding:18px 0; border-top:2px solid var(--ink); }
-      .stat .num { font-family:var(--font-display); font-size:2.1rem; font-weight:700; }
-      .stat .label { font-size:.82rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; }
-      .about-visual { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-      .about-visual img { border-radius:16px; width:100%; height:100%; object-fit:cover; }
-      .about-visual .tall { grid-row:span 2; height:100%; }
-      .about-visual .col { display:flex; flex-direction:column; gap:14px; }
-      .about-visual img.a { border:3px solid var(--amber); }
-      .about-visual img.r { border:3px solid var(--rose); }
-      @media(max-width:860px){ .about { grid-template-columns:1fr; gap:40px; } }
-      .identity-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; border-radius:24px; overflow:hidden; border:1px solid rgba(217,203,180,.15); }
-      .identity-card { padding:48px 40px; position:relative; }
-      .identity-card.boys { background:linear-gradient(160deg,rgba(199,123,61,.16),rgba(199,123,61,.03)); }
-      .identity-card.girls { background:linear-gradient(200deg,rgba(140,47,57,.18),rgba(140,47,57,.04)); }
-      .identity-card .tag-pill { display:inline-block; padding:5px 14px; border-radius:999px; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:18px; }
-      .boys .tag-pill { background:var(--amber); color:var(--ink); }
-      .girls .tag-pill { background:var(--rose); color:var(--ivory); }
-      .identity-card h3 { font-size:1.8rem; margin-bottom:10px; }
-      .identity-card p { color:var(--stone); margin-bottom:22px; }
-      .identity-card ul { display:flex; flex-direction:column; gap:10px; }
-      .identity-card li { display:flex; align-items:baseline; gap:10px; font-size:.92rem; color:var(--ivory); }
-      .identity-card li::before { content:'—'; color:var(--stone-dim); }
-      @media(max-width:860px){ .identity-grid { grid-template-columns:1fr; } }
-      .facility-tabs { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:48px; }
-      .tab-btn { padding:11px 22px; border-radius:999px; font-size:.88rem; font-weight:600; border:1px solid var(--stone-dim); color:var(--ink-soft); transition:all .2s; }
-      .tab-btn.active { background:var(--ink); color:var(--ivory); border-color:var(--ink); }
-      .grid-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:18px; }
-      .fac-card { background:rgba(255,255,255,.65); border:1px solid rgba(27,22,18,.08); border-radius:16px; padding:26px 22px; transition:transform .25s, box-shadow .25s, border-color .25s; }
-      .fac-card:hover { transform:translateY(-4px); box-shadow:0 16px 32px -16px rgba(27,22,18,.25); border-color:var(--amber); }
-      .fac-card .ic { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--ink); color:var(--ivory); font-size:1.1rem; margin-bottom:16px; }
-      .fac-card h4 { font-size:1.02rem; margin-bottom:8px; color:var(--ink); }
-      .fac-card p { font-size:.86rem; color:var(--ink-soft); }
-      .tab-panel { display:none; }
-      .tab-panel.active { display:grid; }
-      @media(max-width:980px){ .grid-cards { grid-template-columns:repeat(2,1fr); } }
-      @media(max-width:560px){ .grid-cards { grid-template-columns:1fr; } }
-      .safety { background:linear-gradient(160deg,var(--ink-soft),var(--ink)); }
-      .safety-grid { display:grid; grid-template-columns:1.1fr 1fr; gap:60px; align-items:center; }
-      .safety-list { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-      .safety-item { display:flex; gap:14px; align-items:flex-start; padding:18px; border-radius:14px; background:rgba(217,203,180,.05); border:1px solid rgba(217,203,180,.1); }
-      .safety-item .ic { color:var(--sage-light); font-size:1.2rem; flex-shrink:0; }
-      .safety-item h4 { font-size:.95rem; margin-bottom:4px; color:var(--ivory); font-family:var(--font-body); font-weight:700; }
-      .safety-item p { font-size:.82rem; color:var(--stone); }
-      .safety-visual { border-radius:20px; overflow:hidden; border:1px solid rgba(217,203,180,.15); position:relative; }
-      .safety-visual img { width:100%; height:420px; object-fit:cover; opacity:.85; }
-      .safety-visual::after { content:'24 / 7 MONITORED'; position:absolute; bottom:20px; left:20px; background:var(--sage); color:var(--ivory); padding:8px 16px; border-radius:8px; font-size:.78rem; font-weight:700; letter-spacing:.04em; }
-      @media(max-width:860px){ .safety-grid { grid-template-columns:1fr; } .safety-list { grid-template-columns:1fr; } }
-      .food-grid { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; }
-      .food-visual { position:relative; border-radius:20px; overflow:hidden; }
-      .food-visual img { width:100%; height:480px; object-fit:cover; }
-      .meal-tags { display:flex; gap:10px; flex-wrap:wrap; margin:24px 0 32px; }
-      .meal-tag { background:var(--ivory-dim); border-radius:10px; padding:14px 18px; font-size:.85rem; font-weight:600; color:var(--ink); flex:1; min-width:120px; text-align:center; }
-      .plan-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:20px; }
-      .plan-card { border:1.5px solid var(--stone-dim); border-radius:16px; padding:24px 20px; transition:border-color .2s,transform .2s; }
-      .plan-card:hover { border-color:var(--sage); transform:translateY(-3px); }
-      .plan-card .tag-pill { background:var(--sage); color:var(--ivory); font-size:.68rem; padding:4px 10px; border-radius:999px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; display:inline-block; margin-bottom:14px; }
-      .plan-card h4 { font-family:var(--font-body); font-weight:700; font-size:1.02rem; margin-bottom:6px; color:var(--ink); }
-      .plan-card p { font-size:.85rem; color:var(--ink-soft); }
-      @media(max-width:980px){ .plan-grid { grid-template-columns:repeat(2,1fr); } }
-      @media(max-width:860px){ .food-grid { grid-template-columns:1fr; } }
-      .why-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:rgba(217,203,180,.12); border:1px solid rgba(217,203,180,.12); border-radius:18px; overflow:hidden; }
-      .why-item { background:var(--ink); padding:30px 22px; display:flex; flex-direction:column; gap:10px; }
-      .why-item .tick-circ { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--amber),var(--rose)); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.9rem; color:var(--ivory); }
-      .why-item p { font-size:.9rem; font-weight:600; color:var(--ivory); }
-      @media(max-width:860px){ .why-grid { grid-template-columns:repeat(2,1fr); } }
-      @media(max-width:520px){ .why-grid { grid-template-columns:1fr; } }
-      .nearby-row { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; }
-      .nearby-chip { padding:10px 20px; border-radius:999px; background:rgba(217,203,180,.06); border:1px solid rgba(217,203,180,.18); font-size:.88rem; color:var(--stone); }
-      .testi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
-      .testi-card { background:rgba(255,255,255,.7); border-radius:18px; padding:30px 26px; border:1px solid rgba(27,22,18,.06); }
-      .stars { color:var(--amber-deep); font-size:.95rem; margin-bottom:14px; letter-spacing:2px; }
-      .testi-card p.quote { font-size:1.0rem; color:var(--ink); font-style:italic; margin-bottom:18px; }
-      .testi-card .who { font-size:.82rem; font-weight:700; color:var(--ink-soft); }
-      @media(max-width:860px){ .testi-grid { grid-template-columns:1fr; } }
-      .gallery-grid { display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:160px; gap:12px; }
-      .gallery-grid img { width:100%; height:100%; object-fit:cover; border-radius:12px; transition:transform .35s; }
-      .gallery-grid a { overflow:hidden; border-radius:12px; display:block; }
-      .gallery-grid a:hover img { transform:scale(1.08); }
-      .gallery-grid .g1 { grid-column:span 2; grid-row:span 2; }
-      .gallery-grid .g5 { grid-column:span 2; }
-      @media(max-width:860px){ .gallery-grid { grid-template-columns:repeat(2,1fr); grid-auto-rows:140px; } .gallery-grid .g1 { grid-column:span 2; grid-row:span 2; } .gallery-grid .g5 { grid-column:span 2; } }
-      .faq-list { max-width:760px; margin:0 auto; }
-      .faq-item { border-bottom:1px solid rgba(217,203,180,.15); }
-      .faq-q { width:100%; display:flex; justify-content:space-between; align-items:center; padding:22px 4px; font-size:1.02rem; font-weight:600; color:var(--ivory); text-align:left; }
-      .faq-q .plus { font-size:1.4rem; color:var(--stone-dim); transition:transform .25s; }
-      .faq-item.open .plus { transform:rotate(45deg); color:var(--amber); }
-      .faq-a { max-height:0; overflow:hidden; transition:max-height .3s ease; color:var(--stone); font-size:.92rem; }
-      .faq-item.open .faq-a { max-height:200px; padding-bottom:22px; }
-      .contact-grid { display:grid; grid-template-columns:1fr 1fr; gap:48px; }
-      .contact-card { background:var(--ivory); color:var(--ink); border-radius:20px; padding:36px; }
-      .contact-card .tag-pill { font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:5px 13px; border-radius:999px; display:inline-block; margin-bottom:16px; }
-      .contact-card.boys-c .tag-pill { background:var(--amber); color:var(--ink); }
-      .contact-card.girls-c .tag-pill { background:var(--rose); color:var(--ivory); }
-      .contact-card h3 { font-size:1.5rem; margin-bottom:18px; }
-      .contact-row { display:flex; gap:12px; margin-bottom:14px; font-size:.94rem; align-items:flex-start; }
-      .contact-row .ic { color:var(--ink-soft); }
-      .form-shell { background:var(--ivory-dim); border-radius:20px; padding:36px; color:var(--ink); }
-      .form-shell h3 { color:var(--ink); font-size:1.4rem; margin-bottom:8px; }
-      .form-shell p { color:var(--ink-soft); font-size:.9rem; margin-bottom:24px; }
-      .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
-      .form-shell input, .form-shell select, .form-shell textarea { width:100%; padding:13px 14px; border-radius:10px; border:1.5px solid rgba(27,22,18,.15); font-family:inherit; font-size:.92rem; background:#fff; color:var(--ink); }
-      .form-shell input:focus, .form-shell select:focus, .form-shell textarea:focus { outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber); }
-      .form-shell label { font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); display:block; margin-bottom:6px; }
-      .form-full { margin-bottom:14px; }
-      .form-submit { width:100%; padding:15px; border-radius:10px; background:linear-gradient(95deg,var(--amber),var(--rose)); color:var(--ivory); font-weight:700; font-size:.96rem; margin-top:6px; transition:transform .2s; }
-      .form-submit:hover { transform:translateY(-2px); }
-      @media(max-width:860px){ .contact-grid { grid-template-columns:1fr; } .form-row { grid-template-columns:1fr; } }
-      .final-cta { text-align:center; background:radial-gradient(ellipse at center,rgba(199,123,61,.12),transparent 70%); }
-      .final-cta h2 { font-size:clamp(2rem,4vw,3rem); margin-bottom:16px; }
-      .final-cta .strap { color:var(--stone-dim); font-weight:700; letter-spacing:.06em; text-transform:uppercase; font-size:.82rem; margin-bottom:18px; }
-      .final-cta p.lead { max-width:560px; margin:0 auto 36px; color:var(--stone); }
-      footer { background:var(--ink-soft); padding:56px 0 28px; border-top:1px solid rgba(217,203,180,.1); }
-      .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr; gap:40px; margin-bottom:40px; }
-      .footer-grid h4 { font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var(--stone-dim); margin-bottom:16px; }
-      .footer-grid ul li { margin-bottom:10px; font-size:.9rem; color:var(--stone); }
-      .footer-bottom { border-top:1px solid rgba(217,203,180,.1); padding-top:24px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:.8rem; color:var(--stone-dim); }
-      @media(max-width:760px){ .footer-grid { grid-template-columns:1fr; } }
-      .wa-float { position:fixed; bottom:24px; right:24px; z-index:90; width:58px; height:58px; border-radius:50%; background:#25D366; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 30px -8px rgba(0,0,0,.5); font-size:1.6rem; animation:pulse 2.4s infinite; }
-      @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(37,211,102,.5); } 70% { box-shadow:0 0 0 14px rgba(37,211,102,0); } 100% { box-shadow:0 0 0 0 rgba(37,211,102,0); } }
-      .reveal { opacity:0; transform:translateY(24px); transition:opacity .6s ease, transform .6s ease; }
-      .reveal.in { opacity:1; transform:translateY(0); }
-      @media(prefers-reduced-motion:reduce){ .reveal { transition:none; opacity:1; transform:none; } .wa-float { animation:none; } html { scroll-behavior:auto; } }
-      .branch-loc { font-size:.95rem; color:var(--stone); border-left:3px solid var(--amber); padding-left:14px; margin-bottom:18px; }
-    </style>
-    <!--
-      SCHEMA NOTE: Replace the streetAddress, postalCode, telephone, email and
-      geo coordinates below with your real, verified details for each branch
-      before publishing. Search engines penalize structured data that doesn't
-      match what's on the page or in Google Business Profile.
-    -->
+@extends('layouts.view')
 
-    <script type="application/ld+json">
+@section('title', 'Best Boys & Girls PG Hostel in Alandur, Chennai | Sanjay & Harini Hostels')
+@section('canonical', 'https://www.sanjayandharinihostels.com/')
+@section('meta_description', "Sanjay Boys Hostel and Harini Girls Hostel — PG accommodation in Alandur, St. Thomas Mount and Perungalathur, Chennai. AC/Non-AC rooms, home food, WiFi, CCTV, near metro & railway.")
+
+@section('schema')
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
     {
-      "@context": "https://schema.org",
-      "@graph": [
-        {
-          "@type": "LodgingBusiness",
-          "@id": "https://www.sanjayandharinihostels.com/#sanjay-alandur",
-          "name": "Sanjay Boys Hostel - Alandur",
-          "description": "Men's PG hostel in Alandur, Chennai with AC/non-AC rooms, WiFi, CCTV, home-style food and 24/7 security.",
-          "url": "https://www.sanjayandharinihostels.com/#contact",
-          "telephone": "+91-XXXXXXXXXX",
-          "priceRange": "₹₹",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "MKN Road, Alandur",
-            "addressLocality": "Chennai",
-            "addressRegion": "Tamil Nadu",
-            "postalCode": "600016",
-            "addressCountry": "IN"
-          },
-          "amenityFeature": [
-            { "@type": "LocationFeatureSpecification", "name": "WiFi", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "CCTV Security", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "AC Rooms", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "Home-style Food", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "Power Backup", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "Laundry", "value": true }
-          ]
-        },
-        {
-          "@type": "LodgingBusiness",
-          "@id": "https://www.sanjayandharinihostels.com/#harini-alandur",
-          "name": "Harini Girls Hostel - Alandur",
-          "description": "Women-only PG hostel in Alandur, Chennai with 24/7 CCTV, warden supervision, WiFi and home-style food.",
-          "url": "https://www.sanjayandharinihostels.com/#contact",
-          "telephone": "+91-XXXXXXXXXX",
-          "priceRange": "₹₹",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "MKN Road, Alandur",
-            "addressLocality": "Chennai",
-            "addressRegion": "Tamil Nadu",
-            "postalCode": "600016",
-            "addressCountry": "IN"
-          },
-          "amenityFeature": [
-            { "@type": "LocationFeatureSpecification", "name": "WiFi", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "CCTV Security", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "Warden Supervision", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "Home-style Food", "value": true },
-            { "@type": "LocationFeatureSpecification", "name": "Study Hall", "value": true }
-          ]
-        },
-        {
-          "@type": "LodgingBusiness",
-          "@id": "https://www.sanjayandharinihostels.com/#sanjay-stmount",
-          "name": "Sanjay Boys Hostel - St. Thomas Mount",
-          "description": "Men's PG hostel near St. Thomas Mount railway station, Chennai, close to Kathipara and the airport metro.",
-          "url": "https://www.sanjayandharinihostels.com/#contact",
-          "telephone": "+91-XXXXXXXXXX",
-          "priceRange": "₹₹",
-          "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "St. Thomas Mount, Chennai",
-            "addressRegion": "Tamil Nadu",
-            "addressCountry": "IN"
-          }
-        },
-        {
-          "@type": "LodgingBusiness",
-          "@id": "https://www.sanjayandharinihostels.com/#harini-stmount",
-          "name": "Harini Girls Hostel - St. Thomas Mount",
-          "description": "Women-only PG hostel near St. Thomas Mount railway station, Chennai, with 24/7 security and warden supervision.",
-          "url": "https://www.sanjayandharinihostels.com/#contact",
-          "telephone": "+91-XXXXXXXXXX",
-          "priceRange": "₹₹",
-          "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "St. Thomas Mount, Chennai",
-            "addressRegion": "Tamil Nadu",
-            "addressCountry": "IN"
-          }
-        },
-        {
-          "@type": "LodgingBusiness",
-          "@id": "https://www.sanjayandharinihostels.com/#sanjay-perungalathur",
-          "name": "Sanjay Boys Hostel - Perungalathur",
-          "description": "Men's PG hostel near Perungalathur railway station, Chennai, close to Tambaram, Vandalur and GST Road.",
-          "url": "https://www.sanjayandharinihostels.com/#contact",
-          "telephone": "+91-XXXXXXXXXX",
-          "priceRange": "₹₹",
-          "address": {
-            "@type": "PostalAddress",
-            "addressLocality": "Perungalathur, Chennai",
-            "addressRegion": "Tamil Nadu",
-            "addressCountry": "IN"
-          }
-        },
-        {
-          "@type": "FAQPage",
-          "mainEntity": [
-            {
-              "@type": "Question",
-              "name": "What room types are available?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Single, double, triple, and dormitory sharing — both AC and non-AC options." }
-            },
-            {
-              "@type": "Question",
-              "name": "Are meals provided?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Yes, 4 meals daily (breakfast, lunch, snacks, dinner). Lunch box delivery is also available." }
-            },
-            {
-              "@type": "Question",
-              "name": "Is the hostel safe for women?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Harini Girls Hostel is exclusively for women, with 24/7 CCTV, biometric entry and on-site warden supervision." }
-            },
-            {
-              "@type": "Question",
-              "name": "Which locations do you operate in?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Sanjay Boys Hostel operates in Alandur, St. Thomas Mount and Perungalathur. Harini Girls Hostel operates in Alandur and St. Thomas Mount." }
-            },
-            {
-              "@type": "Question",
-              "name": "How can I book a room?",
-              "acceptedAnswer": { "@type": "Answer", "text": "Fill out the enquiry form on the website, call the hostel directly, or message on WhatsApp to check availability." }
-            }
-          ]
-        }
+      "@type": "Organization",
+      "@id": "https://www.sanjayandharinihostels.com/#organization",
+      "name": "Sanjay & Harini Hostels",
+      "url": "https://www.sanjayandharinihostels.com/",
+      "brand": [
+        { "@type": "Brand", "name": "Sanjay Boys Hostel" },
+        { "@type": "Brand", "name": "Harini Girls Hostel" }
       ]
+    },
+    {
+      "@type": "WebSite",
+      "url": "https://www.sanjayandharinihostels.com/",
+      "name": "Sanjay & Harini Hostels",
+      "publisher": { "@id": "https://www.sanjayandharinihostels.com/#organization" }
     }
-    </script>
-    @endverbatim
-  </head>
-  <body>
-    <header>
-      <nav>
-        <div class="brand-mark"><span class="split"></span> Sanjay & Harini Hostels</div>
-        <ul class="nav-links" id="navLinks">
-          <li><a href="#about">About</a></li>
-          <li><a href="#facilities">Facilities</a></li>
-          <li><a href="#food">Food</a></li>
-          <li><a href="#safety">Safety</a></li>
-          <li><a href="#gallery">Gallery</a></li>
-          <li><a href="#faq">FAQ</a></li>
-          <li><a href="#contact" class="nav-cta">Book Now</a></li>
-        </ul>
-        <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
-      </nav>
-    </header>
+  ]
+}
+</script>
+@endsection
+
+@section('content')
 
     <!-- HERO -->
     <section class="hero seam">
@@ -382,10 +41,10 @@
       <div class="hero-content">
         <span class="hero-tag">PG in Alandur · St. Thomas Mount · Perungalathur</span>
         <h1>Best Boys & Girls <em>PG Hostel</em> in Alandur, Chennai</h1>
-        <p class="sub">Sanjay Boys Hostel & Harini Girls Hostel – with branches in St. Thomas Mount and Perungalathur. AC/Non-AC rooms, home food, WiFi, CCTV, near metro & railway. Ideal for IT pros, students & airport staff.</p>
+        <p class="sub">Sanjay Boys Hostel & Harini Girls Hostel — with branches in St. Thomas Mount and Perungalathur. AC/Non-AC rooms, home food, WiFi, CCTV, near metro & railway. Ideal for IT professionals, students & airport staff.</p>
         <div class="hero-actions">
-          <a href="#contact" class="btn btn-primary">Book a Room →</a>
-          <a href="#contact" class="btn btn-ghost">Contact Us</a>
+          <a href="{{ route('contact') }}" class="btn btn-primary">Book a Room →</a>
+          <a href="{{ route('contact') }}" class="btn btn-ghost">Contact Us</a>
         </div>
         <div class="badge-row">
           <span class="badge"><span class="tick">✓</span> AC & Non-AC</span>
@@ -402,10 +61,10 @@
     <section class="panel-ivory" id="about">
       <div class="wrap about">
         <div class="about-copy reveal">
-          <span class="eyebrow">PG in Chennai – Alandur, St. Thomas Mount, Perungalathur</span>
+          <span class="eyebrow">PG in Chennai — Alandur, St. Thomas Mount, Perungalathur</span>
           <h2>Safe, Affordable Hostels for Men & Women</h2>
           <p><strong>Sanjay Boys Hostel</strong> and <strong>Harini Girls Hostel</strong> offer premium PG accommodation in Alandur, St. Thomas Mount, and Perungalathur. We cater to IT employees, working professionals, college students, airport staff, and metro commuters.</p>
-          <p>Each branch is equipped with modern amenities – AC/non-AC rooms, high-speed WiFi, 24/7 CCTV, RO water, laundry, housekeeping, and home-style meals. Separate facilities for boys and girls ensure safety and comfort. See the full <a href="#facilities">list of PG facilities</a> or check our <a href="#food">daily food menu</a>.</p>
+          <p>Each branch is equipped with modern amenities — AC/non-AC rooms, high-speed WiFi, 24/7 CCTV, RO water, laundry, housekeeping, and home-style meals. Separate facilities for boys and girls ensure safety and comfort. See the full <a href="{{ route('rooms') }}#facilities">list of PG facilities</a> or check our <a href="{{ route('rooms') }}#food">daily food menu</a>.</p>
           <div class="about-stats">
             <div class="stat"><div class="num">3</div><div class="label">Branches</div></div>
             <div class="stat"><div class="num">24/7</div><div class="label">Security & Support</div></div>
@@ -414,10 +73,10 @@
           </div>
         </div>
         <div class="about-visual reveal">
-          <img class="tall a" src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?q=80&w=800" alt="Boys hostel Alandur">
+          <img class="tall" src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?q=80&w=800" alt="Boys hostel Alandur">
           <div class="col">
-            <img class="r" src="https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?q=80&w=600" alt="Harini Girls Hostel, St. Thomas Mount branch">
-            <img class="a" src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=600" alt="Common lounge at Sanjay Boys Hostel, Alandur">
+            <img src="https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?q=80&w=600" alt="Harini Girls Hostel, St. Thomas Mount branch">
+            <img src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?q=80&w=600" alt="Common lounge at Sanjay Boys Hostel, Alandur">
           </div>
         </div>
       </div>
@@ -429,53 +88,51 @@
       <div class="section-head reveal">
         <span class="eyebrow">Our Locations</span>
         <h2>PG in Alandur, St. Thomas Mount & Perungalathur</h2>
-        <p>Choose your branch – all close to metro, railway, IT parks, and the airport. <a href="{{ route('about') }}">Read more about each location →</a></p>
+        <p>Choose your branch — all close to metro, railway, IT parks, and the airport. <a href="{{ route('about') }}" style="color:var(--amber-deep);text-decoration:underline;">Read more about each location →</a></p>
       </div>
-      @verbatim
+
       <div class="identity-grid reveal">
         <div class="identity-card boys">
           <span class="tag-pill">Sanjay Boys Hostel</span>
           <h3>Men's PG in Alandur & St. Thomas Mount</h3>
-          <div class="branch-loc">📍 Alandur – Near Alandur Metro, Guindy, Nanganallur</div>
-          <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount Station, Kathipara, Airport Metro</div>
+          <div class="branch-loc">📍 Alandur — Near Alandur Metro, Guindy, Nanganallur</div>
+          <div class="branch-loc">📍 St. Thomas Mount — Near St. Mount Station, Kathipara, Airport Metro</div>
           <ul>
             <li>AC / Non-AC rooms</li>
             <li>WiFi, CCTV, power backup</li>
             <li>Home-style food (veg/non-veg)</li>
             <li>Laundry, housekeeping</li>
           </ul>
-      @endverbatim
-          <a href="{{ route('contact') }}" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--amber);text-decoration:underline;">Check room availability at Sanjay Boys Hostel →</a>
+          <a href="{{ route('contact') }}" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--amber-deep);text-decoration:underline;">Check room availability at Sanjay Boys Hostel →</a>
         </div>
-        @verbatim
+
         <div class="identity-card girls">
           <span class="tag-pill">Harini Ladies Hostel</span>
           <h3>Women's PG in Alandur & St. Thomas Mount</h3>
-          <div class="branch-loc">📍 Alandur – Near Alandur Metro, Ekkatuthangal, Nanganallur</div>
-          <div class="branch-loc">📍 St. Thomas Mount – Near St. Mount, Airport Metro, Guindy</div>
+          <div class="branch-loc">📍 Alandur — Near Alandur Metro, Ekkatuthangal, Nanganallur</div>
+          <div class="branch-loc">📍 St. Thomas Mount — Near St. Mount, Airport Metro, Guindy</div>
           <ul>
             <li>Women-only safe accommodation</li>
             <li>24/7 CCTV & visitor tracking</li>
             <li>Single, double, triple sharing</li>
             <li>RO water, ironing, study hall</li>
           </ul>
-        @endverbatim
-          <a href="{{ route('contact') }}" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--rose);text-decoration:underline;">Check room availability at Harini Girls Hostel →</a>
+          <a href="{{ route('contact') }}" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--rose-deep);text-decoration:underline;">Check room availability at Harini Girls Hostel →</a>
         </div>
       </div>
-      <div style="margin-top:32px;text-align:center;background:rgba(217,203,180,.06);border-radius:20px;padding:28px;">
-        <span class="tag-pill" style="background:var(--rose);color:var(--ivory);padding:6px 20px;border-radius:999px;">Perungalathur – Boys Only</span>
+
+      <div style="margin-top:32px;text-align:center;background:var(--cream);border:1px solid var(--line);border-radius:var(--radius-lg);padding:32px;">
+        <span class="tag-pill" style="background:var(--rose);color:var(--cream);">Perungalathur — Boys Only</span>
         <h3 style="margin-top:14px;font-size:1.3rem;">Men's PG Hostel in Perungalathur, Chennai</h3>
-        <p style="color:var(--stone);margin-top:8px;">Sanjay Boys Hostel at Perungalathur – near Perungalathur railway station, Tambaram, Vandalur, GST Road. Ideal for students and professionals.
-          <a href="{{ route('contact') }}" style="color:var(--rose);text-decoration:underline;font-weight:700;">Enquire about the Perungalathur branch →</a>
+        <p style="color:var(--stone);margin-top:8px;">Sanjay Boys Hostel at Perungalathur — near Perungalathur railway station, Tambaram, Vandalur, GST Road. Ideal for students and professionals.
+          <a href="{{ route('contact') }}" style="color:var(--rose-deep);text-decoration:underline;font-weight:700;">Enquire about the Perungalathur branch →</a>
         </p>
       </div>
     </div>
   </section>
 
-  @verbatim
   <!-- WHY CHOOSE -->
-  <section>
+  <section class="panel-ivory">
     <div class="wrap">
       <div class="section-head reveal">
         <span class="eyebrow">Why Stay With Us</span>
@@ -495,27 +152,26 @@
   </section>
 
   <!-- TESTIMONIALS -->
-  <section class="panel-ivory">
+  <section>
     <div class="wrap">
       <div class="section-head reveal">
         <span class="eyebrow">Testimonials</span>
         <h2>What Our Residents Say</h2>
       </div>
       <div class="testi-grid reveal">
-        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"Best PG near Alandur Metro. Clean rooms, good food, and safe for women."</p><div class="who">Harini Girls Hostel resident</div></div>
-        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"I work at the airport. This hostel is close, affordable, and has great WiFi."</p><div class="who">Sanjay Boys, St. Thomas Mount</div></div>
-        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">"Perfect for IT professionals. Attached bathroom, study table, and power backup."</p><div class="who">Working professional, Alandur</div></div>
+        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">Best PG near Alandur Metro — clean rooms, good food, and safe for women.</p><div class="who">Harini Girls Hostel resident</div></div>
+        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">I work at the airport. This hostel is close, affordable, and has great WiFi.</p><div class="who">Sanjay Boys, St. Thomas Mount</div></div>
+        <div class="testi-card"><div class="stars">★★★★★</div><p class="quote">Perfect for IT professionals — attached bathroom, study table, and power backup.</p><div class="who">Working professional, Alandur</div></div>
       </div>
     </div>
   </section>
-  @endverbatim
 
   <!-- FINAL CTA -->
   <section class="final-cta">
     <div class="wrap">
       <div class="strap">Trusted by 500+ residents</div>
       <h2>Your Home Away From Home</h2>
-      <p class="lead">Sanjay Boys Hostel & Harini Girls Hostel – the best PG in Alandur, St. Thomas Mount & Perungalathur.</p>
+      <p class="lead">Sanjay Boys Hostel & Harini Girls Hostel — the best PG in Alandur, St. Thomas Mount & Perungalathur.</p>
       <div class="hero-actions">
         <a href="{{ route('contact') }}" class="btn btn-primary">Book Now →</a>
         <a href="{{ route('contact') }}" class="btn btn-ghost">Contact Us</a>
