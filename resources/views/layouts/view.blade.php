@@ -443,7 +443,7 @@ section { padding: 88px 0; }
         @yield('content')
     </main>
 
-    @include('layouts.partials.footer')
+
 
     <script src="{{ asset('js/app.js') }}"></script>
     @stack('scripts')
