@@ -260,20 +260,20 @@ public function generateQR(Request $request)
     $residentName = $resident ? $resident->name : 'Resident';
     $transactionNote = "Rent-" . $residentName . "-Room" . $roomNo;
 
-    $upiUrl = "upi://pay?pa=" . $upiId .
-              "&pn=" . urlencode($merchantName) .
-              "&am=" . $amount .
-              "&cu=INR" .
-              "&tn=" . urlencode($transactionNote) .
-              "&refid=" . $reference;
+    
 
     // Generate QR code as SVG
     $qrCode = QrCode::size(300)->generate($upiUrl);
-
+    $result = $this->phonePe->createPayment(
+                    $reference,
+                    (int) round($amount * 100), // rupees -> paise
+                    route('guest.payment.callback', ['merchant_order_id' => $reference]),
+                    "Rent - {$residentName} - Room {$roomNo}"
+                );
     return response()->json([
         'success' => true,
         'qr_code' => $qrCode,
-        'upi_url' => $upiUrl,
+        'redirect_url' => $upiUrl,
         'amount' => $amount,
         'reference' => $reference,
         'upi_id' => $upiId,
