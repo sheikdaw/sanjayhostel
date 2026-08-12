@@ -203,9 +203,9 @@ public function getRoomDetails($id)
             'deposit_amount' => 'nullable|numeric|min:0',
             'status' => 'required|in:ACTIVE,VACATED',
             // File validations
-            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'aadhar_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg|max:5120',
-            'application_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg|max:5120',
+            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg',
+            'aadhar_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
+            'application_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
         ]);
 
         if ($validator->fails()) {
@@ -358,9 +358,9 @@ public function getRoomDetails($id)
             'deposit_amount' => 'nullable|numeric|min:0',
             'status' => 'required|in:ACTIVE,VACATED',
             // File validations
-            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'aadhar_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg|max:5120',
-            'application_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg|max:5120',
+            'profile_image' => 'nullable|image|mimes:jpeg,png,jpg',
+            'aadhar_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
+            'application_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
         ]);
 
         if ($validator->fails()) {
