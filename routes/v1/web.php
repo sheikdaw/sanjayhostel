@@ -37,7 +37,7 @@ Route::prefix('api/test')->group(function () {
     Route::get('stats', [BiometricController::class, 'stats']);
 });
 
-
+// Frontend Routes
 Route::get('/', function () {
     return view('home');
 })->name('home');
@@ -57,6 +57,11 @@ Route::get('/gallery', function () {
 Route::get('/contact', function () {
     return view('contact');
 })->name('contact');
+
+Route::post('/contact', function () {
+    // Handle form submission here
+    return redirect()->route('contact')->with('success', 'Thank you! We will contact you shortly.');
+})->name('contact.submit');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
