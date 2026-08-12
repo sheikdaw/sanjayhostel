@@ -63,164 +63,169 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Get resident details by mobile number.
-     * POST /guest/payment/resident
-     */
-    public function getResident(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'mobile' => 'required|string|min:10|max:15',
-            'hostel_id' => 'required|exists:hostels,id'
-        ]);
+ * Get resident details by mobile number.
+ * POST /guest/payment/resident
+ */
+public function getResident(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'mobile' => 'required|string|min:10|max:15',
+        'hostel_id' => 'required|exists:hostels,id'
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    $resident = Resident::where('phone', $request->mobile)
+        ->where('hostel_id', $request->hostel_id)
+        ->where('status', 'ACTIVE')
+        ->with('room')
+        ->first();
+
+    if (!$resident) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No resident found with this mobile number in this hostel.'
+        ], 404);
+    }
+
+    $currentMonth = now()->month;
+    $currentYear = now()->year;
+    $currentDay = now()->day;
+
+    // Check if current month's payment exists
+    $currentPayment = Payment::where('resident_id', $resident->id)
+        ->where('month', $currentMonth)
+        ->where('year', $currentYear)
+        ->first();
+
+    // Get all pending payments (previous months)
+    $pendingPayments = Payment::where('resident_id', $resident->id)
+        ->whereIn('status', ['PENDING', 'PARTIAL'])
+        ->orderBy('year', 'asc')
+        ->orderBy('month', 'asc')
+        ->get();
+
+    // Check if current month is already paid
+    $isCurrentMonthPaid = false;
+    $currentMonthStatus = 'PENDING';
+
+    if ($currentPayment) {
+        if ($currentPayment->status === 'PAID') {
+            $isCurrentMonthPaid = true;
+            $currentMonthStatus = 'PAID';
+        } elseif ($currentPayment->status === 'PARTIAL') {
+            $currentMonthStatus = 'PARTIAL';
         }
+    }
 
-        $resident = Resident::where('phone', $request->mobile)
-            ->where('hostel_id', $request->hostel_id)
-            ->where('status', 'ACTIVE')
-            ->with('room')
-            ->first();
-
-        if (!$resident) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No resident found with this mobile number in this hostel.'
-            ], 404);
+    // Calculate total due from pending payments
+    $totalDue = $pendingPayments->sum('balance_amount');
+    
+    // Get rent amount
+    $rentAmount = (float) ($resident->rent_amount ?? 0);
+    
+    // Check if current month is not paid, add to total due
+    if (!$isCurrentMonthPaid && $currentMonthStatus !== 'PAID') {
+        if (!$currentPayment) {
+            $totalDue += $rentAmount;
+        } else if ($currentPayment->status === 'PARTIAL') {
+            $totalDue += $currentPayment->balance_amount;
         }
+    }
 
-        $currentMonth = now()->month;
-        $currentYear = now()->year;
-        $currentDay = now()->day;
+    // ============================================================
+    // DISCOUNT CALCULATION BASED ON DATE
+    // ============================================================
+    $discount = 0;
+    $discountType = null;
+    $finalAmount = (float) $totalDue;
+    $discountMessage = '';
 
-        // Check if current month's payment exists
-        $currentPayment = Payment::where('resident_id', $resident->id)
-            ->where('month', $currentMonth)
-            ->where('year', $currentYear)
-            ->first();
-
-        // Get all pending payments (previous months)
-        $pendingPayments = Payment::where('resident_id', $resident->id)
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->orderBy('year', 'asc')
-            ->orderBy('month', 'asc')
-            ->get();
-
-        // Check if current month is already paid
-        $isCurrentMonthPaid = false;
-        $currentMonthStatus = 'PENDING';
-
-        if ($currentPayment) {
-            if ($currentPayment->status === 'PAID') {
-                $isCurrentMonthPaid = true;
-                $currentMonthStatus = 'PAID';
-            } elseif ($currentPayment->status === 'PARTIAL') {
-                $currentMonthStatus = 'PARTIAL';
-            }
-        }
-
-        // Calculate total due from pending payments
-        $totalDue = $pendingPayments->sum('balance_amount');
+    // Only apply discount if:
+    // 1. No pending payments from previous months
+    // 2. Current month is not paid yet
+    // 3. Total due is greater than 0
+    if ($pendingPayments->count() == 0 && !$isCurrentMonthPaid && $totalDue > 0) {
         
-        // Get rent amount
-        $rentAmount = (float) ($resident->rent_amount ?? 0);
-        
-        // Check if current month is not paid, add to total due
-        if (!$isCurrentMonthPaid && $currentMonthStatus !== 'PAID') {
-            // If there's no current payment record, create one mentally
-            if (!$currentPayment) {
-                $totalDue += $rentAmount;
-            } else if ($currentPayment->status === 'PARTIAL') {
-                // If partial payment, add remaining balance
-                $totalDue += $currentPayment->balance_amount;
-            }
-        }
-
-        // ============================================================
-        // DISCOUNT CALCULATION BASED ON DATE
-        // ============================================================
-        $discount = 0;
-        $discountType = null;
-        $finalAmount = (float) $totalDue;
-        $discountMessage = '';
-
-        // Only apply discount if there are no pending payments from previous months
-        // AND current month is not paid yet
-        if ($pendingPayments->count() == 0 && !$isCurrentMonthPaid && $totalDue > 0) {
+        // Check current date for discount
+        if ($currentDay >= 1 && $currentDay <= 5) {
+            // 1st to 5th: 10% discount up to ₹250
+            $discount = min(250, $rentAmount * 0.10);
+            $discountType = 'early_discount_250';
+            $discountMessage = 'Early payment discount (1st-5th): 10% off up to ₹250';
             
-            // Check current date for discount
-            if ($currentDay >= 1 && $currentDay <= 5) {
-                // 1st to 5th: 10% discount up to ₹250
-                $discount = min(250, $rentAmount * 0.10);
-                $discountType = 'early_discount_250';
-                $discountMessage = 'Early payment discount (1st-5th): 10% off up to ₹250';
-                
-            } elseif ($currentDay >= 6 && $currentDay <= 10) {
-                // 6th to 10th: 5% discount up to ₹125
-                $discount = min(125, $rentAmount * 0.05);
-                $discountType = 'early_discount_125';
-                $discountMessage = 'Early payment discount (6th-10th): 5% off up to ₹125';
-                
-            } else {
-                // After 10th: No discount
-                $discount = 0;
-                $discountType = 'no_discount';
-                $discountMessage = 'No discount available. Please pay before 10th for early payment discount.';
-            }
+        } elseif ($currentDay >= 6 && $currentDay <= 10) {
+            // 6th to 10th: 5% discount up to ₹125
+            $discount = min(125, $rentAmount * 0.05);
+            $discountType = 'early_discount_125';
+            $discountMessage = 'Early payment discount (6th-10th): 5% off up to ₹125';
             
-            // Calculate final amount after discount
-            $finalAmount = max(0, $totalDue - $discount);
         } else {
-            // If there are pending payments or already paid, no discount
+            // After 10th: No discount
             $discount = 0;
             $discountType = 'no_discount';
-            $discountMessage = $isCurrentMonthPaid ? 'This month\'s rent is already paid.' : 'Previous pending payments, no discount applicable.';
+            $discountMessage = 'No discount available. Please pay before 10th for early payment discount.';
         }
-
-        // ============================================================
-        // PAYMENT STATUS MESSAGE
-        // ============================================================
-        $paymentStatusMessage = '';
-        $paymentStatus = '';
-
-        if ($isCurrentMonthPaid && $totalDue == 0) {
-            $paymentStatus = 'PAID';
-            $paymentStatusMessage = '✅ All payments are up to date! You have no pending dues.';
+        
+        // Calculate final amount after discount
+        $finalAmount = max(0, $totalDue - $discount);
+    } else {
+        // If there are pending payments or already paid, no discount
+        $discount = 0;
+        $discountType = 'no_discount';
+        
+        if ($isCurrentMonthPaid) {
+            $discountMessage = '✅ This month\'s rent is already paid.';
         } elseif ($pendingPayments->count() > 0) {
-            $paymentStatus = 'PENDING';
-            $paymentStatusMessage = '⚠️ You have ' . $pendingPayments->count() . ' pending payment(s) from previous months.';
-        } elseif (!$isCurrentMonthPaid && $totalDue > 0) {
-            $paymentStatus = 'PENDING';
-            $paymentStatusMessage = '📝 You have pending payment for this month.';
+            $discountMessage = '⚠️ Previous pending payments found. No discount applicable.';
         } else {
-            $paymentStatus = 'PAID';
-            $paymentStatusMessage = '✅ All payments are up to date!';
+            $discountMessage = 'No discount applicable.';
         }
+    }
 
-        // Prepare pending details for display
-        $pendingDetails = [];
-        foreach ($pendingPayments as $payment) {
-            $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-            $pendingDetails[] = [
-                'month' => $monthName . ' ' . $payment->year,
-                'amount' => (float) $payment->balance_amount,
-                'status' => $payment->status,
-                'total_amount' => (float) $payment->rent_amount,
-                'paid_amount' => (float) ($payment->upi_paid_amount + $payment->cash_paid_amount)
-            ];
-        }
+    // ============================================================
+    // PAYMENT STATUS MESSAGE
+    // ============================================================
+    $paymentStatusMessage = '';
+    $paymentStatus = '';
 
-        // Generate payment reference
-        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+    if ($isCurrentMonthPaid && $totalDue == 0) {
+        $paymentStatus = 'PAID';
+        $paymentStatusMessage = '✅ All payments are up to date! You have no pending dues.';
+    } elseif ($pendingPayments->count() > 0) {
+        $paymentStatus = 'PENDING';
+        $paymentStatusMessage = '⚠️ You have ' . $pendingPayments->count() . ' pending payment(s) from previous months.';
+    } elseif (!$isCurrentMonthPaid && $totalDue > 0) {
+        $paymentStatus = 'PENDING';
+        $paymentStatusMessage = '📝 You have pending payment for this month.';
+    } else {
+        $paymentStatus = 'PAID';
+        $paymentStatusMessage = '✅ All payments are up to date!';
+    }
 
-        // ============================================================
-        // RESPONSE DATA
-        // ============================================================
-        $responseData = [
+    // Prepare pending details for display
+    $pendingDetails = [];
+    foreach ($pendingPayments as $payment) {
+        $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
+        $pendingDetails[] = [
+            'month' => $monthName . ' ' . $payment->year,
+            'amount' => (float) $payment->balance_amount,
+            'status' => $payment->status,
+            'total_amount' => (float) $payment->rent_amount,
+            'paid_amount' => (float) ($payment->upi_paid_amount + $payment->cash_paid_amount)
+        ];
+    }
+
+    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+
+    return response()->json([
+        'success' => true,
+        'data' => [
             'resident_id' => (int) $resident->id,
             'name' => $resident->name,
             'email' => $resident->email ?? 'Not provided',
@@ -243,14 +248,9 @@ class GuestPaymentController extends Controller
             'pending_payments' => $pendingDetails,
             'discount_applicable' => $discount > 0,
             'message' => $paymentStatusMessage
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $responseData
-        ], 200, [], JSON_NUMERIC_CHECK);
-    }
-
+        ]
+    ], 200, [], JSON_NUMERIC_CHECK);
+}
     /**
      * Create a real PhonePe payment order and return the hosted
      * checkout redirect URL.
@@ -271,15 +271,17 @@ class GuestPaymentController extends Controller
             ], 422);
         }
 
-        $amount = (float) $request->amount;
+        $amount = $request->amount;
         $reference = $request->reference;
-        $residentId = (int) $request->resident_id;
+        $residentId = $request->resident_id;
 
-        $resident = Resident::with('room')->find($residentId);
+        $resident = Resident::find($residentId);
         $roomNo = $resident && $resident->room ? ($resident->room->room_no ?? 'N/A') : 'N/A';
         $residentName = $resident ? $resident->name : 'Resident';
 
-        // Remember which resident this order belongs to
+        // Remember which resident this order belongs to so the callback/
+        // status/webhook handlers can create the Payment record once
+        // PhonePe confirms COMPLETED.
         cache()->put('phonepe_order_resident_' . $reference, $residentId, now()->addHours(2));
 
         try {
@@ -297,15 +299,8 @@ class GuestPaymentController extends Controller
                 'state' => $result['state'] ?? 'PENDING',
                 'reference' => $reference,
                 'amount' => $amount,
-                'resident_name' => $residentName,
-                'room_no' => $roomNo,
             ]);
         } catch (Exception $e) {
-            Log::error('PhonePe payment creation failed: ' . $e->getMessage(), [
-                'reference' => $reference,
-                'resident_id' => $residentId
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create payment order: ' . $e->getMessage()
@@ -314,7 +309,8 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Browser lands here after PhonePe checkout.
+     * Browser lands here after PhonePe checkout (success, failure, or
+     * abandonment). We ALWAYS re-verify with the Order Status API.
      * GET /guest/payment/callback
      */
     public function callback(Request $request)
@@ -331,10 +327,6 @@ class GuestPaymentController extends Controller
         try {
             $status = $this->phonePe->orderStatus($merchantOrderId, true);
         } catch (Exception $e) {
-            Log::error('PhonePe callback status check failed: ' . $e->getMessage(), [
-                'merchant_order_id' => $merchantOrderId
-            ]);
-
             return view('guest.payment-result', [
                 'success' => false,
                 'message' => 'Could not verify payment. Reference: ' . $merchantOrderId,
@@ -390,9 +382,9 @@ class GuestPaymentController extends Controller
 
         $reference = $request->reference;
 
-        // Fast path: already recorded locally
+        // Fast path: already recorded locally (e.g. by the webhook)
         $payment = Payment::where('receipt_no', $reference)->with('resident')->first();
-        if ($payment && $payment->status === 'PAID') {
+        if ($payment) {
             return response()->json([
                 'success' => true,
                 'state' => 'COMPLETED',
@@ -419,7 +411,6 @@ class GuestPaymentController extends Controller
 
         if ($state === 'COMPLETED') {
             $payment = $this->recordPaymentIfNeeded($reference, $status);
-
             return response()->json([
                 'success' => true,
                 'state' => 'COMPLETED',
@@ -435,13 +426,18 @@ class GuestPaymentController extends Controller
 
         return response()->json([
             'success' => true,
-            'state' => $state,
+            'state' => $state, // PENDING or FAILED
         ]);
     }
 
     /**
-     * PhonePe Webhook (S2S callback)
+     * PhonePe Webhook (S2S callback) — the fully automatic path. PhonePe
+     * calls this the instant a payment reaches a terminal state, no matter
+     * which UPI app the guest used to pay. No polling, no redirect
+     * dependency — the database updates itself.
+     *
      * POST /guest/payment/webhook
+     * NOTE: must be exempt from CSRF verification (see setup notes).
      */
     public function webhook(Request $request)
     {
@@ -457,22 +453,29 @@ class GuestPaymentController extends Controller
         }
 
         $body = $request->json()->all();
+        $event = $body['event'] ?? null;
         $payload = $body['payload'] ?? [];
 
         Log::info('PhonePe webhook received', [
+            'event' => $event,
             'merchantOrderId' => $payload['merchantOrderId'] ?? null,
             'state' => $payload['state'] ?? null,
         ]);
 
+        // Rely on payload.state (root-level), not just the event name —
+        // this is PhonePe's own recommendation.
         if (($payload['state'] ?? null) === 'COMPLETED' && !empty($payload['merchantOrderId'])) {
             $this->recordPaymentIfNeeded($payload['merchantOrderId'], $payload);
         }
 
+        // Must return 2xx quickly or PhonePe will retry the webhook.
         return response()->json(['status' => 'ok']);
     }
 
     /**
-     * Idempotently creates the local Payment record.
+     * Idempotently creates the local Payment record once PhonePe has
+     * confirmed COMPLETED. Safe to call multiple times for the same order
+     * (webhook + callback + polling may all race to call this).
      */
     protected function recordPaymentIfNeeded(string $merchantOrderId, array $status): Payment
     {
