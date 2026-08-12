@@ -187,67 +187,6 @@
             color: #22c55e;
         }
 
-        /* Discount Section */
-        .discount-section {
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            margin: 0.5rem 0 0.75rem 0;
-            display: none;
-        }
-
-        .discount-section.show {
-            display: block;
-        }
-
-        .discount-section .discount-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-        }
-
-        .discount-section .discount-row .label {
-            color: #065f46;
-        }
-
-        .discount-section .discount-row .amount {
-            color: #047857;
-            font-weight: 700;
-        }
-
-        .discount-section .discount-badge {
-            background: #047857;
-            color: white;
-            padding: 0.1rem 0.6rem;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-
-        .final-amount-row {
-            background: var(--primary-color);
-            color: white;
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            margin-top: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .final-amount-row .label {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
-        }
-
-        .final-amount-row .amount {
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: var(--gold-color);
-        }
-
         #pendingInfo {
             display: none;
             background: #fef3c7;
@@ -274,12 +213,6 @@
         .btn-pay-again:hover {
             background: var(--primary-light);
             transform: translateY(-2px);
-        }
-
-        .btn-pay-again:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
         }
 
         /* Toast */
@@ -343,8 +276,6 @@
             .mobile-input-group .btn-find { width: 100%; }
             .resident-info .info-row { flex-direction: column; gap: 0.2rem; }
             .resident-info .info-row .value { text-align: left; }
-            .discount-section .discount-row { flex-direction: column; gap: 0.25rem; align-items: flex-start; }
-            .final-amount-row { flex-direction: column; gap: 0.25rem; text-align: center; }
         }
     </style>
 </head>
@@ -400,38 +331,18 @@
                     <span class="label"><i class="bi bi-envelope"></i> Email</span>
                     <span class="value" id="residentEmail">-</span>
                 </div>
-                <div class="info-row" style="border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem;">
+                <div class="info-row"
+                    style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
                     <span class="label"><i class="bi bi-currency-rupee"></i> Total Due</span>
                     <span class="value due-amount" id="totalDue">₹0.00</span>
                 </div>
-
-                <!-- Discount Section -->
-                <div class="discount-section" id="discountSection">
-                    <div class="discount-row">
-                        <span class="label">
-                            <i class="bi bi-tag"></i> <span id="discountLabel">Early Payment Discount</span>
-                        </span>
-                        <span class="amount">-₹<span id="discountAmount">0</span></span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 0.25rem;">
-                        <span style="font-size: 0.7rem; color: #065f46;" id="discountNote">Applied for payment between 1st-5th</span>
-                        <span class="discount-badge" id="discountBadge">SAVE</span>
-                    </div>
-                </div>
-
-                <!-- Final Amount -->
-                <div class="final-amount-row">
-                    <span class="label"><i class="bi bi-credit-card"></i> Final Amount to Pay</span>
-                    <span class="amount">₹<span id="finalAmount">0.00</span></span>
-                </div>
-
                 <div id="pendingInfo">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span id="pendingCount">0</span> pending payments from previous months
                 </div>
                 <button class="btn-pay-again" id="payNowBtn" onclick="generatePayment()"
                     style="background: var(--gold-color); margin-top: 0.75rem;">
-                    <i class="bi bi-shield-check"></i> Proceed to Pay ₹<span id="payButtonAmount">0</span>
+                    <i class="bi bi-shield-check"></i> Proceed to Pay
                 </button>
                 <div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.5rem; text-align:center;">
                     You'll be redirected to PhonePe's secure checkout. Once you finish paying there,
@@ -450,7 +361,7 @@
         var csrfToken = '{{ csrf_token() }}';
         var paymentRoutes = {
             resident: '{{ route('guest.payment.resident') }}',
-            qr: '{{ route('guest.payment.qr') }}'
+            qr: '{{ route('guest.payment.qr') }}' // creates the PhonePe order, returns redirect_url
         };
 
         let currentResident = null;
@@ -488,50 +399,18 @@
                         currentResident = response.data;
                         currentReference = response.data.reference;
 
-                        // Parse numeric values properly
-                        var totalDue = parseFloat(response.data.total_due) || 0;
-                        var finalAmount = parseFloat(response.data.final_amount) || totalDue;
-                        var discount = parseFloat(response.data.discount) || 0;
-
                         $('#residentName').text(response.data.name);
                         $('#residentRoom').text('Room #' + response.data.room_no);
                         $('#residentPhone').text(response.data.phone);
                         $('#residentEmail').text(response.data.email || 'Not provided');
-                        $('#totalDue').text('₹' + totalDue.toFixed(2));
+                        $('#totalDue').text('₹' + parseFloat(response.data.total_due).toFixed(2));
 
-                        // Handle total due styling
-                        if (totalDue > 0) {
+                        if (response.data.total_due > 0) {
                             $('#totalDue').removeClass('clear').addClass('due-amount');
                         } else {
                             $('#totalDue').removeClass('due-amount').addClass('clear');
                         }
 
-                        // Handle discount display
-                        if (discount > 0) {
-                            $('#discountSection').addClass('show');
-                            $('#discountAmount').text(discount.toFixed(2));
-                            $('#finalAmount').text(finalAmount.toFixed(2));
-                            $('#payButtonAmount').text(finalAmount.toFixed(2));
-
-                            // Set discount label based on type
-                            if (response.data.discount_type === 'early_discount_250') {
-                                $('#discountLabel').text('Early Payment Discount (1st-5th)');
-                                $('#discountNote').text('Applied for payment between 1st-5th of the month');
-                            } else if (response.data.discount_type === 'early_discount_125') {
-                                $('#discountLabel').text('Early Payment Discount (6th-10th)');
-                                $('#discountNote').text('Applied for payment between 6th-10th of the month');
-                            }
-                        } else {
-                            $('#discountSection').removeClass('show');
-                            $('#finalAmount').text(finalAmount.toFixed(2));
-                            $('#payButtonAmount').text(finalAmount.toFixed(2));
-                        }
-
-                        // Store parsed values back to currentResident
-                        currentResident.final_amount = finalAmount;
-                        currentResident.total_due = totalDue;
-
-                        // Show pending info
                         if (response.data.has_pending) {
                             $('#pendingInfo').show();
                             $('#pendingCount').text(response.data.pending_count);
@@ -557,22 +436,25 @@
             });
         }
 
+        // Creates a real PhonePe order and sends the browser to PhonePe's
+        // hosted checkout. There is no client-side "did you pay?" step —
+        // once the guest finishes paying, PhonePe redirects back to our
+        // /guest/payment/callback route, which verifies the real order
+        // status server-side and shows the outcome automatically.
         function generatePayment() {
             if (!currentResident) {
                 showToast('Please find your resident details first', 'error');
                 return;
             }
 
-            // Parse the amount as a number
-            var amount = parseFloat(currentResident.final_amount) || parseFloat(currentResident.total_due) || 0;
-            
+            var amount = currentResident.total_due;
             if (amount <= 0) {
                 showToast('No payment due at this time', 'error');
                 return;
             }
 
             var btn = $('#payNowBtn');
-            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Redirecting to payment...');
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Redirecting to PhonePe...');
 
             $.ajax({
                 url: paymentRoutes.qr,
@@ -583,23 +465,11 @@
                     resident_id: currentResident.resident_id
                 },
                 success: function(response) {
-                    console.log('Payment response:', response);
-                    
                     if (response.success && response.redirect_url) {
-                        // Redirect to payment gateway
                         window.location.href = response.redirect_url;
-                    } else if (response.success && response.upi_url) {
-                        // Fallback to UPI if no redirect_url
-                        showToast('Payment link generated. Use any UPI app to pay.', 'success');
-                        // You could display QR code here if needed
-                        btn.prop('disabled', false).html(
-                            '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' + amount.toFixed(2)
-                        );
                     } else {
                         showToast('Could not start payment. Please try again.', 'error');
-                        btn.prop('disabled', false).html(
-                            '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' + amount.toFixed(2)
-                        );
+                        btn.prop('disabled', false).html('<i class="bi bi-shield-check"></i> Proceed to Pay');
                     }
                 },
                 error: function(xhr) {
@@ -608,9 +478,7 @@
                         message = xhr.responseJSON.message;
                     }
                     showToast('❌ ' + message, 'error');
-                    btn.prop('disabled', false).html(
-                        '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' + amount.toFixed(2)
-                    );
+                    btn.prop('disabled', false).html('<i class="bi bi-shield-check"></i> Proceed to Pay');
                 }
             });
         }
@@ -624,10 +492,10 @@
             var toast = document.createElement('div');
             toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
             toast.innerHTML = `
-                <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
-                <div class="message">${message}</div>
-                <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
-            `;
+        <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
+        <div class="message">${message}</div>
+        <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
+    `;
             container.appendChild(toast);
 
             setTimeout(function() {
