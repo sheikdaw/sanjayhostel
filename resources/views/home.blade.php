@@ -4,31 +4,31 @@
 @section('canonical', 'https://www.sanjayandharinihostels.com/')
 @section('meta_description', "Sanjay Boys Hostel and Harini Girls Hostel — PG accommodation in Alandur, St. Thomas Mount and Perungalathur, Chennai. AC/Non-AC rooms, home food, WiFi, CCTV, near metro & railway.")
 
-@section('schema')
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
+    @section('schema')
+    <script type="application/ld+json">
     {
-      "@type": "Organization",
-      "@id": "https://www.sanjayandharinihostels.com/#organization",
-      "name": "Sanjay & Harini Hostels",
-      "url": "https://www.sanjayandharinihostels.com/",
-      "brand": [
-        { "@type": "Brand", "name": "Sanjay Boys Hostel" },
-        { "@type": "Brand", "name": "Harini Girls Hostel" }
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.sanjayandharinihostels.com/#organization",
+          "name": "Sanjay & Harini Hostels",
+          "url": "https://www.sanjayandharinihostels.com/",
+          "brand": [
+            { "@type": "Brand", "name": "Sanjay Boys Hostel" },
+            { "@type": "Brand", "name": "Harini Girls Hostel" }
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "url": "https://www.sanjayandharinihostels.com/",
+          "name": "Sanjay & Harini Hostels",
+          "publisher": { "@id": "https://www.sanjayandharinihostels.com/#organization" }
+        }
       ]
-    },
-    {
-      "@type": "WebSite",
-      "url": "https://www.sanjayandharinihostels.com/",
-      "name": "Sanjay & Harini Hostels",
-      "publisher": { "@id": "https://www.sanjayandharinihostels.com/#organization" }
     }
-  ]
-}
-</script>
-@endsection
+    </script>
+    @endsection
 
 @section('content')
 
