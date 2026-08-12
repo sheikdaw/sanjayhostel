@@ -291,6 +291,8 @@ Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
 
     // Catch-all — MUST stay last in this group
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
+    Route::get('/phonepe-redirect', [GuestPaymentController::class, 'redirectToPhonePe'])
+    ->name('phonepe.redirect');
 });
 
 // Payment Links Generator (Admin only)
