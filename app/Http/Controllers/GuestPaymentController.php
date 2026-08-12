@@ -5,29 +5,38 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\Resident;
 use App\Models\Hostel;
+use App\Services\PhonePeService;
+use App\Services\MockEbioServerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Exception;
 
 class GuestPaymentController extends Controller
 {
+    protected PhonePeService $phonePe;
+    protected MockEbioServerService $biometric;
+
+    public function __construct(PhonePeService $phonePe, MockEbioServerService $biometric)
+    {
+        $this->phonePe = $phonePe;
+        $this->biometric = $biometric;
+    }
+
     /**
-     * Display the guest payment page
+     * Display the guest payment page.
+     * GET /guest/payment/{encodedHostelId?}
      */
     public function index(Request $request, $encodedHostelId = null)
     {
         $hostelId = null;
-        $decodedId = null;
 
         if ($encodedHostelId) {
             try {
-                $decodedId = Crypt::decryptString($encodedHostelId);
-                $hostelId = $decodedId;
-            } catch (\Exception $e) {
+                $hostelId = Crypt::decryptString($encodedHostelId);
+            } catch (Exception $e) {
                 if (is_numeric($encodedHostelId)) {
                     $hostelId = $encodedHostelId;
                 } else {
@@ -57,7 +66,8 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Get resident details by mobile number
+     * Get resident details by mobile number.
+     * POST /guest/payment/resident
      */
     public function getResident(Request $request)
     {
@@ -101,25 +111,14 @@ class GuestPaymentController extends Controller
             ->orderBy('month', 'asc')
             ->get();
 
-        $isCurrentMonthPaid = false;
-        $currentMonthStatus = 'PENDING';
-
-        if ($currentPayment) {
-            if ($currentPayment->status === 'PAID') {
-                $isCurrentMonthPaid = true;
-                $currentMonthStatus = 'PAID';
-            } elseif ($currentPayment->status === 'PARTIAL') {
-                $currentMonthStatus = 'PARTIAL';
-            }
-        }
-
         $totalDue = $pendingPayments->sum('balance_amount');
         $discount = 0;
         $discountType = null;
         $rentAmount = (float) ($resident->rent_amount ?? 0);
         $finalAmount = (float) $totalDue;
 
-        if ($totalDue == 0 && !$currentPayment && !$isCurrentMonthPaid) {
+        // Calculate discount if applicable
+        if ($totalDue == 0 && !$currentPayment) {
             $totalDue = $rentAmount;
             $finalAmount = $rentAmount;
             
@@ -133,7 +132,7 @@ class GuestPaymentController extends Controller
                 }
                 $finalAmount = max(0, $totalDue - $discount);
             }
-        } else if ($totalDue > 0 && !$currentPayment && !$isCurrentMonthPaid) {
+        } else if ($totalDue > 0 && !$currentPayment) {
             $totalDue += $rentAmount;
             $finalAmount = $totalDue;
             
@@ -149,49 +148,31 @@ class GuestPaymentController extends Controller
             }
         }
 
-        $pendingDetails = [];
-        foreach ($pendingPayments as $payment) {
-            $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-            $pendingDetails[] = [
-                'month' => $monthName . ' ' . $payment->year,
-                'amount' => (float) $payment->balance_amount,
-                'status' => $payment->status,
-                'total_amount' => (float) $payment->rent_amount,
-                'paid_amount' => (float) ($payment->upi_paid_amount + $payment->cash_paid_amount)
-            ];
-        }
-
         $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-
-        $responseData = [
-            'resident_id' => (int) $resident->id,
-            'name' => $resident->name,
-            'email' => $resident->email ?? 'Not provided',
-            'phone' => $resident->phone,
-            'room_no' => $resident->room->room_no ?? 'N/A',
-            'rent_amount' => (float) $rentAmount,
-            'total_due' => (float) $totalDue,
-            'final_amount' => (float) $finalAmount,
-            'discount' => (float) $discount,
-            'discount_type' => $discountType,
-            'pending_count' => (int) $pendingPayments->count(),
-            'reference' => $reference,
-            'has_pending' => $pendingPayments->count() > 0,
-            'is_paid' => $totalDue == 0 && $isCurrentMonthPaid,
-            'payment_status' => $totalDue > 0 ? 'PENDING' : 'PAID',
-            'message' => $totalDue > 0 ? 'You have pending payments.' : 'All payments are up to date.',
-            'current_month_status' => $currentMonthStatus,
-            'pending_payments' => $pendingDetails
-        ];
 
         return response()->json([
             'success' => true,
-            'data' => $responseData
-        ], 200, [], JSON_NUMERIC_CHECK);
+            'data' => [
+                'resident_id' => (int) $resident->id,
+                'name' => $resident->name,
+                'email' => $resident->email ?? 'Not provided',
+                'phone' => $resident->phone,
+                'room_no' => $resident->room->room_no ?? 'N/A',
+                'rent_amount' => (float) $rentAmount,
+                'total_due' => (float) $finalAmount,
+                'discount' => (float) $discount,
+                'discount_type' => $discountType,
+                'pending_count' => (int) $pendingPayments->count(),
+                'reference' => $reference,
+                'has_pending' => $pendingPayments->count() > 0,
+                'is_paid' => $totalDue == 0 && $currentPayment && $currentPayment->status === 'PAID'
+            ]
+        ]);
     }
 
     /**
-     * Generate QR code for payment
+     * Generate QR code for payment - Shows PhonePe QR and UPI options
+     * GET /guest/payment/generate-qr
      */
     public function generateQR(Request $request)
     {
@@ -208,291 +189,182 @@ class GuestPaymentController extends Controller
             ], 422);
         }
 
+        $amount = (float) $request->amount;
+        $reference = $request->reference;
+        $residentId = (int) $request->resident_id;
+
+        $resident = Resident::with('room')->find($residentId);
+        if (!$resident) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resident not found'
+            ], 404);
+        }
+
+        $roomNo = $resident->room->room_no ?? 'N/A';
+        $residentName = $resident->name;
+
+        // Remember which resident this order belongs to
+        cache()->put('phonepe_order_resident_' . $reference, $residentId, now()->addHours(2));
+
         try {
-            $amount = (float) $request->amount;
-            $reference = $request->reference;
-            $residentId = (int) $request->resident_id;
-
-            $resident = Resident::with('room')->find($residentId);
-
-            if (!$resident) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Resident not found'
-                ], 404);
-            }
-
-            $roomNo = $resident->room->room_no ?? 'N/A';
-            $residentName = $resident->name;
-
             // Try PhonePe first
-            $phonePeEnabled = env('PHONEPE_ENABLED', false);
-            
-            if ($phonePeEnabled) {
-                try {
-                    $result = $this->createPhonePePayment($reference, $amount, $resident);
-                    
-                    if ($result && isset($result['redirectUrl'])) {
-                        return response()->json([
-                            'success' => true,
-                            'redirect_url' => $result['redirectUrl'],
-                            'reference' => $reference,
-                            'amount' => (float) $amount,
-                            'resident_name' => $residentName,
-                            'room_no' => $roomNo,
-                            'payment_method' => 'PHONEPE'
-                        ], 200, [], JSON_NUMERIC_CHECK);
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('PhonePe payment creation failed: ' . $e->getMessage());
-                }
-            }
+            $result = $this->phonePe->createPayment(
+                $reference,
+                (int) round($amount * 100), // rupees -> paise
+                route('guest.payment.callback', ['merchant_order_id' => $reference]),
+                "Rent - {$residentName} - Room {$roomNo}"
+            );
 
-            // Fallback to UPI QR Code
+            // Generate UPI QR as fallback
             $upiId = env('UPI_ID', 'merchant@upi');
             $merchantName = env('MERCHANT_NAME', 'Hostel Payment');
-
-            $transactionNote = "Rent-{$residentName}-Room{$roomNo}";
             $upiUrl = "upi://pay?pa=" . $upiId .
                       "&pn=" . urlencode($merchantName) .
                       "&am=" . number_format($amount, 2, '.', '') .
                       "&cu=INR" .
-                      "&tn=" . urlencode($transactionNote) .
+                      "&tn=" . urlencode("Rent-{$residentName}-Room{$roomNo}") .
                       "&refid=" . $reference;
-
-            $qrCode = QrCode::size(300)->generate($upiUrl);
 
             return response()->json([
                 'success' => true,
-                'qr_code' => $qrCode,
+                'redirect_url' => $result['redirectUrl'] ?? null,
                 'upi_url' => $upiUrl,
-                'redirect_url' => $upiUrl,
-                'amount' => (float) $amount,
+                'qr_code' => $this->generateQRCode($upiUrl),
+                'order_id' => $result['orderId'] ?? null,
+                'state' => $result['state'] ?? 'PENDING',
                 'reference' => $reference,
-                'upi_id' => $upiId,
-                'merchant_name' => $merchantName,
+                'amount' => $amount,
                 'resident_name' => $residentName,
                 'room_no' => $roomNo,
-                'payment_method' => 'UPI_FALLBACK'
-            ], 200, [], JSON_NUMERIC_CHECK);
-
-        } catch (\Exception $e) {
-            Log::error('QR Generation Error: ' . $e->getMessage(), [
-                'reference' => $request->reference,
-                'resident_id' => $request->resident_id
+                'upi_id' => $upiId,
+                'merchant_name' => $merchantName,
+                'payment_methods' => [
+                    'phonepe' => true,
+                    'upi' => true
+                ]
             ]);
-            
+
+        } catch (Exception $e) {
+            Log::error('PhonePe payment creation failed: ' . $e->getMessage(), [
+                'reference' => $reference,
+                'resident_id' => $residentId
+            ]);
+
+            // Fallback to UPI only
+            $upiId = env('UPI_ID', 'merchant@upi');
+            $merchantName = env('MERCHANT_NAME', 'Hostel Payment');
+            $upiUrl = "upi://pay?pa=" . $upiId .
+                      "&pn=" . urlencode($merchantName) .
+                      "&am=" . number_format($amount, 2, '.', '') .
+                      "&cu=INR" .
+                      "&tn=" . urlencode("Rent-{$residentName}-Room{$roomNo}") .
+                      "&refid=" . $reference;
+
             return response()->json([
-                'success' => false,
-                'message' => 'Failed to generate payment. Please try again.',
-                'error' => config('app.debug') ? $e->getMessage() : null
-            ], 500);
+                'success' => true,
+                'redirect_url' => $upiUrl,
+                'upi_url' => $upiUrl,
+                'qr_code' => $this->generateQRCode($upiUrl),
+                'reference' => $reference,
+                'amount' => $amount,
+                'resident_name' => $residentName,
+                'room_no' => $roomNo,
+                'upi_id' => $upiId,
+                'merchant_name' => $merchantName,
+                'payment_methods' => [
+                    'phonepe' => false,
+                    'upi' => true
+                ],
+                'fallback' => true,
+                'message' => 'PhonePe is temporarily unavailable. Please use UPI.'
+            ]);
         }
     }
 
     /**
-     * Create PhonePe payment
+     * Generate QR Code as base64 image
      */
-    private function createPhonePePayment($reference, $amount, $resident)
+    private function generateQRCode($upiUrl)
     {
         try {
-            $merchantId = config('phonepe.client_id', env('PHONEPE_CLIENT_ID'));
-            $saltKey = config('phonepe.salt_key', env('PHONEPE_SALT_KEY', '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399'));
-            $saltIndex = config('phonepe.salt_index', env('PHONEPE_SALT_INDEX', 1));
+            // Use Simple QR Code library
+            $qrCode = \SimpleSoftwareIO\QrCode\Facades\QrCode::size(300)
+                ->format('png')
+                ->generate($upiUrl);
             
-            $environment = config('phonepe.env', env('PHONEPE_ENV', 'UAT'));
-            $baseUrl = $environment === 'PROD' 
-                ? 'https://api.phonepe.com/apis/hermes' 
-                : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
-            
-            $redirectUrl = config('phonepe.redirect_url', env('PHONEPE_REDIRECT_URL'));
-
-            $roomNo = $resident->room->room_no ?? 'N/A';
-            $residentName = $resident->name;
-            $mobile = $resident->phone ?? '';
-
-            $payload = [
-                'merchantId' => $merchantId,
-                'merchantTransactionId' => $reference,
-                'merchantUserId' => 'M-' . $resident->id,
-                'amount' => (int) round($amount * 100),
-                'redirectUrl' => $redirectUrl . '?reference=' . $reference . '&resident_id=' . $resident->id,
-                'redirectMode' => 'REDIRECT',
-                'callbackUrl' => route('guest.payment.webhook'),
-                'mobileNumber' => $mobile,
-                'paymentInstrument' => [
-                    'type' => 'PAY_PAGE'
-                ],
-                'transactionNote' => "Rent - {$residentName} - Room {$roomNo}",
-            ];
-
-            $payloadBase64 = base64_encode(json_encode($payload));
-            $checksum = hash('sha256', $payloadBase64 . '/pg/v1/pay' . $saltKey) . '###' . $saltIndex;
-
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-                'X-VERIFY' => $checksum,
-                'X-CLIENT-ID' => $merchantId,
-                'X-CLIENT-VERSION' => config('phonepe.client_version', 1)
-            ])->post($baseUrl . '/pg/v1/pay', [
-                'request' => $payloadBase64
-            ]);
-
-            $result = $response->json();
-
-            Log::info('PhonePe Payment Response', [
-                'reference' => $reference,
-                'response' => $result
-            ]);
-
-            if (isset($result['success']) && $result['success'] === true) {
-                return [
-                    'redirectUrl' => $result['data']['instrumentResponse']['redirectInfo']['url'] ?? 
-                                   $result['data']['redirectUrl'] ?? null,
-                    'orderId' => $result['data']['orderId'] ?? null,
-                    'state' => $result['data']['state'] ?? 'PENDING'
-                ];
-            }
-
-            Log::error('PhonePe payment failed', [
-                'reference' => $reference,
-                'response' => $result
-            ]);
-
-            return null;
-
-        } catch (\Exception $e) {
-            Log::error('PhonePe API error: ' . $e->getMessage(), [
-                'reference' => $reference
-            ]);
+            return base64_encode($qrCode);
+        } catch (Exception $e) {
+            Log::error('QR Code generation failed: ' . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Handle PhonePe callback
+     * Browser lands here after PhonePe checkout.
+     * GET /guest/payment/callback
      */
     public function callback(Request $request)
     {
-        $reference = $request->input('merchant_order_id') ?? $request->input('reference');
-        
-        if (!$reference) {
-            $reference = session('payment_reference');
-        }
+        $merchantOrderId = $request->query('merchant_order_id');
 
-        if (!$reference) {
-            return redirect()->route('guest.payment.index')
-                ->with('error', 'Payment reference not found');
-        }
-
-        // Get resident_id from request
-        $residentId = $request->input('resident_id');
-        
-        // Get payment details
-        $payment = Payment::where('receipt_no', $reference)->first();
-
-        // Check PhonePe status
-        $status = $this->checkPhonePeStatus($reference);
-        
-        if ($status && isset($status['state']) && $status['state'] === 'COMPLETED') {
-            if ($payment) {
-                $payment->status = 'PAID';
-                $payment->payment_date = now();
-                $payment->save();
-            } else {
-                // Create payment record if it doesn't exist
-                if ($residentId) {
-                    $resident = Resident::find($residentId);
-                    if ($resident) {
-                        $currentMonth = now()->month;
-                        $currentYear = now()->year;
-                        
-                        $payment = Payment::create([
-                            'resident_id' => $resident->id,
-                            'receipt_no' => $reference,
-                            'month' => $currentMonth,
-                            'year' => $currentYear,
-                            'rent_amount' => $request->input('amount', 0),
-                            'discount_amount' => 0,
-                            'fine_amount' => 0,
-                            'cash_paid_amount' => 0,
-                            'upi_paid_amount' => $request->input('amount', 0),
-                            'balance_amount' => 0,
-                            'payment_date' => now(),
-                            'transaction_id' => $status['transactionId'] ?? 'TXN-' . strtoupper(Str::random(10)),
-                            'status' => 'PAID'
-                        ]);
-                    }
-                }
-            }
-
-            return view('guest.success', [
-                'success' => true,
-                'reference' => $reference,
-                'amount' => $payment->upi_paid_amount ?? $request->input('amount', 0),
-                'receipt_no' => $payment->receipt_no ?? $reference,
-                'encodedHostelId' => $request->input('encodedHostelId')
+        if (!$merchantOrderId) {
+            return view('guest.payment-result', [
+                'success' => false,
+                'message' => 'Missing payment reference.',
             ]);
         }
 
-        return view('guest.success', [
+        try {
+            $status = $this->phonePe->orderStatus($merchantOrderId, true);
+        } catch (Exception $e) {
+            Log::error('PhonePe callback status check failed: ' . $e->getMessage(), [
+                'merchant_order_id' => $merchantOrderId
+            ]);
+
+            return view('guest.payment-result', [
+                'success' => false,
+                'message' => 'Could not verify payment. Reference: ' . $merchantOrderId,
+                'reference' => $merchantOrderId,
+            ]);
+        }
+
+        $state = $status['state'] ?? 'UNKNOWN';
+
+        if ($state === 'COMPLETED') {
+            $payment = $this->recordPaymentIfNeeded($merchantOrderId, $status);
+
+            // Enable biometric access after payment
+            $this->enableBiometricAccess($payment->resident_id);
+
+            return view('guest.payment-result', [
+                'success' => true,
+                'message' => 'Payment successful! Your biometric access has been enabled.',
+                'reference' => $merchantOrderId,
+                'amount' => ($status['amount'] ?? 0) / 100,
+                'receipt_no' => $payment->receipt_no ?? $merchantOrderId,
+                'biometric_enabled' => true
+            ]);
+        }
+
+        if ($state === 'PENDING') {
+            return view('guest.payment-result', [
+                'success' => null,
+                'message' => 'Your payment is still processing. This page will update automatically.',
+                'reference' => $merchantOrderId,
+            ]);
+        }
+
+        return view('guest.payment-result', [
             'success' => false,
-            'reference' => $reference,
-            'message' => 'Payment is still being processed. Please check back later.',
-            'encodedHostelId' => $request->input('encodedHostelId')
+            'message' => 'Payment was not completed (' . $state . '). You can try again.',
+            'reference' => $merchantOrderId,
         ]);
     }
 
     /**
-     * Check PhonePe payment status
-     */
-    private function checkPhonePeStatus($reference)
-    {
-        try {
-            $merchantId = config('phonepe.client_id', env('PHONEPE_CLIENT_ID'));
-            $saltKey = config('phonepe.salt_key', env('PHONEPE_SALT_KEY', '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399'));
-            $saltIndex = config('phonepe.salt_index', env('PHONEPE_SALT_INDEX', 1));
-            
-            $environment = config('phonepe.env', env('PHONEPE_ENV', 'UAT'));
-            $baseUrl = $environment === 'PROD' 
-                ? 'https://api.phonepe.com/apis/hermes' 
-                : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
-
-            $checksum = hash('sha256', '/pg/v1/status/' . $merchantId . '/' . $reference . $saltKey) . '###' . $saltIndex;
-
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-                'X-VERIFY' => $checksum,
-                'X-MERCHANT-ID' => $merchantId
-            ])->get($baseUrl . '/pg/v1/status/' . $merchantId . '/' . $reference);
-
-            $result = $response->json();
-
-            Log::info('PhonePe Status Check', [
-                'reference' => $reference,
-                'response' => $result
-            ]);
-
-            if (isset($result['success']) && $result['success'] === true) {
-                return [
-                    'state' => $result['data']['state'] ?? 'PENDING',
-                    'transactionId' => $result['data']['transactionId'] ?? null,
-                    'amount' => $result['data']['amount'] ?? 0
-                ];
-            }
-
-            return ['state' => 'PENDING'];
-
-        } catch (\Exception $e) {
-            Log::error('PhonePe status check error: ' . $e->getMessage(), [
-                'reference' => $reference
-            ]);
-            return ['state' => 'PENDING'];
-        }
-    }
-
-    /**
-     * Get payment status by reference (AJAX polling)
+     * AJAX polling / lookup endpoint.
+     * GET /guest/payment/status?reference=PAY-...
      */
     public function status(Request $request)
     {
@@ -508,94 +380,204 @@ class GuestPaymentController extends Controller
         }
 
         $reference = $request->reference;
-        
-        // Check local database first
-        $payment = Payment::where('receipt_no', $reference)
-            ->with('resident')
-            ->first();
 
+        // Fast path: already recorded locally
+        $payment = Payment::where('receipt_no', $reference)->with('resident')->first();
         if ($payment && $payment->status === 'PAID') {
             return response()->json([
                 'success' => true,
                 'state' => 'COMPLETED',
                 'data' => [
                     'status' => $payment->status,
-                    'amount' => (float) $payment->upi_paid_amount,
+                    'amount' => $payment->upi_paid_amount,
                     'receipt_no' => $payment->receipt_no,
-                    'payment_date' => $payment->payment_date ? $payment->payment_date->format('d M Y h:i A') : null,
+                    'payment_date' => $payment->payment_date->format('d M Y h:i A'),
                     'resident' => $payment->resident->name ?? 'N/A'
                 ]
-            ], 200, [], JSON_NUMERIC_CHECK);
+            ]);
         }
 
-        // Check PhonePe status
-        $status = $this->checkPhonePeStatus($reference);
-        
-        if ($status && $status['state'] === 'COMPLETED') {
-            // Update payment if exists
-            if ($payment) {
-                $payment->status = 'PAID';
-                $payment->payment_date = now();
-                $payment->save();
-            }
+        try {
+            $status = $this->phonePe->orderStatus($reference, true);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+
+        $state = $status['state'] ?? 'UNKNOWN';
+
+        if ($state === 'COMPLETED') {
+            $payment = $this->recordPaymentIfNeeded($reference, $status);
             
+            // Enable biometric access
+            if ($payment && $payment->resident_id) {
+                $this->enableBiometricAccess($payment->resident_id);
+            }
+
             return response()->json([
                 'success' => true,
                 'state' => 'COMPLETED',
                 'data' => [
-                    'status' => 'PAID',
-                    'amount' => (float) ($payment->upi_paid_amount ?? $status['amount'] ?? 0),
-                    'receipt_no' => $payment->receipt_no ?? $reference,
-                    'payment_date' => now()->format('d M Y h:i A'),
+                    'status' => $payment->status,
+                    'amount' => $payment->upi_paid_amount,
+                    'receipt_no' => $payment->receipt_no,
+                    'payment_date' => $payment->payment_date->format('d M Y h:i A'),
                     'resident' => $payment->resident->name ?? 'N/A'
                 ]
-            ], 200, [], JSON_NUMERIC_CHECK);
+            ]);
         }
 
         return response()->json([
             'success' => true,
-            'state' => $status['state'] ?? 'PENDING',
-            'data' => [
-                'status' => 'PENDING',
-                'message' => 'Payment is being processed'
-            ]
+            'state' => $state,
         ]);
     }
 
     /**
-     * Handle successful payment (legacy/alternative endpoint)
+     * PhonePe Webhook (S2S callback).
+     * POST /guest/payment/webhook
      */
-    public function success(Request $request)
+    public function webhook(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'reference' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'resident_id' => 'required|exists:residents,id',
-            'transaction_id' => 'nullable|string|max:255'
+        $authHeader = $request->header('Authorization', '');
+
+        $expected = hash('sha256',
+            config('phonepe.webhook_username') . ':' . config('phonepe.webhook_password')
+        );
+
+        if (!hash_equals($expected, $authHeader)) {
+            Log::warning('PhonePe webhook: invalid Authorization header');
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $body = $request->json()->all();
+        $event = $body['event'] ?? null;
+        $payload = $body['payload'] ?? [];
+
+        Log::info('PhonePe webhook received', [
+            'event' => $event,
+            'merchantOrderId' => $payload['merchantOrderId'] ?? null,
+            'state' => $payload['state'] ?? null,
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+        if (($payload['state'] ?? null) === 'COMPLETED' && !empty($payload['merchantOrderId'])) {
+            $payment = $this->recordPaymentIfNeeded($payload['merchantOrderId'], $payload);
+            
+            // Enable biometric access via webhook
+            if ($payment && $payment->resident_id) {
+                $this->enableBiometricAccess($payment->resident_id);
+            }
+        }
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Idempotently creates the local Payment record.
+     */
+    protected function recordPaymentIfNeeded(string $merchantOrderId, array $status): Payment
+    {
+        $existing = Payment::where('receipt_no', $merchantOrderId)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $residentId = cache()->get('phonepe_order_resident_' . $merchantOrderId);
+        $resident = $residentId ? Resident::find($residentId) : null;
+
+        $amount = ($status['amount'] ?? 0) / 100;
+        $transactionId = $status['paymentDetails'][0]['transactionId'] ?? ('TXN-' . strtoupper(Str::random(10)));
+
+        $payment = Payment::create([
+            'resident_id' => $resident?->id,
+            'receipt_no' => $merchantOrderId,
+            'month' => now()->month,
+            'year' => now()->year,
+            'rent_amount' => $amount,
+            'discount_amount' => 0,
+            'fine_amount' => 0,
+            'cash_paid_amount' => 0,
+            'upi_paid_amount' => $amount,
+            'balance_amount' => 0,
+            'payment_date' => now(),
+            'transaction_id' => $transactionId,
+            'status' => 'PAID',
+        ]);
+
+        return $payment;
+    }
+
+    /**
+     * ============================================================
+     * BIOMETRIC INTEGRATION METHODS (Using MockEbioServerService)
+     * ============================================================
+     */
+
+    /**
+     * Enable biometric access for a resident after successful payment
+     */
+    protected function enableBiometricAccess($residentId)
+    {
+        if (!$residentId) {
+            return;
         }
 
         try {
-            // Check if payment already processed
-            $existingPayment = Payment::where('receipt_no', $request->reference)
-                ->orWhere('transaction_id', $request->transaction_id)
-                ->first();
+            $resident = Resident::with('room')->find($residentId);
+            if (!$resident) {
+                Log::warning('Resident not found for biometric access', ['resident_id' => $residentId]);
+                return;
+            }
 
-            if ($existingPayment) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment already processed',
-                    'data' => $existingPayment
+            // Generate employee code from resident ID
+            $employeeCode = 'RES_' . str_pad($resident->id, 6, '0', STR_PAD_LEFT);
+            
+            // First sync/update employee in biometric system
+            $syncResult = $this->biometric->updateEmployee([
+                'employee_code' => $employeeCode,
+                'name' => $resident->name,
+                'phone' => $resident->phone,
+                'email' => $resident->email,
+                'room_no' => $resident->room->room_no ?? 'N/A',
+                'hostel_id' => $resident->hostel_id,
+                'access_enabled' => true
+            ]);
+
+            if ($syncResult['success']) {
+                // Then enable access
+                $enableResult = $this->biometric->enableEmployee($employeeCode);
+                
+                Log::info('Biometric access enabled for resident', [
+                    'resident_id' => $residentId,
+                    'employee_code' => $employeeCode,
+                    'name' => $resident->name,
+                    'room' => $resident->room->room_no ?? 'N/A',
+                    'sync_result' => $syncResult,
+                    'enable_result' => $enableResult
+                ]);
+            } else {
+                Log::warning('Failed to sync resident with biometric system', [
+                    'resident_id' => $residentId,
+                    'error' => $syncResult['message'] ?? 'Unknown error'
                 ]);
             }
 
-            $resident = Resident::find($request->resident_id);
+        } catch (Exception $e) {
+            Log::error('Biometric access enable error: ' . $e->getMessage(), [
+                'resident_id' => $residentId
+            ]);
+        }
+    }
+
+    /**
+     * Disable biometric access for a resident
+     */
+    public function disableBiometricAccess($residentId)
+    {
+        try {
+            $resident = Resident::find($residentId);
             if (!$resident) {
                 return response()->json([
                     'success' => false,
@@ -603,195 +585,183 @@ class GuestPaymentController extends Controller
                 ], 404);
             }
 
-            // Check for existing pending payments
-            $pendingPayments = Payment::where('resident_id', $resident->id)
-                ->whereIn('status', ['PENDING', 'PARTIAL'])
-                ->orderBy('year', 'asc')
-                ->orderBy('month', 'asc')
-                ->get();
-
-            $paymentAmount = (float) $request->amount;
-            $remainingAmount = $paymentAmount;
-            $payment = null;
-
-            // If there are pending payments, apply payment to oldest first
-            foreach ($pendingPayments as $pending) {
-                if ($remainingAmount <= 0) break;
-
-                $balanceDue = (float) $pending->balance_amount;
-                if ($balanceDue <= 0) continue;
-
-                if ($remainingAmount >= $balanceDue) {
-                    $pending->upi_paid_amount = (float) $pending->upi_paid_amount + $balanceDue;
-                    $pending->balance_amount = 0;
-                    $pending->status = 'PAID';
-                    $pending->payment_date = now();
-                    $pending->transaction_id = $request->transaction_id ?? 'TXN-' . strtoupper(Str::random(10));
-                    $pending->save();
-                    $payment = $pending;
-                    $remainingAmount -= $balanceDue;
-                } else {
-                    $pending->upi_paid_amount = (float) $pending->upi_paid_amount + $remainingAmount;
-                    $pending->balance_amount = $balanceDue - $remainingAmount;
-                    $pending->status = 'PARTIAL';
-                    $pending->payment_date = now();
-                    $pending->transaction_id = $request->transaction_id ?? 'TXN-' . strtoupper(Str::random(10));
-                    $pending->save();
-                    $payment = $pending;
-                    $remainingAmount = 0;
-                }
-            }
-
-            // If there's remaining amount and no pending payments, create new payment
-            if ($remainingAmount > 0) {
-                $currentMonth = now()->month;
-                $currentYear = now()->year;
-
-                $currentPayment = Payment::where('resident_id', $resident->id)
-                    ->where('month', $currentMonth)
-                    ->where('year', $currentYear)
-                    ->first();
-
-                if ($currentPayment && $currentPayment->status === 'PAID') {
-                    $nextMonth = now()->addMonth()->month;
-                    $nextYear = now()->addMonth()->year;
-
-                    $payment = Payment::create([
-                        'resident_id' => $resident->id,
-                        'receipt_no' => $request->reference,
-                        'month' => $nextMonth,
-                        'year' => $nextYear,
-                        'rent_amount' => $remainingAmount,
-                        'discount_amount' => 0,
-                        'fine_amount' => 0,
-                        'cash_paid_amount' => 0,
-                        'upi_paid_amount' => $remainingAmount,
-                        'balance_amount' => 0,
-                        'payment_date' => now(),
-                        'transaction_id' => $request->transaction_id ?? 'TXN-' . strtoupper(Str::random(10)),
-                        'status' => 'PAID'
-                    ]);
-                } else {
-                    if ($currentPayment) {
-                        $currentPayment->upi_paid_amount = (float) $currentPayment->upi_paid_amount + $remainingAmount;
-                        $currentPayment->balance_amount = max(0, (float) $currentPayment->rent_amount - (float) $currentPayment->upi_paid_amount - (float) $currentPayment->cash_paid_amount);
-                        $currentPayment->status = $currentPayment->balance_amount > 0 ? 'PARTIAL' : 'PAID';
-                        $currentPayment->payment_date = now();
-                        $currentPayment->transaction_id = $request->transaction_id ?? 'TXN-' . strtoupper(Str::random(10));
-                        $currentPayment->save();
-                        $payment = $currentPayment;
-                    } else {
-                        $payment = Payment::create([
-                            'resident_id' => $resident->id,
-                            'receipt_no' => $request->reference,
-                            'month' => $currentMonth,
-                            'year' => $currentYear,
-                            'rent_amount' => $remainingAmount,
-                            'discount_amount' => 0,
-                            'fine_amount' => 0,
-                            'cash_paid_amount' => 0,
-                            'upi_paid_amount' => $remainingAmount,
-                            'balance_amount' => 0,
-                            'payment_date' => now(),
-                            'transaction_id' => $request->transaction_id ?? 'TXN-' . strtoupper(Str::random(10)),
-                            'status' => 'PAID'
-                        ]);
-                    }
-                }
-            }
-
-            if ($payment) {
-                $payment->load('resident');
-            }
+            $employeeCode = 'RES_' . str_pad($resident->id, 6, '0', STR_PAD_LEFT);
+            $result = $this->biometric->disableEmployee($employeeCode);
 
             return response()->json([
-                'success' => true,
-                'message' => 'Payment recorded successfully!',
-                'data' => [
-                    'payment' => $payment,
-                    'resident' => $resident,
-                    'receipt_no' => $payment->receipt_no ?? $request->reference,
-                    'amount' => (float) ($payment->upi_paid_amount ?? $paymentAmount),
-                    'payment_date' => $payment->payment_date->format('d M Y h:i A'),
-                    'resident_name' => $resident->name,
-                    'payment_status' => $payment->status ?? 'PAID',
-                    'remaining_balance' => (float) ($payment->balance_amount ?? 0)
-                ]
-            ], 200, [], JSON_NUMERIC_CHECK);
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? 'Access disabled',
+                'employee_code' => $employeeCode
+            ]);
 
-        } catch (\Exception $e) {
-            Log::error('Payment processing error: ' . $e->getMessage(), [
-                'reference' => $request->reference,
-                'resident_id' => $request->resident_id
+        } catch (Exception $e) {
+            Log::error('Biometric access disable error: ' . $e->getMessage(), [
+                'resident_id' => $residentId
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error processing payment: ' . $e->getMessage()
+                'message' => 'Failed to disable access: ' . $e->getMessage()
             ], 500);
         }
     }
 
     /**
-     * Handle PhonePe webhook
+     * Check biometric access status for a resident
      */
-    public function webhook(Request $request)
+    public function checkBiometricAccess($residentId)
     {
-        Log::info('PhonePe webhook received', $request->all());
-
         try {
-            $payload = $request->all();
-            
-            if (!isset($payload['transactionId'])) {
-                return response()->json(['error' => 'Invalid payload'], 400);
+            $resident = Resident::find($residentId);
+            if (!$resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resident not found'
+                ], 404);
             }
 
-            $transactionId = $payload['transactionId'];
-            $status = $payload['state'] ?? 'PENDING';
-            $reference = $payload['merchantTransactionId'] ?? null;
+            $employeeCode = 'RES_' . str_pad($resident->id, 6, '0', STR_PAD_LEFT);
+            $employee = $this->biometric->getEmployee($employeeCode);
 
-            // Find payment by transaction ID or reference
-            $payment = Payment::where('transaction_id', $transactionId)
-                ->orWhere('receipt_no', $reference)
-                ->first();
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'resident_id' => $residentId,
+                    'name' => $resident->name,
+                    'employee_code' => $employeeCode,
+                    'access_enabled' => $employee['access_enabled'] ?? false,
+                    'synced_at' => $employee['synced_at'] ?? null,
+                    'enabled_at' => $employee['enabled_at'] ?? null,
+                    'room_no' => $resident->room->room_no ?? 'N/A'
+                ]
+            ]);
 
-            if (!$payment) {
-                Log::warning('Payment not found for webhook', [
-                    'transaction_id' => $transactionId,
-                    'reference' => $reference
-                ]);
-                return response()->json(['error' => 'Payment not found'], 404);
-            }
-
-            if ($status === 'COMPLETED') {
-                $payment->status = 'PAID';
-                $payment->payment_date = now();
-                $payment->save();
-
-                Log::info('Payment updated via webhook', [
-                    'payment_id' => $payment->id,
-                    'transaction_id' => $transactionId
-                ]);
-            } elseif ($status === 'FAILED') {
-                $payment->status = 'FAILED';
-                $payment->save();
-
-                Log::warning('Payment failed via webhook', [
-                    'payment_id' => $payment->id,
-                    'transaction_id' => $transactionId
-                ]);
-            }
-
-            return response()->json(['success' => true]);
-
-        } catch (\Exception $e) {
-            Log::error('Webhook processing error: ' . $e->getMessage());
-            return response()->json(['error' => 'Internal server error'], 500);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check access: ' . $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * Generate encoded hostel link
+     * Sync all residents with biometric system
+     */
+    public function syncBiometricAll()
+    {
+        try {
+            $residents = Resident::where('status', 'ACTIVE')->get();
+            $results = [];
+
+            foreach ($residents as $resident) {
+                $employeeCode = 'RES_' . str_pad($resident->id, 6, '0', STR_PAD_LEFT);
+                $result = $this->biometric->updateEmployee([
+                    'employee_code' => $employeeCode,
+                    'name' => $resident->name,
+                    'phone' => $resident->phone,
+                    'email' => $resident->email,
+                    'room_no' => $resident->room->room_no ?? 'N/A',
+                    'hostel_id' => $resident->hostel_id,
+                    'access_enabled' => true
+                ]);
+
+                $results[] = [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'employee_code' => $employeeCode,
+                    'success' => $result['success'] ?? false,
+                    'message' => $result['message'] ?? 'Synced'
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total' => count($results),
+                    'synced' => collect($results)->where('success', true)->count(),
+                    'failed' => collect($results)->where('success', false)->count(),
+                    'results' => $results
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sync failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get device logs (attendance)
+     */
+    public function getDeviceLogs(Request $request)
+    {
+        $date = $request->input('date', now()->format('Y-m-d'));
+
+        try {
+            $result = $this->biometric->getDeviceLogs($date);
+
+            return response()->json([
+                'success' => $result['success'] ?? false,
+                'data' => $result['data'] ?? null,
+                'count' => $result['count'] ?? 0,
+                'date' => $result['date'] ?? $date
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get logs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get device status
+     */
+    public function getDeviceStatus($deviceId = 'DEV_001')
+    {
+        try {
+            $result = $this->biometric->getDeviceLastPing($deviceId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get device status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reboot device
+     */
+    public function rebootDevice($deviceId = 'DEV_001')
+    {
+        try {
+            $result = $this->biometric->rebootDevice($deviceId);
+
+            return response()->json([
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? 'Device rebooted',
+                'data' => $result
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reboot device: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Admin helper: generate an encoded hostel payment link.
      */
     public function generateLink($hostelId)
     {
@@ -806,24 +776,18 @@ class GuestPaymentController extends Controller
         $encodedId = Crypt::encryptString($hostelId);
         $url = url('/guest/payment/' . $encodedId);
 
-        $qrLink = QrCode::size(200)->generate($url);
-
         return response()->json([
             'success' => true,
             'data' => [
-                'hostel_id' => (int) $hostelId,
+                'hostel_id' => $hostelId,
                 'hostel_name' => $hostel->hostel_name,
                 'hostel_code' => $hostel->hostel_code ?? 'HOSTEL',
                 'encoded_id' => $encodedId,
                 'payment_link' => $url,
-                'qr_code_link' => $qrLink
             ]
         ]);
     }
 
-    /**
-     * Helper to encode a hostel ID
-     */
     public function encodeId($hostelId)
     {
         try {
@@ -831,12 +795,12 @@ class GuestPaymentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'original_id' => (int) $hostelId,
+                    'original_id' => $hostelId,
                     'encoded_id' => $encoded,
                     'url' => url('/guest/payment/' . $encoded)
                 ]
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to encode ID: ' . $e->getMessage()
@@ -844,9 +808,6 @@ class GuestPaymentController extends Controller
         }
     }
 
-    /**
-     * Helper to decode an encoded hostel ID
-     */
     public function decodeId($encodedId)
     {
         try {
@@ -855,10 +816,10 @@ class GuestPaymentController extends Controller
                 'success' => true,
                 'data' => [
                     'encoded_id' => $encodedId,
-                    'decoded_id' => (int) $decoded
+                    'decoded_id' => $decoded
                 ]
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to decode ID: ' . $e->getMessage()

@@ -258,28 +258,35 @@ Route::get('/clear-cache', function () {
     return nl2br(Artisan::output()) . "<br><br>✅ All cache cleared successfully.";
 });
 
-Route::get('/phonepe/test', [PhonePeController::class, 'test']);
-Route::post('/phonepe/pay', [PhonePeController::class, 'pay'])->name('phonepe.pay');
-Route::get('/phonepe/callback', [PhonePeController::class, 'callback'])->name('phonepe.callback');
-Route::get('/phonepe/status/{merchantOrderId}', [PhonePeController::class, 'status'])->name('phonepe.status');
-Route::post('/phonepe/refund', [PhonePeController::class, 'refund'])->name('phonepe.refund');
-Route::get('/phonepe/refund-status/{merchantRefundId}', [PhonePeController::class, 'refundStatus'])->name('phonepe.refund-status');
-
+Route::prefix('phonepe')->name('phonepe.')->group(function () {
+    Route::get('/test', [PhonePeController::class, 'test'])->name('test');
+    Route::post('/pay', [PhonePeController::class, 'pay'])->name('pay');
+    Route::get('/status/{merchantOrderId}', [PhonePeController::class, 'status'])->name('status');
+    Route::post('/refund', [PhonePeController::class, 'refund'])->name('refund');
+    Route::get('/refund-status/{merchantRefundId}', [PhonePeController::class, 'refundStatus'])->name('refund-status');
+});
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
-    // Static routes - MUST be defined BEFORE the catch-all route
+    // Main routes
     Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
     Route::get('/generate-qr', [GuestPaymentController::class, 'generateQR'])->name('qr');
     Route::get('/callback', [GuestPaymentController::class, 'callback'])->name('callback');
     Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
     Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
-    Route::get('/phonepe-redirect', [GuestPaymentController::class, 'redirectToPhonePe'])->name('phonepe.redirect');
-    
+
+    // Biometric routes
+    Route::post('/biometric/disable/{residentId}', [GuestPaymentController::class, 'disableBiometricAccess'])->name('biometric.disable');
+    Route::get('/biometric/check/{residentId}', [GuestPaymentController::class, 'checkBiometricAccess'])->name('biometric.check');
+    Route::post('/biometric/sync-all', [GuestPaymentController::class, 'syncBiometricAll'])->name('biometric.sync-all');
+    Route::get('/biometric/logs', [GuestPaymentController::class, 'getDeviceLogs'])->name('biometric.logs');
+    Route::get('/biometric/device-status/{deviceId?}', [GuestPaymentController::class, 'getDeviceStatus'])->name('biometric.device-status');
+    Route::post('/biometric/reboot/{deviceId?}', [GuestPaymentController::class, 'rebootDevice'])->name('biometric.reboot');
+
     // Admin helper routes
     Route::get('/generate-link/{hostelId}', [GuestPaymentController::class, 'generateLink'])->name('generate-link');
     Route::get('/encode/{hostelId}', [GuestPaymentController::class, 'encodeId'])->name('encode');
     Route::get('/decode/{encodedId}', [GuestPaymentController::class, 'decodeId'])->name('decode');
 
-    // Catch-all - MUST be LAST
+    // Catch-all — MUST stay last
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
 });
 // Payment Links Generator (Admin only)
