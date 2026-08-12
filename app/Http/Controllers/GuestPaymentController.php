@@ -564,36 +564,57 @@ public function getResident(Request $request)
      * confirmed COMPLETED. Safe to call multiple times for the same order
      * (webhook + callback + polling may all race to call this).
      */
-    protected function recordPaymentIfNeeded(string $merchantOrderId, array $status): Payment
-    {
-        $existing = Payment::where('receipt_no', $merchantOrderId)->first();
-        if ($existing) {
-            return $existing;
-        }
-
-        $residentId = cache()->get('phonepe_order_resident_' . $merchantOrderId);
-        $resident = $residentId ? Resident::find($residentId) : null;
-
-        $amount = ($status['amount'] ?? 0) / 100;
-        $transactionId = $status['paymentDetails'][0]['transactionId'] ?? ('TXN-' . strtoupper(Str::random(10)));
-
-        return Payment::create([
-            'resident_id' => $resident?->id,
-            'receipt_no' => $merchantOrderId,
-            'month' => now()->month,
-            'year' => now()->year,
-            'rent_amount' => $amount,
-            'discount_amount' => 0,
-            'fine_amount' => 0,
-            'cash_paid_amount' => 0,
-            'upi_paid_amount' => $amount,
-            'balance_amount' => 0,
-            'payment_date' => now(),
-            'transaction_id' => $transactionId,
-            'status' => 'PAID',
-        ]);
+protected function recordPaymentIfNeeded(string $merchantOrderId, array $status): Payment
+{
+    $existing = Payment::where('receipt_no', $merchantOrderId)->first();
+    if ($existing) {
+        return $existing;
     }
 
+    $residentId = cache()->get('phonepe_order_resident_' . $merchantOrderId);
+    $resident = $residentId ? Resident::find($residentId) : null;
+
+    $paidAmount = ($status['amount'] ?? 0) / 100;
+    $rentAmount = $resident?->rent_amount ?? 0;
+    $transactionId = $status['paymentDetails'][0]['transactionId'] ?? ('TXN-' . strtoupper(Str::random(10)));
+
+    // Determine status based on paid amount vs rent amount
+    $paymentStatus = $this->determinePaymentStatus($paidAmount, $rentAmount);
+
+    return Payment::create([
+        'resident_id' => $resident?->id,
+        'receipt_no' => $merchantOrderId,
+        'month' => now()->month,
+        'year' => now()->year,
+        'rent_amount' => $rentAmount,
+        'discount_amount' => 0,
+        'fine_amount' => 0,
+        'cash_paid_amount' => 0,
+        'upi_paid_amount' => $paidAmount,
+        'balance_amount' => max(0, $rentAmount - $paidAmount),
+        'payment_date' => now(),
+        'transaction_id' => $transactionId,
+        'status' => $paymentStatus, // ✅ Dynamic status
+    ]);
+}
+
+/**
+ * Determine payment status based on paid amount vs total amount
+ */
+protected function determinePaymentStatus(float $paidAmount, float $totalAmount): string
+{
+    if ($totalAmount <= 0) {
+        return 'PAID'; // If no rent due, consider it paid
+    }
+
+    if ($paidAmount >= $totalAmount) {
+        return 'PAID';
+    } elseif ($paidAmount > 0) {
+        return 'PARTIAL';
+    } else {
+        return 'PENDING';
+    }
+}
     /**
      * Admin helper: generate an encoded hostel payment link.
      */

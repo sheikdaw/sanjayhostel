@@ -244,7 +244,7 @@ class PaymentController extends Controller
             'receipt_no' => $receiptNo,
             'month' => $request->month,
             'year' => $request->year,
-            'rent_amount' => $request->rent_amount,
+            'rent_amount' => $resident->rent_amount,
             'discount_amount' => $request->discount_amount ?? 0,
             'fine_amount' => $request->fine_amount ?? 0,
             'cash_paid_amount' => $request->cash_paid_amount,
@@ -333,7 +333,6 @@ class PaymentController extends Controller
         $payment->update([
             'month' => $request->month,
             'year' => $request->year,
-            'rent_amount' => $request->rent_amount,
             'discount_amount' => $request->discount_amount ?? 0,
             'fine_amount' => $request->fine_amount ?? 0,
             'cash_paid_amount' => $request->cash_paid_amount,
