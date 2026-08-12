@@ -66,6 +66,10 @@ class GuestPaymentController extends Controller
  * Get resident details by mobile number.
  * POST /guest/payment/resident
  */
+/**
+ * Get resident details by mobile number.
+ * POST /guest/payment/resident
+ */
 public function getResident(Request $request)
 {
     $validator = Validator::make($request->all(), [
@@ -97,13 +101,19 @@ public function getResident(Request $request)
     $currentYear = now()->year;
     $currentDay = now()->day;
 
+    // Get all payments for this resident (current + previous)
+    $allPayments = Payment::where('resident_id', $resident->id)
+        ->orderBy('year', 'asc')
+        ->orderBy('month', 'asc')
+        ->get();
+
     // Check if current month's payment exists
     $currentPayment = Payment::where('resident_id', $resident->id)
         ->where('month', $currentMonth)
         ->where('year', $currentYear)
         ->first();
 
-    // Get all pending payments (previous months)
+    // Get pending payments (previous months)
     $pendingPayments = Payment::where('resident_id', $resident->id)
         ->whereIn('status', ['PENDING', 'PARTIAL'])
         ->orderBy('year', 'asc')
@@ -123,13 +133,16 @@ public function getResident(Request $request)
         }
     }
 
+    // ============================================================
+    // CALCULATE PAYMENT BREAKDOWN
+    // ============================================================
+    
+    $rentAmount = (float) ($resident->rent_amount ?? 0);
+    
     // Calculate total due from pending payments
     $totalDue = $pendingPayments->sum('balance_amount');
     
-    // Get rent amount
-    $rentAmount = (float) ($resident->rent_amount ?? 0);
-    
-    // Check if current month is not paid, add to total due
+    // If no pending payments and current month not paid, add current month rent
     if (!$isCurrentMonthPaid && $currentMonthStatus !== 'PAID') {
         if (!$currentPayment) {
             $totalDue += $rentAmount;
@@ -139,10 +152,11 @@ public function getResident(Request $request)
     }
 
     // ============================================================
-    // DISCOUNT CALCULATION BASED ON DATE
+    // DISCOUNT CALCULATION
     // ============================================================
     $discount = 0;
     $discountType = null;
+    $discountAmount = 0;
     $finalAmount = (float) $totalDue;
     $discountMessage = '';
 
@@ -150,34 +164,34 @@ public function getResident(Request $request)
     // 1. No pending payments from previous months
     // 2. Current month is not paid yet
     // 3. Total due is greater than 0
+    // 4. Current date is between 1st and 10th
     if ($pendingPayments->count() == 0 && !$isCurrentMonthPaid && $totalDue > 0) {
         
-        // Check current date for discount
         if ($currentDay >= 1 && $currentDay <= 5) {
             // 1st to 5th: 10% discount up to ₹250
-            $discount = min(250, $rentAmount * 0.10);
+            $discountAmount = min(250, $rentAmount * 0.10);
             $discountType = 'early_discount_250';
             $discountMessage = 'Early payment discount (1st-5th): 10% off up to ₹250';
             
         } elseif ($currentDay >= 6 && $currentDay <= 10) {
             // 6th to 10th: 5% discount up to ₹125
-            $discount = min(125, $rentAmount * 0.05);
+            $discountAmount = min(125, $rentAmount * 0.05);
             $discountType = 'early_discount_125';
             $discountMessage = 'Early payment discount (6th-10th): 5% off up to ₹125';
             
         } else {
             // After 10th: No discount
-            $discount = 0;
+            $discountAmount = 0;
             $discountType = 'no_discount';
             $discountMessage = 'No discount available. Please pay before 10th for early payment discount.';
         }
         
-        // Calculate final amount after discount
+        $discount = $discountAmount;
         $finalAmount = max(0, $totalDue - $discount);
     } else {
-        // If there are pending payments or already paid, no discount
         $discount = 0;
         $discountType = 'no_discount';
+        $finalAmount = $totalDue;
         
         if ($isCurrentMonthPaid) {
             $discountMessage = '✅ This month\'s rent is already paid.';
@@ -189,17 +203,65 @@ public function getResident(Request $request)
     }
 
     // ============================================================
+    // CALCULATE FINE / LATE FEE
+    // ============================================================
+    $fineAmount = 0;
+    $fineMessage = '';
+    
+    // If payment is made after 10th and current month is not paid
+    if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
+        // Calculate late fee: ₹50 per day after 10th (example)
+        $daysLate = $currentDay - 10;
+        $fineAmount = $daysLate * 50; // ₹50 per day
+        $fineMessage = "Late fee: ₹50 per day after 10th ({$daysLate} days late)";
+    }
+
+    // ============================================================
+    // CALCULATE PAID AMOUNTS (UPI + CASH)
+    // ============================================================
+    $totalUPIPaid = 0;
+    $totalCashPaid = 0;
+    $totalPaidAmount = 0;
+    $totalBalance = 0;
+    $paymentBreakdown = [];
+
+    foreach ($allPayments as $payment) {
+        $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
+        $upiPaid = (float) ($payment->upi_paid_amount ?? 0);
+        $cashPaid = (float) ($payment->cash_paid_amount ?? 0);
+        $balance = (float) ($payment->balance_amount ?? 0);
+        $rentAmt = (float) ($payment->rent_amount ?? 0);
+        
+        $totalUPIPaid += $upiPaid;
+        $totalCashPaid += $cashPaid;
+        $totalPaidAmount += ($upiPaid + $cashPaid);
+        $totalBalance += $balance;
+
+        $paymentBreakdown[] = [
+            'month' => $monthName . ' ' . $payment->year,
+            'rent_amount' => $rentAmt,
+            'discount' => (float) ($payment->discount_amount ?? 0),
+            'fine' => (float) ($payment->fine_amount ?? 0),
+            'upi_paid' => $upiPaid,
+            'cash_paid' => $cashPaid,
+            'total_paid' => $upiPaid + $cashPaid,
+            'balance' => $balance,
+            'status' => $payment->status
+        ];
+    }
+
+    // ============================================================
     // PAYMENT STATUS MESSAGE
     // ============================================================
     $paymentStatusMessage = '';
     $paymentStatus = '';
 
-    if ($isCurrentMonthPaid && $totalDue == 0) {
+    if ($isCurrentMonthPaid && $totalDue == 0 && $totalBalance == 0) {
         $paymentStatus = 'PAID';
         $paymentStatusMessage = '✅ All payments are up to date! You have no pending dues.';
-    } elseif ($pendingPayments->count() > 0) {
+    } elseif ($pendingPayments->count() > 0 || $totalBalance > 0) {
         $paymentStatus = 'PENDING';
-        $paymentStatusMessage = '⚠️ You have ' . $pendingPayments->count() . ' pending payment(s) from previous months.';
+        $paymentStatusMessage = '⚠️ You have pending payment(s). Please clear your dues.';
     } elseif (!$isCurrentMonthPaid && $totalDue > 0) {
         $paymentStatus = 'PENDING';
         $paymentStatusMessage = '📝 You have pending payment for this month.';
@@ -208,45 +270,70 @@ public function getResident(Request $request)
         $paymentStatusMessage = '✅ All payments are up to date!';
     }
 
-    // Prepare pending details for display
-    $pendingDetails = [];
-    foreach ($pendingPayments as $payment) {
-        $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-        $pendingDetails[] = [
-            'month' => $monthName . ' ' . $payment->year,
-            'amount' => (float) $payment->balance_amount,
-            'status' => $payment->status,
-            'total_amount' => (float) $payment->rent_amount,
-            'paid_amount' => (float) ($payment->upi_paid_amount + $payment->cash_paid_amount)
-        ];
-    }
+    // ============================================================
+    // CALCULATE FINAL AMOUNT TO PAY (Including fines)
+    // ============================================================
+    $amountToPay = $finalAmount + $fineAmount;
 
+    // ============================================================
+    // PREPARE RESPONSE
+    // ============================================================
     $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
 
     return response()->json([
         'success' => true,
         'data' => [
+            // Basic Info
             'resident_id' => (int) $resident->id,
             'name' => $resident->name,
             'email' => $resident->email ?? 'Not provided',
             'phone' => $resident->phone,
             'room_no' => $resident->room->room_no ?? 'N/A',
+            
+            // Rent Details
             'rent_amount' => (float) $rentAmount,
             'total_due' => (float) $totalDue,
-            'final_amount' => (float) $finalAmount,
+            
+            // Discount Details
             'discount' => (float) $discount,
             'discount_type' => $discountType,
+            'discount_amount' => (float) $discount,
             'discount_message' => $discountMessage,
-            'pending_count' => (int) $pendingPayments->count(),
-            'reference' => $reference,
-            'has_pending' => $pendingPayments->count() > 0,
-            'is_paid' => $isCurrentMonthPaid && $totalDue == 0,
+            'discount_applicable' => $discount > 0,
+            
+            // Fine Details
+            'fine_amount' => (float) $fineAmount,
+            'fine_message' => $fineMessage,
+            
+            // Final Amount
+            'final_amount' => (float) $amountToPay,
+            'amount_to_pay' => (float) $amountToPay,
+            
+            // Payment Summary
+            'total_upi_paid' => (float) $totalUPIPaid,
+            'total_cash_paid' => (float) $totalCashPaid,
+            'total_paid_amount' => (float) $totalPaidAmount,
+            'total_balance' => (float) $totalBalance,
+            
+            // Payment Status
             'payment_status' => $paymentStatus,
             'payment_status_message' => $paymentStatusMessage,
-            'current_month_status' => $currentMonthStatus,
+            'is_paid' => $paymentStatus === 'PAID',
+            'has_pending' => $pendingPayments->count() > 0 || $totalBalance > 0,
+            'pending_count' => (int) $pendingPayments->count(),
+            
+            // Date Info
             'current_day' => $currentDay,
-            'pending_payments' => $pendingDetails,
-            'discount_applicable' => $discount > 0,
+            'current_month_status' => $currentMonthStatus,
+            
+            // Payment Reference
+            'reference' => $reference,
+            
+            // Detailed Payment Breakdown
+            'payment_breakdown' => $paymentBreakdown,
+            'pending_payments' => $paymentBreakdown,
+            
+            // Message
             'message' => $paymentStatusMessage
         ]
     ], 200, [], JSON_NUMERIC_CHECK);
