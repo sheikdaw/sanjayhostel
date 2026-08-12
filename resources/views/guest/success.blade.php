@@ -97,15 +97,13 @@
 
         .spinner-border { width: 3rem; height: 3rem; }
         
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--gold-color);
-            color: var(--gold-color);
-        }
-        
-        .btn-outline:hover {
-            background: var(--gold-color);
-            color: white;
+        .payment-summary {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            text-align: left;
+            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -114,26 +112,26 @@
 
     <div class="result-container" id="resultApp"
         data-state="{{ $success === true ? 'success' : ($success === false ? 'failed' : 'pending') }}"
-        data-reference="{{ $reference ?? '' }}">
+        data-reference="{{ $reference ?? '' }}"
+        data-amount="{{ $amount ?? 0 }}"
+        data-receipt="{{ $receipt_no ?? '' }}"
+        data-encoded-hostel="{{ $encodedHostelId ?? '' }}">
 
         <!-- Pending / checking -->
-        <div id="pendingBlock" @if($success !== null && $success !== 'pending') style="display:none;" @endif>
+        <div id="pendingBlock" @if($success !== null) style="display:none;" @endif>
             <div class="icon-circle pending"><i class="bi bi-clock-history"></i></div>
-            <h3 class="pending-text">Processing your payment…</h3>
+            <h3 class="pending-text">Checking your payment…</h3>
             <p class="muted">{{ $message ?? 'Please wait while we confirm your payment status.' }}</p>
-            <div class="spinner-border text-primary mt-3" role="status">
+            <div class="spinner-border text-primary" role="status" style="margin-top: 1rem;">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 1rem;">
-                <i class="bi bi-info-circle"></i> This may take a few seconds
-            </p>
         </div>
 
         <!-- Success -->
         <div id="successBlock" @if($success !== true) style="display:none;" @endif>
             <div class="icon-circle success"><i class="bi bi-check-lg"></i></div>
             <h3 class="success-text">Payment Successful! 🎉</h3>
-            <p class="muted">Your payment has been recorded successfully.</p>
+            <p class="muted">Your payment has been recorded.</p>
 
             <div class="receipt-details">
                 <div class="row-line">
@@ -146,11 +144,7 @@
                 </div>
                 <div class="row-line">
                     <span class="label">Receipt No</span>
-                    <span class="value" id="receiptText">{{ $receipt_no ?? $reference ?? '-' }}</span>
-                </div>
-                <div class="row-line" style="border-bottom: none; padding-bottom: 0;">
-                    <span class="label">Payment Date</span>
-                    <span class="value" id="dateText">{{ $payment_date ?? now()->format('d M Y h:i A') }}</span>
+                    <span class="value" id="receiptText">{{ $receipt_no ?? '-' }}</span>
                 </div>
             </div>
 
@@ -176,12 +170,12 @@
         var app = document.getElementById('resultApp');
         var state = app.dataset.state;
         var reference = app.dataset.reference;
+        var encodedHostel = app.dataset.encodedHostel;
         var statusUrl = '{{ route('guest.payment.status') }}';
         var pollTimer = null;
         var attempts = 0;
         var maxAttempts = 30; // ~2 minutes at 4s intervals
 
-        // Only poll if state is pending and we have a reference
         if (state === 'pending' && reference) {
             checkStatus();
             pollTimer = setInterval(checkStatus, 4000);
@@ -192,31 +186,19 @@
 
             $.get(statusUrl, { reference: reference })
                 .done(function(response) {
-                    if (!response.success) {
-                        // If we've tried too many times, show a timeout message
-                        if (attempts >= maxAttempts) {
-                            clearInterval(pollTimer);
-                            showFailed('We could not confirm your payment yet. If money was deducted, it will reflect shortly — please check back later.');
-                        }
-                        return;
-                    }
+                    if (!response.success) return;
 
-                    // Check if payment is completed
-                    if (response.state === 'COMPLETED' || response.data?.status === 'PAID') {
+                    if (response.state === 'COMPLETED' || response.state === 'SUCCESS') {
                         clearInterval(pollTimer);
                         showSuccess(response.data);
-                    } 
-                    // Check if payment failed
-                    else if (response.state === 'FAILED' || response.data?.status === 'FAILED') {
+                    } else if (response.state === 'FAILED' || response.state === 'ERROR') {
                         clearInterval(pollTimer);
                         showFailed('Payment failed. Please try again.');
-                    } 
-                    // If we've reached max attempts, show timeout
-                    else if (attempts >= maxAttempts) {
+                    } else if (attempts >= maxAttempts) {
                         clearInterval(pollTimer);
                         showFailed('We could not confirm your payment yet. If money was deducted, it will reflect shortly — please check back later.');
                     }
-                    // Otherwise still PENDING — keep polling silently
+                    // otherwise still PENDING — keep polling silently
                 })
                 .fail(function() {
                     if (attempts >= maxAttempts) {
@@ -230,18 +212,9 @@
             document.getElementById('pendingBlock').style.display = 'none';
             document.getElementById('failedBlock').style.display = 'none';
             document.getElementById('successBlock').style.display = '';
-
             document.getElementById('refText').textContent = reference;
-            document.getElementById('amtText').textContent = '₹' + (parseFloat(data?.amount) || 0).toFixed(2);
-            document.getElementById('receiptText').textContent = data?.receipt_no || reference;
-            document.getElementById('dateText').textContent = data?.payment_date || new Date().toLocaleString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-            });
+            document.getElementById('amtText').textContent = '₹' + parseFloat(data.amount || app.dataset.amount).toFixed(2);
+            document.getElementById('receiptText').textContent = data.receipt_no || app.dataset.receipt || reference;
         }
 
         function showFailed(msg) {

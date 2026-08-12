@@ -265,36 +265,23 @@ Route::get('/phonepe/status/{merchantOrderId}', [PhonePeController::class, 'stat
 Route::post('/phonepe/refund', [PhonePeController::class, 'refund'])->name('phonepe.refund');
 Route::get('/phonepe/refund-status/{merchantRefundId}', [PhonePeController::class, 'refundStatus'])->name('phonepe.refund-status');
 
-// ============================================================
-// Guest Payment Routes
-// ------------------------------------------------------------
-// IMPORTANT: All fixed/static-path routes (resident, generate-qr,
-// success, status, generate-link, encode, decode) MUST be declared
-// BEFORE the catch-all "/{encodedId?}" route. Laravel resolves routes
-// in declaration order, and "/{encodedId?}" is an optional wildcard
-// segment that will greedily match paths like "/generate-qr" if it
-// appears first — causing them to be routed to index() instead of
-// their intended controller method, which is exactly what was
-// producing the "Invalid payment link" 404 error.
-// ============================================================
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
+    // Static routes - MUST be defined BEFORE the catch-all route
     Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
     Route::get('/generate-qr', [GuestPaymentController::class, 'generateQR'])->name('qr');
     Route::get('/callback', [GuestPaymentController::class, 'callback'])->name('callback');
     Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
     Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
-
-    // Admin helper routes for generating links
+    Route::get('/phonepe-redirect', [GuestPaymentController::class, 'redirectToPhonePe'])->name('phonepe.redirect');
+    
+    // Admin helper routes
     Route::get('/generate-link/{hostelId}', [GuestPaymentController::class, 'generateLink'])->name('generate-link');
     Route::get('/encode/{hostelId}', [GuestPaymentController::class, 'encodeId'])->name('encode');
     Route::get('/decode/{encodedId}', [GuestPaymentController::class, 'decodeId'])->name('decode');
 
-    // Catch-all — MUST stay last in this group
+    // Catch-all - MUST be LAST
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
-    Route::get('/phonepe-redirect', [GuestPaymentController::class, 'redirectToPhonePe'])
-    ->name('phonepe.redirect');
 });
-
 // Payment Links Generator (Admin only)
 Route::get('/payment-links', function () {
     $hostels = \App\Models\Hostel::where('status', 'ACTIVE')->get();

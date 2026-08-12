@@ -16,21 +16,18 @@ use Illuminate\Support\Facades\Log;
 class GuestPaymentController extends Controller
 {
     /**
-     * Display the guest payment page with QR code
+     * Display the guest payment page
      */
     public function index(Request $request, $encodedHostelId = null)
     {
-        // Decode the hostel ID
         $hostelId = null;
         $decodedId = null;
 
         if ($encodedHostelId) {
             try {
-                // Try to decrypt the ID
                 $decodedId = Crypt::decryptString($encodedHostelId);
                 $hostelId = $decodedId;
             } catch (\Exception $e) {
-                // If decryption fails, try to use as plain ID (for testing)
                 if (is_numeric($encodedHostelId)) {
                     $hostelId = $encodedHostelId;
                 } else {
@@ -39,7 +36,6 @@ class GuestPaymentController extends Controller
             }
         }
 
-        // Get hostel details
         $hostel = null;
         if ($hostelId) {
             $hostel = Hostel::with('roomTypes')->find($hostelId);
@@ -48,10 +44,7 @@ class GuestPaymentController extends Controller
             }
         }
 
-        // Generate unique transaction reference
         $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-
-        // Re-encode the hostel ID for the response
         $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
 
         return view('guest.payment', compact(
@@ -80,7 +73,6 @@ class GuestPaymentController extends Controller
             ], 422);
         }
 
-        // Find resident by phone number
         $resident = Resident::where('phone', $request->mobile)
             ->where('hostel_id', $request->hostel_id)
             ->where('status', 'ACTIVE')
@@ -94,25 +86,21 @@ class GuestPaymentController extends Controller
             ], 404);
         }
 
-        // Get current month and year
         $currentMonth = now()->month;
         $currentYear = now()->year;
         $currentDay = now()->day;
 
-        // Check if current month's payment exists
         $currentPayment = Payment::where('resident_id', $resident->id)
             ->where('month', $currentMonth)
             ->where('year', $currentYear)
             ->first();
 
-        // Get all pending payments
         $pendingPayments = Payment::where('resident_id', $resident->id)
             ->whereIn('status', ['PENDING', 'PARTIAL'])
             ->orderBy('year', 'asc')
             ->orderBy('month', 'asc')
             ->get();
 
-        // Check if current month is already paid
         $isCurrentMonthPaid = false;
         $currentMonthStatus = 'PENDING';
 
@@ -125,39 +113,30 @@ class GuestPaymentController extends Controller
             }
         }
 
-        // Calculate total due from pending payments
         $totalDue = $pendingPayments->sum('balance_amount');
-
-        // Calculate discount if applicable
         $discount = 0;
         $discountType = null;
         $rentAmount = (float) ($resident->rent_amount ?? 0);
         $finalAmount = (float) $totalDue;
 
-        // If no pending payments and current month not paid, calculate for current month
         if ($totalDue == 0 && !$currentPayment && !$isCurrentMonthPaid) {
             $totalDue = $rentAmount;
             $finalAmount = $rentAmount;
             
-            // Apply early payment discount if applicable (1st-10th of month)
             if ($currentDay <= 10) {
                 if ($currentDay <= 5) {
-                    $discount = min(250, $rentAmount * 0.10); // 10% up to ₹250
+                    $discount = min(250, $rentAmount * 0.10);
                     $discountType = 'early_discount_250';
                 } else {
-                    $discount = min(125, $rentAmount * 0.05); // 5% up to ₹125
+                    $discount = min(125, $rentAmount * 0.05);
                     $discountType = 'early_discount_125';
                 }
                 $finalAmount = max(0, $totalDue - $discount);
             }
-        } 
-        // If there are pending payments, check if current month is also due
-        else if ($totalDue > 0 && !$currentPayment && !$isCurrentMonthPaid) {
-            // Add current month rent to pending
+        } else if ($totalDue > 0 && !$currentPayment && !$isCurrentMonthPaid) {
             $totalDue += $rentAmount;
             $finalAmount = $totalDue;
             
-            // Apply discount only if no pending payments from previous months
             if ($pendingPayments->count() == 0 && $currentDay <= 10) {
                 if ($currentDay <= 5) {
                     $discount = min(250, $rentAmount * 0.10);
@@ -170,7 +149,6 @@ class GuestPaymentController extends Controller
             }
         }
 
-        // If there are pending payments
         $pendingDetails = [];
         foreach ($pendingPayments as $payment) {
             $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
@@ -183,10 +161,8 @@ class GuestPaymentController extends Controller
             ];
         }
 
-        // Generate payment reference
         $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
 
-        // Prepare response data with proper numeric types
         $responseData = [
             'resident_id' => (int) $resident->id,
             'name' => $resident->name,
@@ -237,7 +213,6 @@ class GuestPaymentController extends Controller
             $reference = $request->reference;
             $residentId = (int) $request->resident_id;
 
-            // Get resident for UPI reference
             $resident = Resident::with('room')->find($residentId);
 
             if (!$resident) {
@@ -247,15 +222,36 @@ class GuestPaymentController extends Controller
                 ], 404);
             }
 
-            // Get room number safely
             $roomNo = $resident->room->room_no ?? 'N/A';
             $residentName = $resident->name;
 
-            // UPI payment details
+            // Try PhonePe first
+            $phonePeEnabled = env('PHONEPE_ENABLED', false);
+            
+            if ($phonePeEnabled) {
+                try {
+                    $result = $this->createPhonePePayment($reference, $amount, $resident);
+                    
+                    if ($result && isset($result['redirectUrl'])) {
+                        return response()->json([
+                            'success' => true,
+                            'redirect_url' => $result['redirectUrl'],
+                            'reference' => $reference,
+                            'amount' => (float) $amount,
+                            'resident_name' => $residentName,
+                            'room_no' => $roomNo,
+                            'payment_method' => 'PHONEPE'
+                        ], 200, [], JSON_NUMERIC_CHECK);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('PhonePe payment creation failed: ' . $e->getMessage());
+                }
+            }
+
+            // Fallback to UPI QR Code
             $upiId = env('UPI_ID', 'merchant@upi');
             $merchantName = env('MERCHANT_NAME', 'Hostel Payment');
 
-            // Create UPI payment URL for QR code
             $transactionNote = "Rent-{$residentName}-Room{$roomNo}";
             $upiUrl = "upi://pay?pa=" . $upiId .
                       "&pn=" . urlencode($merchantName) .
@@ -264,43 +260,20 @@ class GuestPaymentController extends Controller
                       "&tn=" . urlencode($transactionNote) .
                       "&refid=" . $reference;
 
-            // Generate QR code as SVG
             $qrCode = QrCode::size(300)->generate($upiUrl);
-
-            // If you have PhonePe integration
-            $phonePeUrl = null;
-            if (env('PHONEPE_ENABLED', false)) {
-                try {
-                    // Call PhonePe payment
-                    $result = $this->createPhonePePayment($reference, $amount, $resident);
-                    if ($result && isset($result['redirectUrl'])) {
-                        $phonePeUrl = $result['redirectUrl'];
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('PhonePe payment creation failed: ' . $e->getMessage());
-                }
-            }
-
-            // If PhonePe is not enabled or failed, use UPI
-            if (!$phonePeUrl) {
-                $phonePeUrl = route('guest.payment.phonepe.redirect', [
-                    'reference' => $reference,
-                    'amount' => $amount,
-                    'resident_id' => $residentId
-                ]);
-            }
 
             return response()->json([
                 'success' => true,
                 'qr_code' => $qrCode,
                 'upi_url' => $upiUrl,
-                'redirect_url' => $phonePeUrl ?? $upiUrl,
+                'redirect_url' => $upiUrl,
                 'amount' => (float) $amount,
                 'reference' => $reference,
                 'upi_id' => $upiId,
                 'merchant_name' => $merchantName,
                 'resident_name' => $residentName,
-                'room_no' => $roomNo
+                'room_no' => $roomNo,
+                'payment_method' => 'UPI_FALLBACK'
             ], 200, [], JSON_NUMERIC_CHECK);
 
         } catch (\Exception $e) {
@@ -311,7 +284,7 @@ class GuestPaymentController extends Controller
             
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate QR code. Please try again.',
+                'message' => 'Failed to generate payment. Please try again.',
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }
@@ -322,53 +295,275 @@ class GuestPaymentController extends Controller
      */
     private function createPhonePePayment($reference, $amount, $resident)
     {
-        $merchantId = env('PHONEPE_MERCHANT_ID', 'MERCHANTUAT');
-        $saltKey = env('PHONEPE_SALT_KEY', 'your_salt_key');
-        $saltIndex = env('PHONEPE_SALT_INDEX', '1');
-        $baseUrl = env('PHONEPE_BASE_URL', 'https://api.phonepe.com/apis/hermes');
-        
-        $payload = [
-            'merchantId' => $merchantId,
-            'merchantOrderId' => $reference,
-            'amount' => (int) round($amount * 100),
-            'paymentType' => 'UPI',
-            'redirectUrl' => route('guest.payment.callback'),
-            'callbackUrl' => route('guest.payment.webhook'),
-            'merchantName' => env('MERCHANT_NAME', 'Hostel Payment'),
-            'transactionNote' => "Rent - " . $resident->name . " - Room " . ($resident->room->room_no ?? 'N/A'),
-        ];
-
-        $payloadBase64 = base64_encode(json_encode($payload));
-        $checksum = hash('sha256', $payloadBase64 . '/pg/v1/pay' . $saltKey) . '###' . $saltIndex;
-
         try {
+            $merchantId = config('phonepe.client_id', env('PHONEPE_CLIENT_ID'));
+            $saltKey = config('phonepe.salt_key', env('PHONEPE_SALT_KEY', '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399'));
+            $saltIndex = config('phonepe.salt_index', env('PHONEPE_SALT_INDEX', 1));
+            
+            $environment = config('phonepe.env', env('PHONEPE_ENV', 'UAT'));
+            $baseUrl = $environment === 'PROD' 
+                ? 'https://api.phonepe.com/apis/hermes' 
+                : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+            
+            $redirectUrl = config('phonepe.redirect_url', env('PHONEPE_REDIRECT_URL'));
+
+            $roomNo = $resident->room->room_no ?? 'N/A';
+            $residentName = $resident->name;
+            $mobile = $resident->phone ?? '';
+
+            $payload = [
+                'merchantId' => $merchantId,
+                'merchantTransactionId' => $reference,
+                'merchantUserId' => 'M-' . $resident->id,
+                'amount' => (int) round($amount * 100),
+                'redirectUrl' => $redirectUrl . '?reference=' . $reference . '&resident_id=' . $resident->id,
+                'redirectMode' => 'REDIRECT',
+                'callbackUrl' => route('guest.payment.webhook'),
+                'mobileNumber' => $mobile,
+                'paymentInstrument' => [
+                    'type' => 'PAY_PAGE'
+                ],
+                'transactionNote' => "Rent - {$residentName} - Room {$roomNo}",
+            ];
+
+            $payloadBase64 = base64_encode(json_encode($payload));
+            $checksum = hash('sha256', $payloadBase64 . '/pg/v1/pay' . $saltKey) . '###' . $saltIndex;
+
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-                'X-VERIFY' => $checksum
+                'X-VERIFY' => $checksum,
+                'X-CLIENT-ID' => $merchantId,
+                'X-CLIENT-VERSION' => config('phonepe.client_version', 1)
             ])->post($baseUrl . '/pg/v1/pay', [
                 'request' => $payloadBase64
             ]);
 
             $result = $response->json();
 
-            if ($result && isset($result['code']) && $result['code'] === 'PAYMENT_INITIATED') {
+            Log::info('PhonePe Payment Response', [
+                'reference' => $reference,
+                'response' => $result
+            ]);
+
+            if (isset($result['success']) && $result['success'] === true) {
                 return [
-                    'redirectUrl' => $result['data']['redirectUrl'] ?? null,
-                    'orderId' => $result['data']['orderId'] ?? null
+                    'redirectUrl' => $result['data']['instrumentResponse']['redirectInfo']['url'] ?? 
+                                   $result['data']['redirectUrl'] ?? null,
+                    'orderId' => $result['data']['orderId'] ?? null,
+                    'state' => $result['data']['state'] ?? 'PENDING'
                 ];
             }
 
-            Log::error('PhonePe payment initiation failed', ['response' => $result]);
+            Log::error('PhonePe payment failed', [
+                'reference' => $reference,
+                'response' => $result
+            ]);
+
             return null;
 
         } catch (\Exception $e) {
-            Log::error('PhonePe API error: ' . $e->getMessage());
+            Log::error('PhonePe API error: ' . $e->getMessage(), [
+                'reference' => $reference
+            ]);
             return null;
         }
     }
 
     /**
-     * Handle payment success callback
+     * Handle PhonePe callback
+     */
+    public function callback(Request $request)
+    {
+        $reference = $request->input('merchant_order_id') ?? $request->input('reference');
+        
+        if (!$reference) {
+            $reference = session('payment_reference');
+        }
+
+        if (!$reference) {
+            return redirect()->route('guest.payment.index')
+                ->with('error', 'Payment reference not found');
+        }
+
+        // Get resident_id from request
+        $residentId = $request->input('resident_id');
+        
+        // Get payment details
+        $payment = Payment::where('receipt_no', $reference)->first();
+
+        // Check PhonePe status
+        $status = $this->checkPhonePeStatus($reference);
+        
+        if ($status && isset($status['state']) && $status['state'] === 'COMPLETED') {
+            if ($payment) {
+                $payment->status = 'PAID';
+                $payment->payment_date = now();
+                $payment->save();
+            } else {
+                // Create payment record if it doesn't exist
+                if ($residentId) {
+                    $resident = Resident::find($residentId);
+                    if ($resident) {
+                        $currentMonth = now()->month;
+                        $currentYear = now()->year;
+                        
+                        $payment = Payment::create([
+                            'resident_id' => $resident->id,
+                            'receipt_no' => $reference,
+                            'month' => $currentMonth,
+                            'year' => $currentYear,
+                            'rent_amount' => $request->input('amount', 0),
+                            'discount_amount' => 0,
+                            'fine_amount' => 0,
+                            'cash_paid_amount' => 0,
+                            'upi_paid_amount' => $request->input('amount', 0),
+                            'balance_amount' => 0,
+                            'payment_date' => now(),
+                            'transaction_id' => $status['transactionId'] ?? 'TXN-' . strtoupper(Str::random(10)),
+                            'status' => 'PAID'
+                        ]);
+                    }
+                }
+            }
+
+            return view('guest.success', [
+                'success' => true,
+                'reference' => $reference,
+                'amount' => $payment->upi_paid_amount ?? $request->input('amount', 0),
+                'receipt_no' => $payment->receipt_no ?? $reference,
+                'encodedHostelId' => $request->input('encodedHostelId')
+            ]);
+        }
+
+        return view('guest.success', [
+            'success' => false,
+            'reference' => $reference,
+            'message' => 'Payment is still being processed. Please check back later.',
+            'encodedHostelId' => $request->input('encodedHostelId')
+        ]);
+    }
+
+    /**
+     * Check PhonePe payment status
+     */
+    private function checkPhonePeStatus($reference)
+    {
+        try {
+            $merchantId = config('phonepe.client_id', env('PHONEPE_CLIENT_ID'));
+            $saltKey = config('phonepe.salt_key', env('PHONEPE_SALT_KEY', '099eb0cd-02cf-4e2a-8aca-3e6c6aff0399'));
+            $saltIndex = config('phonepe.salt_index', env('PHONEPE_SALT_INDEX', 1));
+            
+            $environment = config('phonepe.env', env('PHONEPE_ENV', 'UAT'));
+            $baseUrl = $environment === 'PROD' 
+                ? 'https://api.phonepe.com/apis/hermes' 
+                : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+
+            $checksum = hash('sha256', '/pg/v1/status/' . $merchantId . '/' . $reference . $saltKey) . '###' . $saltIndex;
+
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'X-VERIFY' => $checksum,
+                'X-MERCHANT-ID' => $merchantId
+            ])->get($baseUrl . '/pg/v1/status/' . $merchantId . '/' . $reference);
+
+            $result = $response->json();
+
+            Log::info('PhonePe Status Check', [
+                'reference' => $reference,
+                'response' => $result
+            ]);
+
+            if (isset($result['success']) && $result['success'] === true) {
+                return [
+                    'state' => $result['data']['state'] ?? 'PENDING',
+                    'transactionId' => $result['data']['transactionId'] ?? null,
+                    'amount' => $result['data']['amount'] ?? 0
+                ];
+            }
+
+            return ['state' => 'PENDING'];
+
+        } catch (\Exception $e) {
+            Log::error('PhonePe status check error: ' . $e->getMessage(), [
+                'reference' => $reference
+            ]);
+            return ['state' => 'PENDING'];
+        }
+    }
+
+    /**
+     * Get payment status by reference (AJAX polling)
+     */
+    public function status(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'reference' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $reference = $request->reference;
+        
+        // Check local database first
+        $payment = Payment::where('receipt_no', $reference)
+            ->with('resident')
+            ->first();
+
+        if ($payment && $payment->status === 'PAID') {
+            return response()->json([
+                'success' => true,
+                'state' => 'COMPLETED',
+                'data' => [
+                    'status' => $payment->status,
+                    'amount' => (float) $payment->upi_paid_amount,
+                    'receipt_no' => $payment->receipt_no,
+                    'payment_date' => $payment->payment_date ? $payment->payment_date->format('d M Y h:i A') : null,
+                    'resident' => $payment->resident->name ?? 'N/A'
+                ]
+            ], 200, [], JSON_NUMERIC_CHECK);
+        }
+
+        // Check PhonePe status
+        $status = $this->checkPhonePeStatus($reference);
+        
+        if ($status && $status['state'] === 'COMPLETED') {
+            // Update payment if exists
+            if ($payment) {
+                $payment->status = 'PAID';
+                $payment->payment_date = now();
+                $payment->save();
+            }
+            
+            return response()->json([
+                'success' => true,
+                'state' => 'COMPLETED',
+                'data' => [
+                    'status' => 'PAID',
+                    'amount' => (float) ($payment->upi_paid_amount ?? $status['amount'] ?? 0),
+                    'receipt_no' => $payment->receipt_no ?? $reference,
+                    'payment_date' => now()->format('d M Y h:i A'),
+                    'resident' => $payment->resident->name ?? 'N/A'
+                ]
+            ], 200, [], JSON_NUMERIC_CHECK);
+        }
+
+        return response()->json([
+            'success' => true,
+            'state' => $status['state'] ?? 'PENDING',
+            'data' => [
+                'status' => 'PENDING',
+                'message' => 'Payment is being processed'
+            ]
+        ]);
+    }
+
+    /**
+     * Handle successful payment (legacy/alternative endpoint)
      */
     public function success(Request $request)
     {
@@ -427,7 +622,6 @@ class GuestPaymentController extends Controller
                 if ($balanceDue <= 0) continue;
 
                 if ($remainingAmount >= $balanceDue) {
-                    // Fully pay this pending payment
                     $pending->upi_paid_amount = (float) $pending->upi_paid_amount + $balanceDue;
                     $pending->balance_amount = 0;
                     $pending->status = 'PAID';
@@ -435,10 +629,8 @@ class GuestPaymentController extends Controller
                     $pending->transaction_id = $request->transaction_id ?? 'TXN-' . strtoupper(Str::random(10));
                     $pending->save();
                     $payment = $pending;
-
                     $remainingAmount -= $balanceDue;
                 } else {
-                    // Partially pay this pending payment
                     $pending->upi_paid_amount = (float) $pending->upi_paid_amount + $remainingAmount;
                     $pending->balance_amount = $balanceDue - $remainingAmount;
                     $pending->status = 'PARTIAL';
@@ -446,7 +638,6 @@ class GuestPaymentController extends Controller
                     $pending->transaction_id = $request->transaction_id ?? 'TXN-' . strtoupper(Str::random(10));
                     $pending->save();
                     $payment = $pending;
-
                     $remainingAmount = 0;
                 }
             }
@@ -456,14 +647,12 @@ class GuestPaymentController extends Controller
                 $currentMonth = now()->month;
                 $currentYear = now()->year;
 
-                // Check if current month's payment exists
                 $currentPayment = Payment::where('resident_id', $resident->id)
                     ->where('month', $currentMonth)
                     ->where('year', $currentYear)
                     ->first();
 
                 if ($currentPayment && $currentPayment->status === 'PAID') {
-                    // Current month is already paid, create a future/advance payment
                     $nextMonth = now()->addMonth()->month;
                     $nextYear = now()->addMonth()->year;
 
@@ -483,9 +672,7 @@ class GuestPaymentController extends Controller
                         'status' => 'PAID'
                     ]);
                 } else {
-                    // Create new payment for current month or update existing
                     if ($currentPayment) {
-                        // Update existing payment
                         $currentPayment->upi_paid_amount = (float) $currentPayment->upi_paid_amount + $remainingAmount;
                         $currentPayment->balance_amount = max(0, (float) $currentPayment->rent_amount - (float) $currentPayment->upi_paid_amount - (float) $currentPayment->cash_paid_amount);
                         $currentPayment->status = $currentPayment->balance_amount > 0 ? 'PARTIAL' : 'PAID';
@@ -494,7 +681,6 @@ class GuestPaymentController extends Controller
                         $currentPayment->save();
                         $payment = $currentPayment;
                     } else {
-                        // Create new payment
                         $payment = Payment::create([
                             'resident_id' => $resident->id,
                             'receipt_no' => $request->reference,
@@ -514,7 +700,6 @@ class GuestPaymentController extends Controller
                 }
             }
 
-            // Load resident relationship
             if ($payment) {
                 $payment->load('resident');
             }
@@ -548,152 +733,6 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Get payment status by reference
-     */
-    public function status(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'reference' => 'required|string'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $payment = Payment::where('receipt_no', $request->reference)
-            ->with('resident')
-            ->first();
-
-        if (!$payment) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Payment not found'
-            ], 404);
-        }
-
-        // Check PhonePe status if transaction_id exists
-        $state = 'COMPLETED';
-        if ($payment->transaction_id && env('PHONEPE_ENABLED', false)) {
-            try {
-                $phonePeStatus = $this->getPhonePeStatus($payment->transaction_id);
-                if ($phonePeStatus && isset($phonePeStatus['state'])) {
-                    $state = $phonePeStatus['state'];
-                }
-            } catch (\Exception $e) {
-                Log::warning('PhonePe status check failed: ' . $e->getMessage());
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'state' => $state,
-            'data' => [
-                'status' => $payment->status,
-                'amount' => (float) $payment->upi_paid_amount,
-                'receipt_no' => $payment->receipt_no,
-                'payment_date' => $payment->payment_date ? $payment->payment_date->format('d M Y h:i A') : null,
-                'resident' => $payment->resident->name ?? 'N/A'
-            ]
-        ], 200, [], JSON_NUMERIC_CHECK);
-    }
-
-    /**
-     * Get PhonePe payment status
-     */
-    private function getPhonePeStatus($transactionId)
-    {
-        $merchantId = env('PHONEPE_MERCHANT_ID', 'MERCHANTUAT');
-        $saltKey = env('PHONEPE_SALT_KEY', 'your_salt_key');
-        $saltIndex = env('PHONEPE_SALT_INDEX', '1');
-        $baseUrl = env('PHONEPE_BASE_URL', 'https://api.phonepe.com/apis/hermes');
-
-        $checksum = hash('sha256', '/pg/v1/status/' . $merchantId . '/' . $transactionId . $saltKey) . '###' . $saltIndex;
-
-        try {
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-                'X-VERIFY' => $checksum,
-                'X-MERCHANT-ID' => $merchantId
-            ])->get($baseUrl . '/pg/v1/status/' . $merchantId . '/' . $transactionId);
-
-            $result = $response->json();
-
-            if ($result && isset($result['code']) && $result['code'] === 'PAYMENT_SUCCESS') {
-                return [
-                    'state' => 'COMPLETED',
-                    'data' => $result['data'] ?? []
-                ];
-            }
-
-            return ['state' => 'PENDING'];
-
-        } catch (\Exception $e) {
-            Log::error('PhonePe status API error: ' . $e->getMessage());
-            return ['state' => 'PENDING'];
-        }
-    }
-
-    /**
-     * Handle PhonePe callback
-     */
-    public function callback(Request $request)
-    {
-        $reference = $request->input('merchant_order_id') ?? $request->input('reference');
-        
-        if (!$reference) {
-            // Try to get from session
-            $reference = session('payment_reference');
-        }
-
-        if (!$reference) {
-            return redirect()->route('guest.payment.index')
-                ->with('error', 'Payment reference not found');
-        }
-
-        // Get payment details
-        $payment = Payment::where('receipt_no', $reference)->first();
-
-        if ($payment && $payment->status === 'PAID') {
-            // Payment already completed
-            return view('guest.success', [
-                'success' => true,
-                'reference' => $reference,
-                'amount' => $payment->upi_paid_amount,
-                'receipt_no' => $payment->receipt_no
-            ]);
-        }
-
-        // Check PhonePe status
-        if ($payment && $payment->transaction_id && env('PHONEPE_ENABLED', false)) {
-            $status = $this->getPhonePeStatus($payment->transaction_id);
-            
-            if ($status['state'] === 'COMPLETED') {
-                // Update payment status
-                $payment->status = 'PAID';
-                $payment->payment_date = now();
-                $payment->save();
-
-                return view('guest.success', [
-                    'success' => true,
-                    'reference' => $reference,
-                    'amount' => $payment->upi_paid_amount,
-                    'receipt_no' => $payment->receipt_no
-                ]);
-            }
-        }
-
-        // Still pending or failed
-        return view('guest.success', [
-            'success' => false,
-            'reference' => $reference,
-            'message' => 'Payment is still being processed. Please check back later.'
-        ]);
-    }
-
-    /**
      * Handle PhonePe webhook
      */
     public function webhook(Request $request)
@@ -709,12 +748,18 @@ class GuestPaymentController extends Controller
 
             $transactionId = $payload['transactionId'];
             $status = $payload['state'] ?? 'PENDING';
+            $reference = $payload['merchantTransactionId'] ?? null;
 
-            // Find payment by transaction ID
-            $payment = Payment::where('transaction_id', $transactionId)->first();
+            // Find payment by transaction ID or reference
+            $payment = Payment::where('transaction_id', $transactionId)
+                ->orWhere('receipt_no', $reference)
+                ->first();
 
             if (!$payment) {
-                Log::warning('Payment not found for webhook', ['transaction_id' => $transactionId]);
+                Log::warning('Payment not found for webhook', [
+                    'transaction_id' => $transactionId,
+                    'reference' => $reference
+                ]);
                 return response()->json(['error' => 'Payment not found'], 404);
             }
 
@@ -743,39 +788,6 @@ class GuestPaymentController extends Controller
             Log::error('Webhook processing error: ' . $e->getMessage());
             return response()->json(['error' => 'Internal server error'], 500);
         }
-    }
-
-    /**
-     * Redirect to PhonePe payment
-     */
-    public function redirectToPhonePe(Request $request)
-    {
-        $reference = $request->input('reference');
-        $amount = $request->input('amount');
-        $residentId = $request->input('resident_id');
-
-        if (!$reference || !$amount || !$residentId) {
-            return redirect()->route('guest.payment.index')
-                ->with('error', 'Invalid payment request');
-        }
-
-        $resident = Resident::find($residentId);
-        if (!$resident) {
-            return redirect()->route('guest.payment.index')
-                ->with('error', 'Resident not found');
-        }
-
-        // Create PhonePe payment
-        $result = $this->createPhonePePayment($reference, $amount, $resident);
-
-        if ($result && isset($result['redirectUrl'])) {
-            // Store reference in session for callback
-            session(['payment_reference' => $reference]);
-            return redirect($result['redirectUrl']);
-        }
-
-        return redirect()->route('guest.payment.index')
-            ->with('error', 'Failed to initiate payment. Please try again.');
     }
 
     /**
