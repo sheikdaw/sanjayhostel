@@ -488,23 +488,25 @@
                         currentResident = response.data;
                         currentReference = response.data.reference;
 
+                        // Parse numeric values properly
+                        var totalDue = parseFloat(response.data.total_due) || 0;
+                        var finalAmount = parseFloat(response.data.final_amount) || totalDue;
+                        var discount = parseFloat(response.data.discount) || 0;
+
                         $('#residentName').text(response.data.name);
                         $('#residentRoom').text('Room #' + response.data.room_no);
                         $('#residentPhone').text(response.data.phone);
                         $('#residentEmail').text(response.data.email || 'Not provided');
-                        $('#totalDue').text('₹' + parseFloat(response.data.total_due).toFixed(2));
+                        $('#totalDue').text('₹' + totalDue.toFixed(2));
 
                         // Handle total due styling
-                        if (response.data.total_due > 0) {
+                        if (totalDue > 0) {
                             $('#totalDue').removeClass('clear').addClass('due-amount');
                         } else {
                             $('#totalDue').removeClass('due-amount').addClass('clear');
                         }
 
                         // Handle discount display
-                        const discount = parseFloat(response.data.discount || 0);
-                        const finalAmount = parseFloat(response.data.final_amount || response.data.total_due);
-
                         if (discount > 0) {
                             $('#discountSection').addClass('show');
                             $('#discountAmount').text(discount.toFixed(2));
@@ -524,6 +526,10 @@
                             $('#finalAmount').text(finalAmount.toFixed(2));
                             $('#payButtonAmount').text(finalAmount.toFixed(2));
                         }
+
+                        // Store parsed values back to currentResident
+                        currentResident.final_amount = finalAmount;
+                        currentResident.total_due = totalDue;
 
                         // Show pending info
                         if (response.data.has_pending) {
@@ -557,15 +563,16 @@
                 return;
             }
 
-            // Use final_amount instead of total_due
-            var amount = currentResident.final_amount || currentResident.total_due;
+            // Parse the amount as a number
+            var amount = parseFloat(currentResident.final_amount) || parseFloat(currentResident.total_due) || 0;
+            
             if (amount <= 0) {
                 showToast('No payment due at this time', 'error');
                 return;
             }
 
             var btn = $('#payNowBtn');
-            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Redirecting to PhonePe...');
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Redirecting to payment...');
 
             $.ajax({
                 url: paymentRoutes.qr,
@@ -576,15 +583,22 @@
                     resident_id: currentResident.resident_id
                 },
                 success: function(response) {
-                    console.log(response);
-                    console.log("data");
+                    console.log('Payment response:', response);
+                    
                     if (response.success && response.redirect_url) {
+                        // Redirect to payment gateway
                         window.location.href = response.redirect_url;
+                    } else if (response.success && response.upi_url) {
+                        // Fallback to UPI if no redirect_url
+                        showToast('Payment link generated. Use any UPI app to pay.', 'success');
+                        // You could display QR code here if needed
+                        btn.prop('disabled', false).html(
+                            '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' + amount.toFixed(2)
+                        );
                     } else {
                         showToast('Could not start payment. Please try again.', 'error');
                         btn.prop('disabled', false).html(
-                            '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' +
-                            (currentResident.final_amount || currentResident.total_due).toFixed(2)
+                            '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' + amount.toFixed(2)
                         );
                     }
                 },
@@ -595,8 +609,7 @@
                     }
                     showToast('❌ ' + message, 'error');
                     btn.prop('disabled', false).html(
-                        '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' +
-                        (currentResident.final_amount || currentResident.total_due).toFixed(2)
+                        '<i class="bi bi-shield-check"></i> Proceed to Pay ₹' + amount.toFixed(2)
                     );
                 }
             });
