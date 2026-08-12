@@ -576,6 +576,7 @@
                     resident_id: currentResident.resident_id
                 },
                 success: function(response) {
+                    console.log(response);
                     if (response.success && response.redirect_url) {
                         window.location.href = response.redirect_url;
                     } else {

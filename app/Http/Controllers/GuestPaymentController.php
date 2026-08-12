@@ -239,57 +239,48 @@ public function generateQR(Request $request)
         ], 422);
     }
 
-    try {
-        $amount = $request->amount;
-        $reference = $request->reference;
-        $residentId = $request->resident_id;
+    $amount = $request->amount;
+    $reference = $request->reference;
+    $residentId = $request->resident_id;
 
-        $resident = Resident::with('room')->find($residentId);
-        
-        if (!$resident) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Resident not found'
-            ], 404);
-        }
+    // Get resident for UPI reference
+    $resident = Resident::find($residentId);
 
+    // Get room number safely
+    $roomNo = 'N/A';
+    if ($resident && $resident->room) {
         $roomNo = $resident->room->room_no ?? 'N/A';
-        $residentName = $resident->name;
-
-        // Create payment through PhonePe
-        $result = $this->phonePe->createPayment(
-            $reference,
-            (int) round($amount * 100),
-            route('guest.payment.callback', ['merchant_order_id' => $reference]),
-            "Rent - {$residentName} - Room {$roomNo}"
-        );
-
-        // Generate QR from PhonePe's redirect URL
-        $qrCode = QrCode::size(300)->generate($result['redirectUrl']);
-        
-        return response()->json([
-            'success' => true,
-            'qr_code' => $qrCode,
-            'redirect_url' => $result['redirectUrl'],
-            'payment_id' => $result['paymentId'] ?? null,
-            'amount' => $amount,
-            'reference' => $reference,
-            'resident_name' => $residentName,
-            'room_no' => $roomNo
-        ]);
-
-    } catch (\Exception $e) {
-        \Log::error('QR Generation Error: ' . $e->getMessage(), [
-            'reference' => $reference,
-            'resident_id' => $residentId
-        ]);
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Payment initialization failed. Please try again.',
-            'error' => config('app.debug') ? $e->getMessage() : null
-        ], 500);
     }
+
+    // UPI payment URL format
+    $upiId = env('UPI_ID', 'merchant@upi');
+    $merchantName = env('MERCHANT_NAME', 'Hostel Payment');
+
+    // Add resident name and room to transaction note
+    $residentName = $resident ? $resident->name : 'Resident';
+    $transactionNote = "Rent-" . $residentName . "-Room" . $roomNo;
+
+    $upiUrl = "upi://pay?pa=" . $upiId .
+              "&pn=" . urlencode($merchantName) .
+              "&am=" . $amount .
+              "&cu=INR" .
+              "&tn=" . urlencode($transactionNote) .
+              "&refid=" . $reference;
+
+    // Generate QR code as SVG
+    $qrCode = QrCode::size(300)->generate($upiUrl);
+
+    return response()->json([
+        'success' => true,
+        'qr_code' => $qrCode,
+        'upi_url' => $upiUrl,
+        'amount' => $amount,
+        'reference' => $reference,
+        'upi_id' => $upiId,
+        'merchant_name' => $merchantName,
+        'resident_name' => $residentName,
+        'room_no' => $roomNo
+    ]);
 }
     /**
      * Handle payment success callback
