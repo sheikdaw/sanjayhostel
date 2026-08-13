@@ -5,6 +5,7 @@
 
 @push('styles')
     <style>
+        /* ====== RESIDENT CARD STYLES ====== */
         .resident-card {
             transition: all 0.3s ease;
             border: 1px solid #e5e7eb;
@@ -190,6 +191,7 @@
             display: inline-block;
         }
 
+        /* ====== MODAL STYLES ====== */
         .modal-content {
             border-radius: 16px;
             border: none;
@@ -287,80 +289,7 @@
             margin-top: 0.25rem;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-        }
-
-        .empty-state i {
-            font-size: 4rem;
-            color: #d1d5db;
-            margin-bottom: 1rem;
-        }
-
-        .toast-container {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-        }
-
-        .toast-custom {
-            background: white;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-            border-left: 4px solid #10b981;
-            margin-bottom: 0.75rem;
-            animation: slideInRight 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .toast-custom.error {
-            border-left-color: #dc2626;
-        }
-
-        .toast-custom .message {
-            flex: 1;
-            font-size: 0.85rem;
-            color: #1f2937;
-        }
-
-        .toast-custom .close-btn {
-            background: none;
-            border: none;
-            color: #9ca3af;
-            cursor: pointer;
-            padding: 0 0.25rem;
-        }
-
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideOutRight {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-        }
-
+        /* ====== STATS ====== */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -428,6 +357,7 @@
             background: linear-gradient(135deg, #fef3c7, #fde68a);
         }
 
+        /* ====== FILTERS ====== */
         .filter-section {
             display: flex;
             gap: 0.75rem;
@@ -505,6 +435,7 @@
             color: var(--sanjay-primary);
         }
 
+        /* ====== FOOD BADGE ====== */
         .food-badge {
             display: inline-flex;
             align-items: center;
@@ -525,6 +456,7 @@
             color: #4b5563;
         }
 
+        /* ====== DOCUMENT BADGE ====== */
         .document-badge {
             display: inline-flex;
             align-items: center;
@@ -547,6 +479,7 @@
             color: #166534;
         }
 
+        /* ====== FILE PREVIEW ====== */
         .file-preview-container {
             margin-top: 8px;
             display: flex;
@@ -604,17 +537,6 @@
             background: #f3f4f6;
         }
 
-        .file-preview-actions {
-            display: flex;
-            gap: 4px;
-        }
-
-        .file-preview-actions .btn-sm {
-            padding: 0.1rem 0.4rem;
-            font-size: 0.65rem;
-            border-radius: 4px;
-        }
-
         .existing-doc-badge {
             display: inline-flex;
             align-items: center;
@@ -624,6 +546,68 @@
             font-size: 0.6rem;
             background: #dcfce7;
             color: #166534;
+        }
+
+        /* ====== TOAST ====== */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        }
+
+        .toast-custom {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+            border-left: 4px solid #10b981;
+            margin-bottom: 0.75rem;
+            animation: slideInRight 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .toast-custom.error {
+            border-left-color: #dc2626;
+        }
+
+        .toast-custom .message {
+            flex: 1;
+            font-size: 0.85rem;
+            color: #1f2937;
+        }
+
+        .toast-custom .close-btn {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0 0.25rem;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        /* ====== EMPTY STATE ====== */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: #d1d5db;
+            margin-bottom: 1rem;
         }
 
         .no-results-state {
@@ -661,23 +645,32 @@
             border-radius: 4px;
         }
 
-        .search-highlight {
-            background: #fef3c7;
-            padding: 0 2px;
-            border-radius: 2px;
+        /* ====== BIOMETRIC BADGE ====== */
+        .biometric-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.6rem;
+            font-weight: 600;
         }
 
-        .loading-shimmer {
-            animation: shimmer 1.5s infinite;
-            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-            background-size: 200% 100%;
+        .biometric-badge.enabled {
+            background: #dcfce7;
+            color: #166534;
         }
 
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
+        .biometric-badge.disabled {
+            background: #fee2e2;
+            color: #991b1b;
         }
 
+        .biometric-badge i {
+            font-size: 0.7rem;
+        }
+
+        /* ====== RESPONSIVE ====== */
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
@@ -706,7 +699,6 @@
 @endpush
 
 @section('content')
-
     <div class="ol-page-header">
         <div>
             <h1 class="ol-page-title">Resident Management</h1>
@@ -722,6 +714,11 @@
                 style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
                 <i class="bi bi-download"></i>
                 Export
+            </button>
+            <button type="button" class="rv-submit" onclick="syncAllBiometric()"
+                style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#7c3aed;">
+                <i class="bi bi-cloud-upload"></i>
+                Sync Biometric
             </button>
             <button type="button" class="rv-submit" id="addResidentBtn"
                 style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none;">
@@ -773,14 +770,18 @@
             <div class="number">₹{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
             <div class="label">Total Monthly Rent</div>
         </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe);">
+            <div class="icon">🔒</div>
+            <div class="number" style="color: #5b21b6;">{{ $biometricStats['access_enabled'] ?? 0 }}</div>
+            <div class="label">Biometric Active</div>
+        </div>
     </div>
 
     {{-- Bulk Actions --}}
     <div class="bulk-actions" id="bulkActions">
         <span><i class="bi bi-check-square"></i> <span class="count" id="selectedCount">0</span> selected</span>
         <span style="color:#6b7280;">|</span>
-        <select id="bulkStatusSelect"
-            style="padding:0.2rem 0.5rem; border-radius:4px; border:1px solid #d1d5db; font-size:0.75rem;">
+        <select id="bulkStatusSelect" style="padding:0.2rem 0.5rem; border-radius:4px; border:1px solid #d1d5db; font-size:0.75rem;">
             <option value="">Change Status</option>
             <option value="ACTIVE">Active</option>
             <option value="VACATED">Vacated</option>
@@ -845,14 +846,14 @@
         @if ($residents->count() > 0)
             <div class="row g-4" id="residentsGrid">
                 @foreach ($residents as $resident)
-                    <div class="col-xl-3 col-lg-4 col-md-6 resident-item" 
+                    <div class="col-xl-3 col-lg-4 col-md-6 resident-item"
                          data-id="{{ $resident->id }}"
-                         data-status="{{ $resident->status }}" 
+                         data-status="{{ $resident->status }}"
                          data-hostel="{{ $resident->hostel_id }}"
                          data-gender="{{ $resident->hostel->hostel_type ?? '' }}"
-                         data-food="{{ $resident->food_status }}" 
+                         data-food="{{ $resident->food_status }}"
                          data-name="{{ strtolower($resident->name) }}"
-                         data-code="{{ strtolower($resident->resident_code) }}" 
+                         data-code="{{ strtolower($resident->resident_code) }}"
                          data-phone="{{ $resident->phone }}"
                          data-email="{{ strtolower($resident->email ?? '') }}">
                         <div class="resident-card">
@@ -869,8 +870,7 @@
                                     @endif
                                 </div>
                                 <div style="flex:1; min-width:0;">
-                                    <div
-                                        style="font-weight:600; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    <div style="font-weight:600; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                                         <span class="resident-name">{{ $resident->name }}</span>
                                     </div>
                                     <div style="font-size:0.7rem; opacity:0.8;">
@@ -883,10 +883,10 @@
                                     <i class="bi bi-phone"></i> <span class="resident-phone">{{ $resident->phone }}</span>
                                 </div>
                                 @if($resident->parentsphone)
-    <div class="resident-detail">
-        <i class="bi bi-person-lines-fill"></i> Parents: <span class="resident-parentsphone">{{ $resident->parentsphone }}</span>
-    </div>
-    @endif
+                                    <div class="resident-detail">
+                                        <i class="bi bi-person-lines-fill"></i> Parents: <span class="resident-parentsphone">{{ $resident->parentsphone }}</span>
+                                    </div>
+                                @endif
                                 @if ($resident->email)
                                     <div class="resident-detail">
                                         <i class="bi bi-envelope"></i> <span class="resident-email">{{ Str::limit($resident->email, 25) }}</span>
@@ -897,29 +897,37 @@
                                 </div>
                                 @if ($resident->vacate_date)
                                     <div class="resident-detail">
-                                        <i class="bi bi-calendar-x"></i> Vacated:
-                                        {{ $resident->vacate_date->format('d M Y') }}
+                                        <i class="bi bi-calendar-x"></i> Vacated: {{ $resident->vacate_date->format('d M Y') }}
                                     </div>
                                 @endif
+
+                                {{-- Biometric Status --}}
+                                <div class="resident-detail" style="margin-top: 4px;">
+                                    <i class="bi bi-fingerprint"></i> Biometric:
+                                    <span class="biometric-badge {{ $resident->biometric_access ? 'enabled' : 'disabled' }}">
+                                        <i class="bi {{ $resident->biometric_access ? 'bi-check-circle' : 'bi-x-circle' }}"></i>
+                                        {{ $resident->biometric_access ? 'Enabled' : 'Disabled' }}
+                                    </span>
+                                    @if($resident->employee_code)
+                                        <span style="font-size:0.6rem; color:#6b7280; margin-left:4px;">({{ $resident->employee_code }})</span>
+                                    @endif
+                                </div>
 
                                 {{-- Documents Badges --}}
                                 <div class="resident-detail" style="margin-top: 4px;">
                                     <i class="bi bi-files"></i> Documents:
                                     @if ($resident->profile_image)
-                                        <span class="document-badge has-doc"
-                                            onclick="viewDocument('{{ $resident->profile_image_url }}', 'Profile Image')">
+                                        <span class="document-badge has-doc" onclick="viewDocument('{{ $resident->profile_image_url }}', 'Profile Image')">
                                             <i class="bi bi-image"></i> Profile
                                         </span>
                                     @endif
                                     @if ($resident->aadhar_document)
-                                        <span class="document-badge has-doc"
-                                            onclick="viewDocument('{{ $resident->aadhar_document_url }}', 'Aadhar Document')">
+                                        <span class="document-badge has-doc" onclick="viewDocument('{{ $resident->aadhar_document_url }}', 'Aadhar Document')">
                                             <i class="bi bi-file-earmark-pdf"></i> Aadhar
                                         </span>
                                     @endif
                                     @if ($resident->application_document)
-                                        <span class="document-badge has-doc"
-                                            onclick="viewDocument('{{ $resident->application_document_url }}', 'Application Document')">
+                                        <span class="document-badge has-doc" onclick="viewDocument('{{ $resident->application_document_url }}', 'Application Document')">
                                             <i class="bi bi-file-earmark-text"></i> Application
                                         </span>
                                     @endif
@@ -944,9 +952,8 @@
                                             {{ $resident->hostel->hostel_name ?? 'N/A' }}
                                         </div>
                                         <div class="d-flex align-items-center gap-2">
-                                            <span
-                                                class="food-badge {{ $resident->food_status == 'WITH_FOOD' ? 'with-food' : 'without-food' }}">
-                                                {{ $resident->food_status_icon }} {{ $resident->food_status_label }}
+                                            <span class="food-badge {{ $resident->food_status == 'WITH_FOOD' ? 'with-food' : 'without-food' }}">
+                                                {{ $resident->food_status == 'WITH_FOOD' ? '🍽️ With Food' : '🍞 Without Food' }}
                                             </span>
                                             <span class="resident-rent">
                                                 ₹{{ number_format($resident->rent_amount ?? 0, 0) }}
@@ -955,22 +962,21 @@
                                     </div>
                                 </div>
                                 <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <button class="status-badge {{ strtolower($resident->status) }}"
-                                        onclick="toggleStatus({{ $resident->id }})">
+                                    <button class="status-badge {{ strtolower($resident->status) }}" onclick="toggleStatus({{ $resident->id }})">
                                         <span class="dot"></span>
                                         {{ $resident->status }}
                                     </button>
                                     <div class="d-flex gap-1">
-                                        <button class="btn-action text-info" onclick="viewDocuments({{ $resident->id }})"
-                                            title="View Documents">
+                                        <button class="btn-action text-info" onclick="toggleBiometricAccess({{ $resident->id }})" title="Toggle Biometric">
+                                            <i class="bi bi-fingerprint"></i>
+                                        </button>
+                                        <button class="btn-action text-info" onclick="viewDocuments({{ $resident->id }})" title="View Documents">
                                             <i class="bi bi-files"></i>
                                         </button>
-                                        <button class="btn-action text-primary"
-                                            onclick="editResident({{ $resident->id }})" title="Edit">
+                                        <button class="btn-action text-primary" onclick="editResident({{ $resident->id }})" title="Edit">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        <button class="btn-action text-danger"
-                                            onclick="deleteResident({{ $resident->id }})" title="Delete">
+                                        <button class="btn-action text-danger" onclick="deleteResident({{ $resident->id }})" title="Delete">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
@@ -1077,8 +1083,7 @@
                                 <label class="form-label">Profile Image</label>
                                 <div class="rv-input-box file-input-box">
                                     <input type="file" name="profile_image" id="profile_image" accept="image/*">
-                                    <small class="text-muted" style="display:block; font-size:0.65rem;">JPG, PNG (Max
-                                        2MB)</small>
+                                    <small class="text-muted" style="display:block; font-size:0.65rem;">JPG, PNG (Max 2MB)</small>
                                 </div>
                                 <div id="profile_image_preview" style="display:none; margin-top: 6px;">
                                     <div class="file-preview-container">
@@ -1087,8 +1092,7 @@
                                             <div class="filename" id="profile_filename">File</div>
                                             <div class="filesize" id="profile_filesize">0 KB</div>
                                         </div>
-                                        <button type="button" class="btn-action text-danger"
-                                            onclick="removeFile('profile_image')">
+                                        <button type="button" class="btn-action text-danger" onclick="removeFile('profile_image')">
                                             <i class="bi bi-x"></i>
                                         </button>
                                     </div>
@@ -1099,8 +1103,7 @@
                                         <div class="file-info">
                                             <div class="filename">Current Profile</div>
                                         </div>
-                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i>
-                                            Uploaded</span>
+                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
                                     </div>
                                 </div>
                                 <div class="invalid-feedback" id="profile_image_error"></div>
@@ -1109,10 +1112,8 @@
                             <div class="col-md-4">
                                 <label class="form-label">Aadhar Document</label>
                                 <div class="rv-input-box file-input-box">
-                                    <input type="file" name="aadhar_document" id="aadhar_document"
-                                        accept=".pdf,.jpg,.jpeg,.png">
-                                    <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max
-                                        5MB)</small>
+                                    <input type="file" name="aadhar_document" id="aadhar_document" accept=".pdf,.jpg,.jpeg,.png">
+                                    <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max 5MB)</small>
                                 </div>
                                 <div id="aadhar_document_preview" style="display:none; margin-top: 6px;">
                                     <div class="file-preview-container">
@@ -1121,8 +1122,7 @@
                                             <div class="filename" id="aadhar_filename">File</div>
                                             <div class="filesize" id="aadhar_filesize">0 KB</div>
                                         </div>
-                                        <button type="button" class="btn-action text-danger"
-                                            onclick="removeFile('aadhar_document')">
+                                        <button type="button" class="btn-action text-danger" onclick="removeFile('aadhar_document')">
                                             <i class="bi bi-x"></i>
                                         </button>
                                     </div>
@@ -1133,12 +1133,10 @@
                                         <div class="file-info">
                                             <div class="filename">Current Aadhar</div>
                                         </div>
-                                        <a id="aadhar_existing_link" href="#" target="_blank"
-                                            class="btn-action text-primary">
+                                        <a id="aadhar_existing_link" href="#" target="_blank" class="btn-action text-primary">
                                             <i class="bi bi-eye"></i> View
                                         </a>
-                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i>
-                                            Uploaded</span>
+                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
                                     </div>
                                 </div>
                                 <div class="invalid-feedback" id="aadhar_document_error"></div>
@@ -1147,10 +1145,8 @@
                             <div class="col-md-4">
                                 <label class="form-label">Application Document</label>
                                 <div class="rv-input-box file-input-box">
-                                    <input type="file" name="application_document" id="application_document"
-                                        accept=".pdf,.jpg,.jpeg,.png">
-                                    <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max
-                                        5MB)</small>
+                                    <input type="file" name="application_document" id="application_document" accept=".pdf,.jpg,.jpeg,.png">
+                                    <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max 5MB)</small>
                                 </div>
                                 <div id="application_document_preview" style="display:none; margin-top: 6px;">
                                     <div class="file-preview-container">
@@ -1159,8 +1155,7 @@
                                             <div class="filename" id="application_filename">File</div>
                                             <div class="filesize" id="application_filesize">0 KB</div>
                                         </div>
-                                        <button type="button" class="btn-action text-danger"
-                                            onclick="removeFile('application_document')">
+                                        <button type="button" class="btn-action text-danger" onclick="removeFile('application_document')">
                                             <i class="bi bi-x"></i>
                                         </button>
                                     </div>
@@ -1171,12 +1166,10 @@
                                         <div class="file-info">
                                             <div class="filename">Current Application</div>
                                         </div>
-                                        <a id="application_existing_link" href="#" target="_blank"
-                                            class="btn-action text-primary">
+                                        <a id="application_existing_link" href="#" target="_blank" class="btn-action text-primary">
                                             <i class="bi bi-eye"></i> View
                                         </a>
-                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i>
-                                            Uploaded</span>
+                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
                                     </div>
                                 </div>
                                 <div class="invalid-feedback" id="application_document_error"></div>
@@ -1190,9 +1183,7 @@
                                     <select name="hostel_id" id="hostel_id" class="rv-input" required>
                                         <option value="">Select Hostel</option>
                                         @foreach ($hostels as $hostel)
-                                            <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}
-                                                ({{ $hostel->hostel_code }})
-                                            </option>
+                                            <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }} ({{ $hostel->hostel_code }})</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -1258,8 +1249,7 @@
                                 <label class="form-label">Joining Date <span class="required">*</span></label>
                                 <div class="rv-input-box">
                                     <i class="bi bi-calendar3 rv-input-icon"></i>
-                                    <input type="date" name="joining_date" id="joining_date" class="rv-input"
-                                        required>
+                                    <input type="date" name="joining_date" id="joining_date" class="rv-input" required>
                                 </div>
                                 <div class="invalid-feedback" id="joining_date_error"></div>
                             </div>
@@ -1330,8 +1320,6 @@
 
     <script>
         $(document).ready(function() {
-            console.log('Document ready - Initializing resident management');
-            
             var residentModal = new bootstrap.Modal(document.getElementById('residentModal'), {
                 backdrop: 'static',
                 keyboard: true
@@ -1366,13 +1354,8 @@
                             select.empty().append('<option value="">Select Room</option>');
                             if (response.success && response.data.length > 0) {
                                 $.each(response.data, function(key, room) {
-                                    let bedInfo = room.available_beds > 0 ? ' (Beds: ' +
-                                        room.available_beds + ')' : ' (Full)';
-                                    select.append('<option value="' + room.id +
-                                        '" data-beds="' + room.available_beds +
-                                        '">Room #' + room.room_no + ' - ' + room
-                                        .room_type.room_type_name + bedInfo +
-                                        '</option>');
+                                    let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
+                                    select.append('<option value="' + room.id + '" data-beds="' + room.available_beds + '">Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
                                 });
                             } else {
                                 select.append('<option value="">No rooms available</option>');
@@ -1381,8 +1364,7 @@
                         },
                         error: function(xhr) {
                             if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                    'error');
+                                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                             }
                         }
                     });
@@ -1413,8 +1395,7 @@
                         },
                         error: function(xhr) {
                             if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                    'error');
+                                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                             }
                         }
                     });
@@ -1433,22 +1414,17 @@
                 }
             });
 
-            // Search with debounce - FIXED
+            // Search with debounce
             let searchTimeout;
             $('#searchResident').on('keyup', function() {
-                var searchTerm = $(this).val();
-                console.log('Searching for:', searchTerm);
-                
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(function() {
-                    console.log('Applying search filter...');
                     applyFilters();
                 }, 300);
             });
 
             // Filter changes
             $('#filterStatus, #filterHostel, #filterGender, #filterFood').on('change', function() {
-                console.log('Filter changed:', $(this).attr('id'), '=', $(this).val());
                 applyFilters();
             });
 
@@ -1461,7 +1437,6 @@
             setupFileInput('application_document', 'document');
 
             // Initial filter application
-            console.log('Applying initial filters...');
             applyFilters();
         });
 
@@ -1474,7 +1449,6 @@
                 const previewId = inputId + '_preview';
                 const existingId = inputId + '_existing';
 
-                // Hide existing preview
                 $('#' + existingId).hide();
 
                 if (file) {
@@ -1491,9 +1465,7 @@
                         };
                         reader.readAsDataURL(file);
                     } else {
-                        // For documents
-                        const iconClass = file.type === 'application/pdf' ? 'bi-file-earmark-pdf' :
-                            'bi-file-earmark-text';
+                        const iconClass = file.type === 'application/pdf' ? 'bi-file-earmark-pdf' : 'bi-file-earmark-text';
                         const iconColor = file.type === 'application/pdf' ? '#dc2626' : '#2563eb';
                         const previewContainer = $('#' + previewId + ' .file-preview-container');
                         previewContainer.find('i').attr('class', 'bi ' + iconClass).css('color', iconColor);
@@ -1510,7 +1482,6 @@
         function removeFile(inputId) {
             $('#' + inputId).val('');
             $('#' + inputId + '_preview').hide();
-            // If editing and there was an existing file, show it again
             const existingId = inputId + '_existing';
             if ($('#' + existingId).data('has-file') === true) {
                 $('#' + existingId).show();
@@ -1532,12 +1503,9 @@
 
             const content = document.getElementById('documentViewerContent');
 
-            // Check if it's an image
             if (url.match(/\.(jpeg|jpg|png|gif)$/i)) {
-                content.innerHTML =
-                    `<img src="${url}" alt="${title}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
+                content.innerHTML = `<img src="${url}" alt="${title}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
             } else {
-                // For PDF and other documents, show embed or iframe
                 content.innerHTML = `
                     <iframe src="${url}" style="width:100%; height:70vh; border:none; border-radius:8px;"></iframe>
                     <p class="text-muted mt-2" style="font-size:0.8rem;">
@@ -1607,15 +1575,12 @@
                             `;
                         }
 
-                        if (!docs.profile_image.exists && !docs.aadhar_document.exists && !docs
-                            .application_document.exists) {
-                            html =
-                                '<p class="text-muted text-center">No documents uploaded for this resident.</p>';
+                        if (!docs.profile_image.exists && !docs.aadhar_document.exists && !docs.application_document.exists) {
+                            html = '<p class="text-muted text-center">No documents uploaded for this resident.</p>';
                         }
 
                         html += '</div>';
 
-                        // Show in a modal
                         Swal.fire({
                             title: 'Resident Documents',
                             html: html,
@@ -1639,140 +1604,71 @@
         }
 
         // ============================================
-// FILTERS - FIXED WITH PROPER NULL HANDLING
-// ============================================
-function applyFilters() {
-    console.log('applyFilters() called');
-    
-    var status = $('#filterStatus').val();
-    var hostel = $('#filterHostel').val();
-    var gender = $('#filterGender').val();
-    var food = $('#filterFood').val();
-    var search = $('#searchResident').val().toLowerCase().trim();
+        // FILTERS
+        // ============================================
+        function applyFilters() {
+            var status = $('#filterStatus').val();
+            var hostel = $('#filterHostel').val();
+            var gender = $('#filterGender').val();
+            var food = $('#filterFood').val();
+            var search = $('#searchResident').val().toLowerCase().trim();
 
-    console.log('Filters:', { status, hostel, gender, food, search });
+            var visibleCount = 0;
+            var totalCount = $('.resident-item').length;
 
-    var visibleCount = 0;
-    var totalCount = $('.resident-item').length;
-    
-    console.log('Total residents found:', totalCount);
+            $('.resident-item').each(function() {
+                var show = true;
+                var $item = $(this);
 
-    if (totalCount === 0) {
-        console.log('No resident items found in DOM');
-        return;
-    }
+                var resStatus = $item.data('status') || '';
+                var resHostel = $item.data('hostel') || '';
+                var resGender = $item.data('gender') || '';
+                var resFood = $item.data('food') || '';
+                var resName = ($item.data('name') || '').toLowerCase();
+                var resCode = ($item.data('code') || '').toLowerCase();
+                var resPhone = ($item.data('phone') || '').toLowerCase();
+                var resEmail = ($item.data('email') || '').toLowerCase();
+                var resId = String($item.data('id') || '');
 
-    $('.resident-item').each(function(index) {
-        var show = true;
-        var $item = $(this);
-        
-        // Get all data attributes with proper null/undefined handling
-        var resStatus = $item.data('status');
-        var resHostel = $item.data('hostel');
-        var resGender = $item.data('gender');
-        var resFood = $item.data('food');
-        var resName = $item.data('name');
-        var resCode = $item.data('code');
-        var resPhone = $item.data('phone');
-        var resEmail = $item.data('email');
-        var resId = $item.data('id');
-        
-        // Convert to string and lowercase safely
-        resStatus = (resStatus !== undefined && resStatus !== null) ? String(resStatus) : '';
-        resHostel = (resHostel !== undefined && resHostel !== null) ? String(resHostel) : '';
-        resGender = (resGender !== undefined && resGender !== null) ? String(resGender) : '';
-        resFood = (resFood !== undefined && resFood !== null) ? String(resFood) : '';
-        resName = (resName !== undefined && resName !== null) ? String(resName).toLowerCase() : '';
-        resCode = (resCode !== undefined && resCode !== null) ? String(resCode).toLowerCase() : '';
-        resPhone = (resPhone !== undefined && resPhone !== null) ? String(resPhone).toLowerCase() : '';
-        resEmail = (resEmail !== undefined && resEmail !== null) ? String(resEmail).toLowerCase() : '';
-        resId = (resId !== undefined && resId !== null) ? String(resId) : '';
+                if (status && resStatus !== status) show = false;
+                if (hostel && resHostel !== String(hostel)) show = false;
+                if (gender && resGender !== gender) show = false;
+                if (food && resFood !== food) show = false;
 
-        // Debug first item
-        if (index === 0) {
-            console.log('First resident data (raw):', {
-                status: $item.data('status'),
-                hostel: $item.data('hostel'),
-                gender: $item.data('gender'),
-                food: $item.data('food'),
-                name: $item.data('name'),
-                code: $item.data('code'),
-                phone: $item.data('phone'),
-                email: $item.data('email'),
-                id: $item.data('id')
+                if (search && show) {
+                    var searchMatch = false;
+                    if (resName.includes(search)) searchMatch = true;
+                    if (resCode.includes(search)) searchMatch = true;
+                    if (resPhone.includes(search)) searchMatch = true;
+                    if (resEmail.includes(search)) searchMatch = true;
+                    if (resId.includes(search)) searchMatch = true;
+                    if (!searchMatch) show = false;
+                }
+
+                if (show) {
+                    $item.show();
+                    visibleCount++;
+                } else {
+                    $item.hide();
+                }
             });
-            console.log('First resident data (processed):', {
-                status: resStatus,
-                hostel: resHostel,
-                gender: resGender,
-                food: resFood,
-                name: resName,
-                code: resCode,
-                phone: resPhone,
-                email: resEmail,
-                id: resId
-            });
-        }
 
-        // Apply filters
-        if (status && resStatus !== status) {
-            show = false;
-        }
-        if (hostel && resHostel !== String(hostel)) {
-            show = false;
-        }
-        if (gender && resGender !== gender) {
-            show = false;
-        }
-        if (food && resFood !== food) {
-            show = false;
-        }
-        
-        // Apply search - search through multiple fields
-        if (search && show) {
-            var searchMatch = false;
-            
-            // Check all fields
-            if (resName.includes(search)) searchMatch = true;
-            if (resCode.includes(search)) searchMatch = true;
-            if (resPhone.includes(search)) searchMatch = true;
-            if (resEmail.includes(search)) searchMatch = true;
-            if (resId.includes(search)) searchMatch = true;
-            
-            if (!searchMatch) {
-                show = false;
+            var resultCountEl = $('#resultCount');
+            if (visibleCount === totalCount) {
+                resultCountEl.text('');
+            } else {
+                resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
+            }
+
+            var noResultsDiv = $('#noSearchResults');
+            if (visibleCount === 0 && totalCount > 0) {
+                noResultsDiv.show();
+            } else {
+                noResultsDiv.hide();
             }
         }
 
-        if (show) {
-            $item.show();
-            visibleCount++;
-        } else {
-            $item.hide();
-        }
-    });
-
-    console.log('Visible count:', visibleCount, 'out of', totalCount);
-
-    // Update result count
-    var resultCountEl = $('#resultCount');
-    if (visibleCount === totalCount) {
-        resultCountEl.text('');
-    } else {
-        resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
-    }
-
-    // Show "No results" message if no residents found
-    var noResultsDiv = $('#noSearchResults');
-    if (visibleCount === 0 && totalCount > 0) {
-        noResultsDiv.show();
-    } else {
-        noResultsDiv.hide();
-    }
-}
-
         function clearFilters() {
-            console.log('Clearing filters');
             $('#filterStatus, #filterHostel, #filterGender, #filterFood').val('');
             $('#searchResident').val('');
             $('#resultCount').text('');
@@ -1893,6 +1789,60 @@ function applyFilters() {
         }
 
         // ============================================
+        // BIOMETRIC FUNCTIONS
+        // ============================================
+        function syncAllBiometric() {
+            Swal.fire({
+                title: 'Sync All Residents?',
+                text: "This will sync all residents to the biometric system.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#7c3aed',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, sync them!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: "{{ route('admin.residents.sync-all-biometric') }}",
+                        type: 'POST',
+                        data: { _token: '{{ csrf_token() }}' },
+                        success: function(response) {
+                            if (response.success) {
+                                showToast('Synced ' + response.success_count + ' residents successfully!', 'success');
+                                if (response.failure_count > 0) {
+                                    showToast(response.failure_count + ' residents failed to sync.', 'error');
+                                }
+                                setTimeout(() => location.reload(), 2000);
+                            } else {
+                                showToast(response.message || 'Failed to sync residents', 'error');
+                            }
+                        },
+                        error: function(xhr) {
+                            showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function toggleBiometricAccess(id) {
+            $.ajax({
+                url: '/admin/residents/' + id + '/toggle-biometric',
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function(response) {
+                    if (response.success) {
+                        showToast(response.message, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                },
+                error: function(xhr) {
+                    showToast(xhr.responseJSON?.error || 'Failed to toggle biometric access!', 'error');
+                }
+            });
+        }
+
+        // ============================================
         // EXPORT
         // ============================================
         function exportData() {
@@ -1927,7 +1877,6 @@ function applyFilters() {
             document.getElementById('modalTitle').textContent = 'Add Resident';
             document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
 
-            // Hide all previews
             $('[id$="_preview"]').hide();
             $('[id$="_existing"]').hide();
             $('[id$="_existing"]').data('has-file', false);
@@ -1953,8 +1902,7 @@ function applyFilters() {
                 processData: false,
                 contentType: false,
                 beforeSend: function() {
-                    $('#saveBtn').prop('disabled', true).html(
-                        '<i class="bi bi-spinner bi-spin"></i> Saving...');
+                    $('#saveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
                     $('.invalid-feedback').text('');
                     $('.rv-input-box').removeClass('is-invalid');
                 },
@@ -1987,8 +1935,7 @@ function applyFilters() {
                 complete: function() {
                     let id = document.getElementById('editId').value;
                     let text = id ? 'Update' : 'Save';
-                    $('#saveBtn').prop('disabled', false).html(
-                        '<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text + '</span>');
+                    $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text + '</span>');
                 }
             });
         }
@@ -2007,7 +1954,7 @@ function applyFilters() {
                         document.getElementById('editId').value = data.id;
                         document.getElementById('name').value = data.name;
                         document.getElementById('phone').value = data.phone;
-                        document.getElementById('parentsphone').value = data.parentsphone || '';  // <-- ADD THIS
+                        document.getElementById('parentsphone').value = data.parentsphone || '';
                         document.getElementById('email').value = data.email || '';
                         document.getElementById('aadhaar_no').value = data.aadhaar_no || '';
                         document.getElementById('address').value = data.address || '';
@@ -2017,17 +1964,14 @@ function applyFilters() {
                         document.getElementById('deposit_amount').value = data.deposit_amount || 0;
                         document.getElementById('status').value = data.status;
 
-                        // Convert date to YYYY-MM-DD format for input field
                         if (data.joining_date) {
                             const joiningDate = new Date(data.joining_date);
-                            const formattedJoiningDate = joiningDate.toISOString().split('T')[0];
-                            document.getElementById('joining_date').value = formattedJoiningDate;
+                            document.getElementById('joining_date').value = joiningDate.toISOString().split('T')[0];
                         }
 
                         if (data.vacate_date) {
                             const vacateDate = new Date(data.vacate_date);
-                            const formattedVacateDate = vacateDate.toISOString().split('T')[0];
-                            document.getElementById('vacate_date').value = formattedVacateDate;
+                            document.getElementById('vacate_date').value = vacateDate.toISOString().split('T')[0];
                             $('#vacateDateDiv').show();
                         } else {
                             $('#vacateDateDiv').hide();
@@ -2056,13 +2000,12 @@ function applyFilters() {
                         if (data.application_document) {
                             $('#application_document_existing').data('has-file', true);
                             $('#application_document_existing').show();
-                            $('#application_existing_link').attr('href', '{{ asset('') }}' + data
-                                .application_document);
+                            $('#application_existing_link').attr('href', '{{ asset('') }}' + data.application_document);
                         } else {
                             $('#application_document_existing').hide();
                         }
 
-                        // Load rooms with proper selection
+                        // Load rooms
                         $.ajax({
                             url: "{{ route('admin.residents.get-rooms') }}",
                             type: 'POST',
@@ -2073,20 +2016,20 @@ function applyFilters() {
                             success: function(roomResponse) {
                                 let select = $('#room_id');
                                 select.empty().append('<option value="">Select Room</option>');
-                                
+
                                 if (roomResponse.success && roomResponse.data.length > 0) {
                                     let currentRoomExists = false;
-                                    
+
                                     $.each(roomResponse.data, function(key, room) {
                                         let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
                                         let selected = (room.id == data.room_id) ? 'selected' : '';
                                         if (room.id == data.room_id) {
                                             currentRoomExists = true;
                                         }
-                                        
+
                                         select.append('<option value="' + room.id + '" ' + selected + ' data-beds="' + room.available_beds + '">Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
                                     });
-                                    
+
                                     if (!currentRoomExists && data.room_id) {
                                         $.ajax({
                                             url: '/admin/residents/room/' + data.room_id + '/details',
@@ -2099,7 +2042,7 @@ function applyFilters() {
                                             }
                                         });
                                     }
-                                    
+
                                     if (data.room_id) {
                                         select.val(data.room_id);
                                     }
@@ -2117,7 +2060,7 @@ function applyFilters() {
 
                                         if (bedResponse.success && bedResponse.data.length > 0) {
                                             let currentBedExists = false;
-                                            
+
                                             bedResponse.data.sort(function(a, b) {
                                                 if (a.id == data.bed_id) return -1;
                                                 if (b.id == data.bed_id) return 1;
@@ -2129,7 +2072,7 @@ function applyFilters() {
                                             $.each(bedResponse.data, function(key, bed) {
                                                 let selected = (bed.id == data.bed_id) ? 'selected' : '';
                                                 let statusLabel = '';
-                                                
+
                                                 if (bed.id == data.bed_id) {
                                                     statusLabel = ' (Current)';
                                                     currentBedExists = true;
@@ -2138,9 +2081,9 @@ function applyFilters() {
                                                 } else {
                                                     statusLabel = ' (Vacant)';
                                                 }
-                                                
+
                                                 let disabled = (bed.status === 'OCCUPIED' && bed.id != data.bed_id) ? 'disabled' : '';
-                                                
+
                                                 bedSelect.append(
                                                     '<option value="' + bed.id + '" ' + selected + ' ' + disabled + '>' +
                                                     'Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel +
@@ -2150,8 +2093,8 @@ function applyFilters() {
 
                                             if (!currentBedExists && data.bed_id) {
                                                 bedSelect.append(
-                                                    '<option value="' + data.bed_id + '" selected>Bed #' + 
-                                                    (data.bed ? data.bed.bed_no : 'N/A') + 
+                                                    '<option value="' + data.bed_id + '" selected>Bed #' +
+                                                    (data.bed ? data.bed.bed_no : 'N/A') +
                                                     ' (Current Bed)</option>'
                                                 );
                                             }
@@ -2258,8 +2201,7 @@ function applyFilters() {
                             if (xhr.status === 403) {
                                 showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                             } else {
-                                showToast(xhr.responseJSON?.message || 'Failed to update status!',
-                                    'error');
+                                showToast(xhr.responseJSON?.message || 'Failed to update status!', 'error');
                             }
                         }
                     });

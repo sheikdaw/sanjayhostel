@@ -7,10 +7,12 @@ use App\Models\Bed;
 use App\Models\Hostel;
 use App\Models\Resident;
 use App\Models\Room;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 
 class ResidentController extends Controller
 {
@@ -54,24 +56,37 @@ class ResidentController extends Controller
             'total_rent' => $residents->where('status', 'ACTIVE')->sum('rent_amount')
         ];
 
-        return view('admin.residents.index', compact('residents', 'hostels', 'stats', 'user'));
+        // Biometric statistics
+        $biometricStats = [
+            'total' => $residents->count(),
+            'synced' => $residents->whereNotNull('employee_code')->count(),
+            'access_enabled' => $residents->where('biometric_access', true)->count(),
+            'access_disabled' => $residents->where('biometric_access', false)->count()
+        ];
+
+        return view('admin.residents.index', compact('residents', 'hostels', 'stats', 'user', 'biometricStats'));
     }
-public function getRoomDetails($id)
-{
-    try {
-        $room = Room::with('roomType')->find($id);
-        if (!$room) {
-            return response()->json(['success' => false, 'message' => 'Room not found'], 404);
+
+    /**
+     * Get room details
+     */
+    public function getRoomDetails($id)
+    {
+        try {
+            $room = Room::with('roomType')->find($id);
+            if (!$room) {
+                return response()->json(['success' => false, 'message' => 'Room not found'], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $room
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
-        
-        return response()->json([
-            'success' => true,
-            'data' => $room
-        ]);
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
     }
-}
+
     /**
      * Get rooms by hostel
      */
@@ -192,8 +207,7 @@ public function getRoomDetails($id)
             'bed_id' => 'required|exists:beds,id',
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
-            
-        'parentsphone' => 'nullable|string|max:20',
+            'parentsphone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
             'aadhaar_no' => 'nullable|string|max:20',
             'address' => 'nullable|string',
@@ -202,7 +216,6 @@ public function getRoomDetails($id)
             'joining_date' => 'required|date',
             'deposit_amount' => 'nullable|numeric|min:0',
             'status' => 'required|in:ACTIVE,VACATED',
-            // File validations
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg',
             'aadhar_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
             'application_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
@@ -284,6 +297,13 @@ public function getRoomDetails($id)
         // Create resident
         $resident = Resident::create($residentData);
 
+        // Generate employee code for biometric
+        $employeeCode = $this->generateEmployeeCode($resident);
+        $resident->employee_code = $employeeCode;
+        $resident->biometric_access = true;
+        $resident->last_sync_at = now();
+        $resident->save();
+
         // Update bed status to OCCUPIED
         $bed->update(['status' => 'OCCUPIED']);
 
@@ -357,7 +377,6 @@ public function getRoomDetails($id)
             'vacate_date' => 'nullable|date|after_or_equal:joining_date',
             'deposit_amount' => 'nullable|numeric|min:0',
             'status' => 'required|in:ACTIVE,VACATED',
-            // File validations
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg',
             'aadhar_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
             'application_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg',
@@ -398,7 +417,6 @@ public function getRoomDetails($id)
 
         // Handle Profile Image
         if ($request->hasFile('profile_image')) {
-            // Delete old file
             if ($resident->profile_image) {
                 $this->deleteFile($resident->profile_image);
             }
@@ -462,7 +480,6 @@ public function getRoomDetails($id)
         $user = auth()->user();
         $resident = Resident::findOrFail($id);
 
-        // Check if user has access to this resident's hostel
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
             if (!in_array($resident->hostel_id, $hostelIds)) {
@@ -473,7 +490,6 @@ public function getRoomDetails($id)
             }
         }
 
-        // Delete associated files
         if ($resident->profile_image) {
             $this->deleteFile($resident->profile_image);
         }
@@ -510,7 +526,6 @@ public function getRoomDetails($id)
         $user = auth()->user();
         $resident = Resident::findOrFail($id);
 
-        // Check if user has access to this resident's hostel
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
             if (!in_array($resident->hostel_id, $hostelIds)) {
@@ -567,7 +582,6 @@ public function getRoomDetails($id)
     {
         $user = auth()->user();
 
-        // Check if user has access to this hostel
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
             if (!in_array($hostelId, $hostelIds)) {
@@ -637,7 +651,6 @@ public function getRoomDetails($id)
 
             if (!$resident) continue;
 
-            // Check if user has access
             if ($user->role !== 'admin') {
                 $hostelIds = $user->hostel_ids ?? [];
                 if (!in_array($resident->hostel_id, $hostelIds)) {
@@ -646,7 +659,6 @@ public function getRoomDetails($id)
                 }
             }
 
-            // Delete associated files
             if ($resident->profile_image) {
                 $this->deleteFile($resident->profile_image);
             }
@@ -667,7 +679,6 @@ public function getRoomDetails($id)
             $deleted++;
         }
 
-        // Update room statuses
         foreach (array_unique($roomsToUpdate) as $roomId) {
             $room = Room::find($roomId);
             if ($room) {
@@ -709,7 +720,6 @@ public function getRoomDetails($id)
 
             if (!$resident) continue;
 
-            // Check if user has access
             if ($user->role !== 'admin') {
                 $hostelIds = $user->hostel_ids ?? [];
                 if (!in_array($resident->hostel_id, $hostelIds)) {
@@ -738,7 +748,6 @@ public function getRoomDetails($id)
             $updated++;
         }
 
-        // Update room statuses
         foreach (array_unique($roomsToUpdate) as $roomId) {
             $room = Room::find($roomId);
             if ($room) {
@@ -796,90 +805,84 @@ public function getRoomDetails($id)
     /**
      * Export residents to CSV
      */
-  public function export(Request $request)
-{
-    $user = auth()->user();
+    public function export(Request $request)
+    {
+        $user = auth()->user();
 
-    // Eager load relationships properly
-    if ($user->role === 'admin') {
-        $residents = Resident::with(['hostel', 'room', 'bed'])
-            ->orderBy('name')
-            ->get();
-    } else {
-        $hostelIds = $user->hostel_ids ?? [];
-        $residents = Resident::with(['hostel', 'room', 'bed'])
-            ->whereIn('hostel_id', $hostelIds)
-            ->orderBy('name')
-            ->get();
-    }
+        if ($user->role === 'admin') {
+            $residents = Resident::with(['hostel', 'room', 'bed'])
+                ->orderBy('name')
+                ->get();
+        } else {
+            $hostelIds = $user->hostel_ids ?? [];
+            $residents = Resident::with(['hostel', 'room', 'bed'])
+                ->whereIn('hostel_id', $hostelIds)
+                ->orderBy('name')
+                ->get();
+        }
 
-    // Check if any residents exist
-    if ($residents->isEmpty()) {
-        // Return a CSV with headers only or an error message
-        $csv = "No residents found in the system.\n";
-        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status\n";
-        $csv .= "No data available,,,,,,,,,,,,,,\n";
-        
+        if ($residents->isEmpty()) {
+            $csv = "No residents found in the system.\n";
+            $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
+            $csv .= "No data available,,,,,,,,,,,,,,,,,\n";
+
+            return response($csv)
+                ->header('Content-Type', 'text/csv; charset=UTF-8')
+                ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"');
+        }
+
+        $csv = "\xEF\xBB\xBF";
+        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
+
+        foreach ($residents as $resident) {
+            $hostelName = $resident->hostel ? $resident->hostel->hostel_name : 'N/A';
+            $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
+            $bedNo = $resident->bed ? $resident->bed->bed_no : 'N/A';
+            $foodLabel = $resident->food_status == 'WITH_FOOD' ? 'With Food' : 'Without Food';
+            $biometricAccess = $resident->biometric_access ? 'Enabled' : 'Disabled';
+
+            $csv .= $this->csvEscape($resident->id) . ",";
+            $csv .= $this->csvEscape($resident->resident_code) . ",";
+            $csv .= $this->csvEscape($resident->name) . ",";
+            $csv .= $this->csvEscape($resident->phone) . ",";
+            $csv .= $this->csvEscape($resident->parentsphone ?? '') . ",";
+            $csv .= $this->csvEscape($resident->email ?? '') . ",";
+            $csv .= $this->csvEscape($hostelName) . ",";
+            $csv .= $this->csvEscape($roomNo) . ",";
+            $csv .= $this->csvEscape($bedNo) . ",";
+            $csv .= $this->csvEscape($foodLabel) . ",";
+            $csv .= $this->csvEscape($resident->joining_date ? $resident->joining_date->format('Y-m-d') : '') . ",";
+            $csv .= $this->csvEscape($resident->vacate_date ? $resident->vacate_date->format('Y-m-d') : '') . ",";
+            $csv .= $this->csvEscape(number_format($resident->rent_amount ?? 0, 2)) . ",";
+            $csv .= $this->csvEscape(number_format($resident->deposit_amount ?? 0, 2)) . ",";
+            $csv .= $this->csvEscape($resident->status) . ",";
+            $csv .= $this->csvEscape($resident->employee_code ?? 'Not Synced') . ",";
+            $csv .= $this->csvEscape($biometricAccess) . "\n";
+        }
+
         return response($csv)
             ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"');
+            ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"')
+            ->header('Pragma', 'public')
+            ->header('Cache-Control', 'max-age=86400');
     }
 
-    // Build CSV with BOM for Excel compatibility
-    $csv = "\xEF\xBB\xBF"; // UTF-8 BOM
-    $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status\n";
+    /**
+     * Helper to escape CSV fields
+     */
+    private function csvEscape($value)
+    {
+        if ($value === null) return '';
 
-    foreach ($residents as $resident) {
-        // Get safe values with fallbacks
-        $hostelName = $resident->hostel ? $resident->hostel->hostel_name : 'N/A';
-        $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
-        $bedNo = $resident->bed ? $resident->bed->bed_no : 'N/A';
-        
-        // Food status label
-        $foodLabel = $resident->food_status == 'WITH_FOOD' ? 'With Food' : 'Without Food';
-        
-        // Escape CSV fields to prevent injection
-        $csv .= $this->csvEscape($resident->id) . ",";
-        $csv .= $this->csvEscape($resident->resident_code) . ",";
-        $csv .= $this->csvEscape($resident->name) . ",";
-        $csv .= $this->csvEscape($resident->phone) . ",";
-        $csv .= $this->csvEscape($resident->parentsphone ?? '') . ",";
-        $csv .= $this->csvEscape($resident->email ?? '') . ",";
-        $csv .= $this->csvEscape($hostelName) . ",";
-        $csv .= $this->csvEscape($roomNo) . ",";
-        $csv .= $this->csvEscape($bedNo) . ",";
-        $csv .= $this->csvEscape($foodLabel) . ",";
-        $csv .= $this->csvEscape($resident->joining_date ? $resident->joining_date->format('Y-m-d') : '') . ",";
-        $csv .= $this->csvEscape($resident->vacate_date ? $resident->vacate_date->format('Y-m-d') : '') . ",";
-        $csv .= $this->csvEscape(number_format($resident->rent_amount ?? 0, 2)) . ",";
-        $csv .= $this->csvEscape(number_format($resident->deposit_amount ?? 0, 2)) . ",";
-        $csv .= $this->csvEscape($resident->status) . "\n";
+        $value = (string) $value;
+
+        if (strpos($value, ',') !== false || strpos($value, "\n") !== false || strpos($value, '"') !== false) {
+            $value = str_replace('"', '""', $value);
+            return '"' . $value . '"';
+        }
+
+        return $value;
     }
-
-    return response($csv)
-        ->header('Content-Type', 'text/csv; charset=UTF-8')
-        ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"')
-        ->header('Pragma', 'public')
-        ->header('Cache-Control', 'max-age=86400');
-}
-
-/**
- * Helper to escape CSV fields
- */
-private function csvEscape($value)
-{
-    if ($value === null) return '';
-    
-    $value = (string) $value;
-    
-    // If the value contains comma, newline, or double quote, wrap in quotes
-    if (strpos($value, ',') !== false || strpos($value, "\n") !== false || strpos($value, '"') !== false) {
-        $value = str_replace('"', '""', $value);
-        return '"' . $value . '"';
-    }
-    
-    return $value;
-}
 
     /**
      * Get resident documents
@@ -889,7 +892,6 @@ private function csvEscape($value)
         $user = auth()->user();
         $resident = Resident::findOrFail($id);
 
-        // Check if user has access to this resident's hostel
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
             if (!in_array($resident->hostel_id, $hostelIds)) {
@@ -942,15 +944,12 @@ private function csvEscape($value)
         $directory = 'uploads/residents/' . $subDirectory;
         $path = public_path($directory);
 
-        // Create directory if it doesn't exist
         if (!File::isDirectory($path)) {
             File::makeDirectory($path, 0755, true);
         }
 
-        // Move file to public directory
         $file->move($path, $filename);
 
-        // Return relative path for database storage
         return $directory . '/' . $filename;
     }
 
@@ -991,5 +990,241 @@ private function csvEscape($value)
         }
 
         $room->save();
+    }
+
+    /**
+     * Generate employee code for biometric system
+     */
+    private function generateEmployeeCode($resident)
+    {
+        $hostelId = $resident->hostel_id ?? 1;
+        $code = $resident->id + 10000;
+        return 'RES_H' . $hostelId . '_' . str_pad($code, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Check if biometric columns exist
+     */
+    private function checkBiometricColumns()
+    {
+        $columns = ['employee_code', 'biometric_access', 'last_sync_at'];
+        $missing = [];
+
+        foreach ($columns as $column) {
+            if (!Schema::hasColumn('residents', $column)) {
+                $missing[] = $column;
+            }
+        }
+
+        if (!empty($missing)) {
+            throw new \Exception('Missing columns: ' . implode(', ', $missing));
+        }
+
+        return true;
+    }
+
+    /**
+     * Get resident's biometric status
+     */
+    public function biometricStatus($id)
+    {
+        try {
+            $this->checkBiometricColumns();
+            $resident = Resident::findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'employee_code' => $resident->employee_code ?? 'Not generated',
+                    'biometric_access' => $resident->biometric_access ? 'Enabled' : 'Disabled',
+                    'last_sync_at' => $resident->last_sync_at ? $resident->last_sync_at->format('Y-m-d H:i:s') : 'Never',
+                    'access_enabled_at' => $resident->access_enabled_at ? $resident->access_enabled_at->format('Y-m-d H:i:s') : null,
+                    'access_disabled_at' => $resident->access_disabled_at ? $resident->access_disabled_at->format('Y-m-d H:i:s') : null
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Sync a single resident to biometric system
+     */
+    public function syncToBiometric($id)
+    {
+        try {
+            $this->checkBiometricColumns();
+            $resident = Resident::findOrFail($id);
+
+            // Generate employee code if not exists
+            if (!$resident->employee_code) {
+                $resident->employee_code = $this->generateEmployeeCode($resident);
+            }
+
+            $resident->biometric_access = true;
+            $resident->last_sync_at = now();
+            $resident->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Resident synced to biometric system successfully',
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'employee_code' => $resident->employee_code,
+                    'biometric_access' => $resident->biometric_access
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Sync all residents to biometric system
+     */
+    public function syncAllToBiometric()
+    {
+        try {
+            $this->checkBiometricColumns();
+            $residents = Resident::all();
+
+            if ($residents->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No residents found'
+                ]);
+            }
+
+            $successCount = 0;
+            $failureCount = 0;
+            $results = [];
+
+            foreach ($residents as $resident) {
+                try {
+                    if (!$resident->employee_code) {
+                        $resident->employee_code = $this->generateEmployeeCode($resident);
+                    }
+                    $resident->biometric_access = true;
+                    $resident->last_sync_at = now();
+                    $resident->save();
+                    $successCount++;
+                    $results[] = [
+                        'resident_id' => $resident->id,
+                        'name' => $resident->name,
+                        'status' => 'success'
+                    ];
+                } catch (\Exception $e) {
+                    $failureCount++;
+                    $results[] = [
+                        'resident_id' => $resident->id,
+                        'name' => $resident->name,
+                        'status' => 'failed',
+                        'message' => $e->getMessage()
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => $failureCount === 0,
+                'total' => $residents->count(),
+                'success_count' => $successCount,
+                'failure_count' => $failureCount,
+                'data' => $results
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Toggle biometric access for a resident
+     */
+    public function toggleBiometricAccess($id)
+    {
+        try {
+            $this->checkBiometricColumns();
+            $resident = Resident::findOrFail($id);
+
+            $resident->biometric_access = !$resident->biometric_access;
+
+            if ($resident->biometric_access) {
+                $resident->access_enabled_at = now();
+                $resident->access_disabled_at = null;
+            } else {
+                $resident->access_disabled_at = now();
+                $resident->access_enabled_at = null;
+            }
+
+            $resident->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Biometric access ' . ($resident->biometric_access ? 'enabled' : 'disabled') . ' successfully',
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'biometric_access' => $resident->biometric_access
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get residents with biometric status
+     */
+    public function biometricList()
+    {
+        try {
+            $this->checkBiometricColumns();
+            $user = auth()->user();
+
+            if ($user->role === 'admin') {
+                $residents = Resident::all();
+            } else {
+                $hostelIds = $user->hostel_ids ?? [];
+                $residents = Resident::whereIn('hostel_id', $hostelIds)->get();
+            }
+
+            $data = $residents->map(function($resident) {
+                return [
+                    'id' => $resident->id,
+                    'name' => $resident->name,
+                    'resident_code' => $resident->resident_code,
+                    'hostel_id' => $resident->hostel_id,
+                    'employee_code' => $resident->employee_code ?? 'Not generated',
+                    'biometric_access' => $resident->biometric_access ? 'Enabled' : 'Disabled',
+                    'last_sync_at' => $resident->last_sync_at ? $resident->last_sync_at->format('Y-m-d H:i:s') : 'Never',
+                    'status' => $resident->status
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'total' => $data->count(),
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }
