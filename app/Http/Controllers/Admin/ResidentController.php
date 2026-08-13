@@ -920,7 +920,39 @@ class ResidentController extends Controller
         $file->move($path, $filename);
         return $directory . '/' . $filename;
     }
+/**
+ * Show the form for editing the specified resident
+ */
+public function edit($id)
+{
+    try {
+        $user = auth()->user();
+        $resident = Resident::with(['hostel', 'room', 'bed', 'room.roomType'])
+            ->findOrFail($id);
 
+        // Check if user has access to this resident's hostel
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!in_array($resident->hostel_id, $hostelIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to edit this resident!'
+                ], 403);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $resident
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 404);
+    }
+}
     private function deleteFile($filePath)
     {
         if ($filePath && File::exists(public_path($filePath))) {
