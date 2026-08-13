@@ -112,10 +112,10 @@
         .stat-card.total .number { color: var(--primary); }
         .stat-card.rent .number { color: #92400e; }
         .stat-card.rent { background: linear-gradient(135deg, #fef3c7, #fde68a); }
-        .stat-card.face .number { color: #7c3aed; }
-        .stat-card.face { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
         .stat-card.food .number { color: #166534; }
         .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
+        .stat-card.biometric .number { color: #7c3aed; }
+        .stat-card.biometric { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
 
         /* ============================================
                    FILTER SECTION
@@ -286,33 +286,12 @@
             font-weight: 700;
             flex-shrink: 0;
             overflow: hidden;
-            position: relative;
         }
 
         .resident-avatar img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-        }
-
-        .resident-avatar .face-badge {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--success);
-            border: 2px solid white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 8px;
-            color: white;
-        }
-
-        .resident-avatar .face-badge.not-registered {
-            background: var(--danger);
         }
 
         .resident-code {
@@ -444,7 +423,7 @@
             color: #4b5563;
         }
 
-        .face-badge-small {
+        .biometric-badge-small {
             display: inline-flex;
             align-items: center;
             gap: 3px;
@@ -454,14 +433,19 @@
             font-weight: 600;
         }
 
-        .face-badge-small.registered {
+        .biometric-badge-small.enabled {
             background: #dcfce7;
             color: #166534;
         }
 
-        .face-badge-small.not-registered {
+        .biometric-badge-small.disabled {
             background: #fee2e2;
             color: #991b1b;
+        }
+
+        .biometric-badge-small.not-synced {
+            background: #f3f4f6;
+            color: #6b7280;
         }
 
         .document-badge {
@@ -933,7 +917,7 @@
         <div class="resident-header no-print">
             <div>
                 <h1><i class="bi bi-people-fill"></i> Resident Management</h1>
-                <p>Manage all residents, their accommodations, face registration, and documents</p>
+                <p>Manage all residents, their accommodations, biometric access, and documents</p>
                 @if ($user->role != 'admin')
                     <p style="color: var(--gold); font-size:0.8rem; margin-top:4px;">
                         <i class="bi bi-info-circle"></i> You have access to {{ $hostels->count() }} hostel(s)
@@ -944,8 +928,8 @@
                 <button type="button" class="btn-secondary-custom" onclick="exportData()">
                     <i class="bi bi-download"></i> Export
                 </button>
-                <button type="button" class="btn-purple-custom" onclick="viewFaceList()">
-                    <i class="bi bi-person-face"></i> Face List
+                <button type="button" class="btn-purple-custom" onclick="syncAllBiometric()">
+                    <i class="bi bi-cloud-upload"></i> Sync Biometric
                 </button>
                 <button type="button" class="btn-primary-custom" id="addResidentBtn">
                     <i class="bi bi-plus-circle"></i> Add Resident
@@ -997,10 +981,10 @@
                 <div class="number">₹{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
                 <div class="label">Monthly Rent</div>
             </div>
-            <div class="stat-card face">
-                <span class="icon">👤</span>
-                <div class="number">{{ $stats['face_registered'] ?? 0 }}</div>
-                <div class="label">Face Registered</div>
+            <div class="stat-card biometric">
+                <span class="icon">🔒</span>
+                <div class="number">{{ $biometricStats['access_enabled'] ?? 0 }}</div>
+                <div class="label">Biometric Active</div>
             </div>
         </div>
 
@@ -1063,10 +1047,11 @@
                 </select>
             </div>
             <div class="filter-group">
-                <select id="filterFace">
-                    <option value="">All Face</option>
-                    <option value="registered">Registered</option>
-                    <option value="not_registered">Not Registered</option>
+                <select id="filterBiometric">
+                    <option value="">All Biometric</option>
+                    <option value="enabled">Enabled</option>
+                    <option value="disabled">Disabled</option>
+                    <option value="not_synced">Not Synced</option>
                 </select>
             </div>
             <div class="search-box">
@@ -1092,7 +1077,7 @@
                              data-hostel="{{ $resident->hostel_id }}"
                              data-gender="{{ $resident->hostel->hostel_type ?? '' }}"
                              data-food="{{ $resident->food_status }}"
-                             data-face="{{ $resident->face_registered ? 'registered' : 'not_registered' }}"
+                             data-biometric="{{ $resident->employee_code ? ($resident->biometric_access ? 'enabled' : 'disabled') : 'not_synced' }}"
                              data-name="{{ strtolower($resident->name) }}"
                              data-code="{{ strtolower($resident->resident_code) }}"
                              data-phone="{{ $resident->phone }}"
@@ -1113,10 +1098,6 @@
                                         @else
                                             {{ $resident->initials ?? strtoupper(substr($resident->name, 0, 2)) }}
                                         @endif
-                                        <span class="face-badge {{ $resident->face_registered ? '' : 'not-registered' }}"
-                                              title="{{ $resident->face_registered ? 'Face Registered' : 'Face Not Registered' }}">
-                                            <i class="bi {{ $resident->face_registered ? 'bi-check' : 'bi-x' }}"></i>
-                                        </span>
                                     </div>
                                     <div style="flex:1; min-width:0;">
                                         <div style="font-weight:600; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -1124,14 +1105,13 @@
                                         </div>
                                         <div style="font-size:0.7rem; opacity:0.8;">
                                             <span class="resident-code">{{ $resident->resident_code }}</span>
-                                            @if($resident->face_id)
-                                                <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
-                                                    Face: {{ $resident->face_id }}
-                                                </span>
-                                            @endif
                                             @if($resident->employee_code)
                                                 <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
                                                     Emp: {{ $resident->employee_code }}
+                                                </span>
+                                            @else
+                                                <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
+                                                    ⚠️ Not Synced
                                                 </span>
                                             @endif
                                         </div>
@@ -1159,17 +1139,23 @@
                                         </div>
                                     @endif
 
-                                    {{-- Face Status --}}
+                                    {{-- Biometric Status --}}
                                     <div class="resident-detail" style="margin-top:4px;">
-                                        <i class="bi bi-person-face"></i>
-                                        <span class="label">Face:</span>
-                                        <span class="face-badge-small {{ $resident->face_registered ? 'registered' : 'not-registered' }}">
-                                            <i class="bi {{ $resident->face_registered ? 'bi-check-circle' : 'bi-x-circle' }}"></i>
-                                            {{ $resident->face_registered ? 'Registered' : 'Not Registered' }}
-                                        </span>
-                                        @if($resident->face_registered_at)
-                                            <span style="font-size:0.6rem; color:#6b7280; margin-left:4px;">
-                                                ({{ $resident->face_registered_at->format('d M Y') }})
+                                        <i class="bi bi-fingerprint"></i>
+                                        <span class="label">Biometric:</span>
+                                        @if($resident->employee_code)
+                                            <span class="biometric-badge-small {{ $resident->biometric_access ? 'enabled' : 'disabled' }}">
+                                                <i class="bi {{ $resident->biometric_access ? 'bi-check-circle' : 'bi-x-circle' }}"></i>
+                                                {{ $resident->biometric_access ? 'Enabled' : 'Disabled' }}
+                                            </span>
+                                            @if($resident->last_sync_at)
+                                                <span style="font-size:0.6rem; color:#6b7280; margin-left:4px;">
+                                                    ({{ $resident->last_sync_at->format('d M Y') }})
+                                                </span>
+                                            @endif
+                                        @else
+                                            <span class="biometric-badge-small not-synced">
+                                                <i class="bi bi-clock"></i> Not Synced
                                             </span>
                                         @endif
                                     </div>
@@ -1238,9 +1224,15 @@
                                             <button class="btn-action text-primary" onclick="viewResidentDetails({{ $resident->id }})" title="View Full Details">
                                                 <i class="bi bi-eye"></i>
                                             </button>
-                                            <button class="btn-action text-info" onclick="registerFace({{ $resident->id }})" title="Register Face">
-                                                <i class="bi bi-person-face"></i>
-                                            </button>
+                                            @if($resident->employee_code)
+                                                <button class="btn-action text-warning" onclick="toggleBiometricAccess({{ $resident->id }})" title="Toggle Biometric Access">
+                                                    <i class="bi bi-fingerprint"></i>
+                                                </button>
+                                            @else
+                                                <button class="btn-action text-success" onclick="syncSingleBiometric({{ $resident->id }})" title="Sync to Biometric">
+                                                    <i class="bi bi-cloud-upload"></i>
+                                                </button>
+                                            @endif
                                             <button class="btn-action text-primary" onclick="editResident({{ $resident->id }})" title="Edit">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
@@ -1554,55 +1546,6 @@
     </div>
 
     {{-- ============================================
-    FACE REGISTRATION MODAL
-    ============================================ --}}
-    <div class="modal fade" id="faceModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header" style="background: #7c3aed; color:white; border-radius:12px 12px 0 0;">
-                    <h5 class="modal-title"><i class="bi bi-person-face"></i> Register Face</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="faceForm" enctype="multipart/form-data">
-                    @csrf
-                    <input type="hidden" id="faceResidentId" name="resident_id">
-                    <div class="modal-body">
-                        <div class="text-center mb-3">
-                            <div id="facePreviewContainer" style="width:200px; height:200px; margin:0 auto; border-radius:12px; border:2px dashed #d1d5db; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#f8fafc;">
-                                <i class="bi bi-person-face" style="font-size:4rem; color:#9ca3af;"></i>
-                                <img id="facePreview" src="" style="display:none; width:100%; height:100%; object-fit:cover;">
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Face Image <span class="required">*</span></label>
-                            <div class="rv-input-box file-input-box">
-                                <input type="file" name="face_image" id="face_image" accept="image/*" required>
-                                <small class="text-muted" style="display:block; font-size:0.65rem;">JPG, PNG (Max 5MB)</small>
-                            </div>
-                            <div class="invalid-feedback" id="face_image_error"></div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Face ID <span class="required">*</span></label>
-                            <div class="rv-input-box">
-                                <i class="bi bi-tag rv-input-icon"></i>
-                                <input type="text" name="face_id" id="face_id" class="rv-input"
-                                       placeholder="e.g., FACE_001" required>
-                            </div>
-                            <div class="invalid-feedback" id="face_id_error"></div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Cancel</button>
-                        <button type="submit" class="btn-purple-custom" id="faceSaveBtn">
-                            <i class="bi bi-person-check"></i> Register Face
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    {{-- ============================================
     DETAILS VIEW MODAL
     ============================================ --}}
     <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
@@ -1653,36 +1596,6 @@
         </div>
     </div>
 
-    {{-- ============================================
-    FACE LIST MODAL
-    ============================================ --}}
-    <div class="modal fade" id="faceListModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header" style="background: #7c3aed; color:white; border-radius:12px 12px 0 0;">
-                    <h5 class="modal-title"><i class="bi bi-person-face"></i> Face Registration List</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="d-flex justify-content-between mb-3 flex-wrap gap-2">
-                        <span>Total: <strong id="faceTotal">0</strong></span>
-                        <span>Registered: <strong id="faceRegistered" style="color:var(--success);">0</strong></span>
-                        <span>Pending: <strong id="facePending" style="color:var(--danger);">0</strong></span>
-                    </div>
-                    <div id="faceListContainer">
-                        <div class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <p class="mt-2 text-muted">Loading face data...</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     {{-- Toast Container --}}
     <div class="toast-container" id="flashMessageContainer"></div>
 
@@ -1697,7 +1610,7 @@
         // ============================================
         // VARIABLES
         // ============================================
-        let residentModal, faceModal, detailsModal, faceListModal, documentViewerModal;
+        let residentModal, detailsModal, documentViewerModal;
 
         $(document).ready(function() {
             // Initialize Modals
@@ -1705,15 +1618,7 @@
                 backdrop: 'static',
                 keyboard: true
             });
-            faceModal = new bootstrap.Modal(document.getElementById('faceModal'), {
-                backdrop: 'static',
-                keyboard: true
-            });
             detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
-                backdrop: 'static',
-                keyboard: true
-            });
-            faceListModal = new bootstrap.Modal(document.getElementById('faceListModal'), {
                 backdrop: 'static',
                 keyboard: true
             });
@@ -1735,11 +1640,6 @@
             $('#residentForm').on('submit', function(e) {
                 e.preventDefault();
                 submitForm();
-            });
-
-            $('#faceForm').on('submit', function(e) {
-                e.preventDefault();
-                submitFaceForm();
             });
 
             // Hostel -> Room
@@ -1837,7 +1737,7 @@
             });
 
             // Filter changes
-            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterFace').on('change', function() {
+            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', function() {
                 applyFilters();
             });
 
@@ -1848,23 +1748,6 @@
             setupFileInput('profile_image', 'image');
             setupFileInput('aadhar_document', 'document');
             setupFileInput('application_document', 'document');
-            setupFileInput('face_image', 'image');
-
-            // Face image preview
-            $('#face_image').on('change', function() {
-                const file = this.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        $('#facePreview').attr('src', e.target.result).show();
-                        $('#facePreviewContainer i').hide();
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    $('#facePreview').hide();
-                    $('#facePreviewContainer i').show();
-                }
-            });
 
             // Initial filter application
             applyFilters();
@@ -1920,6 +1803,93 @@
         }
 
         // ============================================
+        // BIOMETRIC FUNCTIONS
+        // ============================================
+        function syncAllBiometric() {
+            Swal.fire({
+                title: 'Sync All Residents?',
+                text: "This will sync all residents to the biometric system.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#7c3aed',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, sync them!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: "{{ route('admin.residents.sync-all-biometric') }}",
+                        type: 'POST',
+                        data: { _token: '{{ csrf_token() }}' },
+                        success: function(response) {
+                            if (response.success) {
+                                showToast('Synced ' + response.success_count + ' residents successfully!', 'success');
+                                if (response.failure_count > 0) {
+                                    showToast(response.failure_count + ' residents failed to sync.', 'error');
+                                }
+                                setTimeout(() => location.reload(), 2000);
+                            } else {
+                                showToast(response.message || 'Failed to sync residents', 'error');
+                            }
+                        },
+                        error: function(xhr) {
+                            showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function syncSingleBiometric(id) {
+            Swal.fire({
+                title: 'Sync Resident?',
+                text: "This will sync this resident to the biometric system.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#7c3aed',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, sync!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: '/admin/residents/' + id + '/sync-to-biometric',
+                        type: 'POST',
+                        data: { _token: '{{ csrf_token() }}' },
+                        success: function(response) {
+                            if (response.success) {
+                                showToast(response.message, 'success');
+                                setTimeout(() => location.reload(), 1500);
+                            } else {
+                                showToast(response.message || 'Failed to sync!', 'error');
+                            }
+                        },
+                        error: function(xhr) {
+                            showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        function toggleBiometricAccess(id) {
+            $.ajax({
+                url: '/admin/residents/' + id + '/toggle-biometric',
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function(response) {
+                    if (response.success) {
+                        showToast(response.message, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast(response.message || 'Failed to toggle biometric access!', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    showToast(xhr.responseJSON?.error || 'Failed to toggle biometric access!', 'error');
+                }
+            });
+        }
+
+        // ============================================
         // VIEW RESIDENT DETAILS
         // ============================================
         function viewResidentDetails(id) {
@@ -1970,13 +1940,13 @@
                             <h3 class="mt-3 mb-1">${data.name}</h3>
                             <p class="text-muted small">${data.resident_code}</p>
 
-                            <!-- Face Status -->
+                            <!-- Biometric Status -->
                             <div class="mt-2">
-                                <span class="face-badge-small ${data.face.status_class}">
-                                    <i class="bi ${data.face.face_registered ? 'bi-check-circle' : 'bi-x-circle'}"></i>
-                                    ${data.face.status}
+                                <span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}">
+                                    <i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i>
+                                    ${data.biometric.access_status}
                                 </span>
-                                ${data.face.face_id ? `<span class="ms-2 badge bg-secondary">ID: ${data.face.face_id}</span>` : ''}
+                                ${data.biometric.employee_code ? `<span class="ms-2 badge bg-secondary">${data.biometric.employee_code}</span>` : ''}
                             </div>
 
                             <!-- Status & Food -->
@@ -2079,6 +2049,40 @@
                                 </div>
                             </div>
 
+                            <!-- Biometric Info -->
+                            <div class="col-md-6">
+                                <div class="detail-card">
+                                    <div class="card-title"><i class="bi bi-fingerprint"></i> Biometric Details</div>
+                                    <div class="detail-item">
+                                        <span class="label">Employee Code</span>
+                                        <span class="value"><code>${data.biometric.employee_code}</code></span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">Access Status</span>
+                                        <span class="value">
+                                            <span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}">
+                                                <i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i>
+                                                ${data.biometric.access_status}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="label">Last Synced</span>
+                                        <span class="value">${data.biometric.last_sync_at}</span>
+                                    </div>
+                                    ${data.biometric.access_enabled_at ? `
+                                    <div class="detail-item">
+                                        <span class="label">Access Enabled</span>
+                                        <span class="value">${data.biometric.access_enabled_at}</span>
+                                    </div>` : ''}
+                                    ${data.biometric.access_disabled_at ? `
+                                    <div class="detail-item">
+                                        <span class="label">Access Disabled</span>
+                                        <span class="value">${data.biometric.access_disabled_at}</span>
+                                    </div>` : ''}
+                                </div>
+                            </div>
+
                             <!-- Documents -->
                             <div class="col-md-6">
                                 <div class="detail-card">
@@ -2110,15 +2114,6 @@
                                             </a>
                                         </span>
                                     </div>` : '<div class="detail-item"><span class="label">Application</span><span class="value text-muted">Not uploaded</span></div>'}
-                                    ${data.face.face_image_url ? `
-                                    <div class="detail-item">
-                                        <span class="label">Face Image</span>
-                                        <span class="value">
-                                            <a href="${data.face.face_image_url}" target="_blank" class="btn-action text-primary">
-                                                <i class="bi bi-eye"></i> View
-                                            </a>
-                                        </span>
-                                    </div>` : ''}
                                 </div>
                             </div>
 
@@ -2191,7 +2186,6 @@
                                     <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#6b7280; flex-wrap:wrap; gap:0.5rem;">
                                         <span>Created: ${data.created_at_formatted}</span>
                                         <span>Updated: ${data.updated_at_formatted}</span>
-                                        ${data.face.face_registered_at ? `<span>Face Registered: ${data.face.face_registered_at}</span>` : ''}
                                     </div>
                                 </div>
                             </div>
@@ -2201,195 +2195,6 @@
             `;
 
             $('#detailsBody').html(html);
-        }
-
-        // ============================================
-        // FACE REGISTRATION
-        // ============================================
-        function registerFace(id) {
-            $('#faceResidentId').val(id);
-            $('#face_id').val('FACE_' + String(id).padStart(4, '0'));
-            $('#face_image').val('');
-            $('#facePreview').hide();
-            $('#facePreviewContainer i').show();
-            $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid');
-            $('#faceSaveBtn').prop('disabled', false).html('<i class="bi bi-person-check"></i> Register Face');
-
-            faceModal.show();
-        }
-
-        function submitFaceForm() {
-            const formData = new FormData(document.getElementById('faceForm'));
-
-            $.ajax({
-                url: '/admin/residents/' + $('#faceResidentId').val() + '/register-face',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                beforeSend: function() {
-                    $('#faceSaveBtn').prop('disabled', true).html(
-                        '<i class="bi bi-spinner bi-spin"></i> Registering...');
-                    $('.invalid-feedback').text('');
-                    $('.rv-input-box').removeClass('is-invalid');
-                },
-                success: function(response) {
-                    if (response.success) {
-                        faceModal.hide();
-                        showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    }
-                },
-                error: function(xhr) {
-                    if (xhr.status === 422) {
-                        let errors = xhr.responseJSON.errors;
-                        $.each(errors, function(field, messages) {
-                            $('#' + field).closest('.rv-input-box').addClass('is-invalid');
-                            $('#' + field + '_error').text(messages[0]);
-                        });
-                        showToast('Please fix validation errors', 'error');
-                    } else {
-                        showToast(xhr.responseJSON?.error || 'Failed to register face!', 'error');
-                    }
-                },
-                complete: function() {
-                    $('#faceSaveBtn').prop('disabled', false).html(
-                    '<i class="bi bi-person-check"></i> Register Face');
-                }
-            });
-        }
-
-        // ============================================
-        // FACE LIST
-        // ============================================
-        function viewFaceList() {
-            faceListModal.show();
-
-            $('#faceListContainer').html(`
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Loading face data...</p>
-                </div>
-            `);
-
-            $.ajax({
-                url: "{{ route('admin.residents.face-list') }}",
-                type: 'GET',
-                success: function(response) {
-                    if (response.success) {
-                        $('#faceTotal').text(response.total);
-                        $('#faceRegistered').text(response.registered);
-                        $('#facePending').text(response.pending);
-
-                        let html = '<div class="table-responsive">';
-                        html += '<table class="table table-hover">';
-                        html += `
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Resident</th>
-                                    <th>Code</th>
-                                    <th>Face ID</th>
-                                    <th>Status</th>
-                                    <th>Registered At</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                        `;
-
-                        if (response.data.length === 0) {
-                            html += `
-                                <tr>
-                                    <td colspan="7" class="text-center py-4 text-muted">
-                                        <i class="bi bi-person-face" style="font-size:2rem; display:block; margin-bottom:0.5rem;"></i>
-                                        No residents found
-                                    </td>
-                                </tr>
-                            `;
-                        } else {
-                            response.data.forEach(function(resident, index) {
-                                const statusClass = resident.face_registered ? 'success' : 'danger';
-                                const statusText = resident.face_registered ? '✅ Registered' :
-                                    '❌ Not Registered';
-                                const faceId = resident.face_id || '—';
-                                const registeredAt = resident.face_registered_at || '—';
-
-                                html += `
-                                    <tr>
-                                        <td>${index + 1}</td>
-                                        <td>
-                                            <strong>${resident.name}</strong>
-                                            ${resident.face_image_url ? `<br><small><a href="${resident.face_image_url}" target="_blank" class="text-primary"><i class="bi bi-eye"></i> View</a></small>` : ''}
-                                        </td>
-                                        <td><code>${resident.resident_code}</code></td>
-                                        <td><code>${faceId}</code></td>
-                                        <td><span class="badge bg-${statusClass}">${statusText}</span></td>
-                                        <td>${registeredAt}</td>
-                                        <td>
-                                            ${resident.face_registered ? `
-                                                <button class="btn btn-sm btn-danger" onclick="removeFace(${resident.id})">
-                                                    <i class="bi bi-trash"></i> Remove
-                                                </button>
-                                            ` : `
-                                                <button class="btn btn-sm btn-primary" onclick="registerFace(${resident.id})">
-                                                    <i class="bi bi-person-check"></i> Register
-                                                </button>
-                                            `}
-                                            <button class="btn btn-sm btn-info" onclick="viewResidentDetails(${resident.id})">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `;
-                            });
-                        }
-
-                        html += '</tbody></table></div>';
-                        $('#faceListContainer').html(html);
-                    }
-                },
-                error: function() {
-                    $('#faceListContainer').html(`
-                        <div class="text-center py-4 text-danger">
-                            <i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i>
-                            <p class="mt-2">Failed to load face data</p>
-                        </div>
-                    `);
-                }
-            });
-        }
-
-        function removeFace(id) {
-            Swal.fire({
-                title: 'Remove Face Registration?',
-                text: "This will remove the face registration for this resident.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, remove it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: '/admin/residents/' + id + '/remove-face',
-                        type: 'POST',
-                        data: { _token: '{{ csrf_token() }}', _method: 'DELETE' },
-                        success: function(response) {
-                            if (response.success) {
-                                showToast(response.message, 'success');
-                                viewFaceList();
-                                setTimeout(() => location.reload(), 2000);
-                            }
-                        },
-                        error: function(xhr) {
-                            showToast(xhr.responseJSON?.error || 'Failed to remove face!',
-                            'error');
-                        }
-                    });
-                }
-            });
         }
 
         // ============================================
@@ -2430,7 +2235,7 @@
             var hostel = $('#filterHostel').val();
             var gender = $('#filterGender').val();
             var food = $('#filterFood').val();
-            var face = $('#filterFace').val();
+            var biometric = $('#filterBiometric').val();
             var search = $('#searchResident').val().toLowerCase().trim();
 
             var visibleCount = 0;
@@ -2444,7 +2249,7 @@
                 var resHostel = $item.data('hostel') || '';
                 var resGender = $item.data('gender') || '';
                 var resFood = $item.data('food') || '';
-                var resFace = $item.data('face') || '';
+                var resBiometric = $item.data('biometric') || '';
                 var resName = ($item.data('name') || '').toLowerCase();
                 var resCode = ($item.data('code') || '').toLowerCase();
                 var resPhone = ($item.data('phone') || '').toLowerCase();
@@ -2455,7 +2260,7 @@
                 if (hostel && resHostel !== String(hostel)) show = false;
                 if (gender && resGender !== gender) show = false;
                 if (food && resFood !== food) show = false;
-                if (face && resFace !== face) show = false;
+                if (biometric && resBiometric !== biometric) show = false;
 
                 if (search && show) {
                     var searchMatch = false;
@@ -2491,7 +2296,7 @@
         }
 
         function clearFilters() {
-            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterFace').val('');
+            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
             $('#searchResident').val('');
             $('#resultCount').text('');
             $('#noSearchResults').hide();
