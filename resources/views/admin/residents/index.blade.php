@@ -21,7 +21,7 @@
 
         /* ============================================
                    LAYOUT
-        ============================================ */
+                ============================================ */
         .resident-container {
             max-width: 100%;
             padding: 0 15px;
@@ -30,7 +30,7 @@
             display: flex;
             flex-direction: column;
             flex: 1;
-            min-height: 0; /* critical: lets the flex child shrink so overflow-y:auto works */
+            min-height: 0;
         }
         /* ============================================
                    HEADER
@@ -1078,7 +1078,7 @@
         </div>
 
         {{-- ============================================
-        FILTERS
+        FILTERS - FIXED
         ============================================ --}}
         <div class="filter-section no-print">
             <div class="filter-group">
@@ -1102,23 +1102,23 @@
             <div class="filter-group">
                 <select id="filterGender">
                     <option value="">All Gender</option>
-                    <option value="MEN">Men</option>
-                    <option value="WOMEN">Women</option>
+                    <option value="MEN">👨 Men</option>
+                    <option value="WOMEN">👩 Women</option>
                 </select>
             </div>
             <div class="filter-group">
                 <select id="filterFood">
                     <option value="">All Food</option>
-                    <option value="WITH_FOOD">With Food</option>
-                    <option value="WITHOUT_FOOD">Without Food</option>
+                    <option value="WITH_FOOD">🍽️ With Food</option>
+                    <option value="WITHOUT_FOOD">🍞 Without Food</option>
                 </select>
             </div>
             <div class="filter-group">
                 <select id="filterBiometric">
                     <option value="">All Biometric</option>
-                    <option value="enabled">Enabled</option>
-                    <option value="disabled">Disabled</option>
-                    <option value="not_synced">Not Synced</option>
+                    <option value="enabled">✅ Enabled</option>
+                    <option value="disabled">❌ Disabled</option>
+                    <option value="not_synced">⏳ Not Synced</option>
                 </select>
             </div>
             <div class="search-box">
@@ -1667,7 +1667,7 @@
     <div class="toast-container" id="flashMessageContainer"></div>
 
     {{-- ============================================
-    JAVASCRIPT
+    JAVASCRIPT - FULLY FIXED
     ============================================ --}}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -1794,6 +1794,9 @@
                 }
             });
 
+            // ============================================
+            // FILTERS - FIXED
+            // ============================================
             // Search with debounce
             let searchTimeout;
             $('#searchResident').on('keyup', function() {
@@ -1803,7 +1806,7 @@
                 }, 300);
             });
 
-            // Filter changes
+            // Filter changes - ALL filter events
             $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', function() {
                 applyFilters();
             });
@@ -1817,7 +1820,7 @@
             setupFileInput('application_document', 'document');
 
             // Initial filter application
-            applyFilters();
+            setTimeout(applyFilters, 100);
         });
 
         // ============================================
@@ -1867,6 +1870,95 @@
             if ($('#' + existingId).data('has-file') === true) {
                 $('#' + existingId).show();
             }
+        }
+
+        // ============================================
+        // FILTERS - MAIN FUNCTION (FIXED)
+        // ============================================
+        function applyFilters() {
+            var status = $('#filterStatus').val();
+            var hostel = $('#filterHostel').val();
+            var gender = $('#filterGender').val();
+            var food = $('#filterFood').val();
+            var biometric = $('#filterBiometric').val();
+            var search = $('#searchResident').val().toLowerCase().trim();
+
+            var visibleCount = 0;
+            var totalCount = $('.resident-item').length;
+
+            $('.resident-item').each(function() {
+                var show = true;
+                var $item = $(this);
+
+                // Get all data attributes
+                var resStatus = $item.data('status') || '';
+                var resHostel = $item.data('hostel') || '';
+                var resGender = $item.data('gender') || '';
+                var resFood = $item.data('food') || '';
+                var resBiometric = $item.data('biometric') || '';
+
+                // Get searchable text content
+                var resName = ($item.data('name') || '').toLowerCase();
+                var resCode = ($item.data('code') || '').toLowerCase();
+                var resPhone = ($item.data('phone') || '').toLowerCase();
+                var resEmail = ($item.data('email') || '').toLowerCase();
+                var resId = String($item.data('id') || '');
+
+                // ✅ Apply filters - check if filter value matches
+                if (status && resStatus !== status) show = false;
+                if (hostel && resHostel !== String(hostel)) show = false;
+                if (gender && resGender !== gender) show = false;
+                if (food && resFood !== food) show = false;
+                if (biometric && resBiometric !== biometric) show = false;
+
+                // ✅ Search - check multiple fields
+                if (search && show) {
+                    var searchMatch = false;
+                    if (resName.includes(search)) searchMatch = true;
+                    if (resCode.includes(search)) searchMatch = true;
+                    if (resPhone.includes(search)) searchMatch = true;
+                    if (resEmail.includes(search)) searchMatch = true;
+                    if (resId.includes(search)) searchMatch = true;
+
+                    // ✅ Also search the visible text content
+                    var textContent = $item.text().toLowerCase();
+                    if (textContent.includes(search)) searchMatch = true;
+
+                    if (!searchMatch) show = false;
+                }
+
+                // Show or hide
+                if (show) {
+                    $item.show();
+                    visibleCount++;
+                } else {
+                    $item.hide();
+                }
+            });
+
+            // Update result count
+            var resultCountEl = $('#resultCount');
+            if (visibleCount === totalCount) {
+                resultCountEl.text('');
+            } else {
+                resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
+            }
+
+            // Show/hide no results message
+            var noResultsDiv = $('#noSearchResults');
+            if (visibleCount === 0 && totalCount > 0) {
+                noResultsDiv.show();
+            } else {
+                noResultsDiv.hide();
+            }
+        }
+
+        function clearFilters() {
+            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
+            $('#searchResident').val('');
+            $('#resultCount').text('');
+            $('#noSearchResults').hide();
+            applyFilters();
         }
 
         // ============================================
@@ -2109,82 +2201,6 @@
             }
 
             documentViewerModal.show();
-        }
-
-        // ============================================
-        // FILTERS
-        // ============================================
-        function applyFilters() {
-            var status = $('#filterStatus').val();
-            var hostel = $('#filterHostel').val();
-            var gender = $('#filterGender').val();
-            var food = $('#filterFood').val();
-            var biometric = $('#filterBiometric').val();
-            var search = $('#searchResident').val().toLowerCase().trim();
-
-            var visibleCount = 0;
-            var totalCount = $('.resident-item').length;
-
-            $('.resident-item').each(function() {
-                var show = true;
-                var $item = $(this);
-
-                var resStatus = $item.data('status') || '';
-                var resHostel = $item.data('hostel') || '';
-                var resGender = $item.data('gender') || '';
-                var resFood = $item.data('food') || '';
-                var resBiometric = $item.data('biometric') || '';
-                var resName = ($item.data('name') || '').toLowerCase();
-                var resCode = ($item.data('code') || '').toLowerCase();
-                var resPhone = ($item.data('phone') || '').toLowerCase();
-                var resEmail = ($item.data('email') || '').toLowerCase();
-                var resId = String($item.data('id') || '');
-
-                if (status && resStatus !== status) show = false;
-                if (hostel && resHostel !== String(hostel)) show = false;
-                if (gender && resGender !== gender) show = false;
-                if (food && resFood !== food) show = false;
-                if (biometric && resBiometric !== biometric) show = false;
-
-                if (search && show) {
-                    var searchMatch = false;
-                    if (resName.includes(search)) searchMatch = true;
-                    if (resCode.includes(search)) searchMatch = true;
-                    if (resPhone.includes(search)) searchMatch = true;
-                    if (resEmail.includes(search)) searchMatch = true;
-                    if (resId.includes(search)) searchMatch = true;
-                    if (!searchMatch) show = false;
-                }
-
-                if (show) {
-                    $item.show();
-                    visibleCount++;
-                } else {
-                    $item.hide();
-                }
-            });
-
-            var resultCountEl = $('#resultCount');
-            if (visibleCount === totalCount) {
-                resultCountEl.text('');
-            } else {
-                resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
-            }
-
-            var noResultsDiv = $('#noSearchResults');
-            if (visibleCount === 0 && totalCount > 0) {
-                noResultsDiv.show();
-            } else {
-                noResultsDiv.hide();
-            }
-        }
-
-        function clearFilters() {
-            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
-            $('#searchResident').val('');
-            $('#resultCount').text('');
-            $('#noSearchResults').hide();
-            applyFilters();
         }
 
         // ============================================
@@ -2465,7 +2481,7 @@
                             $('#application_document_existing').hide();
                         }
 
-                        // Load rooms - Same as before...
+                        // Load rooms
                         $.ajax({
                             url: "{{ route('admin.residents.get-rooms') }}",
                             type: 'POST',
@@ -2757,86 +2773,6 @@
                     setTimeout(() => toast.remove(), 300);
                 }
             }, 5000);
-            // ============================================
-// FILTERS - FIXED VERSION
-// ============================================
-function applyFilters() {
-    var status = $('#filterStatus').val();
-    var hostel = $('#filterHostel').val();
-    var gender = $('#filterGender').val();
-    var food = $('#filterFood').val();
-    var biometric = $('#filterBiometric').val();
-    var search = $('#searchResident').val().toLowerCase().trim();
-
-    var visibleCount = 0;
-    var totalCount = $('.resident-item').length;
-
-    $('.resident-item').each(function() {
-        var show = true;
-        var $item = $(this);
-
-        // Get all data attributes
-        var resStatus = $item.data('status') || '';
-        var resHostel = $item.data('hostel') || '';
-        var resGender = $item.data('gender') || '';
-        var resFood = $item.data('food') || '';
-        var resBiometric = $item.data('biometric') || '';
-
-        // Get searchable text content
-        var resName = ($item.data('name') || '').toLowerCase();
-        var resCode = ($item.data('code') || '').toLowerCase();
-        var resPhone = ($item.data('phone') || '').toLowerCase();
-        var resEmail = ($item.data('email') || '').toLowerCase();
-        var resId = String($item.data('id') || '');
-
-        // ✅ FIX: Apply filters - check if filter value matches
-        if (status && resStatus !== status) show = false;
-        if (hostel && resHostel !== String(hostel)) show = false;
-        if (gender && resGender !== gender) show = false;
-        if (food && resFood !== food) show = false;
-        if (biometric && resBiometric !== biometric) show = false;
-
-        // ✅ FIX: Search - check multiple fields
-        if (search && show) {
-            var searchMatch = false;
-            if (resName.includes(search)) searchMatch = true;
-            if (resCode.includes(search)) searchMatch = true;
-            if (resPhone.includes(search)) searchMatch = true;
-            if (resEmail.includes(search)) searchMatch = true;
-            if (resId.includes(search)) searchMatch = true;
-
-            // ✅ Also search the visible text content (for room numbers, etc.)
-            var textContent = $item.text().toLowerCase();
-            if (textContent.includes(search)) searchMatch = true;
-
-            if (!searchMatch) show = false;
-        }
-
-        // Show or hide
-        if (show) {
-            $item.show();
-            visibleCount++;
-        } else {
-            $item.hide();
-        }
-    });
-
-    // Update result count
-    var resultCountEl = $('#resultCount');
-    if (visibleCount === totalCount) {
-        resultCountEl.text('');
-    } else {
-        resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
-    }
-
-    // Show/hide no results message
-    var noResultsDiv = $('#noSearchResults');
-    if (visibleCount === 0 && totalCount > 0) {
-        noResultsDiv.show();
-    } else {
-        noResultsDiv.hide();
-    }
-}
         }
     </script>
 @endsection
