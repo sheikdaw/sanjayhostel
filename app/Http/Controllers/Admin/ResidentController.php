@@ -67,17 +67,8 @@ class ResidentController extends Controller
             'face_registered' => $residents->where('face_registered', true)->count(),
         ];
 
-        // Biometric statistics
-        $biometricStats = [
-            'total' => $residents->count(),
-            'face_registered' => $residents->where('face_registered', true)->count(),
-            'face_pending' => $residents->where('face_registered', false)->orWhereNull('face_registered')->count(),
-            'has_profile_image' => $residents->whereNotNull('profile_image')->count(),
-            'has_aadhar' => $residents->whereNotNull('aadhar_document')->count(),
-            'has_application' => $residents->whereNotNull('application_document')->count(),
-        ];
-
-        return view('admin.residents.index', compact('residents', 'hostels', 'stats', 'user', 'biometricStats'));
+       
+        return view('admin.residents.index', compact('residents', 'hostels', 'stats', 'user'));
     }
 
     /**
