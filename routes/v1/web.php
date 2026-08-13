@@ -18,23 +18,42 @@ use App\Http\Controllers\GuestPaymentController;
 use App\Http\Controllers\PhonePeController;
 
 
-// Biometric Test Routes
-Route::get('/test-biometric', function () {
-    return view('test-biometric');
+Route::get('/test', function () {
+    return view('biometric.dashboard');
 });
 
-// Biometric API Routes - Using Controller
 Route::prefix('api/test')->group(function () {
-    Route::get('sync', [BiometricController::class, 'syncSingle']);
-    Route::get('sync-all', [BiometricController::class, 'syncAll']);
-    Route::post('punch', [BiometricController::class, 'punch']);
-    Route::get('check-payment/{id}', [BiometricController::class, 'checkPayment']);
-    Route::post('enable/{id}', [BiometricController::class, 'enableAccess']);
-    Route::post('disable/{id}', [BiometricController::class, 'disableAccess']);
-    Route::get('daily-check', [BiometricController::class, 'dailyCheck']);
-    Route::get('attendance', [BiometricController::class, 'attendance']);
-    Route::get('device', [BiometricController::class, 'deviceStatus']);
-    Route::get('stats', [BiometricController::class, 'stats']);
+    // Resident Sync
+    Route::post('/sync-single', [BiometricController::class, 'syncSingle']);
+    Route::post('/sync-all', [BiometricController::class, 'syncAll']);
+    
+    // Door Access
+    Route::post('/punch', [BiometricController::class, 'punch']);
+    Route::get('/check-payment/{id}', [BiometricController::class, 'checkPayment']);
+    Route::get('/daily-check', [BiometricController::class, 'dailyCheck']);
+    
+    // Attendance
+    Route::get('/attendance', [BiometricController::class, 'attendance']);
+    Route::get('/employee-punch-logs', [BiometricController::class, 'employeePunchLogs']);
+    
+    // Device Management
+    Route::get('/device', [BiometricController::class, 'deviceStatus']);
+    Route::get('/devices', [BiometricController::class, 'deviceList']);
+    Route::post('/unlock-door', [BiometricController::class, 'unlockDoor']);
+    Route::post('/block-user', [BiometricController::class, 'blockUser']);
+    
+    // Stats & Listings
+    Route::get('/stats', [BiometricController::class, 'stats']);
+    Route::get('/residents', [BiometricController::class, 'residentsList']);
+    
+    // eBioServer Direct
+    Route::get('/connection', [BiometricController::class, 'testConnection']);
+    Route::get('/employee-codes', [BiometricController::class, 'getEmployeeCodes']);
+    Route::get('/employee-details', [BiometricController::class, 'getEmployeeDetails']);
+    Route::post('/delete-employee', [BiometricController::class, 'deleteEmployee']);
+    
+    // Visitor
+    Route::post('/validate-visitor', [BiometricController::class, 'validateVisitor']);
 });
 
 // Frontend Routes

@@ -1,5 +1,4 @@
 <?php
-// config/ebioserver.php
 
 return [
     /*
@@ -8,10 +7,10 @@ return [
     |--------------------------------------------------------------------------
     */
     
-    'url' => env('EBIOSERVER_URL', 'http://localhost/Webservice.asmx'),
-    'username' => env('EBIOSERVER_USERNAME', 'admin'),
-    'password' => env('EBIOSERVER_PASSWORD', 'admin'),
-    'location_code' => env('EBIOSERVER_LOCATION_CODE', 'LOC_001'),
+    'url' => env('EBIOSERVER_URL', 'http://ebioservernew.esslsecurity.com:99/webservice.asmx'),
+    'username' => env('EBIOSERVER_USERNAME', 'essl'),
+    'password' => env('EBIOSERVER_PASSWORD', 'essl'),
+    'location_code' => env('EBIOSERVER_LOCATION_CODE', 'HOSTEL_MAIN'),
     
     /*
     |--------------------------------------------------------------------------

@@ -1,24 +1,37 @@
 <?php
+// app/Http/Controllers/BiometricController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\Resident;
 use App\Models\Payment;
+use App\Services\EbioServerService;
 use App\Services\MockEbioServerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
 class BiometricController extends Controller
 {
+    protected $ebioService;
     protected $mockService;
+    protected $useMock = true; // Set to false to use real eBioServer
 
-    public function __construct(MockEbioServerService $mockService)
+    public function __construct(EbioServerService $ebioService, MockEbioServerService $mockService)
     {
+        $this->ebioService = $ebioService;
         $this->mockService = $mockService;
     }
 
     /**
-     * Check if biometric columns exist in residents table
+     * Get the appropriate service (mock or real)
+     */
+    protected function getService()
+    {
+        return $this->useMock ? $this->mockService : $this->ebioService;
+    }
+
+    /**
+     * Check if biometric columns exist
      */
     private function checkBiometricColumns()
     {
@@ -32,15 +45,12 @@ class BiometricController extends Controller
         }
         
         if (!empty($missing)) {
-            throw new \Exception('Missing columns in residents table: ' . implode(', ', $missing) . '. Please run migration: php artisan migrate');
+            throw new \Exception('Missing columns: ' . implode(', ', $missing) . '. Run: php artisan migrate');
         }
-        
-        return true;
     }
 
     /**
-     * Generate employee code with hostel ID: RES_H{hostel_id}_{resident_id+10000}
-     * Example: RES_H1_010001, RES_H2_010002
+     * Generate employee code: RES_H{hostel_id}_{resident_id+10000}
      */
     private function generateEmployeeCode($resident)
     {
@@ -50,44 +60,51 @@ class BiometricController extends Controller
     }
 
     /**
-     * Get or create employee code for resident
+     * Get or create employee code
      */
     private function getOrCreateEmployeeCode($resident)
     {
         $this->checkBiometricColumns();
         
-        // Generate new employee code with hostel ID
-        $employeeCode = $this->generateEmployeeCode($resident);
+        if (empty($resident->employee_code)) {
+            $employeeCode = $this->generateEmployeeCode($resident);
+            $resident->employee_code = $employeeCode;
+            $resident->save();
+        }
         
-        // Save to database
-        $resident->employee_code = $employeeCode;
-        $resident->biometric_access = true;
-        $resident->last_sync_at = now();
-        $resident->save();
-        
-        return $employeeCode;
+        return $resident->employee_code;
     }
 
     /**
-     * 1. Sync Single Resident
+     * ============================================
+     * RESIDENT SYNC METHODS
+     * ============================================
      */
-    public function syncSingle()
+
+    /**
+     * Sync Single Resident
+     * GET|POST /api/test/sync-single
+     */
+    public function syncSingle(Request $request)
     {
         try {
             $this->checkBiometricColumns();
             
-            $resident = Resident::first();
+            $residentId = $request->input('resident_id', 1);
+            $resident = Resident::find($residentId);
             
             if (!$resident) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'No resident found'
+                    'error' => 'Resident not found'
                 ]);
             }
             
             $employeeCode = $this->getOrCreateEmployeeCode($resident);
+            $resident->refresh();
             
-            $result = $this->mockService->updateEmployee([
+            $service = $this->getService();
+            $result = $service->updateEmployee([
                 'employee_code' => $employeeCode,
                 'employee_name' => $resident->name,
                 'employee_location' => 'HOSTEL_MAIN',
@@ -95,13 +112,17 @@ class BiometricController extends Controller
                 'employee_verification_type' => '17',
             ]);
             
+            if ($result['success'] ?? false) {
+                $resident->last_sync_at = now();
+                $resident->save();
+            }
+            
             return response()->json([
-                'success' => true,
-                'message' => 'Resident synced successfully',
-                'employee_code' => $employeeCode,
+                'success' => $result['success'] ?? false,
                 'resident' => $resident->name,
+                'employee_code' => $employeeCode,
                 'hostel_id' => $resident->hostel_id ?? 1,
-                'device_sync' => $result
+                'device_response' => $result
             ]);
             
         } catch (\Exception $e) {
@@ -113,7 +134,8 @@ class BiometricController extends Controller
     }
 
     /**
-     * 2. Sync ALL Residents
+     * Sync ALL Residents
+     * GET|POST /api/test/sync-all
      */
     public function syncAll()
     {
@@ -132,12 +154,14 @@ class BiometricController extends Controller
             $results = [];
             $successCount = 0;
             $failureCount = 0;
+            $service = $this->getService();
             
             foreach ($residents as $resident) {
                 try {
                     $employeeCode = $this->getOrCreateEmployeeCode($resident);
+                    $resident->refresh();
                     
-                    $result = $this->mockService->updateEmployee([
+                    $result = $service->updateEmployee([
                         'employee_code' => $employeeCode,
                         'employee_name' => $resident->name,
                         'employee_location' => 'HOSTEL_MAIN',
@@ -145,13 +169,20 @@ class BiometricController extends Controller
                         'employee_verification_type' => '17',
                     ]);
                     
-                    $successCount++;
+                    if ($result['success'] ?? false) {
+                        $resident->last_sync_at = now();
+                        $resident->save();
+                        $successCount++;
+                    } else {
+                        $failureCount++;
+                    }
+                    
                     $results[] = [
                         'resident_id' => $resident->id,
                         'name' => $resident->name,
-                        'hostel_id' => $resident->hostel_id ?? 1,
                         'employee_code' => $employeeCode,
-                        'status' => 'success'
+                        'status' => ($result['success'] ?? false) ? 'success' : 'failed',
+                        'message' => $result['message'] ?? 'Unknown error'
                     ];
                     
                 } catch (\Exception $e) {
@@ -182,14 +213,21 @@ class BiometricController extends Controller
     }
 
     /**
-     * 3. PUNCH / DOOR ACCESS - FIXED PAYMENT CHECK
+     * ============================================
+     * DOOR ACCESS / PUNCH METHODS
+     * ============================================
+     */
+
+    /**
+     * Punch / Door Access with Individual Payment Check
+     * POST /api/test/punch
      */
     public function punch(Request $request)
     {
         try {
             $this->checkBiometricColumns();
             
-            $residentId = $request->resident_id;
+            $residentId = $request->input('resident_id');
             $resident = Resident::find($residentId);
             
             if (!$resident) {
@@ -200,16 +238,14 @@ class BiometricController extends Controller
                 ]);
             }
 
-            // Get or create employee code
             $employeeCode = $this->getOrCreateEmployeeCode($resident);
             $resident->refresh();
             
-            // Get current date details
             $currentDay = now()->day;
             $currentMonth = now()->month;
             $currentYear = now()->year;
             
-            // INDIVIDUAL PAYMENT CHECK - Check if resident has paid for current month
+            // INDIVIDUAL PAYMENT CHECK
             $hasPaid = Payment::where('resident_id', $resident->id)
                 ->where('month', $currentMonth)
                 ->where('year', $currentYear)
@@ -219,20 +255,17 @@ class BiometricController extends Controller
             $doorStatus = 'LOCKED';
             $action = null;
             $message = '';
+            $service = $this->getService();
             
-            // DOOR LOGIC:
-            // Before 10th: ALWAYS OPEN (No payment check)
-            // After 10th: Check payment - OPEN if PAID, LOCKED if NOT PAID
-            
+            // DOOR LOGIC
             if ($currentDay <= 10) {
                 // ✅ BEFORE 10TH - DOOR ALWAYS OPEN
                 $doorStatus = 'OPEN';
                 $action = 'Door opened (Before 10th - Free Access)';
                 $message = '🚪 Door opened! (Before 10th - No payment required)';
                 
-                // Ensure access is enabled
                 if (!$resident->biometric_access) {
-                    $result = $this->mockService->enableEmployee($employeeCode);
+                    $result = $service->enableEmployee($employeeCode);
                     if ($result['success'] ?? false) {
                         $resident->update([
                             'biometric_access' => true,
@@ -249,7 +282,7 @@ class BiometricController extends Controller
                 $message = '🚪 Door opened! Payment verified ✅';
                 
                 if (!$resident->biometric_access) {
-                    $result = $this->mockService->enableEmployee($employeeCode);
+                    $result = $service->enableEmployee($employeeCode);
                     if ($result['success'] ?? false) {
                         $resident->update([
                             'biometric_access' => true,
@@ -266,7 +299,7 @@ class BiometricController extends Controller
                 $message = '🔒 Door locked! Please pay rent for this month';
                 
                 if ($resident->biometric_access) {
-                    $result = $this->mockService->disableEmployee($employeeCode);
+                    $result = $service->disableEmployee($employeeCode);
                     if ($result['success'] ?? false) {
                         $resident->update([
                             'biometric_access' => false,
@@ -314,7 +347,8 @@ class BiometricController extends Controller
     }
 
     /**
-     * 4. Check Single Resident Payment Status
+     * Check Single Resident Payment Status
+     * GET /api/test/check-payment/{id}
      */
     public function checkPayment($id)
     {
@@ -375,7 +409,8 @@ class BiometricController extends Controller
     }
 
     /**
-     * 5. Daily Payment Check - All Residents
+     * Daily Payment Check - All Residents
+     * GET /api/test/daily-check
      */
     public function dailyCheck()
     {
@@ -388,7 +423,7 @@ class BiometricController extends Controller
                 return response()->json([
                     'success' => true,
                     'total' => 0,
-                    'message' => 'No residents found in database',
+                    'message' => 'No residents found',
                     'data' => []
                 ]);
             }
@@ -397,13 +432,12 @@ class BiometricController extends Controller
             $currentYear = now()->year;
             $currentDay = now()->day;
             $results = [];
+            $service = $this->getService();
             
             foreach ($residents as $resident) {
-                // Ensure employee code exists
                 $employeeCode = $this->getOrCreateEmployeeCode($resident);
                 $resident->refresh();
                 
-                // Check payment
                 $hasPaid = Payment::where('resident_id', $resident->id)
                     ->where('month', $currentMonth)
                     ->where('year', $currentYear)
@@ -413,11 +447,10 @@ class BiometricController extends Controller
                 $action = null;
                 $doorStatus = 'LOCKED';
                 
-                // Apply rules
                 if ($currentDay <= 10) {
                     $doorStatus = 'OPEN';
                     if (!$resident->biometric_access) {
-                        $result = $this->mockService->enableEmployee($employeeCode);
+                        $result = $service->enableEmployee($employeeCode);
                         if ($result['success'] ?? false) {
                             $resident->update([
                                 'biometric_access' => true,
@@ -430,7 +463,7 @@ class BiometricController extends Controller
                 } elseif ($hasPaid) {
                     $doorStatus = 'OPEN';
                     if (!$resident->biometric_access) {
-                        $result = $this->mockService->enableEmployee($employeeCode);
+                        $result = $service->enableEmployee($employeeCode);
                         if ($result['success'] ?? false) {
                             $resident->update([
                                 'biometric_access' => true,
@@ -443,7 +476,7 @@ class BiometricController extends Controller
                 } else {
                     $doorStatus = 'LOCKED';
                     if ($resident->biometric_access) {
-                        $result = $this->mockService->disableEmployee($employeeCode);
+                        $result = $service->disableEmployee($employeeCode);
                         if ($result['success'] ?? false) {
                             $resident->update([
                                 'biometric_access' => false,
@@ -471,9 +504,7 @@ class BiometricController extends Controller
                     'access_enabled' => $resident->biometric_access,
                     'door_status' => $doorStatus,
                     'action' => $action,
-                    'day_of_month' => $currentDay,
-                    'month' => $currentMonth,
-                    'year' => $currentYear
+                    'day_of_month' => $currentDay
                 ];
             }
             
@@ -490,19 +521,28 @@ class BiometricController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
         }
     }
 
     /**
-     * 6. Attendance
+     * ============================================
+     * ATTENDANCE METHODS
+     * ============================================
      */
-    public function attendance()
+
+    /**
+     * Get Attendance
+     * GET /api/test/attendance
+     */
+    public function attendance(Request $request)
     {
         try {
-            $result = $this->mockService->getDeviceLogs(now()->format('Y-m-d'));
+            $date = $request->input('date', now()->format('Y-m-d'));
+            $service = $this->getService();
+            $result = $service->getDeviceLogs($date);
+            
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
@@ -513,14 +553,53 @@ class BiometricController extends Controller
     }
 
     /**
-     * 7. Device Status
+     * Get Employee Punch Logs
+     * GET /api/test/employee-punch-logs
      */
-    public function deviceStatus()
+    public function employeePunchLogs(Request $request)
     {
         try {
+            $employeeCode = $request->input('employee_code');
+            $date = $request->input('date', now()->format('Y-m-d'));
+            
+            if (!$employeeCode) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'employee_code required'
+                ]);
+            }
+            
+            $service = $this->getService();
+            $result = $service->getEmployeePunchLogs($employeeCode, $date);
+            
+            return response()->json($result);
+        } catch (\Exception $e) {
             return response()->json([
-                'status' => $this->mockService->getDeviceLastPing('DEV_001'),
-                'reboot' => $this->mockService->rebootDevice('DEV_001'),
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * ============================================
+     * DEVICE MANAGEMENT METHODS
+     * ============================================
+     */
+
+    /**
+     * Get Device Status
+     * GET /api/test/device
+     */
+    public function deviceStatus(Request $request)
+    {
+        try {
+            $deviceSerial = $request->input('device_serial', 'DEV_001');
+            $service = $this->getService();
+            
+            return response()->json([
+                'status' => $service->getDeviceLastPing($deviceSerial),
+                'reboot' => $service->rebootDevice($deviceSerial),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -531,7 +610,81 @@ class BiometricController extends Controller
     }
 
     /**
-     * 8. Get Dashboard Stats
+     * Get Device List
+     * GET /api/test/devices
+     */
+    public function deviceList()
+    {
+        try {
+            $service = $this->getService();
+            return response()->json($service->getDeviceList());
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Unlock Door
+     * POST /api/test/unlock-door
+     */
+    public function unlockDoor(Request $request)
+    {
+        try {
+            $deviceSerial = $request->input('device_serial', 'DEV_001');
+            $service = $this->getService();
+            $result = $service->unlockDoor($deviceSerial);
+            
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Block/Unblock User
+     * POST /api/test/block-user
+     */
+    public function blockUser(Request $request)
+    {
+        try {
+            $employeeCode = $request->input('employee_code');
+            $deviceSerial = $request->input('device_serial', 'DEV_001');
+            $block = $request->input('block', true);
+            
+            if (!$employeeCode) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'employee_code required'
+                ]);
+            }
+            
+            $service = $this->getService();
+            $result = $service->blockUnblockUser($deviceSerial, $employeeCode, $block);
+            
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * ============================================
+     * DASHBOARD / STATS METHODS
+     * ============================================
+     */
+
+    /**
+     * Get Dashboard Stats
+     * GET /api/test/stats
      */
     public function stats()
     {
@@ -546,7 +699,9 @@ class BiometricController extends Controller
                 'success' => true,
                 'total' => $total,
                 'synced' => $synced,
-                'access_enabled' => $accessEnabled
+                'access_enabled' => $accessEnabled,
+                'sync_percentage' => $total > 0 ? round(($synced / $total) * 100, 2) : 0,
+                'access_percentage' => $total > 0 ? round(($accessEnabled / $total) * 100, 2) : 0
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -557,7 +712,8 @@ class BiometricController extends Controller
     }
 
     /**
-     * 9. Get Residents List with Biometric Status
+     * Get Residents List with Biometric Status
+     * GET /api/test/residents
      */
     public function residentsList()
     {
@@ -582,6 +738,139 @@ class BiometricController extends Controller
                 'data' => $residents
             ]);
             
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * ============================================
+     * EBIOSERVER DIRECT METHODS
+     * ============================================
+     */
+
+    /**
+     * Test eBioServer Connection
+     * GET /api/test/connection
+     */
+    public function testConnection()
+    {
+        try {
+            $service = $this->useMock ? $this->ebioService : $this->getService();
+            $result = $service->testConnection();
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get Employee Codes
+     * GET /api/test/employee-codes
+     */
+    public function getEmployeeCodes()
+    {
+        try {
+            $service = $this->getService();
+            return response()->json($service->getEmployeeCodes());
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get Employee Details
+     * GET /api/test/employee-details
+     */
+    public function getEmployeeDetails(Request $request)
+    {
+        try {
+            $employeeCode = $request->input('employee_code');
+            if (!$employeeCode) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'employee_code required'
+                ]);
+            }
+            
+            $service = $this->getService();
+            return response()->json($service->getEmployeeDetails($employeeCode));
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Delete Employee
+     * POST /api/test/delete-employee
+     */
+    public function deleteEmployee(Request $request)
+    {
+        try {
+            $employeeCode = $request->input('employee_code');
+            if (!$employeeCode) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'employee_code required'
+                ]);
+            }
+            
+            // Also update resident record
+            Resident::where('employee_code', $employeeCode)->update([
+                'employee_code' => null,
+                'biometric_access' => false,
+                'last_sync_at' => null
+            ]);
+            
+            $service = $this->getService();
+            $result = $service->deleteEmployee($employeeCode);
+            
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * ============================================
+     * VISITOR METHODS
+     * ============================================
+     */
+
+    /**
+     * Validate Visitor
+     * POST /api/test/validate-visitor
+     */
+    public function validateVisitor(Request $request)
+    {
+        try {
+            $visitorCode = $request->input('visitor_code');
+            if (!$visitorCode) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'visitor_code required'
+                ]);
+            }
+            
+            $service = $this->getService();
+            $result = $service->validateVisitorDesk($visitorCode);
+            
+            return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

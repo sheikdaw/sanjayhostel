@@ -16,14 +16,14 @@ class EbioServerService
 
     public function __construct()
     {
-        $this->baseUrl = config('ebioserver.url', 'http://localhost/Webservice.asmx');
-        $this->username = config('ebioserver.username', 'admin');
-        $this->password = config('ebioserver.password', 'admin');
-        $this->locationCode = config('ebioserver.location_code', 'LOC_001');
+        $this->baseUrl = config('ebioserver.url', 'http://ebioservernew.esslsecurity.com:99/webservice.asmx');
+        $this->username = config('ebioserver.username', 'essl');
+        $this->password = config('ebioserver.password', 'essl');
+        $this->locationCode = config('ebioserver.location_code', 'HOSTEL_MAIN');
     }
 
     /**
-     * Generate SOAP request XML
+     * Generate SOAP request XML for eBioServer
      */
     protected function generateSoapRequest(string $method, array $params): string
     {
@@ -34,13 +34,13 @@ class EbioServerService
         $xml .= '<soap:Body>';
         $xml .= "<{$method} xmlns=\"http://tempuri.org/\">";
         
-        // Always include credentials
+        // Add credentials (required for all eBioServer methods)
         $xml .= "<UserName>{$this->username}</UserName>";
         $xml .= "<Password>{$this->password}</Password>";
         
         // Add additional parameters
         foreach ($params as $key => $value) {
-            $xml .= "<{$key}>" . htmlspecialchars($value) . "</{$key}>";
+            $xml .= "<{$key}>" . htmlspecialchars((string)$value) . "</{$key}>";
         }
         
         $xml .= "</{$method}>";
@@ -51,7 +51,7 @@ class EbioServerService
     }
 
     /**
-     * Send SOAP request
+     * Send SOAP request to eBioServer
      */
     protected function sendRequest(string $method, array $params): array
     {
@@ -62,11 +62,15 @@ class EbioServerService
                 'Content-Type' => 'text/xml; charset=utf-8',
                 'SOAPAction' => "http://tempuri.org/{$method}",
                 'Content-Length' => strlen($soapBody),
-            ])->send('POST', $this->baseUrl, [
+            ])->timeout(30)->send('POST', $this->baseUrl, [
                 'body' => $soapBody,
             ]);
 
             if ($response->failed()) {
+                Log::error('eBioServer connection failed', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
                 return [
                     'success' => false,
                     'message' => 'Failed to connect to eBioServer',
@@ -75,41 +79,64 @@ class EbioServerService
             }
 
             // Parse SOAP response
-            $xml = simplexml_load_string($response->body());
+            $responseBody = $response->body();
+            
+            // Handle potential XML parsing issues
+            $xml = simplexml_load_string($responseBody);
             if (!$xml) {
+                // Try to extract from raw response
+                if (preg_match('/<([^>]+)Result[^>]*>([^<]+)<\/[^>]+>/', $responseBody, $matches)) {
+                    $result = $matches[2] ?? '';
+                    return [
+                        'success' => !str_contains(strtolower($result), 'error'),
+                        'message' => $result,
+                        'data' => $result,
+                        'raw' => $responseBody
+                    ];
+                }
+                
                 return [
                     'success' => false,
-                    'message' => 'Invalid response from eBioServer'
+                    'message' => 'Invalid response from eBioServer',
+                    'raw' => $responseBody
                 ];
             }
 
             // Extract result from SOAP response
             $namespaces = $xml->getNamespaces(true);
-            $soapBody = $xml->children($namespaces['soap'])->Body;
-            $responseElement = $soapBody->children('http://tempuri.org/');
+            $soapBody = $xml->children($namespaces['soap'] ?? 'http://schemas.xmlsoap.org/soap/envelope/')->Body;
             
-            if (!$responseElement) {
+            if (!$soapBody) {
                 return [
                     'success' => false,
-                    'message' => 'Invalid response structure'
+                    'message' => 'Invalid response structure',
+                    'raw' => $responseBody
                 ];
             }
-
-            $resultElement = $responseElement->{$method . 'Result'} ?? $responseElement;
+            
+            // Try to find the result element
+            $responseElement = $soapBody->children('http://tempuri.org/');
+            $resultElement = $responseElement->{$method . 'Result'} ?? $responseElement->children()->{$method . 'Result'} ?? $responseElement;
+            
             $result = (string) $resultElement;
 
             // Check if result indicates success
             $isSuccess = !str_contains(strtolower($result), 'error') 
-                && !str_contains(strtolower($result), 'fail');
+                && !str_contains(strtolower($result), 'fail')
+                && !empty($result);
 
             return [
                 'success' => $isSuccess,
                 'message' => $result,
-                'data' => $result
+                'data' => $result,
+                'raw' => $responseBody
             ];
 
         } catch (Exception $e) {
-            Log::error('eBioServer API Error: ' . $e->getMessage());
+            Log::error('eBioServer API Error: ' . $e->getMessage(), [
+                'method' => $method,
+                'params' => $params
+            ]);
             return [
                 'success' => false,
                 'message' => 'API Error: ' . $e->getMessage()
@@ -118,7 +145,16 @@ class EbioServerService
     }
 
     /**
+     * ============================================
+     * EMPLOYEE MANAGEMENT METHODS
+     * ============================================
+     */
+
+    /**
      * Add or Update Employee
+     * 
+     * @param array $data Required: employee_code, employee_name
+     *                    Optional: location, role, verification_type, card_number
      */
     public function updateEmployee(array $data): array
     {
@@ -135,7 +171,7 @@ class EbioServerService
     }
 
     /**
-     * Add/Update Employee with Expiry
+     * Update Employee with Expiry Dates
      */
     public function updateEmployeeWithExpiry(array $data): array
     {
@@ -155,33 +191,15 @@ class EbioServerService
 
     /**
      * Update Employee Photo
+     * 
+     * @param string $employeeCode
+     * @param string $photoBase64 Base64 encoded image
      */
     public function updateEmployeePhoto(string $employeeCode, string $photoBase64): array
     {
         return $this->sendRequest('UpdateEmployeePhoto', [
             'EmployeeCode' => $employeeCode,
             'EmployeePhoto' => $photoBase64,
-        ]);
-    }
-
-    /**
-     * Get Employee Details
-     */
-    public function getEmployeeDetails(string $employeeCode): array
-    {
-        return $this->sendRequest('GetEmployeeDetails', [
-            'EmployeeCode' => $employeeCode,
-        ]);
-    }
-
-    /**
-     * Get Employee Punch Logs
-     */
-    public function getEmployeePunchLogs(string $employeeCode, string $date): array
-    {
-        return $this->sendRequest('GetEmployeePunchLogs', [
-            'EmployeeCode' => $employeeCode,
-            'AttendanceDate' => $date,
         ]);
     }
 
@@ -196,12 +214,98 @@ class EbioServerService
     }
 
     /**
+     * Get Employee Details
+     */
+    public function getEmployeeDetails(string $employeeCode): array
+    {
+        return $this->sendRequest('GetEmployeeDetails', [
+            'EmployeeCode' => $employeeCode,
+        ]);
+    }
+
+    /**
+     * Get Employee Codes
+     */
+    public function getEmployeeCodes(): array
+    {
+        return $this->sendRequest('GetEmployeeCodes', []);
+    }
+
+    /**
+     * Get Employee Punch Logs
+     */
+    public function getEmployeePunchLogs(string $employeeCode, string $date): array
+    {
+        return $this->sendRequest('GetEmployeePunchLogs', [
+            'EmployeeCode' => $employeeCode,
+            'AttendanceDate' => $date,
+        ]);
+    }
+
+    /**
+     * ============================================
+     * LOCATION MANAGEMENT METHODS
+     * ============================================
+     */
+
+    /**
+     * Update Location
+     */
+    public function updateLocation(string $locationCode, string $locationName): array
+    {
+        return $this->sendRequest('UpdateLocation', [
+            'LocationCode' => $locationCode,
+            'LocationName' => $locationName,
+        ]);
+    }
+
+    /**
+     * Delete Location
+     */
+    public function deleteLocation(string $locationCode): array
+    {
+        return $this->sendRequest('DeleteLocation', [
+            'LocationCode' => $locationCode,
+        ]);
+    }
+
+    /**
+     * ============================================
+     * DEVICE MANAGEMENT METHODS
+     * ============================================
+     */
+
+    /**
      * Get Device List
      */
     public function getDeviceList(?string $location = null): array
     {
         return $this->sendRequest('GetDeviceList', [
             'Location' => $location ?? $this->locationCode,
+        ]);
+    }
+
+    /**
+     * Update Device
+     */
+    public function updateDevice(array $data): array
+    {
+        return $this->sendRequest('UpdateDevice', [
+            'DeviceSerialNumber' => $data['serial_number'],
+            'DeviceName' => $data['device_name'] ?? '',
+            'Location' => $data['location'] ?? $this->locationCode,
+            'IPAddress' => $data['ip_address'] ?? '',
+            'Port' => $data['port'] ?? '4370',
+        ]);
+    }
+
+    /**
+     * Delete Device
+     */
+    public function deleteDevice(string $deviceSerialNumber): array
+    {
+        return $this->sendRequest('DeleteDevice', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
         ]);
     }
 
@@ -217,6 +321,17 @@ class EbioServerService
     }
 
     /**
+     * Get Device Illegal Logs
+     */
+    public function getDeviceIllegalLogs(string $date, ?string $location = null): array
+    {
+        return $this->sendRequest('GetDeviceIllegalLogs', [
+            'Location' => $location ?? $this->locationCode,
+            'LogDate' => $date,
+        ]);
+    }
+
+    /**
      * Get Device Last Ping
      */
     public function getDeviceLastPing(string $deviceSerialNumber): array
@@ -225,6 +340,12 @@ class EbioServerService
             'DeviceSerialNumber' => $deviceSerialNumber,
         ]);
     }
+
+    /**
+     * ============================================
+     * DEVICE COMMAND METHODS
+     * ============================================
+     */
 
     /**
      * Reboot Device
@@ -267,6 +388,105 @@ class EbioServerService
     }
 
     /**
+     * Enroll Fingerprint
+     */
+    public function enrollFingerprint(string $deviceSerialNumber, string $employeeCode, string $fingerIndex = '1'): array
+    {
+        return $this->sendRequest('DeviceCommand_EnrollFP', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+            'EmployeeCode' => $employeeCode,
+            'FingerIndex' => $fingerIndex,
+        ]);
+    }
+
+    /**
+     * Enroll Face
+     */
+    public function enrollFace(string $deviceSerialNumber, string $employeeCode): array
+    {
+        return $this->sendRequest('DeviceCommand_EnrollFace', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+            'EmployeeCode' => $employeeCode,
+        ]);
+    }
+
+    /**
+     * Block/Unblock User
+     */
+    public function blockUnblockUser(string $deviceSerialNumber, string $employeeCode, bool $block = true): array
+    {
+        return $this->sendRequest('DeviceCommand_BlockUnBlockUser', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+            'EmployeeCode' => $employeeCode,
+            'Block' => $block ? '1' : '0',
+        ]);
+    }
+
+    /**
+     * Unlock Door
+     */
+    public function unlockDoor(string $deviceSerialNumber): array
+    {
+        return $this->sendRequest('DeviceCommand_UnlockDoor', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+        ]);
+    }
+
+    /**
+     * Change Web Server Address
+     */
+    public function changeWebServerAddress(string $deviceSerialNumber, string $newAddress): array
+    {
+        return $this->sendRequest('DeviceCommand_ChangeWebServerAddress', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+            'NewAddress' => $newAddress,
+        ]);
+    }
+
+    /**
+     * Change Web Server Port
+     */
+    public function changeWebServerPort(string $deviceSerialNumber, string $newPort): array
+    {
+        return $this->sendRequest('DeviceCommand_ChangeWebServerPort', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+            'NewPort' => $newPort,
+        ]);
+    }
+
+    /**
+     * Get Device Logs via Command
+     */
+    public function getDeviceCommandLogs(string $deviceSerialNumber): array
+    {
+        return $this->sendRequest('DeviceCommand_GetDeviceLogs', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+        ]);
+    }
+
+    /**
+     * ============================================
+     * VISITOR MANAGEMENT
+     * ============================================
+     */
+
+    /**
+     * Validate Visitor Desk
+     */
+    public function validateVisitorDesk(string $visitorCode): array
+    {
+        return $this->sendRequest('ValidateVisitorDesk', [
+            'VisitorCode' => $visitorCode,
+        ]);
+    }
+
+    /**
+     * ============================================
+     * UTILITY METHODS
+     * ============================================
+     */
+
+    /**
      * Convert image to base64 for photo upload
      */
     public function imageToBase64(string $imagePath): string
@@ -281,7 +501,6 @@ class EbioServerService
 
     /**
      * Map verification type based on device capabilities
-     * Face: 16, Face + Fingerprint: 17, Face + Password: 18, etc.
      */
     public function getVerificationType(string $type): string
     {
@@ -298,6 +517,26 @@ class EbioServerService
             'password' => '3',
         ];
 
-        return $types[$type] ?? '17'; // Default: Face + Fingerprint
+        return $types[$type] ?? '17';
+    }
+
+    /**
+     * Test connection to eBioServer
+     */
+    public function testConnection(): array
+    {
+        try {
+            $result = $this->getDeviceList();
+            return [
+                'success' => $result['success'] ?? false,
+                'message' => $result['success'] ? 'Connected successfully' : 'Connection failed',
+                'details' => $result
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Connection failed: ' . $e->getMessage()
+            ];
+        }
     }
 }
