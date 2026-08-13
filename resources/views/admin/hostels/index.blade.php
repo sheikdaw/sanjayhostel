@@ -83,7 +83,6 @@
     .btn-action.text-info:hover { background: #cff4fc; border-color: #81d4fa; }
     .btn-action.text-warning:hover { background: #fef3c7; border-color: #fcd34d; }
 
-    /* Biometric Section */
     .biometric-section {
         background: #f8fafc;
         border-radius: 8px;
@@ -131,7 +130,6 @@
     .biometric-stat-item .number { font-size: 0.9rem; font-weight: 700; color: var(--sanjay-primary); }
     .biometric-stat-item .label { font-size: 0.55rem; color: #6b7280; text-transform: uppercase; }
 
-    /* Modal */
     .modal-content { border-radius: 16px; border: none; }
     .modal-header {
         background: var(--sanjay-primary);
@@ -202,7 +200,6 @@
         gap: 0.75rem;
     }
     .toast-custom.error { border-left-color: #dc2626; }
-    .toast-custom .icon { font-size: 1.25rem; }
     .toast-custom .message { flex: 1; font-size: 0.85rem; color: #1f2937; }
     .toast-custom .close-btn {
         background: none;
@@ -219,20 +216,6 @@
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(100%); opacity: 0; }
     }
-    
-    .page-title-link {
-        color: var(--sanjay-gold);
-        text-decoration: none;
-    }
-
-    @media (max-width: 768px) {
-        .biometric-stats {
-            grid-template-columns: 1fr 1fr;
-        }
-        .hostel-stats {
-            grid-template-columns: repeat(3, 1fr);
-        }
-    }
 </style>
 @endpush
 
@@ -246,13 +229,11 @@
     <div class="d-flex gap-2">
         <button type="button" class="rv-submit" onclick="syncAllHostels()" 
                 style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#7c3aed;">
-            <i class="bi bi-cloud-upload"></i>
-            Sync All
+            <i class="bi bi-cloud-upload"></i> Sync All
         </button>
         <button type="button" class="rv-submit" id="addHostelBtn" 
                 style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none;">
-            <i class="bi bi-plus-circle"></i>
-            Add Hostel
+            <i class="bi bi-plus-circle"></i> Add Hostel
         </button>
     </div>
 </div>
@@ -336,8 +317,8 @@
                                     {{ $hostel->status }}
                                 </button>
                                 <div class="d-flex gap-1">
-                                    <button class="btn-action text-info" onclick="testConnection({{ $hostel->id }})" title="Test Connection">
-                                        <i class="bi bi-wifi"></i>
+                                    <button class="btn-action text-info" onclick="openBiometricConfig({{ $hostel->id }})" title="Configure Biometric">
+                                        <i class="bi bi-gear"></i>
                                     </button>
                                     <button class="btn-action text-success" onclick="syncHostel({{ $hostel->id }})" title="Sync Biometric">
                                         <i class="bi bi-cloud-upload"></i>
@@ -362,8 +343,7 @@
                 <h5>No hostels found</h5>
                 <p class="text-muted">Get started by creating your first hostel.</p>
                 <button type="button" class="rv-submit" onclick="openAddModal()" style="width:auto; display:inline-flex; padding:0 1.5rem; height:38px; border-radius:9px; align-items:center; gap:6px; animation:none;">
-                    <i class="bi bi-plus-circle"></i>
-                    Add Hostel
+                    <i class="bi bi-plus-circle"></i> Add Hostel
                 </button>
             </div>
         </div>
@@ -372,7 +352,7 @@
 
 {{-- Add/Edit Hostel Modal --}}
 <div class="modal fade" id="hostelModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalTitle">Add Hostel</h5>
@@ -446,38 +426,18 @@
                             </div>
                             <div class="invalid-feedback" id="email_error"></div>
                         </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="rv-submit" id="saveBtn" style="width:auto; padding:0 1.5rem; height:38px; border-radius:9px; display:inline-flex; align-items:center; gap:6px; animation:none;">
-                        <i class="bi bi-check-circle"></i>
-                        <span id="saveBtnText">Save</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
-{{-- Biometric Configuration Modal --}}
-<div class="modal fade" id="biometricModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header" style="background: #7c3aed;">
-                <h5 class="modal-title"><i class="bi bi-fingerprint"></i> Biometric Configuration</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="biometricForm">
-                @csrf
-                <input type="hidden" id="biometricHostelId" name="hostel_id">
-                <div class="modal-body">
-                    <div class="row g-3">
+                        {{-- Biometric Configuration --}}
+                        <div class="col-12">
+                            <hr>
+                            <h6><i class="bi bi-fingerprint"></i> Biometric Configuration</h6>
+                        </div>
+
                         <div class="col-md-6">
-                            <label class="form-label">Device ID <span class="required">*</span></label>
+                            <label class="form-label">Device ID</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-hdd-stack rv-input-icon"></i>
-                                <input type="text" name="biometric_device_id" id="biometric_device_id" class="rv-input" placeholder="e.g., DEV_001" required>
+                                <input type="text" name="biometric_device_id" id="biometric_device_id" class="rv-input" placeholder="e.g., DEV_001">
                             </div>
                             <div class="invalid-feedback" id="biometric_device_id_error"></div>
                         </div>
@@ -485,15 +445,15 @@
                             <label class="form-label">Device Name</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-device-ssd rv-input-icon"></i>
-                                <input type="text" name="biometric_device_name" id="biometric_device_name" class="rv-input" placeholder="e.g., Main Door">
+                                <input type="text" name="biometric_device_name" id="biometric_device_name" class="rv-input" placeholder="e.g., Main Door Device">
                             </div>
                             <div class="invalid-feedback" id="biometric_device_name_error"></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">IP Address <span class="required">*</span></label>
+                            <label class="form-label">IP Address</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-wifi rv-input-icon"></i>
-                                <input type="text" name="biometric_ip_address" id="biometric_ip_address" class="rv-input" placeholder="192.168.1.100" required>
+                                <input type="text" name="biometric_ip_address" id="biometric_ip_address" class="rv-input" placeholder="192.168.1.100">
                             </div>
                             <div class="invalid-feedback" id="biometric_ip_address_error"></div>
                         </div>
@@ -520,6 +480,81 @@
                                 <input type="text" name="employee_code_prefix" id="employee_code_prefix" class="rv-input" placeholder="e.g., H1">
                             </div>
                             <div class="invalid-feedback" id="employee_code_prefix_error"></div>
+                            <small class="text-muted">Example: H1-24-000001</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="rv-submit" id="saveBtn" style="width:auto; padding:0 1.5rem; height:38px; border-radius:9px; display:inline-flex; align-items:center; gap:6px; animation:none;">
+                        <i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- Biometric Configuration Modal --}}
+<div class="modal fade" id="biometricModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #7c3aed;">
+                <h5 class="modal-title"><i class="bi bi-fingerprint"></i> Biometric Configuration</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="biometricForm">
+                @csrf
+                <input type="hidden" id="biometricHostelId" name="hostel_id">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Device ID <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-hdd-stack rv-input-icon"></i>
+                                <input type="text" name="biometric_device_id" id="biometric_device_id_edit" class="rv-input" placeholder="e.g., DEV_001" required>
+                            </div>
+                            <div class="invalid-feedback" id="biometric_device_id_edit_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Device Name</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-device-ssd rv-input-icon"></i>
+                                <input type="text" name="biometric_device_name" id="biometric_device_name_edit" class="rv-input" placeholder="e.g., Main Door Device">
+                            </div>
+                            <div class="invalid-feedback" id="biometric_device_name_edit_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">IP Address <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-wifi rv-input-icon"></i>
+                                <input type="text" name="biometric_ip_address" id="biometric_ip_address_edit" class="rv-input" placeholder="192.168.1.100" required>
+                            </div>
+                            <div class="invalid-feedback" id="biometric_ip_address_edit_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Port</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-plug rv-input-icon"></i>
+                                <input type="text" name="biometric_port" id="biometric_port_edit" class="rv-input" placeholder="4370" value="4370">
+                            </div>
+                            <div class="invalid-feedback" id="biometric_port_edit_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Location Code</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-geo-alt rv-input-icon"></i>
+                                <input type="text" name="biometric_location_code" id="biometric_location_code_edit" class="rv-input" placeholder="e.g., LOC_001">
+                            </div>
+                            <div class="invalid-feedback" id="biometric_location_code_edit_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Employee Code Prefix</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-tag rv-input-icon"></i>
+                                <input type="text" name="employee_code_prefix" id="employee_code_prefix_edit" class="rv-input" placeholder="e.g., H1">
+                            </div>
+                            <div class="invalid-feedback" id="employee_code_prefix_edit_error"></div>
                             <small class="text-muted">Example: H1-24-000001</small>
                         </div>
                     </div>
@@ -574,10 +609,6 @@ $(document).ready(function() {
     });
 });
 
-// ============================================
-// HOSTEL CRUD
-// ============================================
-
 function openAddModal() {
     resetForm();
     document.getElementById('modalTitle').textContent = 'Add Hostel';
@@ -585,13 +616,11 @@ function openAddModal() {
     document.getElementById('editId').value = '';
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid');
-    var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
-    modal.show();
+    hostelModal.show();
 }
 
 function resetForm() {
-    const form = document.getElementById('hostelForm');
-    form.reset();
+    document.getElementById('hostelForm').reset();
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid');
     document.getElementById('saveBtnText').textContent = 'Save';
@@ -622,8 +651,7 @@ function submitForm() {
         },
         success: function(response) {
             if (response.success) {
-                var modal = bootstrap.Modal.getInstance(document.getElementById('hostelModal'));
-                if (modal) modal.hide();
+                hostelModal.hide();
                 showToast(response.message, 'success');
                 setTimeout(() => location.reload(), 1500);
             }
@@ -664,11 +692,16 @@ function editHostel(id) {
                 document.getElementById('address').value = data.address || '';
                 document.getElementById('phone').value = data.phone || '';
                 document.getElementById('email').value = data.email || '';
+                document.getElementById('biometric_device_id').value = data.biometric_device_id || '';
+                document.getElementById('biometric_device_name').value = data.biometric_device_name || '';
+                document.getElementById('biometric_ip_address').value = data.biometric_ip_address || '';
+                document.getElementById('biometric_port').value = data.biometric_port || '4370';
+                document.getElementById('biometric_location_code').value = data.biometric_location_code || '';
+                document.getElementById('employee_code_prefix').value = data.employee_code_prefix || '';
                 document.getElementById('saveBtnText').textContent = 'Update';
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
-                var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
-                modal.show();
+                hostelModal.show();
             }
         },
         error: function(xhr) {
@@ -691,10 +724,7 @@ function deleteHostel(id) {
             $.ajax({
                 url: "{{ url('admin/hostels') }}/" + id,
                 type: 'POST',
-                data: {
-                    _method: 'DELETE',
-                    _token: '{{ csrf_token() }}'
-                },
+                data: { _method: 'DELETE', _token: '{{ csrf_token() }}' },
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
@@ -726,10 +756,7 @@ function toggleStatus(id, currentStatus) {
             $.ajax({
                 url: "{{ url('admin/hostels') }}/" + id + "/toggle-status",
                 type: 'POST',
-                data: {
-                    _method: 'PATCH',
-                    _token: '{{ csrf_token() }}'
-                },
+                data: { _method: 'PATCH', _token: '{{ csrf_token() }}' },
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
@@ -744,40 +771,34 @@ function toggleStatus(id, currentStatus) {
     });
 }
 
-// ============================================
-// BIOMETRIC FUNCTIONS
-// ============================================
-
 function openBiometricConfig(id) {
     $('#biometricHostelId').val(id);
-    $('#biometric_device_id').val('');
-    $('#biometric_device_name').val('');
-    $('#biometric_ip_address').val('');
-    $('#biometric_port').val('4370');
-    $('#biometric_location_code').val('');
-    $('#employee_code_prefix').val('');
+    $('#biometric_device_id_edit').val('');
+    $('#biometric_device_name_edit').val('');
+    $('#biometric_ip_address_edit').val('');
+    $('#biometric_port_edit').val('4370');
+    $('#biometric_location_code_edit').val('');
+    $('#employee_code_prefix_edit').val('');
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid');
 
-    // Load existing configuration
     $.ajax({
         url: '/admin/hostels/' + id + '/biometric-config',
         type: 'GET',
         success: function(response) {
             if (response.success) {
                 const data = response.data;
-                $('#biometric_device_id').val(data.biometric_device_id || '');
-                $('#biometric_device_name').val(data.biometric_device_name || '');
-                $('#biometric_ip_address').val(data.biometric_ip_address || '');
-                $('#biometric_port').val(data.biometric_port || '4370');
-                $('#biometric_location_code').val(data.biometric_location_code || '');
-                $('#employee_code_prefix').val(data.employee_code_prefix || 'H' + data.id);
+                $('#biometric_device_id_edit').val(data.biometric_device_id || '');
+                $('#biometric_device_name_edit').val(data.biometric_device_name || '');
+                $('#biometric_ip_address_edit').val(data.biometric_ip_address || '');
+                $('#biometric_port_edit').val(data.biometric_port || '4370');
+                $('#biometric_location_code_edit').val(data.biometric_location_code || '');
+                $('#employee_code_prefix_edit').val(data.employee_code_prefix || 'H' + data.id);
             }
         }
     });
 
-    var modal = new bootstrap.Modal(document.getElementById('biometricModal'));
-    modal.show();
+    biometricModal.show();
 }
 
 function submitBiometricForm() {
@@ -790,9 +811,7 @@ function submitBiometricForm() {
         data: formData,
         processData: false,
         contentType: false,
-        headers: {
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-        },
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
         beforeSend: function() {
             $('#biometricSaveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
             $('.invalid-feedback').text('');
@@ -800,8 +819,7 @@ function submitBiometricForm() {
         },
         success: function(response) {
             if (response.success) {
-                var modal = bootstrap.Modal.getInstance(document.getElementById('biometricModal'));
-                if (modal) modal.hide();
+                biometricModal.hide();
                 showToast('Biometric configuration saved successfully!', 'success');
                 setTimeout(() => location.reload(), 1500);
             }
@@ -885,51 +903,6 @@ function syncAllHostels() {
         }
     });
 }
-
-function testConnection(id) {
-    Swal.fire({
-        title: 'Testing Connection...',
-        text: 'Please wait while we test the biometric device connection.',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    $.ajax({
-        url: '/admin/hostels/' + id + '/test-connection',
-        type: 'GET',
-        success: function(response) {
-            if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Connected ✅',
-                    text: 'Device is online and reachable!',
-                    confirmButtonColor: '#22c55e'
-                });
-            } else {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Connection Failed ❌',
-                    text: response.message || 'Unable to connect to device.',
-                    confirmButtonColor: '#dc2626'
-                });
-            }
-        },
-        error: function(xhr) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Connection Failed ❌',
-                text: xhr.responseJSON?.message || 'Unable to connect to device.',
-                confirmButtonColor: '#dc2626'
-            });
-        }
-    });
-}
-
-// ============================================
-// TOAST NOTIFICATIONS
-// ============================================
 
 function showToast(message, type = 'success') {
     let container = document.getElementById('flashMessageContainer');

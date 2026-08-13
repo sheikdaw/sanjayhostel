@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/Admin/HostelController.php
 
 namespace App\Http\Controllers\Admin;
 
@@ -33,7 +32,6 @@ class HostelController extends Controller
                 return $room->beds()->count();
             });
             
-            // Biometric stats for each hostel
             $hostel->biometric_residents_count = $hostel->residents()->whereNotNull('employee_code')->count();
             $hostel->biometric_access_count = $hostel->residents()->where('biometric_access', true)->count();
         }
@@ -132,6 +130,9 @@ class HostelController extends Controller
                 ]);
             }
 
+            // Set hostel-specific configuration
+            $this->ebioService->setHostelConfig($hostel);
+
             $residents = $hostel->residents()->where('status', 'ACTIVE')->get();
             $synced = 0;
             $failed = 0;
@@ -141,7 +142,7 @@ class HostelController extends Controller
                 try {
                     // Generate employee code based on hostel
                     if (!$resident->employee_code) {
-                        $resident->employee_code = $this->generateEmployeeCodeForHostel($resident, $hostel);
+                        $resident->employee_code = $resident->generateEmployeeCode();
                     }
 
                     // Update resident
@@ -150,24 +151,26 @@ class HostelController extends Controller
                     $resident->save();
 
                     // Sync to device using hostel-specific URL
-                    $deviceUrl = $hostel->biometric_device_url;
-                    if ($deviceUrl) {
-                        $this->ebioService->setBaseUrl($deviceUrl);
-                        $this->ebioService->updateEmployee([
-                            'employee_code' => $resident->employee_code,
-                            'employee_name' => $resident->name,
-                            'location' => $hostel->biometric_location_code ?? 'LOC_001',
-                            'employee_role' => 'Normal Users',
-                            'verification_type' => '17',
-                        ]);
+                    $result = $this->ebioService->updateEmployee([
+                        'employee_code' => $resident->employee_code,
+                        'employee_name' => $resident->name,
+                        'location' => $hostel->biometric_location_code ?? 'LOC_001',
+                        'employee_role' => 'Normal Users',
+                        'verification_type' => '17',
+                    ]);
+
+                    if ($result['success']) {
+                        $synced++;
+                    } else {
+                        $failed++;
                     }
 
-                    $synced++;
                     $results[] = [
                         'resident_id' => $resident->id,
                         'name' => $resident->name,
                         'employee_code' => $resident->employee_code,
-                        'status' => 'success'
+                        'status' => $result['success'] ? 'success' : 'failed',
+                        'message' => $result['message'] ?? ''
                     ];
 
                 } catch (\Exception $e) {
@@ -263,23 +266,16 @@ class HostelController extends Controller
                 ]);
             }
 
-            // Test connection using eBioServer
-            $deviceUrl = $hostel->biometric_device_url;
-            if ($deviceUrl) {
-                $this->ebioService->setBaseUrl($deviceUrl);
-                $result = $this->ebioService->getDeviceList();
-                
-                return response()->json([
-                    'success' => $result['success'] ?? false,
-                    'message' => $result['success'] ? 'Device is online and reachable!' : 'Device is offline or unreachable.',
-                    'device' => $hostel->biometric_device_name,
-                    'ip' => $hostel->biometric_ip_address
-                ]);
-            }
-
+            // Set hostel-specific configuration
+            $this->ebioService->setHostelConfig($hostel);
+            
+            $result = $this->ebioService->getDeviceList();
+            
             return response()->json([
-                'success' => false,
-                'message' => 'Device URL is not configured!'
+                'success' => $result['success'] ?? false,
+                'message' => $result['success'] ? 'Device is online and reachable!' : 'Device is offline or unreachable.',
+                'device' => $hostel->biometric_device_name,
+                'ip' => $hostel->biometric_ip_address
             ]);
 
         } catch (\Exception $e) {
@@ -288,17 +284,6 @@ class HostelController extends Controller
                 'message' => $e->getMessage()
             ]);
         }
-    }
-
-    /**
-     * Generate employee code for a resident based on hostel
-     */
-    private function generateEmployeeCodeForHostel($resident, $hostel)
-    {
-        $prefix = $hostel->employee_code_prefix ?? 'H' . $hostel->id;
-        $code = $resident->id + 10000;
-        $year = date('y');
-        return $prefix . '-' . $year . '-' . str_pad($code, 6, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -341,7 +326,7 @@ class HostelController extends Controller
     }
 
     // ============================================
-    // YOUR EXISTING METHODS (Keep these unchanged)
+    // BASIC CRUD METHODS
     // ============================================
 
     public function store(Request $request)
@@ -353,7 +338,13 @@ class HostelController extends Controller
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
-            'status' => 'required|in:ACTIVE,INACTIVE'
+            'status' => 'required|in:ACTIVE,INACTIVE',
+            'biometric_device_id' => 'nullable|string|max:100',
+            'biometric_device_name' => 'nullable|string|max:255',
+            'biometric_ip_address' => 'nullable|ip',
+            'biometric_port' => 'nullable|string|max:10',
+            'biometric_location_code' => 'nullable|string|max:100',
+            'employee_code_prefix' => 'nullable|string|max:20',
         ]);
 
         if ($validator->fails()) {
@@ -392,7 +383,13 @@ class HostelController extends Controller
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:100',
-            'status' => 'required|in:ACTIVE,INACTIVE'
+            'status' => 'required|in:ACTIVE,INACTIVE',
+            'biometric_device_id' => 'nullable|string|max:100',
+            'biometric_device_name' => 'nullable|string|max:255',
+            'biometric_ip_address' => 'nullable|ip',
+            'biometric_port' => 'nullable|string|max:10',
+            'biometric_location_code' => 'nullable|string|max:100',
+            'employee_code_prefix' => 'nullable|string|max:20',
         ]);
 
         if ($validator->fails()) {

@@ -1,5 +1,4 @@
 <?php
-// app/Models/Hostel.php
 
 namespace App\Models;
 

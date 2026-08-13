@@ -1,5 +1,4 @@
 <?php
-// app/Services/EbioServerService.php
 
 namespace App\Services;
 
@@ -13,6 +12,7 @@ class EbioServerService
     protected string $username;
     protected string $password;
     protected string $locationCode;
+
     public function __construct()
     {
         $this->baseUrl = config('ebioserver.url', 'http://ebioservernew.esslsecurity.com:99/webservice.asmx');
@@ -20,13 +20,34 @@ class EbioServerService
         $this->password = config('ebioserver.password', 'essl');
         $this->locationCode = config('ebioserver.location_code', 'HOSTEL_MAIN');
     }
-        public function setBaseUrl(string $url): void
-        {
-            $this->baseUrl = $url;
+
+    public function setBaseUrl(string $url): void
+    {
+        $this->baseUrl = $url;
+    }
+
+    public function setLocationCode(string $locationCode): void
+    {
+        $this->locationCode = $locationCode;
+    }
+
+    public function setCredentials(string $username, string $password): void
+    {
+        $this->username = $username;
+        $this->password = $password;
+    }
+
+    public function setHostelConfig($hostel): void
+    {
+        if ($hostel->biometric_ip_address && $hostel->biometric_port) {
+            $this->setBaseUrl("http://{$hostel->biometric_ip_address}:{$hostel->biometric_port}/webservice.asmx");
         }
-            /**
-     * Generate SOAP request XML for eBioServer
-     */
+        
+        if ($hostel->biometric_location_code) {
+            $this->setLocationCode($hostel->biometric_location_code);
+        }
+    }
+
     protected function generateSoapRequest(string $method, array $params): string
     {
         $xml = '<?xml version="1.0" encoding="utf-8"?>';
@@ -36,11 +57,9 @@ class EbioServerService
         $xml .= '<soap:Body>';
         $xml .= "<{$method} xmlns=\"http://tempuri.org/\">";
         
-        // Add credentials (required for all eBioServer methods)
         $xml .= "<UserName>{$this->username}</UserName>";
         $xml .= "<Password>{$this->password}</Password>";
         
-        // Add additional parameters
         foreach ($params as $key => $value) {
             $xml .= "<{$key}>" . htmlspecialchars((string)$value) . "</{$key}>";
         }
@@ -52,9 +71,6 @@ class EbioServerService
         return $xml;
     }
 
-    /**
-     * Send SOAP request to eBioServer
-     */
     protected function sendRequest(string $method, array $params): array
     {
         try {
@@ -80,13 +96,10 @@ class EbioServerService
                 ];
             }
 
-            // Parse SOAP response
             $responseBody = $response->body();
             
-            // Handle potential XML parsing issues
             $xml = simplexml_load_string($responseBody);
             if (!$xml) {
-                // Try to extract from raw response
                 if (preg_match('/<([^>]+)Result[^>]*>([^<]+)<\/[^>]+>/', $responseBody, $matches)) {
                     $result = $matches[2] ?? '';
                     return [
@@ -104,7 +117,6 @@ class EbioServerService
                 ];
             }
 
-            // Extract result from SOAP response
             $namespaces = $xml->getNamespaces(true);
             $soapBody = $xml->children($namespaces['soap'] ?? 'http://schemas.xmlsoap.org/soap/envelope/')->Body;
             
@@ -116,13 +128,11 @@ class EbioServerService
                 ];
             }
             
-            // Try to find the result element
             $responseElement = $soapBody->children('http://tempuri.org/');
             $resultElement = $responseElement->{$method . 'Result'} ?? $responseElement->children()->{$method . 'Result'} ?? $responseElement;
             
             $result = (string) $resultElement;
 
-            // Check if result indicates success
             $isSuccess = !str_contains(strtolower($result), 'error') 
                 && !str_contains(strtolower($result), 'fail')
                 && !empty($result);
@@ -146,18 +156,10 @@ class EbioServerService
         }
     }
 
-    /**
-     * ============================================
-     * EMPLOYEE MANAGEMENT METHODS
-     * ============================================
-     */
+    // ============================================
+    // EMPLOYEE MANAGEMENT
+    // ============================================
 
-    /**
-     * Add or Update Employee
-     * 
-     * @param array $data Required: employee_code, employee_name
-     *                    Optional: location, role, verification_type, card_number
-     */
     public function updateEmployee(array $data): array
     {
         $params = [
@@ -165,16 +167,13 @@ class EbioServerService
             'EmployeeName' => $data['employee_name'],
             'EmployeeLocation' => $data['location'] ?? $this->locationCode,
             'EmployeeRole' => $data['employee_role'] ?? 'Normal Users',
-            'EmployeeVerificationType' => $data['verification_type'] ?? '17', // Face + Fingerprint
+            'EmployeeVerificationType' => $data['verification_type'] ?? '17',
             'EmployeeCardNumber' => $data['card_number'] ?? '',
         ];
 
         return $this->sendRequest('UpdateEmployee', $params);
     }
 
-    /**
-     * Update Employee with Expiry Dates
-     */
     public function updateEmployeeWithExpiry(array $data): array
     {
         $params = [
@@ -191,23 +190,6 @@ class EbioServerService
         return $this->sendRequest('UpdateEmployeewithExpiryDates', $params);
     }
 
-    /**
-     * Update Employee Photo
-     * 
-     * @param string $employeeCode
-     * @param string $photoBase64 Base64 encoded image
-     */
-    public function updateEmployeePhoto(string $employeeCode, string $photoBase64): array
-    {
-        return $this->sendRequest('UpdateEmployeePhoto', [
-            'EmployeeCode' => $employeeCode,
-            'EmployeePhoto' => $photoBase64,
-        ]);
-    }
-
-    /**
-     * Delete Employee
-     */
     public function deleteEmployee(string $employeeCode): array
     {
         return $this->sendRequest('DeleteEmployee', [
@@ -215,9 +197,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Get Employee Details
-     */
     public function getEmployeeDetails(string $employeeCode): array
     {
         return $this->sendRequest('GetEmployeeDetails', [
@@ -225,17 +204,11 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Get Employee Codes
-     */
     public function getEmployeeCodes(): array
     {
         return $this->sendRequest('GetEmployeeCodes', []);
     }
 
-    /**
-     * Get Employee Punch Logs
-     */
     public function getEmployeePunchLogs(string $employeeCode, string $date): array
     {
         return $this->sendRequest('GetEmployeePunchLogs', [
@@ -244,42 +217,10 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * ============================================
-     * LOCATION MANAGEMENT METHODS
-     * ============================================
-     */
+    // ============================================
+    // DEVICE MANAGEMENT
+    // ============================================
 
-    /**
-     * Update Location
-     */
-    public function updateLocation(string $locationCode, string $locationName): array
-    {
-        return $this->sendRequest('UpdateLocation', [
-            'LocationCode' => $locationCode,
-            'LocationName' => $locationName,
-        ]);
-    }
-
-    /**
-     * Delete Location
-     */
-    public function deleteLocation(string $locationCode): array
-    {
-        return $this->sendRequest('DeleteLocation', [
-            'LocationCode' => $locationCode,
-        ]);
-    }
-
-    /**
-     * ============================================
-     * DEVICE MANAGEMENT METHODS
-     * ============================================
-     */
-
-    /**
-     * Get Device List
-     */
     public function getDeviceList(?string $location = null): array
     {
         return $this->sendRequest('GetDeviceList', [
@@ -287,9 +228,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Update Device
-     */
     public function updateDevice(array $data): array
     {
         return $this->sendRequest('UpdateDevice', [
@@ -301,9 +239,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Delete Device
-     */
     public function deleteDevice(string $deviceSerialNumber): array
     {
         return $this->sendRequest('DeleteDevice', [
@@ -311,9 +246,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Get Device Logs
-     */
     public function getDeviceLogs(string $date, ?string $location = null): array
     {
         return $this->sendRequest('GetDeviceLogs', [
@@ -322,9 +254,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Get Device Illegal Logs
-     */
     public function getDeviceIllegalLogs(string $date, ?string $location = null): array
     {
         return $this->sendRequest('GetDeviceIllegalLogs', [
@@ -333,9 +262,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Get Device Last Ping
-     */
     public function getDeviceLastPing(string $deviceSerialNumber): array
     {
         return $this->sendRequest('GetDeviceLastPing', [
@@ -343,15 +269,10 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * ============================================
-     * DEVICE COMMAND METHODS
-     * ============================================
-     */
+    // ============================================
+    // DEVICE COMMANDS
+    // ============================================
 
-    /**
-     * Reboot Device
-     */
     public function rebootDevice(string $deviceSerialNumber): array
     {
         return $this->sendRequest('DeviceCommand_Reboot', [
@@ -359,9 +280,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Clear Device Logs
-     */
     public function clearDeviceLogs(string $deviceSerialNumber): array
     {
         return $this->sendRequest('DeviceCommand_ClearLogs', [
@@ -369,9 +287,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Reset OP Stamp - Sync employees to device
-     */
     public function resetOpStamp(string $deviceSerialNumber): array
     {
         return $this->sendRequest('DeviceCommand_ResetOPStamp', [
@@ -379,9 +294,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Reset Transaction Stamp - Sync all punches
-     */
     public function resetTransactionStamp(string $deviceSerialNumber): array
     {
         return $this->sendRequest('DeviceCommand_ResetTransactionStamp', [
@@ -389,9 +301,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Enroll Fingerprint
-     */
     public function enrollFingerprint(string $deviceSerialNumber, string $employeeCode, string $fingerIndex = '1'): array
     {
         return $this->sendRequest('DeviceCommand_EnrollFP', [
@@ -401,9 +310,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Enroll Face
-     */
     public function enrollFace(string $deviceSerialNumber, string $employeeCode): array
     {
         return $this->sendRequest('DeviceCommand_EnrollFace', [
@@ -412,9 +318,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Block/Unblock User
-     */
     public function blockUnblockUser(string $deviceSerialNumber, string $employeeCode, bool $block = true): array
     {
         return $this->sendRequest('DeviceCommand_BlockUnBlockUser', [
@@ -424,9 +327,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Unlock Door
-     */
     public function unlockDoor(string $deviceSerialNumber): array
     {
         return $this->sendRequest('DeviceCommand_UnlockDoor', [
@@ -434,9 +334,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Change Web Server Address
-     */
     public function changeWebServerAddress(string $deviceSerialNumber, string $newAddress): array
     {
         return $this->sendRequest('DeviceCommand_ChangeWebServerAddress', [
@@ -445,9 +342,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Change Web Server Port
-     */
     public function changeWebServerPort(string $deviceSerialNumber, string $newPort): array
     {
         return $this->sendRequest('DeviceCommand_ChangeWebServerPort', [
@@ -456,9 +350,6 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * Get Device Logs via Command
-     */
     public function getDeviceCommandLogs(string $deviceSerialNumber): array
     {
         return $this->sendRequest('DeviceCommand_GetDeviceLogs', [
@@ -466,15 +357,29 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * ============================================
-     * VISITOR MANAGEMENT
-     * ============================================
-     */
+    // ============================================
+    // LOCATION MANAGEMENT
+    // ============================================
 
-    /**
-     * Validate Visitor Desk
-     */
+    public function updateLocation(string $locationCode, string $locationName): array
+    {
+        return $this->sendRequest('UpdateLocation', [
+            'LocationCode' => $locationCode,
+            'LocationName' => $locationName,
+        ]);
+    }
+
+    public function deleteLocation(string $locationCode): array
+    {
+        return $this->sendRequest('DeleteLocation', [
+            'LocationCode' => $locationCode,
+        ]);
+    }
+
+    // ============================================
+    // VISITOR MANAGEMENT
+    // ============================================
+
     public function validateVisitorDesk(string $visitorCode): array
     {
         return $this->sendRequest('ValidateVisitorDesk', [
@@ -482,15 +387,10 @@ class EbioServerService
         ]);
     }
 
-    /**
-     * ============================================
-     * UTILITY METHODS
-     * ============================================
-     */
+    // ============================================
+    // UTILITY METHODS
+    // ============================================
 
-    /**
-     * Convert image to base64 for photo upload
-     */
     public function imageToBase64(string $imagePath): string
     {
         if (!file_exists($imagePath)) {
@@ -501,9 +401,6 @@ class EbioServerService
         return base64_encode($imageData);
     }
 
-    /**
-     * Map verification type based on device capabilities
-     */
     public function getVerificationType(string $type): string
     {
         $types = [
@@ -522,9 +419,6 @@ class EbioServerService
         return $types[$type] ?? '17';
     }
 
-    /**
-     * Test connection to eBioServer
-     */
     public function testConnection(): array
     {
         try {
