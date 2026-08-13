@@ -2000,7 +2000,7 @@
                     <div class="col-lg-4">
                         <div class="text-center p-3" style="background: #f8fafc; border-radius:12px;">
                             <div style="width:150px; height:150px; border-radius:50%; margin:0 auto; overflow:hidden; border:4px solid var(--gold); background:var(--primary);">
-                                <img src="${data.profile_image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=c5a028&color=fff&size=150'}" 
+                                <img src="${data.profile_image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=c5a028&color=fff&size=150'}"
                                      alt="${data.name}" style="width:100%; height:100%; object-fit:cover;">
                             </div>
                             <h3 class="mt-3 mb-1">${data.name}</h3>
@@ -2757,6 +2757,86 @@
                     setTimeout(() => toast.remove(), 300);
                 }
             }, 5000);
+            // ============================================
+// FILTERS - FIXED VERSION
+// ============================================
+function applyFilters() {
+    var status = $('#filterStatus').val();
+    var hostel = $('#filterHostel').val();
+    var gender = $('#filterGender').val();
+    var food = $('#filterFood').val();
+    var biometric = $('#filterBiometric').val();
+    var search = $('#searchResident').val().toLowerCase().trim();
+
+    var visibleCount = 0;
+    var totalCount = $('.resident-item').length;
+
+    $('.resident-item').each(function() {
+        var show = true;
+        var $item = $(this);
+
+        // Get all data attributes
+        var resStatus = $item.data('status') || '';
+        var resHostel = $item.data('hostel') || '';
+        var resGender = $item.data('gender') || '';
+        var resFood = $item.data('food') || '';
+        var resBiometric = $item.data('biometric') || '';
+
+        // Get searchable text content
+        var resName = ($item.data('name') || '').toLowerCase();
+        var resCode = ($item.data('code') || '').toLowerCase();
+        var resPhone = ($item.data('phone') || '').toLowerCase();
+        var resEmail = ($item.data('email') || '').toLowerCase();
+        var resId = String($item.data('id') || '');
+
+        // ✅ FIX: Apply filters - check if filter value matches
+        if (status && resStatus !== status) show = false;
+        if (hostel && resHostel !== String(hostel)) show = false;
+        if (gender && resGender !== gender) show = false;
+        if (food && resFood !== food) show = false;
+        if (biometric && resBiometric !== biometric) show = false;
+
+        // ✅ FIX: Search - check multiple fields
+        if (search && show) {
+            var searchMatch = false;
+            if (resName.includes(search)) searchMatch = true;
+            if (resCode.includes(search)) searchMatch = true;
+            if (resPhone.includes(search)) searchMatch = true;
+            if (resEmail.includes(search)) searchMatch = true;
+            if (resId.includes(search)) searchMatch = true;
+
+            // ✅ Also search the visible text content (for room numbers, etc.)
+            var textContent = $item.text().toLowerCase();
+            if (textContent.includes(search)) searchMatch = true;
+
+            if (!searchMatch) show = false;
+        }
+
+        // Show or hide
+        if (show) {
+            $item.show();
+            visibleCount++;
+        } else {
+            $item.hide();
+        }
+    });
+
+    // Update result count
+    var resultCountEl = $('#resultCount');
+    if (visibleCount === totalCount) {
+        resultCountEl.text('');
+    } else {
+        resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
+    }
+
+    // Show/hide no results message
+    var noResultsDiv = $('#noSearchResults');
+    if (visibleCount === 0 && totalCount > 0) {
+        noResultsDiv.show();
+    } else {
+        noResultsDiv.hide();
+    }
+}
         }
     </script>
 @endsection
