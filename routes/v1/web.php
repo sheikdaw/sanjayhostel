@@ -109,7 +109,25 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
+// routes/web.php - Add these routes
 
+// Hostel Biometric Management
+Route::prefix('hostels')->name('hostels.')->group(function () {
+    // Biometric Configuration
+    Route::get('/biometric-config', [HostelController::class, 'biometricConfig'])->name('biometric-config');
+    Route::get('/{id}/biometric-config', [HostelController::class, 'getBiometricConfig'])->name('get-biometric-config');
+    Route::post('/{id}/biometric-config', [HostelController::class, 'saveBiometricConfig'])->name('save-biometric-config');
+    
+    // Biometric Sync
+    Route::post('/{id}/sync-biometric', [HostelController::class, 'syncHostelBiometric'])->name('sync-biometric');
+    Route::post('/sync-all-biometric', [HostelController::class, 'syncAllHostelsBiometric'])->name('sync-all-biometric');
+    
+    // Test Connection
+    Route::get('/{id}/test-connection', [HostelController::class, 'testBiometricConnection'])->name('test-connection');
+    
+    // Biometric Stats
+    Route::get('/biometric-stats', [HostelController::class, 'getBiometricStats'])->name('biometric-stats');
+});
         // 1. Hostel Management
         Route::get('/hostels', [HostelController::class, 'index'])->name('hostels.index');
         Route::post('/hostels', [HostelController::class, 'store'])->name('hostels.store');
@@ -194,7 +212,7 @@ Route::prefix('residents')->name('residents.')->group(function () {
     
     // Details API
     Route::get('/{id}/details', [ResidentController::class, 'getResidentDetails'])->name('details');
-});
+}); 
         Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
         Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
 

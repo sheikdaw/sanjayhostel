@@ -1,4 +1,5 @@
 <?php
+// app/Models/Hostel.php
 
 namespace App\Models;
 
@@ -16,7 +17,14 @@ class Hostel extends Model
         'address',
         'phone',
         'email',
-        'status'
+        'status',
+        // Biometric fields - Add these
+        'biometric_device_id',
+        'biometric_device_name',
+        'biometric_ip_address',
+        'biometric_port',
+        'biometric_location_code',
+        'employee_code_prefix',
     ];
 
     // Relationships
@@ -44,5 +52,68 @@ class Hostel extends Model
     public function getStatusBadgeAttribute()
     {
         return strtolower($this->status);
+    }
+
+    // Biometric Accessors
+    public function getBiometricDeviceUrlAttribute()
+    {
+        if ($this->biometric_ip_address && $this->biometric_port) {
+            return "http://{$this->biometric_ip_address}:{$this->biometric_port}/webservice.asmx";
+        }
+        return null;
+    }
+
+    public function getEmployeeCodePrefixAttribute()
+    {
+        return $this->attributes['employee_code_prefix'] ?? 'H' . $this->id;
+    }
+
+    public function getBiometricStatusAttribute()
+    {
+        if (!$this->biometric_device_id) {
+            return 'Not Configured';
+        }
+        if ($this->biometric_ip_address) {
+            return 'Configured ✅';
+        }
+        return 'Pending Configuration';
+    }
+
+    public function getBiometricStatusBadgeAttribute()
+    {
+        if (!$this->biometric_device_id) {
+            return 'secondary';
+        }
+        if ($this->biometric_ip_address) {
+            return 'success';
+        }
+        return 'warning';
+    }
+
+    // Scopes
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'ACTIVE');
+    }
+
+    public function scopeMen($query)
+    {
+        return $query->where('hostel_type', 'MEN');
+    }
+
+    public function scopeWomen($query)
+    {
+        return $query->where('hostel_type', 'WOMEN');
+    }
+
+    public function scopeHasBiometric($query)
+    {
+        return $query->whereNotNull('biometric_device_id');
+    }
+
+    public function scopeBiometricConfigured($query)
+    {
+        return $query->whereNotNull('biometric_device_id')
+                    ->whereNotNull('biometric_ip_address');
     }
 }

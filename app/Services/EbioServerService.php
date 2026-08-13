@@ -13,7 +13,6 @@ class EbioServerService
     protected string $username;
     protected string $password;
     protected string $locationCode;
-
     public function __construct()
     {
         $this->baseUrl = config('ebioserver.url', 'http://ebioservernew.esslsecurity.com:99/webservice.asmx');
@@ -21,8 +20,11 @@ class EbioServerService
         $this->password = config('ebioserver.password', 'essl');
         $this->locationCode = config('ebioserver.location_code', 'HOSTEL_MAIN');
     }
-
-    /**
+        public function setBaseUrl(string $url): void
+        {
+            $this->baseUrl = $url;
+        }
+            /**
      * Generate SOAP request XML for eBioServer
      */
     protected function generateSoapRequest(string $method, array $params): string

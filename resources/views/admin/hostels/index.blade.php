@@ -47,6 +47,7 @@
     }
     .hostel-stat-item .number { font-size: 1rem; font-weight: 700; color: var(--sanjay-primary); }
     .hostel-stat-item .label { font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+    
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -65,9 +66,72 @@
     .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
     .status-badge.active .dot { background: #22c55e; }
     .status-badge.inactive .dot { background: #ef4444; }
-    .btn-action { padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid #e5e7eb; background: white; font-size: 0.75rem; }
+    
+    .btn-action { 
+        padding: 0.2rem 0.5rem; 
+        border-radius: 6px; 
+        border: 1px solid #e5e7eb; 
+        background: white; 
+        font-size: 0.75rem; 
+        cursor: pointer;
+        transition: all 0.2s;
+    }
     .btn-action:hover { background: #f3f4f6; }
     .btn-action.text-danger:hover { background: #fee2e2; border-color: #fca5a5; }
+    .btn-action.text-primary:hover { background: #e3f2fd; border-color: #90caf9; }
+    .btn-action.text-success:hover { background: #dcfce7; border-color: #86efac; }
+    .btn-action.text-info:hover { background: #cff4fc; border-color: #81d4fa; }
+    .btn-action.text-warning:hover { background: #fef3c7; border-color: #fcd34d; }
+
+    /* Biometric Section */
+    .biometric-section {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin: 0.75rem 0;
+        border: 1px solid #e5e7eb;
+    }
+    .biometric-section .biometric-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .biometric-section .biometric-header .title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .biometric-status-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 4px;
+    }
+    .biometric-status-dot.online { background: #22c55e; }
+    .biometric-status-dot.offline { background: #ef4444; }
+    .biometric-status-dot.configuring { background: #f59e0b; }
+    .biometric-status-dot.not-configured { background: #9ca3af; }
+    
+    .biometric-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .biometric-stat-item {
+        text-align: center;
+        padding: 0.3rem;
+        background: white;
+        border-radius: 6px;
+    }
+    .biometric-stat-item .number { font-size: 0.9rem; font-weight: 700; color: var(--sanjay-primary); }
+    .biometric-stat-item .label { font-size: 0.55rem; color: #6b7280; text-transform: uppercase; }
+
+    /* Modal */
     .modal-content { border-radius: 16px; border: none; }
     .modal-header {
         background: var(--sanjay-primary);
@@ -76,8 +140,9 @@
         padding: 1rem 1.5rem;
     }
     .modal-header .btn-close { filter: brightness(0) invert(1); }
-    .modal-body { padding: 1.5rem; }
+    .modal-body { padding: 1.5rem; max-height: 70vh; overflow-y: auto; }
     .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; }
+    
     .rv-input-box {
         position: relative;
         border: 1px solid #d1d5db;
@@ -113,8 +178,10 @@
     .form-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
     .form-label .required { color: #dc2626; margin-left: 2px; }
     .invalid-feedback { font-size: 0.75rem; color: #dc2626; margin-top: 0.25rem; }
+    
     .empty-state { text-align: center; padding: 4rem 2rem; }
     .empty-state i { font-size: 4rem; color: #d1d5db; margin-bottom: 1rem; }
+    
     .toast-container {
         position: fixed;
         top: 80px;
@@ -152,9 +219,19 @@
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(100%); opacity: 0; }
     }
+    
     .page-title-link {
         color: var(--sanjay-gold);
         text-decoration: none;
+    }
+
+    @media (max-width: 768px) {
+        .biometric-stats {
+            grid-template-columns: 1fr 1fr;
+        }
+        .hostel-stats {
+            grid-template-columns: repeat(3, 1fr);
+        }
     }
 </style>
 @endpush
@@ -164,10 +241,16 @@
 <div class="ol-page-header">
     <div>
         <h1 class="ol-page-title">Hostel Management</h1>
-        <p class="ol-page-sub">Manage all hostels and their details</p>
+        <p class="ol-page-sub">Manage all hostels and their biometric devices</p>
     </div>
-    <div>
-        <button type="button" class="rv-submit" id="addHostelBtn" style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none;">
+    <div class="d-flex gap-2">
+        <button type="button" class="rv-submit" onclick="syncAllHostels()" 
+                style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#7c3aed;">
+            <i class="bi bi-cloud-upload"></i>
+            Sync All
+        </button>
+        <button type="button" class="rv-submit" id="addHostelBtn" 
+                style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none;">
             <i class="bi bi-plus-circle"></i>
             Add Hostel
         </button>
@@ -212,13 +295,54 @@
                                     <div class="label">Beds</div>
                                 </div>
                             </div>
+
+                            {{-- Biometric Section --}}
+                            <div class="biometric-section">
+                                <div class="biometric-header">
+                                    <span class="title"><i class="bi bi-fingerprint"></i> Biometric Device</span>
+                                    <span>
+                                        <span class="biometric-status-dot {{ 
+                                            $hostel->biometric_ip_address ? 'online' : 
+                                            ($hostel->biometric_device_id ? 'configuring' : 'not-configured') 
+                                        }}"></span>
+                                        <span style="font-size:0.7rem; font-weight:500;">
+                                            {{ $hostel->biometric_device_name ?? 'Not Configured' }}
+                                        </span>
+                                    </span>
+                                </div>
+                                @if($hostel->biometric_ip_address)
+                                    <div style="font-size:0.65rem; color:#6b7280;">
+                                        <i class="bi bi-wifi"></i> {{ $hostel->biometric_ip_address }}:{{ $hostel->biometric_port ?? '4370' }}
+                                        @if($hostel->biometric_location_code)
+                                            <span class="ms-2">📍 {{ $hostel->biometric_location_code }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+                                <div class="biometric-stats">
+                                    <div class="biometric-stat-item">
+                                        <div class="number" style="color: #3b82f6;">{{ $hostel->biometric_residents_count ?? 0 }}</div>
+                                        <div class="label">Synced</div>
+                                    </div>
+                                    <div class="biometric-stat-item">
+                                        <div class="number" style="color: #22c55e;">{{ $hostel->biometric_access_count ?? 0 }}</div>
+                                        <div class="label">Access Enabled</div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="d-flex justify-content-between align-items-center">
                                 <button class="status-badge {{ strtolower($hostel->status) }}" onclick="toggleStatus({{ $hostel->id }}, '{{ $hostel->status }}')">
                                     <span class="dot"></span>
                                     {{ $hostel->status }}
                                 </button>
                                 <div class="d-flex gap-1">
-                                    <button class="btn-action" onclick="editHostel({{ $hostel->id }})" title="Edit">
+                                    <button class="btn-action text-info" onclick="testConnection({{ $hostel->id }})" title="Test Connection">
+                                        <i class="bi bi-wifi"></i>
+                                    </button>
+                                    <button class="btn-action text-success" onclick="syncHostel({{ $hostel->id }})" title="Sync Biometric">
+                                        <i class="bi bi-cloud-upload"></i>
+                                    </button>
+                                    <button class="btn-action text-primary" onclick="editHostel({{ $hostel->id }})" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <button class="btn-action text-danger" onclick="deleteHostel({{ $hostel->id }})" title="Delete">
@@ -246,7 +370,7 @@
     @endif
 </div>
 
-{{-- Add/Edit Modal --}}
+{{-- Add/Edit Hostel Modal --}}
 <div class="modal fade" id="hostelModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -336,12 +460,96 @@
     </div>
 </div>
 
+{{-- Biometric Configuration Modal --}}
+<div class="modal fade" id="biometricModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: #7c3aed;">
+                <h5 class="modal-title"><i class="bi bi-fingerprint"></i> Biometric Configuration</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="biometricForm">
+                @csrf
+                <input type="hidden" id="biometricHostelId" name="hostel_id">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Device ID <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-hdd-stack rv-input-icon"></i>
+                                <input type="text" name="biometric_device_id" id="biometric_device_id" class="rv-input" placeholder="e.g., DEV_001" required>
+                            </div>
+                            <div class="invalid-feedback" id="biometric_device_id_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Device Name</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-device-ssd rv-input-icon"></i>
+                                <input type="text" name="biometric_device_name" id="biometric_device_name" class="rv-input" placeholder="e.g., Main Door">
+                            </div>
+                            <div class="invalid-feedback" id="biometric_device_name_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">IP Address <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-wifi rv-input-icon"></i>
+                                <input type="text" name="biometric_ip_address" id="biometric_ip_address" class="rv-input" placeholder="192.168.1.100" required>
+                            </div>
+                            <div class="invalid-feedback" id="biometric_ip_address_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Port</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-plug rv-input-icon"></i>
+                                <input type="text" name="biometric_port" id="biometric_port" class="rv-input" placeholder="4370" value="4370">
+                            </div>
+                            <div class="invalid-feedback" id="biometric_port_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Location Code</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-geo-alt rv-input-icon"></i>
+                                <input type="text" name="biometric_location_code" id="biometric_location_code" class="rv-input" placeholder="e.g., LOC_001">
+                            </div>
+                            <div class="invalid-feedback" id="biometric_location_code_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Employee Code Prefix</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-tag rv-input-icon"></i>
+                                <input type="text" name="employee_code_prefix" id="employee_code_prefix" class="rv-input" placeholder="e.g., H1">
+                            </div>
+                            <div class="invalid-feedback" id="employee_code_prefix_error"></div>
+                            <small class="text-muted">Example: H1-24-000001</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="rv-submit" id="biometricSaveBtn" style="width:auto; padding:0 1.5rem; height:38px; border-radius:9px; display:inline-flex; align-items:center; gap:6px; animation:none; background:#7c3aed;">
+                        <i class="bi bi-check-circle"></i> Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Toast Container -->
 <div class="toast-container" id="flashMessageContainer"></div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
 $(document).ready(function() {
     var hostelModal = new bootstrap.Modal(document.getElementById('hostelModal'), {
+        backdrop: 'static',
+        keyboard: true
+    });
+
+    var biometricModal = new bootstrap.Modal(document.getElementById('biometricModal'), {
         backdrop: 'static',
         keyboard: true
     });
@@ -359,7 +567,16 @@ $(document).ready(function() {
         e.preventDefault();
         submitForm();
     });
+
+    $('#biometricForm').on('submit', function(e) {
+        e.preventDefault();
+        submitBiometricForm();
+    });
 });
+
+// ============================================
+// HOSTEL CRUD
+// ============================================
 
 function openAddModal() {
     resetForm();
@@ -526,6 +743,193 @@ function toggleStatus(id, currentStatus) {
         }
     });
 }
+
+// ============================================
+// BIOMETRIC FUNCTIONS
+// ============================================
+
+function openBiometricConfig(id) {
+    $('#biometricHostelId').val(id);
+    $('#biometric_device_id').val('');
+    $('#biometric_device_name').val('');
+    $('#biometric_ip_address').val('');
+    $('#biometric_port').val('4370');
+    $('#biometric_location_code').val('');
+    $('#employee_code_prefix').val('');
+    $('.invalid-feedback').text('');
+    $('.rv-input-box').removeClass('is-invalid');
+
+    // Load existing configuration
+    $.ajax({
+        url: '/admin/hostels/' + id + '/biometric-config',
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                const data = response.data;
+                $('#biometric_device_id').val(data.biometric_device_id || '');
+                $('#biometric_device_name').val(data.biometric_device_name || '');
+                $('#biometric_ip_address').val(data.biometric_ip_address || '');
+                $('#biometric_port').val(data.biometric_port || '4370');
+                $('#biometric_location_code').val(data.biometric_location_code || '');
+                $('#employee_code_prefix').val(data.employee_code_prefix || 'H' + data.id);
+            }
+        }
+    });
+
+    var modal = new bootstrap.Modal(document.getElementById('biometricModal'));
+    modal.show();
+}
+
+function submitBiometricForm() {
+    const id = $('#biometricHostelId').val();
+    const formData = new FormData(document.getElementById('biometricForm'));
+
+    $.ajax({
+        url: '/admin/hostels/' + id + '/biometric-config',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
+        beforeSend: function() {
+            $('#biometricSaveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
+            $('.invalid-feedback').text('');
+            $('.rv-input-box').removeClass('is-invalid');
+        },
+        success: function(response) {
+            if (response.success) {
+                var modal = bootstrap.Modal.getInstance(document.getElementById('biometricModal'));
+                if (modal) modal.hide();
+                showToast('Biometric configuration saved successfully!', 'success');
+                setTimeout(() => location.reload(), 1500);
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 422) {
+                let errors = xhr.responseJSON.errors;
+                $.each(errors, function(field, messages) {
+                    $('#' + field).closest('.rv-input-box').addClass('is-invalid');
+                    $('#' + field + '_error').text(messages[0]);
+                });
+                showToast('Please fix validation errors', 'error');
+            } else {
+                showToast(xhr.responseJSON?.message || 'Failed to save configuration!', 'error');
+            }
+        },
+        complete: function() {
+            $('#biometricSaveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Save Configuration');
+        }
+    });
+}
+
+function syncHostel(id) {
+    Swal.fire({
+        title: 'Sync Hostel Residents?',
+        text: "This will sync all residents of this hostel to the biometric device.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#22c55e',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, sync them!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: '/admin/hostels/' + id + '/sync-biometric',
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function(response) {
+                    if (response.success) {
+                        showToast('Synced ' + response.synced + ' residents successfully!', 'success');
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        showToast(response.message || 'Failed to sync!', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    showToast(xhr.responseJSON?.message || 'Failed to sync!', 'error');
+                }
+            });
+        }
+    });
+}
+
+function syncAllHostels() {
+    Swal.fire({
+        title: 'Sync All Hostels?',
+        text: "This will sync all residents from all hostels to their respective biometric devices.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#7c3aed',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, sync all!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: '/admin/hostels/sync-all-biometric',
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function(response) {
+                    if (response.success) {
+                        showToast('Synced ' + response.total_synced + ' residents from ' + response.hostels_synced + ' hostels!', 'success');
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        showToast(response.message || 'Failed to sync!', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    showToast(xhr.responseJSON?.message || 'Failed to sync!', 'error');
+                }
+            });
+        }
+    });
+}
+
+function testConnection(id) {
+    Swal.fire({
+        title: 'Testing Connection...',
+        text: 'Please wait while we test the biometric device connection.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    $.ajax({
+        url: '/admin/hostels/' + id + '/test-connection',
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Connected ✅',
+                    text: 'Device is online and reachable!',
+                    confirmButtonColor: '#22c55e'
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Connection Failed ❌',
+                    text: response.message || 'Unable to connect to device.',
+                    confirmButtonColor: '#dc2626'
+                });
+            }
+        },
+        error: function(xhr) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Connection Failed ❌',
+                text: xhr.responseJSON?.message || 'Unable to connect to device.',
+                confirmButtonColor: '#dc2626'
+            });
+        }
+    });
+}
+
+// ============================================
+// TOAST NOTIFICATIONS
+// ============================================
 
 function showToast(message, type = 'success') {
     let container = document.getElementById('flashMessageContainer');

@@ -383,13 +383,45 @@ class Resident extends Model
         ];
     }
 
-    /**
-     * Generate employee code for this resident
-     */
-    public function generateEmployeeCode(): string
-    {
-        $hostelId = $this->hostel_id ?? 1;
-        $code = $this->id + 10000;
-        return 'RES_H' . $hostelId . '_' . str_pad($code, 6, '0', STR_PAD_LEFT);
+    <?php
+// app/Models/Resident.php - Add these methods
+
+/**
+ * Generate employee code based on hostel
+ */
+public function generateEmployeeCode(): string
+{
+    $hostel = $this->hostel;
+    
+    // Get prefix from hostel or use default
+    $prefix = $hostel->employee_code_prefix ?? 'H' . ($this->hostel_id ?? 1);
+    
+    // Generate unique code
+    $code = $this->id + 10000;
+    $year = date('y');
+    
+    return $prefix . '-' . $year . '-' . str_pad($code, 6, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Get hostel's biometric device URL
+ */
+public function getBiometricDeviceUrlAttribute()
+{
+    if ($this->hostel && $this->hostel->biometric_device_url) {
+        return $this->hostel->biometric_device_url;
     }
+    return config('ebioserver.url');
+}
+
+/**
+ * Get hostel's location code
+ */
+public function getBiometricLocationCodeAttribute()
+{
+    if ($this->hostel && $this->hostel->biometric_location_code) {
+        return $this->hostel->biometric_location_code;
+    }
+    return config('ebioserver.location_code');
+}
 }
