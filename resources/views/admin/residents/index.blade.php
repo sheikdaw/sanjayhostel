@@ -6,8 +6,8 @@
 @push('styles')
     <style>
         /* ============================================
-                   GLOBAL STYLES
-                ============================================ */
+           GLOBAL STYLES
+        ============================================ */
         :root {
             --primary: #1a3a6b;
             --primary-light: #2a5a9b;
@@ -20,8 +20,8 @@
         }
 
         /* ============================================
-                   LAYOUT
-                ============================================ */
+           LAYOUT
+        ============================================ */
         .resident-container {
             max-width: 100%;
             padding: 0 15px;
@@ -33,8 +33,8 @@
             min-height: 0;
         }
         /* ============================================
-                   HEADER
-                ============================================ */
+           HEADER
+        ============================================ */
         .resident-header {
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
             color: white;
@@ -67,8 +67,8 @@
         }
 
         /* ============================================
-                   STATS GRID
-                ============================================ */
+           STATS GRID
+        ============================================ */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -123,8 +123,8 @@
         .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
 
         /* ============================================
-                   FILTER SECTION
-                ============================================ */
+           FILTER SECTION
+        ============================================ */
         .filter-section {
             display: flex;
             gap: 0.75rem;
@@ -207,8 +207,8 @@
         }
 
         /* ============================================
-                   BULK ACTIONS
-                ============================================ */
+           BULK ACTIONS
+        ============================================ */
         .bulk-actions {
             display: none;
             align-items: center;
@@ -238,8 +238,8 @@
         }
 
         /* ============================================
-                   RESIDENT CARD
-                ============================================ */
+           RESIDENT CARD
+        ============================================ */
         .resident-card {
             transition: all 0.3s ease;
             border: 1px solid #e5e7eb;
@@ -363,8 +363,8 @@
         }
 
         /* ============================================
-                   BADGES
-                ============================================ */
+           BADGES
+        ============================================ */
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -476,8 +476,8 @@
         }
 
         /* ============================================
-                   BUTTONS
-                ============================================ */
+           BUTTONS
+        ============================================ */
         .btn-action {
             padding: 0.2rem 0.5rem;
             border-radius: 6px;
@@ -574,8 +574,8 @@
         }
 
         /* ============================================
-                   MODAL - SCROLLABLE FIX
-                ============================================ */
+           MODAL - SCROLLABLE FIX
+        ============================================ */
         .modal-content {
             border-radius: 16px;
             border: none;
@@ -631,8 +631,8 @@
         }
 
         /* ============================================
-                   FORM STYLES
-                ============================================ */
+           FORM STYLES
+        ============================================ */
         .rv-input-box {
             position: relative;
             border: 1px solid #d1d5db;
@@ -773,8 +773,8 @@
         }
 
         /* ============================================
-                   TOAST
-                ============================================ */
+           TOAST
+        ============================================ */
         .toast-container {
             position: fixed;
             top: 80px;
@@ -826,8 +826,8 @@
         }
 
         /* ============================================
-                   EMPTY STATE
-                ============================================ */
+           EMPTY STATE
+        ============================================ */
         .empty-state {
             text-align: center;
             padding: 4rem 2rem;
@@ -866,8 +866,8 @@
         }
 
         /* ============================================
-                   RESPONSIVE
-                ============================================ */
+           RESPONSIVE
+        ============================================ */
         @media (max-width: 768px) {
             .resident-header {
                 flex-direction: column;
@@ -961,8 +961,8 @@
         }
 
         /* ============================================
-                   PRINT STYLES
-                ============================================ */
+           PRINT STYLES
+        ============================================ */
         @media print {
             .no-print {
                 display: none !important;
@@ -1078,7 +1078,7 @@
         </div>
 
         {{-- ============================================
-        FILTERS
+        FILTERS - FIXED WITH PROPER DATA ATTRIBUTES
         ============================================ --}}
         <div class="filter-section no-print">
             <div class="filter-group">
@@ -1132,12 +1132,16 @@
         </div>
 
         {{-- ============================================
-        RESIDENTS GRID
+        RESIDENTS GRID - WITH PROPER DATA ATTRIBUTES
         ============================================ --}}
         <div id="residentsContainer">
             @if ($residents->count() > 0)
                 <div class="row g-4" id="residentsGrid">
                     @foreach ($residents as $resident)
+                        {{--
+                            IMPORTANT: All data-* attributes must be properly set
+                            These are used by the filter JavaScript
+                        --}}
                         <div class="col-xl-3 col-lg-4 col-md-6 resident-item"
                              data-id="{{ $resident->id }}"
                              data-status="{{ $resident->status }}"
@@ -1163,7 +1167,7 @@
                                         @if ($resident->profile_image)
                                             <img src="{{ asset($resident->profile_image) }}" alt="{{ $resident->name }}">
                                         @else
-                                            {{ $resident->initials ?? strtoupper(substr($resident->name, 0, 2)) }}
+                                            {{ strtoupper(substr($resident->name, 0, 2)) }}
                                         @endif
                                     </div>
                                     <div style="flex:1; min-width:0;">
@@ -1668,7 +1672,7 @@
 @endsection
 
 {{-- ============================================
-JAVASCRIPT - FULLY FIXED WITH DEBUG
+JAVASCRIPT - FIXED FILTERS WITH DEBUG
 ============================================ --}}
 @push('scripts')
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -1682,7 +1686,7 @@ JAVASCRIPT - FULLY FIXED WITH DEBUG
 let residentModal, detailsModal, documentViewerModal;
 
 $(document).ready(function() {
-    console.log('✅ Document ready! Filter fix applied.');
+    console.log('✅ Document ready!');
 
     // Initialize Modals
     residentModal = new bootstrap.Modal(document.getElementById('residentModal'), {
@@ -1699,64 +1703,63 @@ $(document).ready(function() {
     });
 
     // ============================================
-    // ✅ FIX: DIRECT FILTER BINDING
+    // FILTER BINDING - USING INPUT/CHANGE EVENTS
     // ============================================
 
-    // Search with debounce
+    // ✅ Search with keyup (debounced)
+    let searchTimeout;
     $('#searchResident').on('keyup', function() {
-        console.log('🔍 Search: ' + $(this).val());
-        applyFilters();
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            console.log('🔍 Searching for:', $('#searchResident').val());
+            applyFilters();
+        }, 300);
     });
 
-    // ✅ Direct change events for ALL filters
+    // ✅ All filter dropdowns - use change event
     $('#filterStatus').on('change', function() {
-        console.log('📌 Status changed to: ' + $(this).val());
+        console.log('📌 Status filter:', $(this).val());
         applyFilters();
     });
 
     $('#filterHostel').on('change', function() {
-        console.log('🏠 Hostel changed to: ' + $(this).val());
+        console.log('🏠 Hostel filter:', $(this).val());
         applyFilters();
     });
 
     $('#filterGender').on('change', function() {
-        console.log('👤 Gender changed to: ' + $(this).val());
+        console.log('👤 Gender filter:', $(this).val());
         applyFilters();
     });
 
     $('#filterFood').on('change', function() {
-        console.log('🍽️ Food changed to: ' + $(this).val());
+        console.log('🍽️ Food filter:', $(this).val());
         applyFilters();
     });
 
     $('#filterBiometric').on('change', function() {
-        console.log('🔒 Biometric changed to: ' + $(this).val());
+        console.log('🔒 Biometric filter:', $(this).val());
         applyFilters();
     });
 
-    // ✅ Also bind click events for debugging
-    $('.filter-section select, #searchResident').on('click', function() {
-        console.log('🖱️ Clicked on: ' + this.id);
-    });
-
-    // Add Resident Button
+    // ✅ Add Resident Button
     $('#addResidentBtn').on('click', function(e) {
         e.preventDefault();
         openAddModal();
     });
 
-    // Modal hidden event
+    // ✅ Modal hidden event
     $('#residentModal').on('hidden.bs.modal', function() {
         resetForm();
     });
 
-    // Form submit
+    // ✅ Form submit
     $('#residentForm').on('submit', function(e) {
         e.preventDefault();
         submitForm();
     });
 
-    // Hostel -> Room
+    // ✅ Hostel -> Room
     $('#hostel_id').on('change', function() {
         let hostelId = $(this).val();
         if (hostelId) {
@@ -1794,7 +1797,7 @@ $(document).ready(function() {
         }
     });
 
-    // Room -> Bed
+    // ✅ Room -> Bed
     $('#room_id').on('change', function() {
         let roomId = $(this).val();
         if (roomId) {
@@ -1830,7 +1833,7 @@ $(document).ready(function() {
         }
     });
 
-    // Status -> Vacate Date
+    // ✅ Status -> Vacate Date
     $('#status').on('change', function() {
         if ($(this).val() === 'VACATED') {
             $('#vacateDateDiv').show();
@@ -1841,25 +1844,23 @@ $(document).ready(function() {
         }
     });
 
-    // Set joining date
+    // ✅ Set joining date
     $('#joining_date').val(new Date().toISOString().split('T')[0]);
 
-    // File input handlers
+    // ✅ File input handlers
     setupFileInput('profile_image', 'image');
     setupFileInput('aadhar_document', 'document');
     setupFileInput('application_document', 'document');
 
-    // ✅ Initial filter application with delay
-    setTimeout(function() {
-        console.log('🔄 Running initial filter...');
-        applyFilters();
-    }, 500);
+    // ✅ Run initial filter after page load
+    console.log('🔄 Running initial filter...');
+    applyFilters();
 
     console.log('✅ All filters initialized!');
 });
 
 // ============================================
-// ✅ FIXED: applyFilters with debug logs
+// ✅ FIXED: applyFilters with PROPER DATA ATTRIBUTES
 // ============================================
 function applyFilters() {
     console.log('🚀 applyFilters() called!');
@@ -1876,10 +1877,10 @@ function applyFilters() {
     var visibleCount = 0;
     var totalCount = $('.resident-item').length;
 
-    console.log('📦 Total residents: ' + totalCount);
+    console.log('📦 Total resident items:', totalCount);
 
     if (totalCount === 0) {
-        console.warn('⚠️ No residents found!');
+        console.warn('⚠️ No resident items found in DOM!');
         return;
     }
 
@@ -1887,69 +1888,79 @@ function applyFilters() {
         var show = true;
         var $item = $(this);
 
-        // Get all data attributes
-        var resStatus = $item.data('status') || '';
-        var resHostel = $item.data('hostel') || '';
-        var resGender = $item.data('gender') || '';
-        var resFood = $item.data('food') || '';
-        var resBiometric = $item.data('biometric') || '';
+        // ✅ Get data attributes from the element
+        var resStatus = $item.attr('data-status') || '';
+        var resHostel = $item.attr('data-hostel') || '';
+        var resGender = $item.attr('data-gender') || '';
+        var resFood = $item.attr('data-food') || '';
+        var resBiometric = $item.attr('data-biometric') || '';
 
-        // Search fields
-        var resName = ($item.data('name') || '').toLowerCase();
-        var resCode = ($item.data('code') || '').toLowerCase();
-        var resPhone = ($item.data('phone') || '').toLowerCase();
-        var resEmail = ($item.data('email') || '').toLowerCase();
-        var resId = String($item.data('id') || '');
+        // Search fields - get from data attributes
+        var resName = ($item.attr('data-name') || '').toLowerCase();
+        var resCode = ($item.attr('data-code') || '').toLowerCase();
+        var resPhone = ($item.attr('data-phone') || '').toLowerCase();
+        var resEmail = ($item.attr('data-email') || '').toLowerCase();
+        var resId = String($item.attr('data-id') || '');
 
-        // ✅ Log first item for debugging
-        if (index === 0) {
-            console.log('🔍 First item data:', {
-                resStatus, resHostel, resGender, resFood, resBiometric,
-                resName, resCode, resPhone
+        // ✅ Log first 3 items for debugging
+        if (index < 3) {
+            console.log(`🔍 Item ${index + 1} data:`, {
+                status: resStatus,
+                hostel: resHostel,
+                gender: resGender,
+                food: resFood,
+                biometric: resBiometric,
+                name: resName,
+                code: resCode
             });
         }
 
-        // ✅ Apply filters
+        // ✅ Apply status filter
         if (status && resStatus !== status) {
             show = false;
-            if (index < 3) console.log('❌ Status filter: ' + resStatus + ' != ' + status);
-        }
-        if (hostel && resHostel !== String(hostel)) {
-            show = false;
-            if (index < 3) console.log('❌ Hostel filter: ' + resHostel + ' != ' + hostel);
-        }
-        if (gender && resGender !== gender) {
-            show = false;
-            if (index < 3) console.log('❌ Gender filter: ' + resGender + ' != ' + gender);
-        }
-        if (food && resFood !== food) {
-            show = false;
-            if (index < 3) console.log('❌ Food filter: ' + resFood + ' != ' + food);
-        }
-        if (biometric && resBiometric !== biometric) {
-            show = false;
-            if (index < 3) console.log('❌ Biometric filter: ' + resBiometric + ' != ' + biometric);
         }
 
-        // ✅ Search
+        // ✅ Apply hostel filter
+        if (hostel && show && resHostel !== String(hostel)) {
+            show = false;
+        }
+
+        // ✅ Apply gender filter
+        if (gender && show && resGender !== gender) {
+            show = false;
+        }
+
+        // ✅ Apply food filter
+        if (food && show && resFood !== food) {
+            show = false;
+        }
+
+        // ✅ Apply biometric filter
+        if (biometric && show && resBiometric !== biometric) {
+            show = false;
+        }
+
+        // ✅ Apply search filter
         if (search && show) {
             var searchMatch = false;
+
+            // Check all searchable fields
             if (resName.includes(search)) searchMatch = true;
             if (resCode.includes(search)) searchMatch = true;
             if (resPhone.includes(search)) searchMatch = true;
             if (resEmail.includes(search)) searchMatch = true;
             if (resId.includes(search)) searchMatch = true;
 
+            // Also check the full text content as fallback
             var textContent = $item.text().toLowerCase();
             if (textContent.includes(search)) searchMatch = true;
 
             if (!searchMatch) {
                 show = false;
-                if (index < 3) console.log('❌ Search filter: "' + search + '" not found');
             }
         }
 
-        // Show or hide
+        // ✅ Show or hide
         if (show) {
             $item.show();
             visibleCount++;
@@ -1958,9 +1969,9 @@ function applyFilters() {
         }
     });
 
-    console.log('✅ Visible: ' + visibleCount + ' / ' + totalCount);
+    console.log('✅ Visible count:', visibleCount, '/', totalCount);
 
-    // Update result count
+    // ✅ Update result count
     var resultCountEl = $('#resultCount');
     if (visibleCount === totalCount) {
         resultCountEl.text('');
@@ -1968,7 +1979,7 @@ function applyFilters() {
         resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
     }
 
-    // Show/hide no results message
+    // ✅ Show/hide no results message
     var noResultsDiv = $('#noSearchResults');
     if (visibleCount === 0 && totalCount > 0) {
         noResultsDiv.show();
@@ -1979,7 +1990,7 @@ function applyFilters() {
 }
 
 // ============================================
-// ✅ FIXED: clearFilters with debug
+// CLEAR FILTERS
 // ============================================
 function clearFilters() {
     console.log('🧹 Clearing all filters...');
