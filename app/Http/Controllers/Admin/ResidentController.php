@@ -54,10 +54,18 @@ class ResidentController extends Controller
             'with_food' => $residents->where('food_status', 'WITH_FOOD')->where('status', 'ACTIVE')->count(),
             'without_food' => $residents->where('food_status', 'WITHOUT_FOOD')->where('status', 'ACTIVE')->count(),
             'total_rent' => $residents->where('status', 'ACTIVE')->sum('rent_amount'),
-            'face_registered' => $residents->where('face_registered', true)->count(),
         ];
 
-        return view('admin.residents.index', compact('residents', 'hostels', 'stats', 'user'));
+        // Biometric statistics
+        $biometricStats = [
+            'total' => $residents->count(),
+            'synced' => $residents->whereNotNull('employee_code')->count(),
+            'access_enabled' => $residents->where('biometric_access', true)->count(),
+            'access_disabled' => $residents->where('biometric_access', false)->count(),
+            'never_synced' => $residents->whereNull('employee_code')->count()
+        ];
+
+        return view('admin.residents.index', compact('residents', 'hostels', 'stats', 'user', 'biometricStats'));
     }
 
     /**
@@ -85,6 +93,7 @@ class ResidentController extends Controller
                 ->get();
 
             $details = [
+                // Personal Information
                 'id' => $resident->id,
                 'resident_code' => $resident->resident_code,
                 'name' => $resident->name,
@@ -93,18 +102,22 @@ class ResidentController extends Controller
                 'email' => $resident->email,
                 'aadhaar_no' => $resident->aadhaar_no,
                 'address' => $resident->address,
-                'profile_image' => $this->getProfileImageUrl($resident),
-                'profile_image_thumb' => $this->getProfileImageThumb($resident),
-                'initials' => $this->getInitials($resident->name),
-                
-                // Face Recognition
-                'face' => [
-                    'face_id' => $resident->face_id,
-                    'face_registered' => $resident->face_registered ?? false,
-                    'face_registered_at' => $resident->face_registered_at ? $resident->face_registered_at->format('Y-m-d H:i:s') : null,
-                    'face_image_url' => $resident->face_image_path ? asset($resident->face_image_path) : null,
-                    'status' => ($resident->face_registered ?? false) ? 'Registered ✅' : 'Not Registered ❌',
-                    'status_class' => ($resident->face_registered ?? false) ? 'success' : 'danger',
+                'profile_image' => $resident->profile_image_url,
+                'profile_image_thumb' => $resident->profile_image_thumb,
+                'initials' => $resident->initials,
+
+                // Biometric Details
+                'biometric' => [
+                    'employee_code' => $resident->employee_code ?? 'Not Generated',
+                    'access_enabled' => $resident->biometric_access ?? false,
+                    'access_status' => $resident->biometric_status,
+                    'status_class' => $resident->biometric_status_class,
+                    'status_icon' => $resident->biometric_status_icon,
+                    'last_sync_at' => $resident->last_sync_at ? $resident->last_sync_at->format('Y-m-d H:i:s') : 'Never',
+                    'access_enabled_at' => $resident->access_enabled_at ? $resident->access_enabled_at->format('Y-m-d H:i:s') : null,
+                    'access_disabled_at' => $resident->access_disabled_at ? $resident->access_disabled_at->format('Y-m-d H:i:s') : null,
+                    'is_synced' => $resident->is_synced,
+                    'has_access' => $resident->has_biometric_access,
                 ],
 
                 // Accommodation Details
@@ -132,20 +145,20 @@ class ResidentController extends Controller
                 // Financial Details
                 'financial' => [
                     'rent_amount' => $resident->rent_amount,
-                    'rent_formatted' => '₹' . number_format($resident->rent_amount ?? 0, 2),
+                    'rent_formatted' => $resident->formatted_rent,
                     'deposit_amount' => $resident->deposit_amount,
-                    'deposit_formatted' => '₹' . number_format($resident->deposit_amount ?? 0, 2),
+                    'deposit_formatted' => $resident->formatted_deposit,
                     'food_status' => $resident->food_status,
-                    'food_status_label' => $resident->food_status == 'WITH_FOOD' ? 'With Food 🍽️' : 'Without Food 🍞',
-                    'food_status_badge' => $resident->food_status == 'WITH_FOOD' ? 'success' : 'secondary',
-                    'food_status_icon' => $resident->food_status == 'WITH_FOOD' ? '🍽️' : '🍞',
+                    'food_status_label' => $resident->food_status_label,
+                    'food_status_badge' => $resident->food_status_badge,
+                    'food_status_icon' => $resident->food_status_icon,
                 ],
 
                 // Status
                 'status' => [
                     'value' => $resident->status,
-                    'label' => $resident->status == 'ACTIVE' ? 'Active ✅' : 'Vacated ❌',
-                    'badge' => strtolower($resident->status),
+                    'label' => $resident->status_label,
+                    'badge' => $resident->status_badge,
                     'joining_date' => $resident->joining_date ? $resident->joining_date->format('Y-m-d') : null,
                     'joining_date_formatted' => $resident->joining_date ? $resident->joining_date->format('d M Y') : 'N/A',
                     'vacate_date' => $resident->vacate_date ? $resident->vacate_date->format('Y-m-d') : null,
@@ -156,21 +169,21 @@ class ResidentController extends Controller
                 'documents' => [
                     'profile_image' => [
                         'exists' => !is_null($resident->profile_image),
-                        'url' => $this->getProfileImageUrl($resident),
+                        'url' => $resident->profile_image_url,
                         'name' => 'Profile Image',
                         'icon' => 'bi-person-circle',
                     ],
                     'aadhar_document' => [
                         'exists' => !is_null($resident->aadhar_document),
-                        'url' => $resident->aadhar_document ? asset($resident->aadhar_document) : null,
+                        'url' => $resident->aadhar_document_url,
                         'name' => 'Aadhar Document',
-                        'icon' => $this->getDocumentIcon($resident->aadhar_document),
+                        'icon' => $resident->getDocumentIcon('aadhar_document'),
                     ],
                     'application_document' => [
                         'exists' => !is_null($resident->application_document),
-                        'url' => $resident->application_document ? asset($resident->application_document) : null,
+                        'url' => $resident->application_document_url,
                         'name' => 'Application Document',
-                        'icon' => $this->getDocumentIcon($resident->application_document),
+                        'icon' => $resident->getDocumentIcon('application_document'),
                     ],
                 ],
 
@@ -333,6 +346,13 @@ class ResidentController extends Controller
 
         // Create resident
         $resident = Resident::create($residentData);
+
+        // Generate employee code for biometric
+        $employeeCode = $resident->generateEmployeeCode();
+        $resident->employee_code = $employeeCode;
+        $resident->biometric_access = true;
+        $resident->last_sync_at = now();
+        $resident->save();
 
         // Update bed status to OCCUPIED
         $bed->update(['status' => 'OCCUPIED']);
@@ -505,9 +525,6 @@ class ResidentController extends Controller
         if ($resident->application_document) {
             $this->deleteFile($resident->application_document);
         }
-        if ($resident->face_image_path) {
-            $this->deleteFile($resident->face_image_path);
-        }
 
         $bed = Bed::find($resident->bed_id);
         if ($bed) {
@@ -585,131 +602,222 @@ class ResidentController extends Controller
     }
 
     /**
-     * Register face for resident
+     * Toggle biometric access for a resident
      */
-    public function registerFace(Request $request, $id)
+    public function toggleBiometricAccess($id)
     {
         try {
             $resident = Resident::findOrFail($id);
 
-            $validator = Validator::make($request->all(), [
-                'face_image' => 'required|image|mimes:jpeg,png,jpg|max:5120',
-                'face_id' => 'required|string|max:100|unique:residents,face_id,' . $id,
-            ]);
-
-            if ($validator->fails()) {
+            if (!$resident->employee_code) {
                 return response()->json([
                     'success' => false,
-                    'errors' => $validator->errors()
-                ], 422);
+                    'message' => 'Employee code not generated. Please sync resident first.'
+                ]);
             }
 
-            // Upload face image
-            if ($request->hasFile('face_image')) {
-                if ($resident->face_image_path) {
-                    $this->deleteFile($resident->face_image_path);
-                }
-                $path = $this->uploadFile($request->file('face_image'), 'faces');
-                if ($path) {
-                    $resident->face_image_path = $path;
-                }
+            $resident->biometric_access = !$resident->biometric_access;
+
+            if ($resident->biometric_access) {
+                $resident->access_enabled_at = now();
+                $resident->access_disabled_at = null;
+            } else {
+                $resident->access_disabled_at = now();
+                $resident->access_enabled_at = null;
             }
 
-            $resident->face_id = $request->face_id;
-            $resident->face_registered = true;
-            $resident->face_registered_at = now();
             $resident->save();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Face registered successfully!',
-                'data' => $resident
+                'message' => 'Biometric access ' . ($resident->biometric_access ? 'enabled' : 'disabled') . ' successfully',
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'biometric_access' => $resident->biometric_access
+                ]
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage()
-            ], 500);
+            ]);
         }
     }
 
     /**
-     * Remove face registration
+     * Sync a single resident to biometric system
      */
-    public function removeFace($id)
+    public function syncToBiometric($id)
     {
         try {
             $resident = Resident::findOrFail($id);
 
-            if ($resident->face_image_path) {
-                $this->deleteFile($resident->face_image_path);
+            // Generate employee code if not exists
+            if (!$resident->employee_code) {
+                $resident->employee_code = $resident->generateEmployeeCode();
             }
 
-            $resident->face_id = null;
-            $resident->face_registered = false;
-            $resident->face_registered_at = null;
-            $resident->face_image_path = null;
+            $resident->biometric_access = true;
+            $resident->last_sync_at = now();
+            $resident->access_enabled_at = now();
+            $resident->access_disabled_at = null;
             $resident->save();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Face registration removed successfully!'
+                'message' => 'Resident synced to biometric system successfully',
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'employee_code' => $resident->employee_code,
+                    'biometric_access' => $resident->biometric_access
+                ]
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage()
-            ], 500);
+            ]);
         }
     }
 
     /**
-     * Get residents with face registration status
+     * Sync all residents to biometric system
      */
-    public function faceList()
+    public function syncAllToBiometric()
+    {
+        try {
+            $residents = Resident::all();
+
+            if ($residents->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No residents found'
+                ]);
+            }
+
+            $successCount = 0;
+            $failureCount = 0;
+            $results = [];
+
+            foreach ($residents as $resident) {
+                try {
+                    if (!$resident->employee_code) {
+                        $resident->employee_code = $resident->generateEmployeeCode();
+                    }
+                    $resident->biometric_access = true;
+                    $resident->last_sync_at = now();
+                    $resident->access_enabled_at = now();
+                    $resident->access_disabled_at = null;
+                    $resident->save();
+                    $successCount++;
+                    $results[] = [
+                        'resident_id' => $resident->id,
+                        'name' => $resident->name,
+                        'employee_code' => $resident->employee_code,
+                        'status' => 'success'
+                    ];
+                } catch (\Exception $e) {
+                    $failureCount++;
+                    $results[] = [
+                        'resident_id' => $resident->id,
+                        'name' => $resident->name,
+                        'status' => 'failed',
+                        'message' => $e->getMessage()
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => $failureCount === 0,
+                'total' => $residents->count(),
+                'success_count' => $successCount,
+                'failure_count' => $failureCount,
+                'data' => $results
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get residents with biometric status
+     */
+    public function biometricList()
     {
         try {
             $user = auth()->user();
 
             if ($user->role === 'admin') {
-                $residents = Resident::select('id', 'name', 'resident_code', 'face_id', 'face_registered', 'face_registered_at', 'face_image_path')
-                    ->orderBy('name')
-                    ->get();
+                $residents = Resident::all();
             } else {
                 $hostelIds = $user->hostel_ids ?? [];
-                $residents = Resident::select('id', 'name', 'resident_code', 'face_id', 'face_registered', 'face_registered_at', 'face_image_path')
-                    ->whereIn('hostel_id', $hostelIds)
-                    ->orderBy('name')
-                    ->get();
+                $residents = Resident::whereIn('hostel_id', $hostelIds)->get();
             }
+
+            $data = $residents->map(function($resident) {
+                return [
+                    'id' => $resident->id,
+                    'name' => $resident->name,
+                    'resident_code' => $resident->resident_code,
+                    'hostel_id' => $resident->hostel_id,
+                    'employee_code' => $resident->employee_code ?? 'Not Generated',
+                    'biometric_access' => $resident->biometric_access ? 'Enabled' : 'Disabled',
+                    'biometric_status' => $resident->biometric_status,
+                    'status_class' => $resident->biometric_status_class,
+                    'last_sync_at' => $resident->last_sync_at ? $resident->last_sync_at->format('Y-m-d H:i:s') : 'Never',
+                    'status' => $resident->status
+                ];
+            });
 
             return response()->json([
                 'success' => true,
-                'total' => $residents->count(),
-                'registered' => $residents->where('face_registered', true)->count(),
-                'pending' => $residents->where('face_registered', false)->count(),
-                'data' => $residents->map(function($resident) {
-                    return [
-                        'id' => $resident->id,
-                        'name' => $resident->name,
-                        'resident_code' => $resident->resident_code,
-                        'face_id' => $resident->face_id,
-                        'face_registered' => $resident->face_registered,
-                        'face_registered_at' => $resident->face_registered_at ? $resident->face_registered_at->format('Y-m-d H:i:s') : null,
-                        'face_image_url' => $resident->face_image_path ? asset($resident->face_image_path) : null,
-                        'status' => $resident->face_registered ? 'Registered ✅' : 'Not Registered ❌',
-                        'status_class' => $resident->face_registered ? 'success' : 'danger',
-                    ];
-                })
+                'total' => $data->count(),
+                'data' => $data
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage()
-            ], 500);
+            ]);
+        }
+    }
+
+    /**
+     * Get resident's biometric status
+     */
+    public function biometricStatus($id)
+    {
+        try {
+            $resident = Resident::findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'employee_code' => $resident->employee_code ?? 'Not generated',
+                    'biometric_access' => $resident->biometric_access ? 'Enabled' : 'Disabled',
+                    'biometric_status' => $resident->biometric_status,
+                    'last_sync_at' => $resident->last_sync_at ? $resident->last_sync_at->format('Y-m-d H:i:s') : 'Never',
+                    'access_enabled_at' => $resident->access_enabled_at ? $resident->access_enabled_at->format('Y-m-d H:i:s') : null,
+                    'access_disabled_at' => $resident->access_disabled_at ? $resident->access_disabled_at->format('Y-m-d H:i:s') : null
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 
@@ -734,7 +842,7 @@ class ResidentController extends Controller
 
         if ($residents->isEmpty()) {
             $csv = "No residents found in the system.\n";
-            $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Face Registered,Face ID\n";
+            $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
             $csv .= "No data available,,,,,,,,,,,,,,,,,,\n";
 
             return response($csv)
@@ -743,14 +851,14 @@ class ResidentController extends Controller
         }
 
         $csv = "\xEF\xBB\xBF";
-        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Face Registered,Face ID\n";
+        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
 
         foreach ($residents as $resident) {
             $hostelName = $resident->hostel ? $resident->hostel->hostel_name : 'N/A';
             $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
             $bedNo = $resident->bed ? $resident->bed->bed_no : 'N/A';
             $foodLabel = $resident->food_status == 'WITH_FOOD' ? 'With Food' : 'Without Food';
-            $faceStatus = $resident->face_registered ? 'Yes' : 'No';
+            $biometricAccess = $resident->biometric_access ? 'Enabled' : 'Disabled';
 
             $csv .= $this->csvEscape($resident->id) . ",";
             $csv .= $this->csvEscape($resident->resident_code) . ",";
@@ -767,8 +875,8 @@ class ResidentController extends Controller
             $csv .= $this->csvEscape(number_format($resident->rent_amount ?? 0, 2)) . ",";
             $csv .= $this->csvEscape(number_format($resident->deposit_amount ?? 0, 2)) . ",";
             $csv .= $this->csvEscape($resident->status) . ",";
-            $csv .= $this->csvEscape($faceStatus) . ",";
-            $csv .= $this->csvEscape($resident->face_id ?? '') . "\n";
+            $csv .= $this->csvEscape($resident->employee_code ?? 'Not Synced') . ",";
+            $csv .= $this->csvEscape($biometricAccess) . "\n";
         }
 
         return response($csv)
@@ -844,45 +952,6 @@ class ResidentController extends Controller
         }
 
         $room->save();
-    }
-
-    private function getInitials($name)
-    {
-        $words = explode(' ', $name);
-        $initials = '';
-        foreach ($words as $word) {
-            $initials .= strtoupper(substr($word, 0, 1));
-        }
-        return substr($initials, 0, 2);
-    }
-
-    private function getProfileImageUrl($resident)
-    {
-        if ($resident->profile_image && file_exists(public_path($resident->profile_image))) {
-            return asset($resident->profile_image);
-        }
-        return null;
-    }
-
-    private function getProfileImageThumb($resident)
-    {
-        if ($resident->profile_image && file_exists(public_path($resident->profile_image))) {
-            return asset($resident->profile_image);
-        }
-        return 'https://ui-avatars.com/api/?name=' . urlencode($resident->name) . '&background=c5a028&color=fff&size=128';
-    }
-
-    private function getDocumentIcon($path)
-    {
-        if (!$path) return 'bi-file-earmark';
-        $extension = pathinfo($path, PATHINFO_EXTENSION);
-        return match(strtolower($extension)) {
-            'pdf' => 'bi-file-earmark-pdf',
-            'doc', 'docx' => 'bi-file-earmark-word',
-            'xls', 'xlsx' => 'bi-file-earmark-excel',
-            'jpg', 'jpeg', 'png', 'gif' => 'bi-file-earmark-image',
-            default => 'bi-file-earmark',
-        };
     }
 
     /**
@@ -1017,27 +1086,21 @@ class ResidentController extends Controller
         $documents = [
             'profile_image' => [
                 'exists' => !is_null($resident->profile_image),
-                'url' => $this->getProfileImageUrl($resident),
+                'url' => $resident->profile_image_url,
                 'name' => 'Profile Image',
                 'icon' => 'bi-person-circle'
             ],
             'aadhar_document' => [
                 'exists' => !is_null($resident->aadhar_document),
-                'url' => $resident->aadhar_document ? asset($resident->aadhar_document) : null,
+                'url' => $resident->aadhar_document_url,
                 'name' => 'Aadhar Document',
                 'icon' => 'bi-file-earmark-pdf'
             ],
             'application_document' => [
                 'exists' => !is_null($resident->application_document),
-                'url' => $resident->application_document ? asset($resident->application_document) : null,
+                'url' => $resident->application_document_url,
                 'name' => 'Application Document',
                 'icon' => 'bi-file-earmark-text'
-            ],
-            'face_image' => [
-                'exists' => !is_null($resident->face_image_path),
-                'url' => $resident->face_image_path ? asset($resident->face_image_path) : null,
-                'name' => 'Face Image',
-                'icon' => 'bi-person-face'
             ]
         ];
 
@@ -1084,7 +1147,6 @@ class ResidentController extends Controller
             if ($resident->profile_image) $this->deleteFile($resident->profile_image);
             if ($resident->aadhar_document) $this->deleteFile($resident->aadhar_document);
             if ($resident->application_document) $this->deleteFile($resident->application_document);
-            if ($resident->face_image_path) $this->deleteFile($resident->face_image_path);
 
             $bed = Bed::find($resident->bed_id);
             if ($bed) $bed->update(['status' => 'VACANT']);
@@ -1168,6 +1230,105 @@ class ResidentController extends Controller
         return response()->json([
             'success' => true,
             'message' => "{$updated} residents updated successfully!"
+        ]);
+    }
+
+    /**
+     * Get statistics
+     */
+    public function getStatistics()
+    {
+        $user = auth()->user();
+
+        if ($user->role === 'admin') {
+            $residents = Resident::all();
+            $hostels = Hostel::all();
+        } else {
+            $hostelIds = $user->hostel_ids ?? [];
+            $residents = Resident::whereIn('hostel_id', $hostelIds)->get();
+            $hostels = Hostel::whereIn('id', $hostelIds)->get();
+        }
+
+        $stats = [
+            'total' => $residents->count(),
+            'active' => $residents->where('status', 'ACTIVE')->count(),
+            'vacated' => $residents->where('status', 'VACATED')->count(),
+            'male' => $residents->filter(function ($r) use ($hostels) {
+                $hostel = $hostels->firstWhere('id', $r->hostel_id);
+                return $hostel && $hostel->hostel_type == 'MEN';
+            })->count(),
+            'female' => $residents->filter(function ($r) use ($hostels) {
+                $hostel = $hostels->firstWhere('id', $r->hostel_id);
+                return $hostel && $hostel->hostel_type == 'WOMEN';
+            })->count(),
+            'with_food' => $residents->where('food_status', 'WITH_FOOD')->where('status', 'ACTIVE')->count(),
+            'without_food' => $residents->where('food_status', 'WITHOUT_FOOD')->where('status', 'ACTIVE')->count(),
+            'total_rent' => $residents->where('status', 'ACTIVE')->sum('rent_amount'),
+            'avg_rent' => $residents->where('status', 'ACTIVE')->count() > 0 ? round($residents->where('status', 'ACTIVE')->avg('rent_amount'), 2) : 0,
+            'total_deposit' => $residents->sum('deposit_amount'),
+            'biometric_synced' => $residents->whereNotNull('employee_code')->count(),
+            'biometric_enabled' => $residents->where('biometric_access', true)->count(),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
+    }
+
+    /**
+     * Search residents
+     */
+    public function search(Request $request)
+    {
+        $user = auth()->user();
+        $query = $request->get('q', '');
+
+        $residentsQuery = Resident::with(['hostel', 'room', 'bed'])
+            ->where('name', 'LIKE', "%{$query}%")
+            ->orWhere('resident_code', 'LIKE', "%{$query}%")
+            ->orWhere('phone', 'LIKE', "%{$query}%")
+            ->orWhere('email', 'LIKE', "%{$query}%")
+            ->orWhere('employee_code', 'LIKE', "%{$query}%");
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $residentsQuery->whereIn('hostel_id', $hostelIds);
+        }
+
+        $residents = $residentsQuery->limit(10)->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $residents
+        ]);
+    }
+
+    /**
+     * Get residents by hostel
+     */
+    public function getResidentsByHostel($hostelId)
+    {
+        $user = auth()->user();
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!in_array($hostelId, $hostelIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to view this hostel\'s residents!'
+                ], 403);
+            }
+        }
+
+        $residents = Resident::with(['hostel', 'room', 'bed'])
+            ->where('hostel_id', $hostelId)
+            ->where('status', 'ACTIVE')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $residents
         ]);
     }
 }

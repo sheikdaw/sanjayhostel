@@ -165,8 +165,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/statistics', [BedController::class, 'getStatistics'])->name('statistics');
             Route::get('/export', [BedController::class, 'export'])->name('export');
         });
-
-       Route::prefix('residents')->name('residents.')->group(function () {
+Route::prefix('residents')->name('residents.')->group(function () {
     Route::get('/', [ResidentController::class, 'index'])->name('index');
     Route::post('/', [ResidentController::class, 'store'])->name('store');
     Route::get('/{id}/edit', [ResidentController::class, 'edit'])->name('edit');
@@ -184,10 +183,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/bulk-delete', [ResidentController::class, 'bulkDelete'])->name('bulk-delete');
     Route::post('/bulk-status', [ResidentController::class, 'bulkStatus'])->name('bulk-status');
     
-    // Face Routes
-    Route::post('/{id}/register-face', [ResidentController::class, 'registerFace'])->name('register-face');
-    Route::delete('/{id}/remove-face', [ResidentController::class, 'removeFace'])->name('remove-face');
-    Route::get('/face-list', [ResidentController::class, 'faceList'])->name('face-list');
+    // Biometric Routes
+    Route::post('/sync-all-biometric', [ResidentController::class, 'syncAllToBiometric'])->name('sync-all-biometric');
+    Route::post('/{id}/toggle-biometric', [ResidentController::class, 'toggleBiometricAccess'])->name('toggle-biometric');
+    Route::get('/biometric-list', [ResidentController::class, 'biometricList'])->name('biometric-list');
+    Route::get('/{id}/biometric-status', [ResidentController::class, 'biometricStatus'])->name('biometric-status');
     
     // Export
     Route::get('/export', [ResidentController::class, 'export'])->name('export');
@@ -195,7 +195,6 @@ Route::middleware(['auth'])->group(function () {
     // Details API
     Route::get('/{id}/details', [ResidentController::class, 'getResidentDetails'])->name('details');
 });
-
         Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
         Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
 
