@@ -26,32 +26,32 @@ Route::prefix('api/test')->group(function () {
     // Resident Sync
     Route::post('/sync-single', [BiometricController::class, 'syncSingle']);
     Route::post('/sync-all', [BiometricController::class, 'syncAll']);
-    
+
     // Door Access
     Route::post('/punch', [BiometricController::class, 'punch']);
     Route::get('/check-payment/{id}', [BiometricController::class, 'checkPayment']);
     Route::get('/daily-check', [BiometricController::class, 'dailyCheck']);
-    
+
     // Attendance
     Route::get('/attendance', [BiometricController::class, 'attendance']);
     Route::get('/employee-punch-logs', [BiometricController::class, 'employeePunchLogs']);
-    
+
     // Device Management
     Route::get('/device', [BiometricController::class, 'deviceStatus']);
     Route::get('/devices', [BiometricController::class, 'deviceList']);
     Route::post('/unlock-door', [BiometricController::class, 'unlockDoor']);
     Route::post('/block-user', [BiometricController::class, 'blockUser']);
-    
+
     // Stats & Listings
     Route::get('/stats', [BiometricController::class, 'stats']);
     Route::get('/residents', [BiometricController::class, 'residentsList']);
-    
+
     // eBioServer Direct
     Route::get('/connection', [BiometricController::class, 'testConnection']);
     Route::get('/employee-codes', [BiometricController::class, 'getEmployeeCodes']);
     Route::get('/employee-details', [BiometricController::class, 'getEmployeeDetails']);
     Route::post('/delete-employee', [BiometricController::class, 'deleteEmployee']);
-    
+
     // Visitor
     Route::post('/validate-visitor', [BiometricController::class, 'validateVisitor']);
 });
@@ -117,14 +117,14 @@ Route::prefix('hostels')->name('hostels.')->group(function () {
     Route::get('/biometric-config', [HostelController::class, 'biometricConfig'])->name('biometric-config');
     Route::get('/{id}/biometric-config', [HostelController::class, 'getBiometricConfig'])->name('get-biometric-config');
     Route::post('/{id}/biometric-config', [HostelController::class, 'saveBiometricConfig'])->name('save-biometric-config');
-    
+
     // Biometric Sync
     Route::post('/{id}/sync-biometric', [HostelController::class, 'syncHostelBiometric'])->name('sync-biometric');
     Route::post('/sync-all-biometric', [HostelController::class, 'syncAllHostelsBiometric'])->name('sync-all-biometric');
-    
+
     // Test Connection
     Route::get('/{id}/test-connection', [HostelController::class, 'testBiometricConnection'])->name('test-connection');
-    
+
     // Biometric Stats
     Route::get('/biometric-stats', [HostelController::class, 'getBiometricStats'])->name('biometric-stats');
 });
@@ -190,29 +190,30 @@ Route::prefix('residents')->name('residents.')->group(function () {
     Route::put('/{id}', [ResidentController::class, 'update'])->name('update');
     Route::delete('/{id}', [ResidentController::class, 'destroy'])->name('destroy');
     Route::patch('/{id}/toggle-status', [ResidentController::class, 'toggleStatus'])->name('toggle-status');
-    
+
     // AJAX Routes
     Route::post('/get-rooms', [ResidentController::class, 'getHostelRooms'])->name('get-rooms');
     Route::get('/room/{id}/beds', [ResidentController::class, 'getBeds'])->name('get-beds');
     Route::get('/room/{id}/details', [ResidentController::class, 'getRoomDetails'])->name('room-details');
     Route::get('/{id}/documents', [ResidentController::class, 'getResidentDocuments'])->name('documents');
-    
+
     // Bulk Operations
     Route::post('/bulk-delete', [ResidentController::class, 'bulkDelete'])->name('bulk-delete');
     Route::post('/bulk-status', [ResidentController::class, 'bulkStatus'])->name('bulk-status');
-    
+
     // Biometric Routes
     Route::post('/sync-all-biometric', [ResidentController::class, 'syncAllToBiometric'])->name('sync-all-biometric');
+    Route::post('/{id}/sync-to-biometric', [ResidentController::class, 'syncToBiometric'])->name('sync-to-biometric'); // <-- ADD THIS
     Route::post('/{id}/toggle-biometric', [ResidentController::class, 'toggleBiometricAccess'])->name('toggle-biometric');
     Route::get('/biometric-list', [ResidentController::class, 'biometricList'])->name('biometric-list');
     Route::get('/{id}/biometric-status', [ResidentController::class, 'biometricStatus'])->name('biometric-status');
-    
+
     // Export
     Route::get('/export', [ResidentController::class, 'export'])->name('export');
-    
+
     // Details API
     Route::get('/{id}/details', [ResidentController::class, 'getResidentDetails'])->name('details');
-}); 
+});
         Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
         Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
 

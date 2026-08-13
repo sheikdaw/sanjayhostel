@@ -2088,36 +2088,7 @@ function syncAllBiometric() {
     });
 }
 
-function syncSingleBiometric(id) {
-    Swal.fire({
-        title: 'Sync Resident?',
-        text: "This will sync this resident to the biometric system.",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#7c3aed',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, sync!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            $.ajax({
-                url: '/admin/residents/' + id + '/sync-to-biometric',
-                type: 'POST',
-                data: { _token: '{{ csrf_token() }}' },
-                success: function(response) {
-                    if (response.success) {
-                        showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    } else {
-                        showToast(response.message || 'Failed to sync!', 'error');
-                    }
-                },
-                error: function(xhr) {
-                    showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
-                }
-            });
-        }
-    });
-}
+w
 
 function toggleBiometricAccess(id) {
     $.ajax({
