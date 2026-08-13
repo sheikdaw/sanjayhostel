@@ -1078,7 +1078,7 @@
         </div>
 
         {{-- ============================================
-        FILTERS - FIXED
+        FILTERS
         ============================================ --}}
         <div class="filter-section no-print">
             <div class="filter-group">
@@ -1665,373 +1665,431 @@
 
     {{-- Toast Container --}}
     <div class="toast-container" id="flashMessageContainer"></div>
+@endsection
 
-    {{-- ============================================
-    JAVASCRIPT - FULLY FIXED
-    ============================================ --}}
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{{-- ============================================
+JAVASCRIPT - FULLY FIXED WITH DEBUG
+============================================ --}}
+@push('scripts')
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <script>
-        // ============================================
-        // VARIABLES
-        // ============================================
-        let residentModal, detailsModal, documentViewerModal;
+<script>
+// ============================================
+// VARIABLES
+// ============================================
+let residentModal, detailsModal, documentViewerModal;
 
-        $(document).ready(function() {
-            // Initialize Modals
-            residentModal = new bootstrap.Modal(document.getElementById('residentModal'), {
-                backdrop: 'static',
-                keyboard: true
-            });
-            detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
-                backdrop: 'static',
-                keyboard: true
-            });
-            documentViewerModal = new bootstrap.Modal(document.getElementById('documentViewerModal'), {
-                backdrop: 'static',
-                keyboard: true
-            });
+$(document).ready(function() {
+    console.log('✅ Document ready! Filter fix applied.');
 
-            // Event Listeners
-            $('#addResidentBtn').on('click', function(e) {
-                e.preventDefault();
-                openAddModal();
-            });
+    // Initialize Modals
+    residentModal = new bootstrap.Modal(document.getElementById('residentModal'), {
+        backdrop: 'static',
+        keyboard: true
+    });
+    detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
+        backdrop: 'static',
+        keyboard: true
+    });
+    documentViewerModal = new bootstrap.Modal(document.getElementById('documentViewerModal'), {
+        backdrop: 'static',
+        keyboard: true
+    });
 
-            $('#residentModal').on('hidden.bs.modal', function() {
-                resetForm();
-            });
+    // ============================================
+    // ✅ FIX: DIRECT FILTER BINDING
+    // ============================================
 
-            $('#residentForm').on('submit', function(e) {
-                e.preventDefault();
-                submitForm();
-            });
+    // Search with debounce
+    $('#searchResident').on('keyup', function() {
+        console.log('🔍 Search: ' + $(this).val());
+        applyFilters();
+    });
 
-            // Hostel -> Room
-            $('#hostel_id').on('change', function() {
-                let hostelId = $(this).val();
-                if (hostelId) {
-                    $.ajax({
-                        url: "{{ route('admin.residents.get-rooms') }}",
-                        type: 'POST',
-                        data: { hostel_id: hostelId, _token: '{{ csrf_token() }}' },
-                        success: function(response) {
-                            let select = $('#room_id');
-                            select.empty().append('<option value="">Select Room</option>');
-                            if (response.success && response.data.length > 0) {
-                                $.each(response.data, function(key, room) {
-                                    let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room
-                                        .available_beds + ')' : ' (Full)';
-                                    select.append('<option value="' + room.id + '" data-beds="' +
-                                        room.available_beds + '">Room #' + room.room_no +
-                                        ' - ' + room.room_type.room_type_name + bedInfo +
-                                        '</option>');
-                                });
-                            } else {
-                                select.append('<option value="">No rooms available</option>');
-                            }
-                            $('#bed_id').empty().append('<option value="">Select Bed</option>');
-                        },
-                        error: function(xhr) {
-                            if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                'error');
-                            }
-                        }
-                    });
-                } else {
-                    $('#room_id').empty().append('<option value="">Select Room</option>');
-                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
-                }
-            });
+    // ✅ Direct change events for ALL filters
+    $('#filterStatus').on('change', function() {
+        console.log('📌 Status changed to: ' + $(this).val());
+        applyFilters();
+    });
 
-            // Room -> Bed
-            $('#room_id').on('change', function() {
-                let roomId = $(this).val();
-                if (roomId) {
-                    $.ajax({
-                        url: '/admin/residents/room/' + roomId + '/beds',
-                        type: 'GET',
-                        success: function(response) {
-                            let select = $('#bed_id');
-                            select.empty().append('<option value="">Select Bed</option>');
-                            if (response.success && response.data.length > 0) {
-                                $.each(response.data, function(key, bed) {
-                                    let statusLabel = bed.status === 'OCCUPIED' ?
-                                        ' (Occupied)' : ' (Vacant)';
-                                    let disabled = bed.status === 'OCCUPIED' ? 'disabled' :
-                                        '';
-                                    select.append('<option value="' + bed.id + '" ' +
-                                        disabled + '>Bed #' + bed.bed_no + ' (' + bed
-                                        .bed_type + ')' + statusLabel + '</option>');
-                                });
-                            } else {
-                                select.append('<option value="">No vacant beds</option>');
-                            }
-                        },
-                        error: function(xhr) {
-                            if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                'error');
-                            }
-                        }
-                    });
-                } else {
-                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
-                }
-            });
+    $('#filterHostel').on('change', function() {
+        console.log('🏠 Hostel changed to: ' + $(this).val());
+        applyFilters();
+    });
 
-            // Status -> Vacate Date
-            $('#status').on('change', function() {
-                if ($(this).val() === 'VACATED') {
-                    $('#vacateDateDiv').show();
-                    $('#vacate_date').prop('required', true);
-                } else {
-                    $('#vacateDateDiv').hide();
-                    $('#vacate_date').prop('required', false);
-                }
-            });
+    $('#filterGender').on('change', function() {
+        console.log('👤 Gender changed to: ' + $(this).val());
+        applyFilters();
+    });
 
-            // ============================================
-            // FILTERS - FIXED
-            // ============================================
-            // Search with debounce
-            let searchTimeout;
-            $('#searchResident').on('keyup', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(function() {
-                    applyFilters();
-                }, 300);
-            });
+    $('#filterFood').on('change', function() {
+        console.log('🍽️ Food changed to: ' + $(this).val());
+        applyFilters();
+    });
 
-            // Filter changes - ALL filter events
-            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', function() {
-                applyFilters();
-            });
+    $('#filterBiometric').on('change', function() {
+        console.log('🔒 Biometric changed to: ' + $(this).val());
+        applyFilters();
+    });
 
-            // Set joining date
-            $('#joining_date').val(new Date().toISOString().split('T')[0]);
+    // ✅ Also bind click events for debugging
+    $('.filter-section select, #searchResident').on('click', function() {
+        console.log('🖱️ Clicked on: ' + this.id);
+    });
 
-            // File input handlers
-            setupFileInput('profile_image', 'image');
-            setupFileInput('aadhar_document', 'document');
-            setupFileInput('application_document', 'document');
+    // Add Resident Button
+    $('#addResidentBtn').on('click', function(e) {
+        e.preventDefault();
+        openAddModal();
+    });
 
-            // Initial filter application
-            setTimeout(applyFilters, 100);
-        });
+    // Modal hidden event
+    $('#residentModal').on('hidden.bs.modal', function() {
+        resetForm();
+    });
 
-        // ============================================
-        // FILE INPUT HANDLERS
-        // ============================================
-        function setupFileInput(inputId, type) {
-            $('#' + inputId).on('change', function() {
-                const file = this.files[0];
-                const previewId = inputId + '_preview';
-                const existingId = inputId + '_existing';
+    // Form submit
+    $('#residentForm').on('submit', function(e) {
+        e.preventDefault();
+        submitForm();
+    });
 
-                $('#' + existingId).hide();
-
-                if (file) {
-                    const fileSize = (file.size / 1024).toFixed(1);
-                    const fileName = file.name;
-
-                    if (type === 'image') {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            $('#profile_preview_img').attr('src', e.target.result);
-                            $('#profile_filename').text(fileName);
-                            $('#profile_filesize').text(fileSize + ' KB');
-                            $('#' + previewId).show();
-                        };
-                        reader.readAsDataURL(file);
-                    } else {
-                        const iconClass = file.type === 'application/pdf' ? 'bi-file-earmark-pdf' :
-                            'bi-file-earmark-text';
-                        const iconColor = file.type === 'application/pdf' ? '#dc2626' : '#2563eb';
-                        const previewContainer = $('#' + previewId + ' .file-preview-container');
-                        previewContainer.find('i').attr('class', 'bi ' + iconClass).css('color', iconColor);
-                        $('#' + inputId + '_filename').text(fileName);
-                        $('#' + inputId + '_filesize').text(fileSize + ' KB');
-                        $('#' + previewId).show();
-                    }
-                } else {
-                    $('#' + previewId).hide();
-                }
-            });
-        }
-
-        function removeFile(inputId) {
-            $('#' + inputId).val('');
-            $('#' + inputId + '_preview').hide();
-            const existingId = inputId + '_existing';
-            if ($('#' + existingId).data('has-file') === true) {
-                $('#' + existingId).show();
-            }
-        }
-
-        // ============================================
-        // FILTERS - MAIN FUNCTION (FIXED)
-        // ============================================
-        function applyFilters() {
-            var status = $('#filterStatus').val();
-            var hostel = $('#filterHostel').val();
-            var gender = $('#filterGender').val();
-            var food = $('#filterFood').val();
-            var biometric = $('#filterBiometric').val();
-            var search = $('#searchResident').val().toLowerCase().trim();
-
-            var visibleCount = 0;
-            var totalCount = $('.resident-item').length;
-
-            $('.resident-item').each(function() {
-                var show = true;
-                var $item = $(this);
-
-                // Get all data attributes
-                var resStatus = $item.data('status') || '';
-                var resHostel = $item.data('hostel') || '';
-                var resGender = $item.data('gender') || '';
-                var resFood = $item.data('food') || '';
-                var resBiometric = $item.data('biometric') || '';
-
-                // Get searchable text content
-                var resName = ($item.data('name') || '').toLowerCase();
-                var resCode = ($item.data('code') || '').toLowerCase();
-                var resPhone = ($item.data('phone') || '').toLowerCase();
-                var resEmail = ($item.data('email') || '').toLowerCase();
-                var resId = String($item.data('id') || '');
-
-                // ✅ Apply filters - check if filter value matches
-                if (status && resStatus !== status) show = false;
-                if (hostel && resHostel !== String(hostel)) show = false;
-                if (gender && resGender !== gender) show = false;
-                if (food && resFood !== food) show = false;
-                if (biometric && resBiometric !== biometric) show = false;
-
-                // ✅ Search - check multiple fields
-                if (search && show) {
-                    var searchMatch = false;
-                    if (resName.includes(search)) searchMatch = true;
-                    if (resCode.includes(search)) searchMatch = true;
-                    if (resPhone.includes(search)) searchMatch = true;
-                    if (resEmail.includes(search)) searchMatch = true;
-                    if (resId.includes(search)) searchMatch = true;
-
-                    // ✅ Also search the visible text content
-                    var textContent = $item.text().toLowerCase();
-                    if (textContent.includes(search)) searchMatch = true;
-
-                    if (!searchMatch) show = false;
-                }
-
-                // Show or hide
-                if (show) {
-                    $item.show();
-                    visibleCount++;
-                } else {
-                    $item.hide();
-                }
-            });
-
-            // Update result count
-            var resultCountEl = $('#resultCount');
-            if (visibleCount === totalCount) {
-                resultCountEl.text('');
-            } else {
-                resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
-            }
-
-            // Show/hide no results message
-            var noResultsDiv = $('#noSearchResults');
-            if (visibleCount === 0 && totalCount > 0) {
-                noResultsDiv.show();
-            } else {
-                noResultsDiv.hide();
-            }
-        }
-
-        function clearFilters() {
-            $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
-            $('#searchResident').val('');
-            $('#resultCount').text('');
-            $('#noSearchResults').hide();
-            applyFilters();
-        }
-
-        // ============================================
-        // BIOMETRIC FUNCTIONS
-        // ============================================
-        function syncAllBiometric() {
-            Swal.fire({
-                title: 'Sync All Residents?',
-                text: "This will sync all residents to the biometric system.",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#7c3aed',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, sync them!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: "{{ route('admin.residents.sync-all-biometric') }}",
-                        type: 'POST',
-                        data: { _token: '{{ csrf_token() }}' },
-                        success: function(response) {
-                            if (response.success) {
-                                showToast('Synced ' + response.success_count + ' residents successfully!', 'success');
-                                if (response.failure_count > 0) {
-                                    showToast(response.failure_count + ' residents failed to sync.', 'error');
-                                }
-                                setTimeout(() => location.reload(), 2000);
-                            } else {
-                                showToast(response.message || 'Failed to sync residents', 'error');
-                            }
-                        },
-                        error: function(xhr) {
-                            showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
-                        }
-                    });
-                }
-            });
-        }
-
-        function syncSingleBiometric(id) {
-            Swal.fire({
-                title: 'Sync Resident?',
-                text: "This will sync this resident to the biometric system.",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#7c3aed',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, sync!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: '/admin/residents/' + id + '/sync-to-biometric',
-                        type: 'POST',
-                        data: { _token: '{{ csrf_token() }}' },
-                        success: function(response) {
-                            if (response.success) {
-                                showToast(response.message, 'success');
-                                setTimeout(() => location.reload(), 1500);
-                            } else {
-                                showToast(response.message || 'Failed to sync!', 'error');
-                            }
-                        },
-                        error: function(xhr) {
-                            showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
-                        }
-                    });
-                }
-            });
-        }
-
-        function toggleBiometricAccess(id) {
+    // Hostel -> Room
+    $('#hostel_id').on('change', function() {
+        let hostelId = $(this).val();
+        if (hostelId) {
             $.ajax({
-                url: '/admin/residents/' + id + '/toggle-biometric',
+                url: "{{ route('admin.residents.get-rooms') }}",
+                type: 'POST',
+                data: { hostel_id: hostelId, _token: '{{ csrf_token() }}' },
+                success: function(response) {
+                    let select = $('#room_id');
+                    select.empty().append('<option value="">Select Room</option>');
+                    if (response.success && response.data.length > 0) {
+                        $.each(response.data, function(key, room) {
+                            let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room
+                                .available_beds + ')' : ' (Full)';
+                            select.append('<option value="' + room.id + '" data-beds="' +
+                                room.available_beds + '">Room #' + room.room_no +
+                                ' - ' + room.room_type.room_type_name + bedInfo +
+                                '</option>');
+                        });
+                    } else {
+                        select.append('<option value="">No rooms available</option>');
+                    }
+                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
+                },
+                error: function(xhr) {
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!',
+                        'error');
+                    }
+                }
+            });
+        } else {
+            $('#room_id').empty().append('<option value="">Select Room</option>');
+            $('#bed_id').empty().append('<option value="">Select Bed</option>');
+        }
+    });
+
+    // Room -> Bed
+    $('#room_id').on('change', function() {
+        let roomId = $(this).val();
+        if (roomId) {
+            $.ajax({
+                url: '/admin/residents/room/' + roomId + '/beds',
+                type: 'GET',
+                success: function(response) {
+                    let select = $('#bed_id');
+                    select.empty().append('<option value="">Select Bed</option>');
+                    if (response.success && response.data.length > 0) {
+                        $.each(response.data, function(key, bed) {
+                            let statusLabel = bed.status === 'OCCUPIED' ?
+                                ' (Occupied)' : ' (Vacant)';
+                            let disabled = bed.status === 'OCCUPIED' ? 'disabled' :
+                                '';
+                            select.append('<option value="' + bed.id + '" ' +
+                                disabled + '>Bed #' + bed.bed_no + ' (' + bed
+                                .bed_type + ')' + statusLabel + '</option>');
+                        });
+                    } else {
+                        select.append('<option value="">No vacant beds</option>');
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!',
+                        'error');
+                    }
+                }
+            });
+        } else {
+            $('#bed_id').empty().append('<option value="">Select Bed</option>');
+        }
+    });
+
+    // Status -> Vacate Date
+    $('#status').on('change', function() {
+        if ($(this).val() === 'VACATED') {
+            $('#vacateDateDiv').show();
+            $('#vacate_date').prop('required', true);
+        } else {
+            $('#vacateDateDiv').hide();
+            $('#vacate_date').prop('required', false);
+        }
+    });
+
+    // Set joining date
+    $('#joining_date').val(new Date().toISOString().split('T')[0]);
+
+    // File input handlers
+    setupFileInput('profile_image', 'image');
+    setupFileInput('aadhar_document', 'document');
+    setupFileInput('application_document', 'document');
+
+    // ✅ Initial filter application with delay
+    setTimeout(function() {
+        console.log('🔄 Running initial filter...');
+        applyFilters();
+    }, 500);
+
+    console.log('✅ All filters initialized!');
+});
+
+// ============================================
+// ✅ FIXED: applyFilters with debug logs
+// ============================================
+function applyFilters() {
+    console.log('🚀 applyFilters() called!');
+
+    var status = $('#filterStatus').val() || '';
+    var hostel = $('#filterHostel').val() || '';
+    var gender = $('#filterGender').val() || '';
+    var food = $('#filterFood').val() || '';
+    var biometric = $('#filterBiometric').val() || '';
+    var search = $('#searchResident').val().toLowerCase().trim() || '';
+
+    console.log('📊 Filters:', { status, hostel, gender, food, biometric, search });
+
+    var visibleCount = 0;
+    var totalCount = $('.resident-item').length;
+
+    console.log('📦 Total residents: ' + totalCount);
+
+    if (totalCount === 0) {
+        console.warn('⚠️ No residents found!');
+        return;
+    }
+
+    $('.resident-item').each(function(index) {
+        var show = true;
+        var $item = $(this);
+
+        // Get all data attributes
+        var resStatus = $item.data('status') || '';
+        var resHostel = $item.data('hostel') || '';
+        var resGender = $item.data('gender') || '';
+        var resFood = $item.data('food') || '';
+        var resBiometric = $item.data('biometric') || '';
+
+        // Search fields
+        var resName = ($item.data('name') || '').toLowerCase();
+        var resCode = ($item.data('code') || '').toLowerCase();
+        var resPhone = ($item.data('phone') || '').toLowerCase();
+        var resEmail = ($item.data('email') || '').toLowerCase();
+        var resId = String($item.data('id') || '');
+
+        // ✅ Log first item for debugging
+        if (index === 0) {
+            console.log('🔍 First item data:', {
+                resStatus, resHostel, resGender, resFood, resBiometric,
+                resName, resCode, resPhone
+            });
+        }
+
+        // ✅ Apply filters
+        if (status && resStatus !== status) {
+            show = false;
+            if (index < 3) console.log('❌ Status filter: ' + resStatus + ' != ' + status);
+        }
+        if (hostel && resHostel !== String(hostel)) {
+            show = false;
+            if (index < 3) console.log('❌ Hostel filter: ' + resHostel + ' != ' + hostel);
+        }
+        if (gender && resGender !== gender) {
+            show = false;
+            if (index < 3) console.log('❌ Gender filter: ' + resGender + ' != ' + gender);
+        }
+        if (food && resFood !== food) {
+            show = false;
+            if (index < 3) console.log('❌ Food filter: ' + resFood + ' != ' + food);
+        }
+        if (biometric && resBiometric !== biometric) {
+            show = false;
+            if (index < 3) console.log('❌ Biometric filter: ' + resBiometric + ' != ' + biometric);
+        }
+
+        // ✅ Search
+        if (search && show) {
+            var searchMatch = false;
+            if (resName.includes(search)) searchMatch = true;
+            if (resCode.includes(search)) searchMatch = true;
+            if (resPhone.includes(search)) searchMatch = true;
+            if (resEmail.includes(search)) searchMatch = true;
+            if (resId.includes(search)) searchMatch = true;
+
+            var textContent = $item.text().toLowerCase();
+            if (textContent.includes(search)) searchMatch = true;
+
+            if (!searchMatch) {
+                show = false;
+                if (index < 3) console.log('❌ Search filter: "' + search + '" not found');
+            }
+        }
+
+        // Show or hide
+        if (show) {
+            $item.show();
+            visibleCount++;
+        } else {
+            $item.hide();
+        }
+    });
+
+    console.log('✅ Visible: ' + visibleCount + ' / ' + totalCount);
+
+    // Update result count
+    var resultCountEl = $('#resultCount');
+    if (visibleCount === totalCount) {
+        resultCountEl.text('');
+    } else {
+        resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
+    }
+
+    // Show/hide no results message
+    var noResultsDiv = $('#noSearchResults');
+    if (visibleCount === 0 && totalCount > 0) {
+        noResultsDiv.show();
+        console.warn('⚠️ No results found!');
+    } else {
+        noResultsDiv.hide();
+    }
+}
+
+// ============================================
+// ✅ FIXED: clearFilters with debug
+// ============================================
+function clearFilters() {
+    console.log('🧹 Clearing all filters...');
+    $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
+    $('#searchResident').val('');
+    $('#resultCount').text('');
+    $('#noSearchResults').hide();
+    applyFilters();
+    console.log('✅ Filters cleared!');
+}
+
+// ============================================
+// FILE INPUT HANDLERS
+// ============================================
+function setupFileInput(inputId, type) {
+    $('#' + inputId).on('change', function() {
+        const file = this.files[0];
+        const previewId = inputId + '_preview';
+        const existingId = inputId + '_existing';
+
+        $('#' + existingId).hide();
+
+        if (file) {
+            const fileSize = (file.size / 1024).toFixed(1);
+            const fileName = file.name;
+
+            if (type === 'image') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#profile_preview_img').attr('src', e.target.result);
+                    $('#profile_filename').text(fileName);
+                    $('#profile_filesize').text(fileSize + ' KB');
+                    $('#' + previewId).show();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                const iconClass = file.type === 'application/pdf' ? 'bi-file-earmark-pdf' :
+                    'bi-file-earmark-text';
+                const iconColor = file.type === 'application/pdf' ? '#dc2626' : '#2563eb';
+                const previewContainer = $('#' + previewId + ' .file-preview-container');
+                previewContainer.find('i').attr('class', 'bi ' + iconClass).css('color', iconColor);
+                $('#' + inputId + '_filename').text(fileName);
+                $('#' + inputId + '_filesize').text(fileSize + ' KB');
+                $('#' + previewId).show();
+            }
+        } else {
+            $('#' + previewId).hide();
+        }
+    });
+}
+
+function removeFile(inputId) {
+    $('#' + inputId).val('');
+    $('#' + inputId + '_preview').hide();
+    const existingId = inputId + '_existing';
+    if ($('#' + existingId).data('has-file') === true) {
+        $('#' + existingId).show();
+    }
+}
+
+// ============================================
+// BIOMETRIC FUNCTIONS
+// ============================================
+function syncAllBiometric() {
+    Swal.fire({
+        title: 'Sync All Residents?',
+        text: "This will sync all residents to the biometric system.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#7c3aed',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, sync them!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: "{{ route('admin.residents.sync-all-biometric') }}",
+                type: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function(response) {
+                    if (response.success) {
+                        showToast('Synced ' + response.success_count + ' residents successfully!', 'success');
+                        if (response.failure_count > 0) {
+                            showToast(response.failure_count + ' residents failed to sync.', 'error');
+                        }
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        showToast(response.message || 'Failed to sync residents', 'error');
+                    }
+                },
+                error: function(xhr) {
+                    showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
+                }
+            });
+        }
+    });
+}
+
+function syncSingleBiometric(id) {
+    Swal.fire({
+        title: 'Sync Resident?',
+        text: "This will sync this resident to the biometric system.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#7c3aed',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, sync!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: '/admin/residents/' + id + '/sync-to-biometric',
                 type: 'POST',
                 data: { _token: '{{ csrf_token() }}' },
                 success: function(response) {
@@ -2039,740 +2097,761 @@
                         showToast(response.message, 'success');
                         setTimeout(() => location.reload(), 1500);
                     } else {
-                        showToast(response.message || 'Failed to toggle biometric access!', 'error');
+                        showToast(response.message || 'Failed to sync!', 'error');
                     }
                 },
                 error: function(xhr) {
-                    showToast(xhr.responseJSON?.error || 'Failed to toggle biometric access!', 'error');
+                    showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
                 }
             });
         }
+    });
+}
 
-        // ============================================
-        // VIEW RESIDENT DETAILS
-        // ============================================
-        function viewResidentDetails(id) {
-            detailsModal.show();
+function toggleBiometricAccess(id) {
+    $.ajax({
+        url: '/admin/residents/' + id + '/toggle-biometric',
+        type: 'POST',
+        data: { _token: '{{ csrf_token() }}' },
+        success: function(response) {
+            if (response.success) {
+                showToast(response.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(response.message || 'Failed to toggle biometric access!', 'error');
+            }
+        },
+        error: function(xhr) {
+            showToast(xhr.responseJSON?.error || 'Failed to toggle biometric access!', 'error');
+        }
+    });
+}
+
+// ============================================
+// VIEW RESIDENT DETAILS
+// ============================================
+function viewResidentDetails(id) {
+    detailsModal.show();
+    $('#detailsBody').html(`
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Loading resident details...</p>
+        </div>
+    `);
+
+    $.ajax({
+        url: '/admin/residents/' + id + '/details',
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                renderDetails(response.data);
+            } else {
+                $('#detailsBody').html(`
+                    <div class="text-center py-5 text-danger">
+                        <i class="bi bi-exclamation-triangle" style="font-size:3rem;"></i>
+                        <p class="mt-2">${response.error || 'Failed to load details'}</p>
+                    </div>
+                `);
+            }
+        },
+        error: function() {
             $('#detailsBody').html(`
-                <div class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Loading resident details...</p>
+                <div class="text-center py-5 text-danger">
+                    <i class="bi bi-exclamation-triangle" style="font-size:3rem;"></i>
+                    <p class="mt-2">Failed to load resident details</p>
                 </div>
             `);
-
-            $.ajax({
-                url: '/admin/residents/' + id + '/details',
-                type: 'GET',
-                success: function(response) {
-                    if (response.success) {
-                        renderDetails(response.data);
-                    } else {
-                        $('#detailsBody').html(`
-                            <div class="text-center py-5 text-danger">
-                                <i class="bi bi-exclamation-triangle" style="font-size:3rem;"></i>
-                                <p class="mt-2">${response.error || 'Failed to load details'}</p>
-                            </div>
-                        `);
-                    }
-                },
-                error: function() {
-                    $('#detailsBody').html(`
-                        <div class="text-center py-5 text-danger">
-                            <i class="bi bi-exclamation-triangle" style="font-size:3rem;"></i>
-                            <p class="mt-2">Failed to load resident details</p>
-                        </div>
-                    `);
-                }
-            });
         }
+    });
+}
 
-        function renderDetails(data) {
-            let html = `
-                <div class="row g-4">
-                    <div class="col-lg-4">
-                        <div class="text-center p-3" style="background: #f8fafc; border-radius:12px;">
-                            <div style="width:150px; height:150px; border-radius:50%; margin:0 auto; overflow:hidden; border:4px solid var(--gold); background:var(--primary);">
-                                <img src="${data.profile_image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=c5a028&color=fff&size=150'}"
-                                     alt="${data.name}" style="width:100%; height:100%; object-fit:cover;">
-                            </div>
-                            <h3 class="mt-3 mb-1">${data.name}</h3>
-                            <p class="text-muted small">${data.resident_code}</p>
-                            <div class="mt-2">
-                                <span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}">
-                                    <i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i>
-                                    ${data.biometric.access_status}
-                                </span>
-                                ${data.biometric.employee_code ? `<span class="ms-2 badge bg-secondary">${data.biometric.employee_code}</span>` : ''}
-                            </div>
-                            <div class="mt-2 d-flex justify-content-center gap-2 flex-wrap">
-                                <span class="badge-custom ${data.status.badge}">${data.status.label}</span>
-                                <span class="food-badge ${data.financial.food_status_badge}">
-                                    ${data.financial.food_status_icon} ${data.financial.food_status_label}
-                                </span>
-                            </div>
-                            <div class="mt-2">
-                                <span class="resident-rent">${data.financial.rent_formatted} / month</span>
-                            </div>
+function renderDetails(data) {
+    let html = `
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="text-center p-3" style="background: #f8fafc; border-radius:12px;">
+                    <div style="width:150px; height:150px; border-radius:50%; margin:0 auto; overflow:hidden; border:4px solid var(--gold); background:var(--primary);">
+                        <img src="${data.profile_image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=c5a028&color=fff&size=150'}"
+                             alt="${data.name}" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <h3 class="mt-3 mb-1">${data.name}</h3>
+                    <p class="text-muted small">${data.resident_code}</p>
+                    <div class="mt-2">
+                        <span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}">
+                            <i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i>
+                            ${data.biometric.access_status}
+                        </span>
+                        ${data.biometric.employee_code ? `<span class="ms-2 badge bg-secondary">${data.biometric.employee_code}</span>` : ''}
+                    </div>
+                    <div class="mt-2 d-flex justify-content-center gap-2 flex-wrap">
+                        <span class="badge-custom ${data.status.badge}">${data.status.label}</span>
+                        <span class="food-badge ${data.financial.food_status_badge}">
+                            ${data.financial.food_status_icon} ${data.financial.food_status_label}
+                        </span>
+                    </div>
+                    <div class="mt-2">
+                        <span class="resident-rent">${data.financial.rent_formatted} / month</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-person"></i> Personal Info</div>
+                            <div class="detail-item"><span class="label">Phone</span><span class="value">${data.phone}</span></div>
+                            ${data.parents_phone ? `<div class="detail-item"><span class="label">Parents Phone</span><span class="value">${data.parents_phone}</span></div>` : ''}
+                            ${data.email ? `<div class="detail-item"><span class="label">Email</span><span class="value">${data.email}</span></div>` : ''}
+                            ${data.aadhaar_no ? `<div class="detail-item"><span class="label">Aadhaar</span><span class="value">${data.aadhaar_no}</span></div>` : ''}
+                            ${data.address ? `<div class="detail-item"><span class="label">Address</span><span class="value" style="text-align:left;">${data.address}</span></div>` : ''}
                         </div>
                     </div>
-                    <div class="col-lg-8">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="detail-card">
-                                    <div class="card-title"><i class="bi bi-person"></i> Personal Info</div>
-                                    <div class="detail-item"><span class="label">Phone</span><span class="value">${data.phone}</span></div>
-                                    ${data.parents_phone ? `<div class="detail-item"><span class="label">Parents Phone</span><span class="value">${data.parents_phone}</span></div>` : ''}
-                                    ${data.email ? `<div class="detail-item"><span class="label">Email</span><span class="value">${data.email}</span></div>` : ''}
-                                    ${data.aadhaar_no ? `<div class="detail-item"><span class="label">Aadhaar</span><span class="value">${data.aadhaar_no}</span></div>` : ''}
-                                    ${data.address ? `<div class="detail-item"><span class="label">Address</span><span class="value" style="text-align:left;">${data.address}</span></div>` : ''}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="detail-card">
-                                    <div class="card-title"><i class="bi bi-building"></i> Accommodation</div>
-                                    <div class="detail-item"><span class="label">Hostel</span><span class="value">${data.hostel.name} ${data.hostel.type_icon}</span></div>
-                                    <div class="detail-item"><span class="label">Room</span><span class="value">#${data.room.number} (${data.room.type})</span></div>
-                                    <div class="detail-item"><span class="label">Bed</span><span class="value">#${data.bed.number} (${data.bed.type})</span></div>
-                                    <div class="detail-item"><span class="label">Joining Date</span><span class="value">${data.status.joining_date_formatted}</span></div>
-                                    ${data.status.vacate_date ? `<div class="detail-item"><span class="label">Vacate Date</span><span class="value">${data.status.vacate_date_formatted}</span></div>` : ''}
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="detail-card">
-                                    <div class="card-title"><i class="bi bi-wallet"></i> Financial</div>
-                                    <div class="detail-item"><span class="label">Rent</span><span class="value">${data.financial.rent_formatted}</span></div>
-                                    <div class="detail-item"><span class="label">Deposit</span><span class="value">${data.financial.deposit_formatted || '₹0.00'}</span></div>
-                                    <div class="detail-item"><span class="label">Food Status</span><span class="value">${data.financial.food_status_icon} ${data.financial.food_status_label}</span></div>
-                                    <div class="detail-item"><span class="label">Status</span><span class="value"><span class="badge-custom ${data.status.badge}">${data.status.label}</span></span></div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="detail-card">
-                                    <div class="card-title"><i class="bi bi-fingerprint"></i> Biometric</div>
-                                    <div class="detail-item"><span class="label">Employee Code</span><span class="value"><code>${data.biometric.employee_code}</code></span></div>
-                                    <div class="detail-item"><span class="label">Access Status</span><span class="value"><span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}"><i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i> ${data.biometric.access_status}</span></span></div>
-                                    <div class="detail-item"><span class="label">Last Synced</span><span class="value">${data.biometric.last_sync_at}</span></div>
-                                </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="detail-card">
-                                    <div class="card-title"><i class="bi bi-credit-card"></i> Payment Status</div>
-                                    ${data.current_payment ? `
-                                    <div class="row g-3">
-                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Month</div><div style="font-weight:600;">${data.current_payment.month_name} ${data.current_payment.year}</div></div></div>
-                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Rent</div><div style="font-weight:600;">₹${data.current_payment.rent_amount}</div></div></div>
-                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Paid</div><div style="font-weight:600; color:var(--success);">₹${data.current_payment.total_paid}</div></div></div>
-                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Status</div><div style="font-weight:600;">${data.current_payment.status_label}</div></div></div>
-                                    </div>` : '<p class="text-muted text-center">No payment record for current month</p>'}
-                                </div>
-                            </div>
+                    <div class="col-md-6">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-building"></i> Accommodation</div>
+                            <div class="detail-item"><span class="label">Hostel</span><span class="value">${data.hostel.name} ${data.hostel.type_icon}</span></div>
+                            <div class="detail-item"><span class="label">Room</span><span class="value">#${data.room.number} (${data.room.type})</span></div>
+                            <div class="detail-item"><span class="label">Bed</span><span class="value">#${data.bed.number} (${data.bed.type})</span></div>
+                            <div class="detail-item"><span class="label">Joining Date</span><span class="value">${data.status.joining_date_formatted}</span></div>
+                            ${data.status.vacate_date ? `<div class="detail-item"><span class="label">Vacate Date</span><span class="value">${data.status.vacate_date_formatted}</span></div>` : ''}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-wallet"></i> Financial</div>
+                            <div class="detail-item"><span class="label">Rent</span><span class="value">${data.financial.rent_formatted}</span></div>
+                            <div class="detail-item"><span class="label">Deposit</span><span class="value">${data.financial.deposit_formatted || '₹0.00'}</span></div>
+                            <div class="detail-item"><span class="label">Food Status</span><span class="value">${data.financial.food_status_icon} ${data.financial.food_status_label}</span></div>
+                            <div class="detail-item"><span class="label">Status</span><span class="value"><span class="badge-custom ${data.status.badge}">${data.status.label}</span></span></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-fingerprint"></i> Biometric</div>
+                            <div class="detail-item"><span class="label">Employee Code</span><span class="value"><code>${data.biometric.employee_code}</code></span></div>
+                            <div class="detail-item"><span class="label">Access Status</span><span class="value"><span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}"><i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i> ${data.biometric.access_status}</span></span></div>
+                            <div class="detail-item"><span class="label">Last Synced</span><span class="value">${data.biometric.last_sync_at}</span></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-credit-card"></i> Payment Status</div>
+                            ${data.current_payment ? `
+                            <div class="row g-3">
+                                <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Month</div><div style="font-weight:600;">${data.current_payment.month_name} ${data.current_payment.year}</div></div></div>
+                                <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Rent</div><div style="font-weight:600;">₹${data.current_payment.rent_amount}</div></div></div>
+                                <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Paid</div><div style="font-weight:600; color:var(--success);">₹${data.current_payment.total_paid}</div></div></div>
+                                <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Status</div><div style="font-weight:600;">${data.current_payment.status_label}</div></div></div>
+                            </div>` : '<p class="text-muted text-center">No payment record for current month</p>'}
                         </div>
                     </div>
                 </div>
-            `;
-            $('#detailsBody').html(html);
-        }
+            </div>
+        </div>
+    `;
+    $('#detailsBody').html(html);
+}
 
-        // ============================================
-        // DOCUMENT VIEWER
-        // ============================================
-        function viewDocument(url, title) {
-            if (!url) {
-                showToast('Document not found!', 'error');
-                return;
-            }
+// ============================================
+// DOCUMENT VIEWER
+// ============================================
+function viewDocument(url, title) {
+    if (!url) {
+        showToast('Document not found!', 'error');
+        return;
+    }
 
-            document.getElementById('documentViewerTitle').textContent = title;
-            document.getElementById('documentDownloadLink').href = url;
+    document.getElementById('documentViewerTitle').textContent = title;
+    document.getElementById('documentDownloadLink').href = url;
 
-            const content = document.getElementById('documentViewerContent');
+    const content = document.getElementById('documentViewerContent');
 
-            if (url.match(/\.(jpeg|jpg|png|gif)$/i)) {
-                content.innerHTML =
-                    `<img src="${url}" alt="${title}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
-            } else {
-                content.innerHTML = `
-                    <iframe src="${url}" style="width:100%; height:70vh; border:none; border-radius:8px;"></iframe>
-                    <p class="text-muted mt-2" style="font-size:0.8rem;">
-                        <i class="bi bi-info-circle"></i> If the document doesn't load,
-                        <a href="${url}" target="_blank">click here to open it directly</a>
-                    </p>
-                `;
-            }
+    if (url.match(/\.(jpeg|jpg|png|gif)$/i)) {
+        content.innerHTML =
+            `<img src="${url}" alt="${title}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
+    } else {
+        content.innerHTML = `
+            <iframe src="${url}" style="width:100%; height:70vh; border:none; border-radius:8px;"></iframe>
+            <p class="text-muted mt-2" style="font-size:0.8rem;">
+                <i class="bi bi-info-circle"></i> If the document doesn't load,
+                <a href="${url}" target="_blank">click here to open it directly</a>
+            </p>
+        `;
+    }
 
-            documentViewerModal.show();
-        }
+    documentViewerModal.show();
+}
 
-        // ============================================
-        // BULK ACTIONS
-        // ============================================
-        function updateBulkActions() {
-            var checked = $('.resident-checkbox:checked');
-            var count = checked.length;
+// ============================================
+// BULK ACTIONS
+// ============================================
+function updateBulkActions() {
+    var checked = $('.resident-checkbox:checked');
+    var count = checked.length;
 
-            if (count > 0) {
-                $('#bulkActions').addClass('show');
-                $('#selectedCount').text(count);
-            } else {
-                $('#bulkActions').removeClass('show');
-            }
-        }
+    if (count > 0) {
+        $('#bulkActions').addClass('show');
+        $('#selectedCount').text(count);
+    } else {
+        $('#bulkActions').removeClass('show');
+    }
+}
 
-        function clearSelection() {
-            $('.resident-checkbox').prop('checked', false);
-            updateBulkActions();
-        }
+function clearSelection() {
+    $('.resident-checkbox').prop('checked', false);
+    updateBulkActions();
+}
 
-        function getSelectedIds() {
-            var ids = [];
-            $('.resident-checkbox:checked').each(function() {
-                ids.push($(this).val());
-            });
-            return ids;
-        }
+function getSelectedIds() {
+    var ids = [];
+    $('.resident-checkbox:checked').each(function() {
+        ids.push($(this).val());
+    });
+    return ids;
+}
 
-        function bulkStatusUpdate() {
-            var ids = getSelectedIds();
-            var status = $('#bulkStatusSelect').val();
+function bulkStatusUpdate() {
+    var ids = getSelectedIds();
+    var status = $('#bulkStatusSelect').val();
 
-            if (ids.length === 0 || !status) {
-                showToast('Please select residents and a status', 'error');
-                return;
-            }
+    if (ids.length === 0 || !status) {
+        showToast('Please select residents and a status', 'error');
+        return;
+    }
 
-            Swal.fire({
-                title: 'Update Status?',
-                text: "Are you sure you want to update " + ids.length + " residents to " + status + "?",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#c5a028',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, update them!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: "{{ route('admin.residents.bulk-status') }}",
-                        type: 'POST',
-                        data: { ids: ids, status: status, _token: '{{ csrf_token() }}' },
-                        success: function(response) {
-                            if (response.success) {
-                                showToast(response.message, 'success');
-                                setTimeout(() => location.reload(), 1500);
-                            }
-                        },
-                        error: function(xhr) {
-                            if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                'error');
-                            } else {
-                                showToast(xhr.responseJSON?.message || 'Failed to update!',
-                                'error');
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        function bulkDelete() {
-            var ids = getSelectedIds();
-            if (ids.length === 0) return;
-
-            Swal.fire({
-                title: 'Delete Residents?',
-                text: "Are you sure you want to delete " + ids.length + " residents? This action cannot be undone!",
-                icon: 'error',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, delete them!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: "{{ route('admin.residents.bulk-delete') }}",
-                        type: 'POST',
-                        data: { ids: ids, _token: '{{ csrf_token() }}' },
-                        success: function(response) {
-                            if (response.success) {
-                                showToast(response.message, 'success');
-                                setTimeout(() => location.reload(), 1500);
-                            }
-                        },
-                        error: function(xhr) {
-                            if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                'error');
-                            } else {
-                                showToast(xhr.responseJSON?.message || 'Failed to delete!',
-                                'error');
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
-        // ============================================
-        // EXPORT
-        // ============================================
-        function exportData() {
-            window.location.href = "{{ route('admin.residents.export') }}";
-        }
-
-        // ============================================
-        // MODAL FUNCTIONS
-        // ============================================
-        function openAddModal() {
-            resetForm();
-            document.getElementById('modalTitle').textContent = 'Add Resident';
-            document.getElementById('saveBtnText').textContent = 'Save';
-            document.getElementById('editId').value = '';
-            $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid');
-            document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
-            residentModal.show();
-        }
-
-        function resetForm() {
-            const form = document.getElementById('residentForm');
-            form.reset();
-            $('#room_id').empty().append('<option value="">Select Room</option>');
-            $('#bed_id').empty().append('<option value="">Select Bed</option>');
-            $('#vacateDateDiv').hide();
-            $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid');
-            document.getElementById('saveBtnText').textContent = 'Save';
-            document.getElementById('editId').value = '';
-            document.getElementById('modalTitle').textContent = 'Add Resident';
-            document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
-
-            $('[id$="_preview"]').hide();
-            $('[id$="_existing"]').hide();
-            $('[id$="_existing"]').data('has-file', false);
-        }
-
-        // ============================================
-        // FORM SUBMISSION
-        // ============================================
-        function submitForm() {
-            let id = document.getElementById('editId').value;
-            let url = "{{ route('admin.residents.store') }}";
-            let formData = new FormData(document.getElementById('residentForm'));
-
-            if (id) {
-                url = "{{ url('admin/residents') }}/" + id;
-                formData.append('_method', 'PUT');
-            }
-
+    Swal.fire({
+        title: 'Update Status?',
+        text: "Are you sure you want to update " + ids.length + " residents to " + status + "?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#c5a028',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, update them!'
+    }).then((result) => {
+        if (result.isConfirmed) {
             $.ajax({
-                url: url,
+                url: "{{ route('admin.residents.bulk-status') }}",
                 type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                beforeSend: function() {
-                    $('#saveBtn').prop('disabled', true).html(
-                        '<i class="bi bi-spinner bi-spin"></i> Saving...');
-                    $('.invalid-feedback').text('');
-                    $('.rv-input-box').removeClass('is-invalid');
-                },
+                data: { ids: ids, status: status, _token: '{{ csrf_token() }}' },
                 success: function(response) {
                     if (response.success) {
-                        residentModal.hide();
                         showToast(response.message, 'success');
                         setTimeout(() => location.reload(), 1500);
                     }
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else if (xhr.status === 422) {
-                        let errors = xhr.responseJSON.errors;
-                        if (xhr.responseJSON.message) {
-                            showToast(xhr.responseJSON.message, 'error');
-                        } else {
-                            $.each(errors, function(field, messages) {
-                                $('#' + field).closest('.rv-input-box').addClass('is-invalid');
-                                $('#' + field + '_error').text(messages[0]);
-                            });
-                            showToast('Please fix validation errors', 'error');
-                        }
+                        showToast(xhr.responseJSON?.message || 'Permission denied!',
+                        'error');
                     } else {
-                        showToast(xhr.responseJSON?.message || 'Something went wrong!', 'error');
+                        showToast(xhr.responseJSON?.message || 'Failed to update!',
+                        'error');
                     }
-                },
-                complete: function() {
-                    let id = document.getElementById('editId').value;
-                    let text = id ? 'Update' : 'Save';
-                    $('#saveBtn').prop('disabled', false).html(
-                        '<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text +
-                        '</span>');
                 }
             });
         }
+    });
+}
 
-        // ============================================
-        // CRUD OPERATIONS
-        // ============================================
-        function editResident(id) {
+function bulkDelete() {
+    var ids = getSelectedIds();
+    if (ids.length === 0) return;
+
+    Swal.fire({
+        title: 'Delete Residents?',
+        text: "Are you sure you want to delete " + ids.length + " residents? This action cannot be undone!",
+        icon: 'error',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete them!'
+    }).then((result) => {
+        if (result.isConfirmed) {
             $.ajax({
-                url: "{{ url('admin/residents') }}/" + id + "/edit",
-                type: 'GET',
+                url: "{{ route('admin.residents.bulk-delete') }}",
+                type: 'POST',
+                data: { ids: ids, _token: '{{ csrf_token() }}' },
                 success: function(response) {
                     if (response.success) {
-                        let data = response.data;
-                        document.getElementById('modalTitle').textContent = 'Edit Resident';
-                        document.getElementById('editId').value = data.id;
-                        document.getElementById('name').value = data.name;
-                        document.getElementById('phone').value = data.phone;
-                        document.getElementById('parentsphone').value = data.parentsphone || '';
-                        document.getElementById('email').value = data.email || '';
-                        document.getElementById('aadhaar_no').value = data.aadhaar_no || '';
-                        document.getElementById('address').value = data.address || '';
-                        document.getElementById('hostel_id').value = data.hostel_id;
-                        document.getElementById('food_status').value = data.food_status || '';
-                        document.getElementById('rent_amount').value = data.rent_amount || 0;
-                        document.getElementById('deposit_amount').value = data.deposit_amount || 0;
-                        document.getElementById('status').value = data.status;
-
-                        if (data.joining_date) {
-                            const joiningDate = new Date(data.joining_date);
-                            document.getElementById('joining_date').value = joiningDate.toISOString()
-                                .split('T')[0];
-                        }
-
-                        if (data.vacate_date) {
-                            const vacateDate = new Date(data.vacate_date);
-                            document.getElementById('vacate_date').value = vacateDate.toISOString()
-                                .split('T')[0];
-                            $('#vacateDateDiv').show();
-                        } else {
-                            $('#vacateDateDiv').hide();
-                            document.getElementById('vacate_date').value = '';
-                        }
-
-                        document.getElementById('saveBtnText').textContent = 'Update';
-
-                        // Show existing documents
-                        if (data.profile_image) {
-                            $('#profile_image_existing').data('has-file', true);
-                            $('#profile_image_existing').show();
-                            $('#profile_existing_img').attr('src', '{{ asset('') }}' + data
-                            .profile_image);
-                        } else {
-                            $('#profile_image_existing').hide();
-                        }
-
-                        if (data.aadhar_document) {
-                            $('#aadhar_document_existing').data('has-file', true);
-                            $('#aadhar_document_existing').show();
-                            $('#aadhar_existing_link').attr('href', '{{ asset('') }}' + data
-                                .aadhar_document);
-                        } else {
-                            $('#aadhar_document_existing').hide();
-                        }
-
-                        if (data.application_document) {
-                            $('#application_document_existing').data('has-file', true);
-                            $('#application_document_existing').show();
-                            $('#application_existing_link').attr('href', '{{ asset('') }}' + data
-                                .application_document);
-                        } else {
-                            $('#application_document_existing').hide();
-                        }
-
-                        // Load rooms
-                        $.ajax({
-                            url: "{{ route('admin.residents.get-rooms') }}",
-                            type: 'POST',
-                            data: { hostel_id: data.hostel_id, _token: '{{ csrf_token() }}' },
-                            success: function(roomResponse) {
-                                let select = $('#room_id');
-                                select.empty().append('<option value="">Select Room</option>');
-
-                                if (roomResponse.success && roomResponse.data.length > 0) {
-                                    let currentRoomExists = false;
-
-                                    $.each(roomResponse.data, function(key, room) {
-                                        let bedInfo = room.available_beds > 0 ? ' (Beds: ' +
-                                            room.available_beds + ')' : ' (Full)';
-                                        let selected = (room.id == data.room_id) ?
-                                            'selected' : '';
-                                        if (room.id == data.room_id) {
-                                            currentRoomExists = true;
-                                        }
-
-                                        select.append('<option value="' + room.id + '" ' +
-                                            selected + ' data-beds="' + room
-                                            .available_beds + '">Room #' + room
-                                            .room_no + ' - ' + room.room_type
-                                            .room_type_name + bedInfo + '</option>');
-                                    });
-
-                                    if (!currentRoomExists && data.room_id) {
-                                        $.ajax({
-                                            url: '/admin/residents/room/' + data
-                                                .room_id + '/details',
-                                            type: 'GET',
-                                            success: function(
-                                            currentRoomResponse) {
-                                                if (currentRoomResponse
-                                                    .success) {
-                                                    let room = currentRoomResponse
-                                                        .data;
-                                                    select.append(
-                                                        '<option value="' +
-                                                        room.id +
-                                                        '" selected>Room #' +
-                                                        room.room_no +
-                                                        ' - ' + room
-                                                        .room_type
-                                                        .room_type_name +
-                                                        ' (Current Room)</option>'
-                                                        );
-                                                }
-                                            }
-                                        });
-                                    }
-
-                                    if (data.room_id) {
-                                        select.val(data.room_id);
-                                    }
-                                } else {
-                                    select.append('<option value="">No rooms available</option>');
-                                }
-
-                                // Load beds
-                                $.ajax({
-                                    url: '/admin/residents/room/' + data.room_id +
-                                        '/beds',
-                                    type: 'GET',
-                                    success: function(bedResponse) {
-                                        let bedSelect = $('#bed_id');
-                                        bedSelect.empty().append(
-                                            '<option value="">Select Bed</option>');
-
-                                        if (bedResponse.success && bedResponse
-                                            .data.length > 0) {
-                                            let currentBedExists = false;
-
-                                            bedResponse.data.sort(function(
-                                            a, b) {
-                                                if (a.id == data.bed_id)
-                                                    return -1;
-                                                if (b.id == data.bed_id)
-                                                    return 1;
-                                                if (a.status === 'OCCUPIED' &&
-                                                    b.status !== 'OCCUPIED')
-                                                    return -1;
-                                                if (a.status !== 'OCCUPIED' &&
-                                                    b.status === 'OCCUPIED')
-                                                    return 1;
-                                                return a.bed_no.localeCompare(
-                                                    b.bed_no);
-                                            });
-
-                                            $.each(bedResponse.data, function(
-                                                key, bed) {
-                                                let selected = (bed.id ==
-                                                    data.bed_id) ?
-                                                    'selected' : '';
-                                                let statusLabel = '';
-
-                                                if (bed.id == data.bed_id) {
-                                                    statusLabel =
-                                                    ' (Current)';
-                                                    currentBedExists = true;
-                                                } else if (bed.status ===
-                                                    'OCCUPIED') {
-                                                    statusLabel =
-                                                    ' (Occupied)';
-                                                } else {
-                                                    statusLabel =
-                                                    ' (Vacant)';
-                                                }
-
-                                                let disabled = (bed.status ===
-                                                    'OCCUPIED' && bed.id !=
-                                                    data.bed_id) ?
-                                                    'disabled' : '';
-
-                                                bedSelect.append(
-                                                    '<option value="' + bed
-                                                    .id + '" ' + selected +
-                                                    ' ' + disabled + '>' +
-                                                    'Bed #' + bed.bed_no +
-                                                    ' (' + bed.bed_type +
-                                                    ')' + statusLabel +
-                                                    '</option>'
-                                                );
-                                            });
-
-                                            if (!currentBedExists && data
-                                                .bed_id) {
-                                                bedSelect.append(
-                                                    '<option value="' + data
-                                                    .bed_id +
-                                                    '" selected>Bed #' +
-                                                    (data.bed ? data.bed
-                                                        .bed_no : 'N/A') +
-                                                    ' (Current Bed)</option>'
-                                                    );
-                                            }
-
-                                            if (data.bed_id) {
-                                                bedSelect.val(data.bed_id);
-                                            }
-                                        } else {
-                                            if (data.bed) {
-                                                bedSelect.append(
-                                                    '<option value="' + data
-                                                    .bed.id +
-                                                    '" selected>Bed #' + data
-                                                    .bed.bed_no + ' (' + data
-                                                    .bed.bed_type +
-                                                    ') - Current</option>'
-                                                    );
-                                            }
-                                            bedSelect.append(
-                                                '<option value="">No beds available</option>'
-                                                );
-                                        }
-                                    },
-                                    error: function(xhr) {
-                                        if (xhr.status === 403) {
-                                            showToast(xhr.responseJSON
-                                                ?.message ||
-                                                'Permission denied!',
-                                                'error');
-                                        }
-                                    }
-                                });
-                            },
-                            error: function(xhr) {
-                                if (xhr.status === 403) {
-                                    showToast(xhr.responseJSON?.message ||
-                                        'Permission denied!', 'error');
-                                }
-                            }
-                        });
-
-                        $('.invalid-feedback').text('');
-                        $('.rv-input-box').removeClass('is-invalid');
-                        residentModal.show();
+                        showToast(response.message, 'success');
+                        setTimeout(() => location.reload(), 1500);
                     }
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                        showToast(xhr.responseJSON?.message || 'Permission denied!',
+                        'error');
                     } else {
-                        showToast('Failed to load resident data', 'error');
+                        showToast(xhr.responseJSON?.message || 'Failed to delete!',
+                        'error');
                     }
                 }
             });
         }
+    });
+}
 
-        function deleteResident(id) {
-            Swal.fire({
-                title: 'Are you sure?',
-                text: "This action cannot be undone! All associated documents will also be deleted.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc2626',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, delete it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: "{{ url('admin/residents') }}/" + id,
-                        type: 'DELETE',
-                        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                        success: function(response) {
-                            if (response.success) {
-                                showToast(response.message, 'success');
-                                setTimeout(() => location.reload(), 1500);
-                            }
-                        },
-                        error: function(xhr) {
-                            if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                    'error');
-                            } else {
-                                showToast(xhr.responseJSON?.message || 'Failed to delete!',
-                                    'error');
-                            }
-                        }
-                    });
-                }
-            });
-        }
+// ============================================
+// EXPORT
+// ============================================
+function exportData() {
+    window.location.href = "{{ route('admin.residents.export') }}";
+}
 
-        function toggleStatus(id) {
-            Swal.fire({
-                title: 'Toggle Status?',
-                text: "Change resident status?",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#c5a028',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, change it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: "{{ url('admin/residents') }}/" + id + "/toggle-status",
-                        type: 'PATCH',
-                        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                        success: function(response) {
-                            if (response.success) {
-                                showToast(response.message, 'success');
-                                setTimeout(() => location.reload(), 1500);
-                            }
-                        },
-                        error: function(xhr) {
-                            if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!',
-                                    'error');
-                            } else {
-                                showToast(xhr.responseJSON?.message || 'Failed to update status!',
-                                    'error');
-                            }
-                        }
-                    });
-                }
-            });
-        }
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
+function openAddModal() {
+    resetForm();
+    document.getElementById('modalTitle').textContent = 'Add Resident';
+    document.getElementById('saveBtnText').textContent = 'Save';
+    document.getElementById('editId').value = '';
+    $('.invalid-feedback').text('');
+    $('.rv-input-box').removeClass('is-invalid');
+    document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
+    residentModal.show();
+}
 
-        // ============================================
-        // TOAST NOTIFICATIONS
-        // ============================================
-        function showToast(message, type = 'success') {
-            let container = document.getElementById('flashMessageContainer');
-            if (!container) {
-                const newContainer = document.createElement('div');
-                newContainer.id = 'flashMessageContainer';
-                newContainer.className = 'toast-container';
-                document.body.appendChild(newContainer);
-                container = newContainer;
+function resetForm() {
+    const form = document.getElementById('residentForm');
+    form.reset();
+    $('#room_id').empty().append('<option value="">Select Room</option>');
+    $('#bed_id').empty().append('<option value="">Select Bed</option>');
+    $('#vacateDateDiv').hide();
+    $('.invalid-feedback').text('');
+    $('.rv-input-box').removeClass('is-invalid');
+    document.getElementById('saveBtnText').textContent = 'Save';
+    document.getElementById('editId').value = '';
+    document.getElementById('modalTitle').textContent = 'Add Resident';
+    document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
+
+    $('[id$="_preview"]').hide();
+    $('[id$="_existing"]').hide();
+    $('[id$="_existing"]').data('has-file', false);
+}
+
+// ============================================
+// FORM SUBMISSION
+// ============================================
+function submitForm() {
+    let id = document.getElementById('editId').value;
+    let url = "{{ route('admin.residents.store') }}";
+    let formData = new FormData(document.getElementById('residentForm'));
+
+    if (id) {
+        url = "{{ url('admin/residents') }}/" + id;
+        formData.append('_method', 'PUT');
+    }
+
+    $.ajax({
+        url: url,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        beforeSend: function() {
+            $('#saveBtn').prop('disabled', true).html(
+                '<i class="bi bi-spinner bi-spin"></i> Saving...');
+            $('.invalid-feedback').text('');
+            $('.rv-input-box').removeClass('is-invalid');
+        },
+        success: function(response) {
+            if (response.success) {
+                residentModal.hide();
+                showToast(response.message, 'success');
+                setTimeout(() => location.reload(), 1500);
             }
-
-            const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
-            const color = type === 'success' ? '#22c55e' : '#ef4444';
-
-            const toast = document.createElement('div');
-            toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
-            toast.innerHTML = `
-                <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
-                <div class="message">${message}</div>
-                <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
-            `;
-            container.appendChild(toast);
-
-            setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.style.animation = 'slideOutRight 0.3s ease forwards';
-                    setTimeout(() => toast.remove(), 300);
+        },
+        error: function(xhr) {
+            if (xhr.status === 403) {
+                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+            } else if (xhr.status === 422) {
+                let errors = xhr.responseJSON.errors;
+                if (xhr.responseJSON.message) {
+                    showToast(xhr.responseJSON.message, 'error');
+                } else {
+                    $.each(errors, function(field, messages) {
+                        $('#' + field).closest('.rv-input-box').addClass('is-invalid');
+                        $('#' + field + '_error').text(messages[0]);
+                    });
+                    showToast('Please fix validation errors', 'error');
                 }
-            }, 5000);
+            } else {
+                showToast(xhr.responseJSON?.message || 'Something went wrong!', 'error');
+            }
+        },
+        complete: function() {
+            let id = document.getElementById('editId').value;
+            let text = id ? 'Update' : 'Save';
+            $('#saveBtn').prop('disabled', false).html(
+                '<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text +
+                '</span>');
         }
-    </script>
-@endsection
+    });
+}
+
+// ============================================
+// CRUD OPERATIONS
+// ============================================
+function editResident(id) {
+    $.ajax({
+        url: "{{ url('admin/residents') }}/" + id + "/edit",
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                let data = response.data;
+                document.getElementById('modalTitle').textContent = 'Edit Resident';
+                document.getElementById('editId').value = data.id;
+                document.getElementById('name').value = data.name;
+                document.getElementById('phone').value = data.phone;
+                document.getElementById('parentsphone').value = data.parentsphone || '';
+                document.getElementById('email').value = data.email || '';
+                document.getElementById('aadhaar_no').value = data.aadhaar_no || '';
+                document.getElementById('address').value = data.address || '';
+                document.getElementById('hostel_id').value = data.hostel_id;
+                document.getElementById('food_status').value = data.food_status || '';
+                document.getElementById('rent_amount').value = data.rent_amount || 0;
+                document.getElementById('deposit_amount').value = data.deposit_amount || 0;
+                document.getElementById('status').value = data.status;
+
+                if (data.joining_date) {
+                    const joiningDate = new Date(data.joining_date);
+                    document.getElementById('joining_date').value = joiningDate.toISOString()
+                        .split('T')[0];
+                }
+
+                if (data.vacate_date) {
+                    const vacateDate = new Date(data.vacate_date);
+                    document.getElementById('vacate_date').value = vacateDate.toISOString()
+                        .split('T')[0];
+                    $('#vacateDateDiv').show();
+                } else {
+                    $('#vacateDateDiv').hide();
+                    document.getElementById('vacate_date').value = '';
+                }
+
+                document.getElementById('saveBtnText').textContent = 'Update';
+
+                // Show existing documents
+                if (data.profile_image) {
+                    $('#profile_image_existing').data('has-file', true);
+                    $('#profile_image_existing').show();
+                    $('#profile_existing_img').attr('src', '{{ asset('') }}' + data
+                    .profile_image);
+                } else {
+                    $('#profile_image_existing').hide();
+                }
+
+                if (data.aadhar_document) {
+                    $('#aadhar_document_existing').data('has-file', true);
+                    $('#aadhar_document_existing').show();
+                    $('#aadhar_existing_link').attr('href', '{{ asset('') }}' + data
+                        .aadhar_document);
+                } else {
+                    $('#aadhar_document_existing').hide();
+                }
+
+                if (data.application_document) {
+                    $('#application_document_existing').data('has-file', true);
+                    $('#application_document_existing').show();
+                    $('#application_existing_link').attr('href', '{{ asset('') }}' + data
+                        .application_document);
+                } else {
+                    $('#application_document_existing').hide();
+                }
+
+                // Load rooms
+                $.ajax({
+                    url: "{{ route('admin.residents.get-rooms') }}",
+                    type: 'POST',
+                    data: { hostel_id: data.hostel_id, _token: '{{ csrf_token() }}' },
+                    success: function(roomResponse) {
+                        let select = $('#room_id');
+                        select.empty().append('<option value="">Select Room</option>');
+
+                        if (roomResponse.success && roomResponse.data.length > 0) {
+                            let currentRoomExists = false;
+
+                            $.each(roomResponse.data, function(key, room) {
+                                let bedInfo = room.available_beds > 0 ? ' (Beds: ' +
+                                    room.available_beds + ')' : ' (Full)';
+                                let selected = (room.id == data.room_id) ?
+                                    'selected' : '';
+                                if (room.id == data.room_id) {
+                                    currentRoomExists = true;
+                                }
+
+                                select.append('<option value="' + room.id + '" ' +
+                                    selected + ' data-beds="' + room
+                                    .available_beds + '">Room #' + room
+                                    .room_no + ' - ' + room.room_type
+                                    .room_type_name + bedInfo + '</option>');
+                            });
+
+                            if (!currentRoomExists && data.room_id) {
+                                $.ajax({
+                                    url: '/admin/residents/room/' + data
+                                        .room_id + '/details',
+                                    type: 'GET',
+                                    success: function(
+                                    currentRoomResponse) {
+                                        if (currentRoomResponse
+                                            .success) {
+                                            let room = currentRoomResponse
+                                                .data;
+                                            select.append(
+                                                '<option value="' +
+                                                room.id +
+                                                '" selected>Room #' +
+                                                room.room_no +
+                                                ' - ' + room
+                                                .room_type
+                                                .room_type_name +
+                                                ' (Current Room)</option>'
+                                                );
+                                        }
+                                    }
+                                });
+                            }
+
+                            if (data.room_id) {
+                                select.val(data.room_id);
+                            }
+                        } else {
+                            select.append('<option value="">No rooms available</option>');
+                        }
+
+                        // Load beds
+                        $.ajax({
+                            url: '/admin/residents/room/' + data.room_id +
+                                '/beds',
+                            type: 'GET',
+                            success: function(bedResponse) {
+                                let bedSelect = $('#bed_id');
+                                bedSelect.empty().append(
+                                    '<option value="">Select Bed</option>');
+
+                                if (bedResponse.success && bedResponse
+                                    .data.length > 0) {
+                                    let currentBedExists = false;
+
+                                    bedResponse.data.sort(function(
+                                    a, b) {
+                                        if (a.id == data.bed_id)
+                                            return -1;
+                                        if (b.id == data.bed_id)
+                                            return 1;
+                                        if (a.status === 'OCCUPIED' &&
+                                            b.status !== 'OCCUPIED')
+                                            return -1;
+                                        if (a.status !== 'OCCUPIED' &&
+                                            b.status === 'OCCUPIED')
+                                            return 1;
+                                        return a.bed_no.localeCompare(
+                                            b.bed_no);
+                                    });
+
+                                    $.each(bedResponse.data, function(
+                                        key, bed) {
+                                        let selected = (bed.id ==
+                                            data.bed_id) ?
+                                            'selected' : '';
+                                        let statusLabel = '';
+
+                                        if (bed.id == data.bed_id) {
+                                            statusLabel =
+                                            ' (Current)';
+                                            currentBedExists = true;
+                                        } else if (bed.status ===
+                                            'OCCUPIED') {
+                                            statusLabel =
+                                            ' (Occupied)';
+                                        } else {
+                                            statusLabel =
+                                            ' (Vacant)';
+                                        }
+
+                                        let disabled = (bed.status ===
+                                            'OCCUPIED' && bed.id !=
+                                            data.bed_id) ?
+                                            'disabled' : '';
+
+                                        bedSelect.append(
+                                            '<option value="' + bed
+                                            .id + '" ' + selected +
+                                            ' ' + disabled + '>' +
+                                            'Bed #' + bed.bed_no +
+                                            ' (' + bed.bed_type +
+                                            ')' + statusLabel +
+                                            '</option>'
+                                        );
+                                    });
+
+                                    if (!currentBedExists && data
+                                        .bed_id) {
+                                        bedSelect.append(
+                                            '<option value="' + data
+                                            .bed_id +
+                                            '" selected>Bed #' +
+                                            (data.bed ? data.bed
+                                                .bed_no : 'N/A') +
+                                            ' (Current Bed)</option>'
+                                            );
+                                    }
+
+                                    if (data.bed_id) {
+                                        bedSelect.val(data.bed_id);
+                                    }
+                                } else {
+                                    if (data.bed) {
+                                        bedSelect.append(
+                                            '<option value="' + data
+                                            .bed.id +
+                                            '" selected>Bed #' + data
+                                            .bed.bed_no + ' (' + data
+                                            .bed.bed_type +
+                                            ') - Current</option>'
+                                            );
+                                    }
+                                    bedSelect.append(
+                                        '<option value="">No beds available</option>'
+                                        );
+                                }
+                            },
+                            error: function(xhr) {
+                                if (xhr.status === 403) {
+                                    showToast(xhr.responseJSON
+                                        ?.message ||
+                                        'Permission denied!',
+                                        'error');
+                                }
+                            }
+                        });
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 403) {
+                            showToast(xhr.responseJSON?.message ||
+                                'Permission denied!', 'error');
+                        }
+                    }
+                });
+
+                $('.invalid-feedback').text('');
+                $('.rv-input-box').removeClass('is-invalid');
+                residentModal.show();
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 403) {
+                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+            } else {
+                showToast('Failed to load resident data', 'error');
+            }
+        }
+    });
+}
+
+function deleteResident(id) {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "This action cannot be undone! All associated documents will also be deleted.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: "{{ url('admin/residents') }}/" + id,
+                type: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                success: function(response) {
+                    if (response.success) {
+                        showToast(response.message, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!',
+                            'error');
+                    } else {
+                        showToast(xhr.responseJSON?.message || 'Failed to delete!',
+                            'error');
+                    }
+                }
+            });
+        }
+    });
+}
+
+function toggleStatus(id) {
+    Swal.fire({
+        title: 'Toggle Status?',
+        text: "Change resident status?",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#c5a028',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, change it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: "{{ url('admin/residents') }}/" + id + "/toggle-status",
+                type: 'PATCH',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                success: function(response) {
+                    if (response.success) {
+                        showToast(response.message, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!',
+                            'error');
+                    } else {
+                        showToast(xhr.responseJSON?.message || 'Failed to update status!',
+                            'error');
+                    }
+                }
+            });
+        }
+    });
+}
+
+// ============================================
+// TOAST NOTIFICATIONS
+// ============================================
+function showToast(message, type = 'success') {
+    let container = document.getElementById('flashMessageContainer');
+    if (!container) {
+        const newContainer = document.createElement('div');
+        newContainer.id = 'flashMessageContainer';
+        newContainer.className = 'toast-container';
+        document.body.appendChild(newContainer);
+        container = newContainer;
+    }
+
+    const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
+    const color = type === 'success' ? '#22c55e' : '#ef4444';
+
+    const toast = document.createElement('div');
+    toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
+    toast.innerHTML = `
+        <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
+        <div class="message">${message}</div>
+        <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
+    `;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.style.animation = 'slideOutRight 0.3s ease forwards';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
+}
+</script>
+@endpush
