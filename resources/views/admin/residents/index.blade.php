@@ -26,7 +26,12 @@
             max-width: 100%;
             padding: 0 15px;
         }
-
+.modal-content form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0; /* critical: lets the flex child shrink so overflow-y:auto works */
+}
         /* ============================================
                    HEADER
                 ============================================ */
