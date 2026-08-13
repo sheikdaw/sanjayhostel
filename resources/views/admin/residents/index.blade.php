@@ -112,10 +112,10 @@
         .stat-card.total .number { color: var(--primary); }
         .stat-card.rent .number { color: #92400e; }
         .stat-card.rent { background: linear-gradient(135deg, #fef3c7, #fde68a); }
-        .stat-card.food .number { color: #166534; }
-        .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
         .stat-card.biometric .number { color: #7c3aed; }
         .stat-card.biometric { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+        .stat-card.food .number { color: #166534; }
+        .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
 
         /* ============================================
                    FILTER SECTION
@@ -569,7 +569,64 @@
         }
 
         /* ============================================
-                   MODAL
+                   MODAL - SCROLLABLE FIX
+                ============================================ */
+        .modal-content {
+            border-radius: 16px;
+            border: none;
+            max-height: 95vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            background: var(--primary);
+            color: white;
+            border-radius: 16px 16px 0 0;
+            padding: 1rem 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+            max-height: calc(95vh - 130px);
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            flex-shrink: 0;
+            background: #f8fafc;
+            border-radius: 0 0 16px 16px;
+        }
+
+        /* Modal Scrollbar Styling */
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: var(--gold);
+            border-radius: 3px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #b8941a;
+        }
+
+        /* ============================================
+                   FORM STYLES
                 ============================================ */
         .rv-input-box {
             position: relative;
@@ -873,6 +930,11 @@
 
             .resident-detail {
                 font-size: 0.7rem;
+            }
+
+            .modal-body {
+                max-height: calc(90vh - 130px);
+                padding: 1rem;
             }
         }
 
@@ -1274,14 +1336,14 @@
     </div>
 
     {{-- ============================================
-    ADD/EDIT MODAL
+    ADD/EDIT MODAL - SCROLLABLE
     ============================================ --}}
     <div class="modal fade" id="residentModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
-                <div class="modal-header" style="background: var(--primary); color:white; border-radius:12px 12px 0 0;">
+                <div class="modal-header">
                     <h5 class="modal-title" id="modalTitle"><i class="bi bi-person-plus"></i> Add Resident</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="residentForm" enctype="multipart/form-data">
                     @csrf
@@ -1549,11 +1611,11 @@
     DETAILS VIEW MODAL
     ============================================ --}}
     <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content">
-                <div class="modal-header" style="background: var(--primary); color:white; border-radius:12px 12px 0 0;">
+                <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-person-badge"></i> Resident Details</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="detailsBody">
                     <div class="text-center py-5">
@@ -1930,7 +1992,6 @@
         function renderDetails(data) {
             let html = `
                 <div class="row g-4">
-                    <!-- Profile Column -->
                     <div class="col-lg-4">
                         <div class="text-center p-3" style="background: #f8fafc; border-radius:12px;">
                             <div style="width:150px; height:150px; border-radius:50%; margin:0 auto; overflow:hidden; border:4px solid var(--gold); background:var(--primary);">
@@ -1939,8 +2000,6 @@
                             </div>
                             <h3 class="mt-3 mb-1">${data.name}</h3>
                             <p class="text-muted small">${data.resident_code}</p>
-
-                            <!-- Biometric Status -->
                             <div class="mt-2">
                                 <span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}">
                                     <i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i>
@@ -1948,252 +2007,72 @@
                                 </span>
                                 ${data.biometric.employee_code ? `<span class="ms-2 badge bg-secondary">${data.biometric.employee_code}</span>` : ''}
                             </div>
-
-                            <!-- Status & Food -->
                             <div class="mt-2 d-flex justify-content-center gap-2 flex-wrap">
                                 <span class="badge-custom ${data.status.badge}">${data.status.label}</span>
                                 <span class="food-badge ${data.financial.food_status_badge}">
                                     ${data.financial.food_status_icon} ${data.financial.food_status_label}
                                 </span>
                             </div>
-
-                            <!-- Rent -->
                             <div class="mt-2">
                                 <span class="resident-rent">${data.financial.rent_formatted} / month</span>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Details Column -->
                     <div class="col-lg-8">
                         <div class="row g-3">
-                            <!-- Personal Info -->
                             <div class="col-md-6">
                                 <div class="detail-card">
                                     <div class="card-title"><i class="bi bi-person"></i> Personal Info</div>
-                                    <div class="detail-item">
-                                        <span class="label">Phone</span>
-                                        <span class="value">${data.phone}</span>
-                                    </div>
-                                    ${data.parents_phone ? `
-                                    <div class="detail-item">
-                                        <span class="label">Parents Phone</span>
-                                        <span class="value">${data.parents_phone}</span>
-                                    </div>` : ''}
-                                    ${data.email ? `
-                                    <div class="detail-item">
-                                        <span class="label">Email</span>
-                                        <span class="value">${data.email}</span>
-                                    </div>` : ''}
-                                    ${data.aadhaar_no ? `
-                                    <div class="detail-item">
-                                        <span class="label">Aadhaar</span>
-                                        <span class="value">${data.aadhaar_no}</span>
-                                    </div>` : ''}
-                                    ${data.address ? `
-                                    <div class="detail-item">
-                                        <span class="label">Address</span>
-                                        <span class="value" style="text-align:left;">${data.address}</span>
-                                    </div>` : ''}
+                                    <div class="detail-item"><span class="label">Phone</span><span class="value">${data.phone}</span></div>
+                                    ${data.parents_phone ? `<div class="detail-item"><span class="label">Parents Phone</span><span class="value">${data.parents_phone}</span></div>` : ''}
+                                    ${data.email ? `<div class="detail-item"><span class="label">Email</span><span class="value">${data.email}</span></div>` : ''}
+                                    ${data.aadhaar_no ? `<div class="detail-item"><span class="label">Aadhaar</span><span class="value">${data.aadhaar_no}</span></div>` : ''}
+                                    ${data.address ? `<div class="detail-item"><span class="label">Address</span><span class="value" style="text-align:left;">${data.address}</span></div>` : ''}
                                 </div>
                             </div>
-
-                            <!-- Accommodation -->
                             <div class="col-md-6">
                                 <div class="detail-card">
                                     <div class="card-title"><i class="bi bi-building"></i> Accommodation</div>
-                                    <div class="detail-item">
-                                        <span class="label">Hostel</span>
-                                        <span class="value">${data.hostel.name} ${data.hostel.type_icon}</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Room</span>
-                                        <span class="value">#${data.room.number} (${data.room.type})</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Bed</span>
-                                        <span class="value">#${data.bed.number} (${data.bed.type})</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Joining Date</span>
-                                        <span class="value">${data.status.joining_date_formatted}</span>
-                                    </div>
-                                    ${data.status.vacate_date ? `
-                                    <div class="detail-item">
-                                        <span class="label">Vacate Date</span>
-                                        <span class="value">${data.status.vacate_date_formatted}</span>
-                                    </div>` : ''}
+                                    <div class="detail-item"><span class="label">Hostel</span><span class="value">${data.hostel.name} ${data.hostel.type_icon}</span></div>
+                                    <div class="detail-item"><span class="label">Room</span><span class="value">#${data.room.number} (${data.room.type})</span></div>
+                                    <div class="detail-item"><span class="label">Bed</span><span class="value">#${data.bed.number} (${data.bed.type})</span></div>
+                                    <div class="detail-item"><span class="label">Joining Date</span><span class="value">${data.status.joining_date_formatted}</span></div>
+                                    ${data.status.vacate_date ? `<div class="detail-item"><span class="label">Vacate Date</span><span class="value">${data.status.vacate_date_formatted}</span></div>` : ''}
                                 </div>
                             </div>
-
-                            <!-- Financial -->
                             <div class="col-md-6">
                                 <div class="detail-card">
                                     <div class="card-title"><i class="bi bi-wallet"></i> Financial</div>
-                                    <div class="detail-item">
-                                        <span class="label">Rent</span>
-                                        <span class="value">${data.financial.rent_formatted}</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Deposit</span>
-                                        <span class="value">${data.financial.deposit_formatted || '₹0.00'}</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Food Status</span>
-                                        <span class="value">${data.financial.food_status_icon} ${data.financial.food_status_label}</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Status</span>
-                                        <span class="value"><span class="badge-custom ${data.status.badge}">${data.status.label}</span></span>
-                                    </div>
+                                    <div class="detail-item"><span class="label">Rent</span><span class="value">${data.financial.rent_formatted}</span></div>
+                                    <div class="detail-item"><span class="label">Deposit</span><span class="value">${data.financial.deposit_formatted || '₹0.00'}</span></div>
+                                    <div class="detail-item"><span class="label">Food Status</span><span class="value">${data.financial.food_status_icon} ${data.financial.food_status_label}</span></div>
+                                    <div class="detail-item"><span class="label">Status</span><span class="value"><span class="badge-custom ${data.status.badge}">${data.status.label}</span></span></div>
                                 </div>
                             </div>
-
-                            <!-- Biometric Info -->
                             <div class="col-md-6">
                                 <div class="detail-card">
-                                    <div class="card-title"><i class="bi bi-fingerprint"></i> Biometric Details</div>
-                                    <div class="detail-item">
-                                        <span class="label">Employee Code</span>
-                                        <span class="value"><code>${data.biometric.employee_code}</code></span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Access Status</span>
-                                        <span class="value">
-                                            <span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}">
-                                                <i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i>
-                                                ${data.biometric.access_status}
-                                            </span>
-                                        </span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="label">Last Synced</span>
-                                        <span class="value">${data.biometric.last_sync_at}</span>
-                                    </div>
-                                    ${data.biometric.access_enabled_at ? `
-                                    <div class="detail-item">
-                                        <span class="label">Access Enabled</span>
-                                        <span class="value">${data.biometric.access_enabled_at}</span>
-                                    </div>` : ''}
-                                    ${data.biometric.access_disabled_at ? `
-                                    <div class="detail-item">
-                                        <span class="label">Access Disabled</span>
-                                        <span class="value">${data.biometric.access_disabled_at}</span>
-                                    </div>` : ''}
+                                    <div class="card-title"><i class="bi bi-fingerprint"></i> Biometric</div>
+                                    <div class="detail-item"><span class="label">Employee Code</span><span class="value"><code>${data.biometric.employee_code}</code></span></div>
+                                    <div class="detail-item"><span class="label">Access Status</span><span class="value"><span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}"><i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i> ${data.biometric.access_status}</span></span></div>
+                                    <div class="detail-item"><span class="label">Last Synced</span><span class="value">${data.biometric.last_sync_at}</span></div>
                                 </div>
                             </div>
-
-                            <!-- Documents -->
-                            <div class="col-md-6">
-                                <div class="detail-card">
-                                    <div class="card-title"><i class="bi bi-files"></i> Documents</div>
-                                    ${data.documents.profile_image.exists ? `
-                                    <div class="detail-item">
-                                        <span class="label">Profile Image</span>
-                                        <span class="value">
-                                            <a href="${data.documents.profile_image.url}" target="_blank" class="btn-action text-primary">
-                                                <i class="bi bi-eye"></i> View
-                                            </a>
-                                        </span>
-                                    </div>` : '<div class="detail-item"><span class="label">Profile Image</span><span class="value text-muted">Not uploaded</span></div>'}
-                                    ${data.documents.aadhar_document.exists ? `
-                                    <div class="detail-item">
-                                        <span class="label">Aadhar</span>
-                                        <span class="value">
-                                            <a href="${data.documents.aadhar_document.url}" target="_blank" class="btn-action text-primary">
-                                                <i class="bi bi-eye"></i> View
-                                            </a>
-                                        </span>
-                                    </div>` : '<div class="detail-item"><span class="label">Aadhar</span><span class="value text-muted">Not uploaded</span></div>'}
-                                    ${data.documents.application_document.exists ? `
-                                    <div class="detail-item">
-                                        <span class="label">Application</span>
-                                        <span class="value">
-                                            <a href="${data.documents.application_document.url}" target="_blank" class="btn-action text-primary">
-                                                <i class="bi bi-eye"></i> View
-                                            </a>
-                                        </span>
-                                    </div>` : '<div class="detail-item"><span class="label">Application</span><span class="value text-muted">Not uploaded</span></div>'}
-                                </div>
-                            </div>
-
-                            <!-- Payment Info -->
                             <div class="col-12">
                                 <div class="detail-card">
                                     <div class="card-title"><i class="bi bi-credit-card"></i> Payment Status</div>
                                     ${data.current_payment ? `
                                     <div class="row g-3">
-                                        <div class="col-md-3">
-                                            <div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;">
-                                                <div style="font-size:0.7rem; color:#6b7280;">Month</div>
-                                                <div style="font-weight:600;">${data.current_payment.month_name} ${data.current_payment.year}</div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;">
-                                                <div style="font-size:0.7rem; color:#6b7280;">Rent</div>
-                                                <div style="font-weight:600;">₹${data.current_payment.rent_amount}</div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;">
-                                                <div style="font-size:0.7rem; color:#6b7280;">Paid</div>
-                                                <div style="font-weight:600; color:var(--success);">₹${data.current_payment.total_paid}</div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;">
-                                                <div style="font-size:0.7rem; color:#6b7280;">Status</div>
-                                                <div style="font-weight:600;">${data.current_payment.status_label}</div>
-                                            </div>
-                                        </div>
+                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Month</div><div style="font-weight:600;">${data.current_payment.month_name} ${data.current_payment.year}</div></div></div>
+                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Rent</div><div style="font-weight:600;">₹${data.current_payment.rent_amount}</div></div></div>
+                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Paid</div><div style="font-weight:600; color:var(--success);">₹${data.current_payment.total_paid}</div></div></div>
+                                        <div class="col-md-3"><div style="text-align:center; padding:0.5rem; background:#f8fafc; border-radius:8px;"><div style="font-size:0.7rem; color:#6b7280;">Status</div><div style="font-weight:600;">${data.current_payment.status_label}</div></div></div>
                                     </div>` : '<p class="text-muted text-center">No payment record for current month</p>'}
-
-                                    ${data.payment_history.length > 0 ? `
-                                    <div class="mt-3">
-                                        <div style="font-size:0.75rem; font-weight:600; color:#6b7280; margin-bottom:0.5rem;">Recent History</div>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-bordered" style="font-size:0.75rem;">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Month</th>
-                                                        <th>Rent</th>
-                                                        <th>Paid</th>
-                                                        <th>Balance</th>
-                                                        <th>Status</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${data.payment_history.map(p => `
-                                                    <tr>
-                                                        <td>${p.month_name} ${p.year}</td>
-                                                        <td>₹${p.rent_amount}</td>
-                                                        <td>₹${p.total_paid}</td>
-                                                        <td>₹${p.balance}</td>
-                                                        <td>${p.status_label}</td>
-                                                    </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>` : ''}
-                                </div>
-                            </div>
-
-                            <!-- Timestamps -->
-                            <div class="col-12">
-                                <div class="detail-card" style="background:#f8fafc;">
-                                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#6b7280; flex-wrap:wrap; gap:0.5rem;">
-                                        <span>Created: ${data.created_at_formatted}</span>
-                                        <span>Updated: ${data.updated_at_formatted}</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             `;
-
             $('#detailsBody').html(html);
         }
 
@@ -2581,7 +2460,7 @@
                             $('#application_document_existing').hide();
                         }
 
-                        // Load rooms
+                        // Load rooms - Same as before...
                         $.ajax({
                             url: "{{ route('admin.residents.get-rooms') }}",
                             type: 'POST',
