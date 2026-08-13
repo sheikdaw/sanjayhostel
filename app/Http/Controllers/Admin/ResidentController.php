@@ -8,24 +8,14 @@ use App\Models\Hostel;
 use App\Models\Resident;
 use App\Models\Room;
 use App\Models\Payment;
-use App\Services\EbioServerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 
 class ResidentController extends Controller
 {
-    protected $ebioService;
-
-    public function __construct(EbioServerService $ebioService)
-    {
-        $this->ebioService = $ebioService;
-    }
-
     /**
      * Display a listing of residents with full details
      */
@@ -67,7 +57,6 @@ class ResidentController extends Controller
             'face_registered' => $residents->where('face_registered', true)->count(),
         ];
 
-       
         return view('admin.residents.index', compact('residents', 'hostels', 'stats', 'user'));
     }
 
@@ -96,7 +85,6 @@ class ResidentController extends Controller
                 ->get();
 
             $details = [
-                // Personal Information
                 'id' => $resident->id,
                 'resident_code' => $resident->resident_code,
                 'name' => $resident->name,
@@ -105,18 +93,18 @@ class ResidentController extends Controller
                 'email' => $resident->email,
                 'aadhaar_no' => $resident->aadhaar_no,
                 'address' => $resident->address,
-                'profile_image' => $resident->profile_image_url,
-                'profile_image_thumb' => $resident->profile_image_thumb,
-                'initials' => $resident->initials,
-
+                'profile_image' => $this->getProfileImageUrl($resident),
+                'profile_image_thumb' => $this->getProfileImageThumb($resident),
+                'initials' => $this->getInitials($resident->name),
+                
                 // Face Recognition
                 'face' => [
                     'face_id' => $resident->face_id,
-                    'face_registered' => $resident->face_registered,
+                    'face_registered' => $resident->face_registered ?? false,
                     'face_registered_at' => $resident->face_registered_at ? $resident->face_registered_at->format('Y-m-d H:i:s') : null,
-                    'face_image_url' => $resident->face_image_url,
-                    'status' => $resident->has_face_registered ? 'Registered ✅' : 'Not Registered ❌',
-                    'status_class' => $resident->has_face_registered ? 'success' : 'danger',
+                    'face_image_url' => $resident->face_image_path ? asset($resident->face_image_path) : null,
+                    'status' => ($resident->face_registered ?? false) ? 'Registered ✅' : 'Not Registered ❌',
+                    'status_class' => ($resident->face_registered ?? false) ? 'success' : 'danger',
                 ],
 
                 // Accommodation Details
@@ -125,7 +113,7 @@ class ResidentController extends Controller
                     'name' => $resident->hostel->hostel_name ?? 'N/A',
                     'code' => $resident->hostel->hostel_code ?? 'N/A',
                     'type' => $resident->hostel->hostel_type ?? 'N/A',
-                    'type_icon' => $resident->hostel->hostel_type == 'MEN' ? '👨' : '👩',
+                    'type_icon' => ($resident->hostel->hostel_type ?? '') == 'MEN' ? '👨' : '👩',
                 ],
                 'room' => [
                     'id' => $resident->room_id,
@@ -144,20 +132,20 @@ class ResidentController extends Controller
                 // Financial Details
                 'financial' => [
                     'rent_amount' => $resident->rent_amount,
-                    'rent_formatted' => $resident->formatted_rent,
+                    'rent_formatted' => '₹' . number_format($resident->rent_amount ?? 0, 2),
                     'deposit_amount' => $resident->deposit_amount,
-                    'deposit_formatted' => $resident->formatted_deposit,
+                    'deposit_formatted' => '₹' . number_format($resident->deposit_amount ?? 0, 2),
                     'food_status' => $resident->food_status,
-                    'food_status_label' => $resident->food_status_label,
-                    'food_status_badge' => $resident->food_status_badge,
-                    'food_status_icon' => $resident->food_status_icon,
+                    'food_status_label' => $resident->food_status == 'WITH_FOOD' ? 'With Food 🍽️' : 'Without Food 🍞',
+                    'food_status_badge' => $resident->food_status == 'WITH_FOOD' ? 'success' : 'secondary',
+                    'food_status_icon' => $resident->food_status == 'WITH_FOOD' ? '🍽️' : '🍞',
                 ],
 
                 // Status
                 'status' => [
                     'value' => $resident->status,
-                    'label' => $resident->status_label ?? $resident->status,
-                    'badge' => $resident->status_badge,
+                    'label' => $resident->status == 'ACTIVE' ? 'Active ✅' : 'Vacated ❌',
+                    'badge' => strtolower($resident->status),
                     'joining_date' => $resident->joining_date ? $resident->joining_date->format('Y-m-d') : null,
                     'joining_date_formatted' => $resident->joining_date ? $resident->joining_date->format('d M Y') : 'N/A',
                     'vacate_date' => $resident->vacate_date ? $resident->vacate_date->format('Y-m-d') : null,
@@ -168,21 +156,21 @@ class ResidentController extends Controller
                 'documents' => [
                     'profile_image' => [
                         'exists' => !is_null($resident->profile_image),
-                        'url' => $resident->profile_image_url,
+                        'url' => $this->getProfileImageUrl($resident),
                         'name' => 'Profile Image',
                         'icon' => 'bi-person-circle',
                     ],
                     'aadhar_document' => [
                         'exists' => !is_null($resident->aadhar_document),
-                        'url' => $resident->aadhar_document_url,
+                        'url' => $resident->aadhar_document ? asset($resident->aadhar_document) : null,
                         'name' => 'Aadhar Document',
-                        'icon' => $resident->getDocumentIcon('aadhar_document'),
+                        'icon' => $this->getDocumentIcon($resident->aadhar_document),
                     ],
                     'application_document' => [
                         'exists' => !is_null($resident->application_document),
-                        'url' => $resident->application_document_url,
+                        'url' => $resident->application_document ? asset($resident->application_document) : null,
                         'name' => 'Application Document',
-                        'icon' => $resident->getDocumentIcon('application_document'),
+                        'icon' => $this->getDocumentIcon($resident->application_document),
                     ],
                 ],
 
@@ -190,22 +178,22 @@ class ResidentController extends Controller
                 'current_payment' => $currentPayment ? [
                     'month' => $currentPayment->month,
                     'year' => $currentPayment->year,
-                    'month_name' => $currentPayment->month_name,
+                    'month_name' => date('F', mktime(0, 0, 0, $currentPayment->month, 1)),
                     'rent_amount' => $currentPayment->rent_amount,
                     'cash_paid' => $currentPayment->cash_paid_amount ?? 0,
                     'upi_paid' => $currentPayment->upi_paid_amount ?? 0,
-                    'total_paid' => $currentPayment->total_paid,
+                    'total_paid' => ($currentPayment->cash_paid_amount ?? 0) + ($currentPayment->upi_paid_amount ?? 0),
                     'balance' => $currentPayment->balance_amount ?? 0,
                     'status' => $currentPayment->status,
-                    'status_label' => $currentPayment->status_label,
+                    'status_label' => $currentPayment->status == 'PAID' ? 'Paid ✅' : 'Pending ❌',
                 ] : null,
                 'payment_history' => $paymentHistory->map(function($payment) {
                     return [
                         'month' => $payment->month,
                         'year' => $payment->year,
-                        'month_name' => $payment->month_name,
+                        'month_name' => date('F', mktime(0, 0, 0, $payment->month, 1)),
                         'rent_amount' => $payment->rent_amount,
-                        'total_paid' => $payment->total_paid,
+                        'total_paid' => ($payment->cash_paid_amount ?? 0) + ($payment->upi_paid_amount ?? 0),
                         'balance' => $payment->balance_amount ?? 0,
                         'status' => $payment->status,
                         'status_label' => $payment->status == 'PAID' ? '✅' : '❌',
@@ -229,37 +217,6 @@ class ResidentController extends Controller
                 'success' => false,
                 'error' => $e->getMessage()
             ], 404);
-        }
-    }
-
-    /**
-     * Show resident full details page
-     */
-    public function show($id)
-    {
-        try {
-            $resident = Resident::with(['hostel', 'room', 'bed', 'room.roomType'])
-                ->findOrFail($id);
-
-            // Get current month payment
-            $currentMonth = now()->month;
-            $currentYear = now()->year;
-            $currentPayment = Payment::where('resident_id', $id)
-                ->where('month', $currentMonth)
-                ->where('year', $currentYear)
-                ->first();
-
-            // Get payment history
-            $paymentHistory = Payment::where('resident_id', $id)
-                ->orderBy('year', 'desc')
-                ->orderBy('month', 'desc')
-                ->limit(6)
-                ->get();
-
-            return view('admin.residents.show', compact('resident', 'currentPayment', 'paymentHistory'));
-        } catch (\Exception $e) {
-            return redirect()->route('admin.residents.index')
-                ->with('error', 'Resident not found');
         }
     }
 
@@ -428,8 +385,6 @@ class ResidentController extends Controller
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'aadhar_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg|max:5120',
             'application_document' => 'nullable|file|mimes:pdf,jpeg,png,jpg|max:5120',
-            'face_registered' => 'nullable|boolean',
-            'face_id' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -823,26 +778,21 @@ class ResidentController extends Controller
             ->header('Cache-Control', 'max-age=86400');
     }
 
-    /**
-     * Helper to escape CSV fields
-     */
+    // ============================================
+    // HELPER METHODS
+    // ============================================
+
     private function csvEscape($value)
     {
         if ($value === null) return '';
-
         $value = (string) $value;
-
         if (strpos($value, ',') !== false || strpos($value, "\n") !== false || strpos($value, '"') !== false) {
             $value = str_replace('"', '""', $value);
             return '"' . $value . '"';
         }
-
         return $value;
     }
 
-    /**
-     * Upload file to public directory
-     */
     private function uploadFile($file, $subDirectory = '')
     {
         if (!$file) return null;
@@ -860,13 +810,9 @@ class ResidentController extends Controller
         }
 
         $file->move($path, $filename);
-
         return $directory . '/' . $filename;
     }
 
-    /**
-     * Delete file from public directory
-     */
     private function deleteFile($filePath)
     {
         if ($filePath && File::exists(public_path($filePath))) {
@@ -876,9 +822,6 @@ class ResidentController extends Controller
         return false;
     }
 
-    /**
-     * Update room status based on bed occupancy
-     */
     private function updateRoomStatus($room)
     {
         if (!$room) return;
@@ -903,80 +846,43 @@ class ResidentController extends Controller
         $room->save();
     }
 
-    /**
-     * Get residents by hostel
-     */
-    public function getResidentsByHostel($hostelId)
+    private function getInitials($name)
     {
-        $user = auth()->user();
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            if (!in_array($hostelId, $hostelIds)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have permission to view this hostel\'s residents!'
-                ], 403);
-            }
+        $words = explode(' ', $name);
+        $initials = '';
+        foreach ($words as $word) {
+            $initials .= strtoupper(substr($word, 0, 1));
         }
-
-        $residents = Resident::with(['hostel', 'room', 'bed'])
-            ->where('hostel_id', $hostelId)
-            ->where('status', 'ACTIVE')
-            ->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $residents
-        ]);
+        return substr($initials, 0, 2);
     }
 
-    /**
-     * Search residents
-     */
-    public function search(Request $request)
+    private function getProfileImageUrl($resident)
     {
-        $user = auth()->user();
-        $query = $request->get('q', '');
-
-        $residentsQuery = Resident::with(['hostel', 'room', 'bed'])
-            ->where('name', 'LIKE', "%{$query}%")
-            ->orWhere('resident_code', 'LIKE', "%{$query}%")
-            ->orWhere('phone', 'LIKE', "%{$query}%")
-            ->orWhere('email', 'LIKE', "%{$query}%")
-            ->orWhere('face_id', 'LIKE', "%{$query}%");
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $residentsQuery->whereIn('hostel_id', $hostelIds);
+        if ($resident->profile_image && file_exists(public_path($resident->profile_image))) {
+            return asset($resident->profile_image);
         }
-
-        $residents = $residentsQuery->limit(10)->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $residents
-        ]);
+        return null;
     }
 
-    /**
-     * Get room details
-     */
-    public function getRoomDetails($id)
+    private function getProfileImageThumb($resident)
     {
-        try {
-            $room = Room::with('roomType')->find($id);
-            if (!$room) {
-                return response()->json(['success' => false, 'message' => 'Room not found'], 404);
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => $room
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        if ($resident->profile_image && file_exists(public_path($resident->profile_image))) {
+            return asset($resident->profile_image);
         }
+        return 'https://ui-avatars.com/api/?name=' . urlencode($resident->name) . '&background=c5a028&color=fff&size=128';
+    }
+
+    private function getDocumentIcon($path)
+    {
+        if (!$path) return 'bi-file-earmark';
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        return match(strtolower($extension)) {
+            'pdf' => 'bi-file-earmark-pdf',
+            'doc', 'docx' => 'bi-file-earmark-word',
+            'xls', 'xlsx' => 'bi-file-earmark-excel',
+            'jpg', 'jpeg', 'png', 'gif' => 'bi-file-earmark-image',
+            default => 'bi-file-earmark',
+        };
     }
 
     /**
@@ -1071,45 +977,23 @@ class ResidentController extends Controller
     }
 
     /**
-     * Get statistics
+     * Get room details
      */
-    public function getStatistics()
+    public function getRoomDetails($id)
     {
-        $user = auth()->user();
+        try {
+            $room = Room::with('roomType')->find($id);
+            if (!$room) {
+                return response()->json(['success' => false, 'message' => 'Room not found'], 404);
+            }
 
-        if ($user->role === 'admin') {
-            $residents = Resident::all();
-            $hostels = Hostel::all();
-        } else {
-            $hostelIds = $user->hostel_ids ?? [];
-            $residents = Resident::whereIn('hostel_id', $hostelIds)->get();
-            $hostels = Hostel::whereIn('id', $hostelIds)->get();
+            return response()->json([
+                'success' => true,
+                'data' => $room
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
-
-        $stats = [
-            'total' => $residents->count(),
-            'active' => $residents->where('status', 'ACTIVE')->count(),
-            'vacated' => $residents->where('status', 'VACATED')->count(),
-            'male' => $residents->filter(function ($r) use ($hostels) {
-                $hostel = $hostels->firstWhere('id', $r->hostel_id);
-                return $hostel && $hostel->hostel_type == 'MEN';
-            })->count(),
-            'female' => $residents->filter(function ($r) use ($hostels) {
-                $hostel = $hostels->firstWhere('id', $r->hostel_id);
-                return $hostel && $hostel->hostel_type == 'WOMEN';
-            })->count(),
-            'with_food' => $residents->where('food_status', 'WITH_FOOD')->where('status', 'ACTIVE')->count(),
-            'without_food' => $residents->where('food_status', 'WITHOUT_FOOD')->where('status', 'ACTIVE')->count(),
-            'total_rent' => $residents->where('status', 'ACTIVE')->sum('rent_amount'),
-            'avg_rent' => $residents->where('status', 'ACTIVE')->count() > 0 ? round($residents->where('status', 'ACTIVE')->avg('rent_amount'), 2) : 0,
-            'total_deposit' => $residents->sum('deposit_amount'),
-            'face_registered' => $residents->where('face_registered', true)->count(),
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $stats
-        ]);
     }
 
     /**
@@ -1133,25 +1017,25 @@ class ResidentController extends Controller
         $documents = [
             'profile_image' => [
                 'exists' => !is_null($resident->profile_image),
-                'url' => $resident->profile_image_url,
+                'url' => $this->getProfileImageUrl($resident),
                 'name' => 'Profile Image',
                 'icon' => 'bi-person-circle'
             ],
             'aadhar_document' => [
                 'exists' => !is_null($resident->aadhar_document),
-                'url' => $resident->aadhar_document_url,
+                'url' => $resident->aadhar_document ? asset($resident->aadhar_document) : null,
                 'name' => 'Aadhar Document',
                 'icon' => 'bi-file-earmark-pdf'
             ],
             'application_document' => [
                 'exists' => !is_null($resident->application_document),
-                'url' => $resident->application_document_url,
+                'url' => $resident->application_document ? asset($resident->application_document) : null,
                 'name' => 'Application Document',
                 'icon' => 'bi-file-earmark-text'
             ],
             'face_image' => [
                 'exists' => !is_null($resident->face_image_path),
-                'url' => $resident->face_image_url,
+                'url' => $resident->face_image_path ? asset($resident->face_image_path) : null,
                 'name' => 'Face Image',
                 'icon' => 'bi-person-face'
             ]
@@ -1160,6 +1044,130 @@ class ResidentController extends Controller
         return response()->json([
             'success' => true,
             'data' => $documents
+        ]);
+    }
+
+    /**
+     * Bulk delete residents
+     */
+    public function bulkDelete(Request $request)
+    {
+        $user = auth()->user();
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array',
+            'ids.*' => 'exists:residents,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $deleted = 0;
+        $errors = [];
+        $roomsToUpdate = [];
+
+        foreach ($request->ids as $id) {
+            $resident = Resident::find($id);
+            if (!$resident) continue;
+
+            if ($user->role !== 'admin') {
+                $hostelIds = $user->hostel_ids ?? [];
+                if (!in_array($resident->hostel_id, $hostelIds)) {
+                    $errors[] = "No permission to delete resident: {$resident->name}";
+                    continue;
+                }
+            }
+
+            if ($resident->profile_image) $this->deleteFile($resident->profile_image);
+            if ($resident->aadhar_document) $this->deleteFile($resident->aadhar_document);
+            if ($resident->application_document) $this->deleteFile($resident->application_document);
+            if ($resident->face_image_path) $this->deleteFile($resident->face_image_path);
+
+            $bed = Bed::find($resident->bed_id);
+            if ($bed) $bed->update(['status' => 'VACANT']);
+
+            $roomsToUpdate[] = $resident->room_id;
+            $resident->delete();
+            $deleted++;
+        }
+
+        foreach (array_unique($roomsToUpdate) as $roomId) {
+            $room = Room::find($roomId);
+            if ($room) $this->updateRoomStatus($room);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$deleted} residents deleted successfully!",
+            'errors' => $errors
+        ]);
+    }
+
+    /**
+     * Bulk status update
+     */
+    public function bulkStatus(Request $request)
+    {
+        $user = auth()->user();
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array',
+            'ids.*' => 'exists:residents,id',
+            'status' => 'required|in:ACTIVE,VACATED'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $updated = 0;
+        $roomsToUpdate = [];
+
+        foreach ($request->ids as $id) {
+            $resident = Resident::find($id);
+            if (!$resident) continue;
+
+            if ($user->role !== 'admin') {
+                $hostelIds = $user->hostel_ids ?? [];
+                if (!in_array($resident->hostel_id, $hostelIds)) {
+                    continue;
+                }
+            }
+
+            if ($request->status == 'VACATED' && $resident->status == 'ACTIVE') {
+                $resident->vacate_date = now()->toDateString();
+                $bed = Bed::find($resident->bed_id);
+                if ($bed) {
+                    $bed->update(['status' => 'VACANT']);
+                }
+                $roomsToUpdate[] = $resident->room_id;
+            } elseif ($request->status == 'ACTIVE' && $resident->status == 'VACATED') {
+                $resident->vacate_date = null;
+                $bed = Bed::find($resident->bed_id);
+                if ($bed && $bed->status == 'VACANT') {
+                    $bed->update(['status' => 'OCCUPIED']);
+                    $roomsToUpdate[] = $resident->room_id;
+                }
+            }
+
+            $resident->status = $request->status;
+            $resident->save();
+            $updated++;
+        }
+
+        foreach (array_unique($roomsToUpdate) as $roomId) {
+            $room = Room::find($roomId);
+            if ($room) $this->updateRoomStatus($room);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$updated} residents updated successfully!"
         ]);
     }
 }
