@@ -739,6 +739,7 @@ class ResidentController extends Controller
 
             foreach ($residents as $resident) {
                 try {
+                    $resident->employee_code = $resident->generateEmployeeCode();
                     if (!$resident->employee_code) {
                         $resident->employee_code = $resident->generateEmployeeCode();
                     }
