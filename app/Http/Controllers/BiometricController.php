@@ -65,7 +65,7 @@ class BiometricController extends Controller
     private function getOrCreateEmployeeCode($resident)
     {
         $this->checkBiometricColumns();
- $employeeCode = $this->generateEmployeeCode($resident);
+
         if (empty($resident->employee_code)) {
             $employeeCode = $this->generateEmployeeCode($resident);
             $resident->employee_code = $employeeCode;
