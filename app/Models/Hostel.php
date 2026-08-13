@@ -18,7 +18,6 @@ class Hostel extends Model
         'phone',
         'email',
         'status',
-        // Biometric fields - Add these
         'biometric_device_id',
         'biometric_device_name',
         'biometric_ip_address',
