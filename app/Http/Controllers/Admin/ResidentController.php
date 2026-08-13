@@ -684,104 +684,101 @@ class ResidentController extends Controller
      * Sync a single resident to biometric system
      */
     public function syncToBiometric($id)
-    {
-        try {
-            $resident = Resident::findOrFail($id);
+{
+    try {
+        $resident = Resident::findOrFail($id);
 
-            // Generate employee code if not exists
-            if (!$resident->employee_code) {
-                $resident->employee_code = $resident->generateEmployeeCode();
-            }
-
-            $resident->biometric_access = true;
-            $resident->last_sync_at = now();
-            $resident->access_enabled_at = now();
-            $resident->access_disabled_at = null;
-            $resident->save();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Resident synced to biometric system successfully',
-                'data' => [
-                    'resident_id' => $resident->id,
-                    'name' => $resident->name,
-                    'employee_code' => $resident->employee_code,
-                    'biometric_access' => $resident->biometric_access
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ]);
+        // ✅ Generate numeric employee code
+        if (!$resident->employee_code) {
+            $resident->employee_code = $resident->generateEmployeeCode();  // Returns number
         }
+
+        $resident->biometric_access = true;
+        $resident->last_sync_at = now();
+        $resident->access_enabled_at = now();
+        $resident->access_disabled_at = null;
+        $resident->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Resident synced to biometric system successfully',
+            'data' => [
+                'resident_id' => $resident->id,
+                'name' => $resident->name,
+                'employee_code' => $resident->employee_code,  // Now numeric: 10001
+                'biometric_access' => $resident->biometric_access
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
     }
+}
 
     /**
      * Sync all residents to biometric system
      */
-    public function syncAllToBiometric()
-    {
-        try {
-            $residents = Resident::all();
+   public function syncAllToBiometric()
+{
+    try {
+        $residents = Resident::all();
 
-            if ($residents->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No residents found'
-                ]);
-            }
-
-            $successCount = 0;
-            $failureCount = 0;
-            $results = [];
-
-            foreach ($residents as $resident) {
-                try {
-                    $resident->employee_code = $resident->generateEmployeeCode();
-                    if (!$resident->employee_code) {
-                        $resident->employee_code = $resident->generateEmployeeCode();
-                    }
-                    $resident->biometric_access = true;
-                    $resident->last_sync_at = now();
-                    $resident->access_enabled_at = now();
-                    $resident->access_disabled_at = null;
-                    $resident->save();
-                    $successCount++;
-                    $results[] = [
-                        'resident_id' => $resident->id,
-                        'name' => $resident->name,
-                        'employee_code' => $resident->employee_code,
-                        'status' => 'success'
-                    ];
-                } catch (\Exception $e) {
-                    $failureCount++;
-                    $results[] = [
-                        'resident_id' => $resident->id,
-                        'name' => $resident->name,
-                        'status' => 'failed',
-                        'message' => $e->getMessage()
-                    ];
-                }
-            }
-
-            return response()->json([
-                'success' => $failureCount === 0,
-                'total' => $residents->count(),
-                'success_count' => $successCount,
-                'failure_count' => $failureCount,
-                'data' => $results
-            ]);
-
-        } catch (\Exception $e) {
+        if ($residents->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage()
+                'message' => 'No residents found'
             ]);
         }
-    }
 
+        $successCount = 0;
+        $failureCount = 0;
+        $results = [];
+
+        foreach ($residents as $resident) {
+            try {
+                // ✅ Generate numeric employee code
+                $resident->employee_code = $resident->generateEmployeeCode();  // Returns number
+                $resident->biometric_access = true;
+                $resident->last_sync_at = now();
+                $resident->access_enabled_at = now();
+                $resident->access_disabled_at = null;
+                $resident->save();
+                $successCount++;
+                $results[] = [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'employee_code' => $resident->employee_code,  // Now numeric
+                    'status' => 'success'
+                ];
+            } catch (\Exception $e) {
+                $failureCount++;
+                $results[] = [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'status' => 'failed',
+                    'message' => $e->getMessage()
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => $failureCount === 0,
+            'total' => $residents->count(),
+            'success_count' => $successCount,
+            'failure_count' => $failureCount,
+            'data' => $results
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ]);
+    }
+}
     /**
      * Get residents with biometric status
      */

@@ -28,14 +28,14 @@ class Resident extends Model
         'rent_amount',
         'deposit_amount',
         'status',
-        
+
         // Biometric fields (NEW)
         'employee_code',
         'biometric_access',
         'last_sync_at',
         'access_enabled_at',
         'access_disabled_at',
-        
+
         // Document fields (Existing)
         'profile_image',
         'aadhar_document',
@@ -56,7 +56,7 @@ class Resident extends Model
     // ============================================
     // RELATIONSHIPS
     // ============================================
-    
+
     public function hostel(): BelongsTo
     {
         return $this->belongsTo(Hostel::class);
@@ -87,7 +87,7 @@ class Resident extends Model
     // ============================================
     // ACCESSORS - Document URLs
     // ============================================
-    
+
     public function getProfileImageUrlAttribute(): ?string
     {
         if ($this->profile_image && file_exists(public_path($this->profile_image))) {
@@ -124,7 +124,7 @@ class Resident extends Model
     // ============================================
     // ACCESSORS - Biometric Status
     // ============================================
-    
+
     public function getBiometricStatusAttribute(): string
     {
         if (!$this->employee_code) {
@@ -162,7 +162,7 @@ class Resident extends Model
     // ============================================
     // ACCESSORS - Food & Status
     // ============================================
-    
+
     public function getFoodStatusLabelAttribute(): string
     {
         return $this->food_status == 'WITH_FOOD' ? 'With Food 🍽️' : 'Without Food 🍞';
@@ -221,7 +221,7 @@ class Resident extends Model
     // ============================================
     // ACCESSORS - Document Icons
     // ============================================
-    
+
     public function getDocumentIcon(string $documentType): string
     {
         $path = $this->$documentType;
@@ -247,7 +247,7 @@ class Resident extends Model
     // ============================================
     // SCOPES
     // ============================================
-    
+
     public function scopeActive($query)
     {
         return $query->where('status', 'ACTIVE');
@@ -306,7 +306,7 @@ class Resident extends Model
     // ============================================
     // HELPER METHODS
     // ============================================
-    
+
     /**
      * Enable biometric access for this resident
      */
@@ -382,4 +382,11 @@ class Resident extends Model
             'balance' => $payment->balance_amount ?? 0,
         ];
     }
+    // In Resident Model - Replace the existing method
+public function generateEmployeeCode()
+{
+    $hostelId = $this->hostel_id ?? 1;
+    $code = $this->id + 10000;  // 10001, 10002, 10003...
+    return $code;  // ✅ Returns only numeric ID
+}
 }
