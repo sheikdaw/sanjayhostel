@@ -1,4 +1,5 @@
 <?php
+// app/Models/Hostel.php
 
 namespace App\Models;
 
@@ -23,6 +24,8 @@ class Hostel extends Model
         'biometric_port',
         'biometric_location_code',
         'employee_code_prefix',
+        'upi_id',           // NEW - UPI ID for payments
+        'upi_payee_name',   // NEW - Payee name shown in UPI app
     ];
 
     // Relationships
@@ -88,6 +91,17 @@ class Hostel extends Model
         return 'warning';
     }
 
+    // UPI Accessors
+    public function getUpiPayeeNameAttribute($value)
+    {
+        return $value ?? $this->hostel_name ?? 'Hostel Payment';
+    }
+
+    public function getHasUpiAttribute()
+    {
+        return !empty($this->upi_id);
+    }
+
     // Scopes
     public function scopeActive($query)
     {
@@ -113,5 +127,10 @@ class Hostel extends Model
     {
         return $query->whereNotNull('biometric_device_id')
                     ->whereNotNull('biometric_ip_address');
+    }
+
+    public function scopeHasUpi($query)
+    {
+        return $query->whereNotNull('upi_id');
     }
 }

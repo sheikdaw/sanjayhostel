@@ -320,22 +320,26 @@ Route::get('/clear-cache', function () {
 //     Route::post('/refund', [PhonePeController::class, 'refund'])->name('refund');
 //     Route::get('/refund-status/{merchantRefundId}', [PhonePeController::class, 'refundStatus'])->name('refund-status');
 // });
-
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
-    // Main routes
-    Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
-    
-    // CHANGE THIS: From generate-qr to create-order
-    // Route::get('/generate-qr', [GuestPaymentController::class, 'generateQR'])->name('qr');
-    Route::post('/create-order', [GuestPaymentController::class, 'createOrder'])->name('create-order');
-    Route::post('/verify', [GuestPaymentController::class, 'verifyPayment'])->name('verify');
-    
-    // Keep these as they are
-    Route::get('/callback', [GuestPaymentController::class, 'callback'])->name('callback');
-    Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
-    Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
 
-    // Biometric routes (keep as is)
+    // ✅ KEEP THIS - Resident lookup
+    Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
+
+    // ❌ REMOVE THESE - Razorpay routes (no longer needed)
+    // Route::post('/create-order', [GuestPaymentController::class, 'createOrder'])->name('create-order');
+    // Route::post('/verify', [GuestPaymentController::class, 'verifyPayment'])->name('verify');
+    // Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
+    // Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
+
+    // ✅ NEW UPI ROUTES - Add these
+    Route::post('/generate-upi', [GuestPaymentController::class, 'generateUPI'])->name('generate-upi');
+    Route::post('/verify-upi', [GuestPaymentController::class, 'verifyUPI'])->name('verify-upi');
+    Route::get('/check-upi-status', [GuestPaymentController::class, 'checkUPIStatus'])->name('check-upi-status');
+
+    // ✅ KEEP THIS - Callback for UPI
+    Route::get('/callback', [GuestPaymentController::class, 'callback'])->name('callback');
+
+    // ✅ KEEP THESE - Biometric routes (if needed)
     Route::post('/biometric/disable/{residentId}', [GuestPaymentController::class, 'disableBiometricAccess'])->name('biometric.disable');
     Route::get('/biometric/check/{residentId}', [GuestPaymentController::class, 'checkBiometricAccess'])->name('biometric.check');
     Route::post('/biometric/sync-all', [GuestPaymentController::class, 'syncBiometricAll'])->name('biometric.sync-all');
@@ -343,12 +347,12 @@ Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     Route::get('/biometric/device-status/{deviceId?}', [GuestPaymentController::class, 'getDeviceStatus'])->name('biometric.device-status');
     Route::post('/biometric/reboot/{deviceId?}', [GuestPaymentController::class, 'rebootDevice'])->name('biometric.reboot');
 
-    // Admin helper routes (keep as is)
+    // ✅ KEEP THESE - Admin helper routes
     Route::get('/generate-link/{hostelId}', [GuestPaymentController::class, 'generateLink'])->name('generate-link');
     Route::get('/encode/{hostelId}', [GuestPaymentController::class, 'encodeId'])->name('encode');
     Route::get('/decode/{encodedId}', [GuestPaymentController::class, 'decodeId'])->name('decode');
 
-    // Catch-all — MUST stay last
+    // ✅ KEEP THIS - Catch-all (MUST stay last)
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
 });
 // Payment Links Generator (Admin only)

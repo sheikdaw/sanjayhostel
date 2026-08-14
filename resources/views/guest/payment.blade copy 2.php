@@ -1,5 +1,3 @@
-<!-- resources/views/guest/payment.blade.php -->
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -13,13 +11,16 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Razorpay Checkout -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
     <style>
         :root {
             --primary-color: #1a3a5c;
             --primary-light: #2a5a8c;
             --gold-color: #c5a028;
-            --upi-blue: #1a73e8;
+            --razorpay-color: #0c3b6f;
+            --razorpay-gradient: linear-gradient(135deg, #0c3b6f 0%, #1a5a8c 100%);
             --bg-gradient-start: #f0f4f8;
             --bg-gradient-end: #e2e8f0;
         }
@@ -45,7 +46,7 @@
         }
 
         .payment-header {
-            background: linear-gradient(135deg, #1a3a5c 0%, #2a5a8c 100%);
+            background: var(--razorpay-gradient);
             padding: 1.75rem 2rem;
             text-align: center;
             color: white;
@@ -84,7 +85,7 @@
             border-radius: 12px;
         }
 
-        .payment-header .upi-badge {
+        .payment-header .razorpay-badge {
             position: absolute;
             bottom: 8px;
             right: 16px;
@@ -228,84 +229,32 @@
             display: inline-block;
         }
 
-        /* UPI Payment Button */
-        .btn-pay-upi {
+        .btn-pay-now {
             width: 100%;
             padding: 0.75rem;
             font-size: 0.95rem;
             font-weight: 700;
             border-radius: 12px;
             border: none;
-            background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+            background: var(--razorpay-gradient);
             color: white;
             transition: all 0.3s;
             margin-top: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
         }
 
-        .btn-pay-upi:hover {
+        .btn-pay-now:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(26, 115, 232, 0.3);
+            box-shadow: 0 8px 25px rgba(12, 59, 111, 0.3);
         }
 
-        .btn-pay-upi:disabled {
+        .btn-pay-now:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
 
-        .btn-pay-upi .upi-icon {
+        .btn-pay-now .razorpay-icon {
             font-size: 1.1rem;
-        }
-
-        /* UPI App Buttons */
-        .upi-apps {
-            display: flex;
-            justify-content: center;
-            gap: 0.75rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .upi-app-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 0.4rem 1rem;
-            border-radius: 8px;
-            border: 2px solid #e5e7eb;
-            background: white;
-            font-size: 0.75rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            color: #1f2937;
-            text-decoration: none;
-        }
-
-        .upi-app-btn:hover {
-            border-color: var(--upi-blue);
-            background: #f0f7ff;
-            transform: translateY(-2px);
-        }
-
-        .upi-app-btn.google-pay { border-color: #1a73e8; }
-        .upi-app-btn.phonepe { border-color: #5f259f; }
-        .upi-app-btn.paytm { border-color: #00baf2; }
-
-        /* UPI ID Display */
-        .upi-id-display {
-            background: #f3f4f6;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.9rem;
-            color: var(--primary-color);
-            text-align: center;
-            margin: 0.5rem 0;
         }
 
         .payment-methods {
@@ -353,10 +302,6 @@
             border-left-color: #dc2626;
         }
 
-        .toast-custom.warning {
-            border-left-color: #f59e0b;
-        }
-
         .toast-custom .message {
             flex: 1;
             font-size: 0.85rem;
@@ -372,27 +317,66 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
         }
 
         @media (max-width: 480px) {
-            .payment-body { padding: 1.25rem; }
-            .mobile-input-group { flex-direction: column; }
-            .mobile-input-group .btn-find { width: 100%; }
-            .resident-info .info-row { flex-direction: column; gap: 0.2rem; }
-            .payment-methods { gap: 0.5rem; }
-            .upi-apps { gap: 0.5rem; }
+            .payment-body {
+                padding: 1.25rem;
+            }
+
+            .mobile-input-group {
+                flex-direction: column;
+            }
+
+            .mobile-input-group .btn-find {
+                width: 100%;
+            }
+
+            .resident-info .info-row {
+                flex-direction: column;
+                gap: 0.2rem;
+            }
+
+            .resident-info .info-row .value {
+                text-align: left;
+            }
+
+            .payment-methods {
+                gap: 0.5rem;
+            }
         }
     </style>
 </head>
@@ -403,7 +387,7 @@
         <!-- Header -->
         <div class="payment-header">
             <span class="secure-badge"><i class="bi bi-shield-lock"></i> Secure</span>
-            <span class="upi-badge">Powered by UPI</span>
+            <span class="razorpay-badge">Powered by Razorpay</span>
             <div class="hostel-icon"><i class="bi bi-building"></i></div>
             <h1>{{ isset($hostel->hostel_name) ? $hostel->hostel_name : 'Hostel Rent Payment' }}</h1>
             @if (isset($hostel) && !empty($hostel->hostel_code))
@@ -455,18 +439,16 @@
 
                 <!-- Discount & Fine Display -->
                 <div id="discountDisplay" style="display: none; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb;">
-                    <span class="badge-discount" id="discountBadge"><i class="bi bi-tag"></i> <span id="discountText">0% off</span></span>
-                    <span class="badge-fine" id="fineBadge" style="display: none;"><i class="bi bi-clock"></i> <span id="fineText">Late fee</span></span>
+                    <span class="badge-discount" id="discountBadge"><i class="bi bi-tag"></i> <span id="discountText">0%
+                            off</span></span>
+                    <span class="badge-fine" id="fineBadge" style="display: none;"><i class="bi bi-clock"></i> <span
+                            id="fineText">Late fee</span></span>
                 </div>
 
-                <div class="info-row" style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
+                <div class="info-row"
+                    style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
                     <span class="label"><i class="bi bi-currency-rupee"></i> Amount to Pay</span>
                     <span class="value due-amount" id="totalDue">₹0.00</span>
-                </div>
-
-                <!-- UPI ID Display -->
-                <div id="upiIdDisplay" class="upi-id-display" style="display: none;">
-                    <i class="bi bi-phone"></i> Pay to: <span id="upiIdText">-</span>
                 </div>
 
                 <div id="pendingInfo">
@@ -474,39 +456,25 @@
                     <span id="pendingCount">0</span> pending payments from previous months
                 </div>
 
-                <!-- UPI Payment Button -->
-                <button class="btn-pay-upi" id="payNowBtn" onclick="initiateUPIPayment()" style="display: none;">
-                    <i class="bi bi-phone"></i> Pay with UPI
+                <button class="btn-pay-now" id="payNowBtn" onclick="initiateRazorpayPayment()">
+                    <i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay
                 </button>
 
-                <!-- UPI App Quick Links -->
-                <div class="upi-apps" id="upiApps" style="display: none;">
-                    <a href="#" class="upi-app-btn google-pay" onclick="openUPIApp('googlepay')">
-                        <span>📱</span> Google Pay
-                    </a>
-                    <a href="#" class="upi-app-btn phonepe" onclick="openUPIApp('phonepe')">
-                        <span>📱</span> PhonePe
-                    </a>
-                    <a href="#" class="upi-app-btn paytm" onclick="openUPIApp('paytm')">
-                        <span>📱</span> Paytm
-                    </a>
-                    <a href="#" class="upi-app-btn" onclick="openUPIApp('other')">
-                        <span>📱</span> Other UPI
-                    </a>
-                </div>
-
                 <div class="payment-methods">
-                    <span style="font-size: 0.7rem; color: #9ca3af; width: 100%; text-align: center; margin-bottom: 0.25rem;">
-                        Secure payments via UPI
+                    <span
+                        style="font-size: 0.7rem; color: #9ca3af; width: 100%; text-align: center; margin-bottom: 0.25rem;">
+                        Secure payments via
                     </span>
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Google_Pay_logo.svg/1200px-Google_Pay_logo.svg.png" alt="Google Pay" style="height: 20px;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/PhonePe_Logo.png/1200px-PhonePe_Logo.png" alt="PhonePe" style="height: 20px;">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Paytm_Logo_%282017%29.svg/1200px-Paytm_Logo_%282017%29.svg.png" alt="Paytm" style="height: 20px;">
+                    <img src="https://razorpay.com/assets/razorpay-glyph.svg" alt="Razorpay" class="active"
+                        style="height: 20px;">
+                    <img src="https://www.visa.com/logo.svg" alt="Visa" style="height: 20px;">
+                    <img src="https://www.mastercard.com/logo.svg" alt="Mastercard" style="height: 20px;">
+                    <img src="https://www.upi.com/logo.svg" alt="UPI" style="height: 20px;">
                 </div>
 
                 <div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.5rem; text-align:center;">
-                    <i class="bi bi-shield-check"></i>
-                    Pay directly via any UPI app. Your payment will be confirmed automatically.
+                    You'll be redirected to Razorpay's secure checkout. Once you finish paying there,
+                    you'll be brought straight back here and we'll confirm it automatically.
                 </div>
             </div>
         </div>
@@ -521,16 +489,15 @@
         var csrfToken = '{{ csrf_token() }}';
         var paymentRoutes = {
             resident: '{{ route('guest.payment.resident') }}',
-            generateUPI: '{{ route('guest.payment.generate-upi') }}',
-            verifyUPI: '{{ route('guest.payment.verify-upi') }}',
-            checkUPIStatus: '{{ route('guest.payment.check-upi-status') }}',
+            createOrder: '{{ route('guest.payment.create-order') }}',
+            verify: '{{ route('guest.payment.verify') }}',
             callback: '{{ route('guest.payment.callback') }}'
         };
 
         let currentResident = null;
         let currentReference = null;
-        let upiData = null;
-        let statusCheckInterval = null;
+        let orderData = null;
+        let razorpayInstance = null;
 
         $(document).ready(function() {
             $('#mobileInput').on('keypress', function(e) {
@@ -546,9 +513,12 @@
 
             if (status === 'success' && reference) {
                 showToast('✅ Payment successful! Reference: ' + reference, 'success');
+                // Optionally fetch updated status
                 checkPaymentStatus(reference);
             } else if (status === 'cancelled' && reference) {
                 showToast('Payment was cancelled. You can try again.', 'error');
+            } else if (status === 'failed' && reference) {
+                showToast('Payment failed. Please try again.', 'error');
             }
         });
 
@@ -581,11 +551,11 @@
                         $('#residentPhone').text(response.data.phone);
                         $('#residentEmail').text(response.data.email || 'Not provided');
 
-                        // Show amount
+                        // Show amount to pay (after discount + fine)
                         const amountToPay = parseFloat(response.data.amount_to_pay || response.data.total_due);
                         $('#totalDue').text('₹' + amountToPay.toFixed(2));
 
-                        // Show discount and fine
+                        // Show discount and fine badges
                         const discount = parseFloat(response.data.discount_amount || 0);
                         const fine = parseFloat(response.data.fine_amount || 0);
 
@@ -620,21 +590,8 @@
                             $('#pendingInfo').hide();
                         }
 
-                        // Show UPI ID
-                        if (response.data.has_upi && response.data.upi_id) {
-                            $('#upiIdText').text(response.data.upi_id);
-                            $('#upiIdDisplay').show();
-                            $('#payNowBtn').show();
-                            $('#upiApps').show();
-                            showToast('Resident found! Click "Pay with UPI" to continue.', 'success');
-                        } else {
-                            $('#upiIdDisplay').hide();
-                            $('#payNowBtn').hide();
-                            $('#upiApps').hide();
-                            showToast('⚠️ UPI payment not configured for this hostel. Please contact admin.', 'error');
-                        }
-
                         $('#residentInfo').addClass('show');
+                        showToast('Resident found! Click "Pay with Razorpay" to continue.', 'success');
                     }
                 },
                 error: function(xhr) {
@@ -651,7 +608,7 @@
             });
         }
 
-        function initiateUPIPayment() {
+        function initiateRazorpayPayment() {
             if (!currentResident) {
                 showToast('Please find your resident details first', 'error');
                 return;
@@ -664,10 +621,11 @@
             }
 
             const btn = $('#payNowBtn');
-            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Preparing UPI...');
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Creating order...');
 
+            // Step 1: Create Razorpay Order
             $.ajax({
-                url: paymentRoutes.generateUPI,
+                url: paymentRoutes.createOrder,
                 type: 'POST',
                 data: {
                     amount: amount,
@@ -677,94 +635,117 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        upiData = response;
-
-                        showToast('✅ UPI link generated! Opening UPI app...', 'success');
-
-                        // Redirect to UPI
-                        window.location.href = response.upi_uri;
-
-                        // Start checking payment status
-                        startStatusCheck(response.reference);
-
-                        btn.prop('disabled', false).html('<i class="bi bi-phone"></i> Pay with UPI');
+                        orderData = response;
+                        openRazorpayCheckout(response);
                     } else {
-                        showToast('Failed to generate UPI link: ' + (response.message || 'Unknown error'), 'error');
-                        btn.prop('disabled', false).html('<i class="bi bi-phone"></i> Pay with UPI');
+                        showToast('Failed to create payment order: ' + (response.message || 'Unknown error'),
+                            'error');
+                        btn.prop('disabled', false).html(
+                            '<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
                     }
                 },
                 error: function(xhr) {
-                    var message = 'Failed to generate UPI payment link';
+                    var message = 'Failed to create payment order';
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         message = xhr.responseJSON.message;
                     }
                     showToast('❌ ' + message, 'error');
-                    btn.prop('disabled', false).html('<i class="bi bi-phone"></i> Pay with UPI');
+                    btn.prop('disabled', false).html(
+                        '<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
                 }
             });
         }
 
-        function openUPIApp(app) {
-            if (!upiData) {
-                showToast('Please generate UPI payment first', 'error');
-                return;
+        function openRazorpayCheckout(data) {
+    const btn = $('#payNowBtn');
+    btn.html('<span class="spinner-border spinner-border-sm"></span> Opening checkout...');
+
+    // Store the reference in session/cookie for callback
+    sessionStorage.setItem('payment_reference', data.reference);
+    sessionStorage.setItem('payment_order_id', data.order_id);
+
+    const options = {
+        key: data.key_id,
+        amount: data.amount * 100,
+        currency: data.currency || 'INR',
+        name: 'Hostel Rent Payment',
+        description: 'Rent Payment - ' + currentResident.name,
+        order_id: data.order_id,
+        prefill: {
+            name: currentResident.name,
+            email: currentResident.email || '',
+            contact: currentResident.phone
+        },
+        notes: {
+            resident_id: currentResident.resident_id,
+            reference: data.reference,
+            room_no: currentResident.room_no
+        },
+        theme: {
+            color: '#0c3b6f'
+        },
+        handler: function(response) {
+            // This is called when payment is successful
+            verifyPayment(response, data.reference);
+        },
+        modal: {
+            ondismiss: function() {
+                btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+                window.location.href = paymentRoutes.callback +
+                    '?status=cancelled' +
+                    '&reference=' + encodeURIComponent(data.reference);
             }
-
-            window.location.href = upiData.upi_uri;
-
-            // Start checking payment status
-            startStatusCheck(upiData.reference);
         }
+    };
 
-        function startStatusCheck(reference) {
-            // Clear any existing interval
-            if (statusCheckInterval) {
-                clearInterval(statusCheckInterval);
+    razorpayInstance = new Razorpay(options);
+    razorpayInstance.open();
+}
+
+      function verifyPayment(response, reference) {
+    const btn = $('#payNowBtn');
+    btn.html('<span class="spinner-border spinner-border-sm"></span> Verifying payment...');
+
+    $.ajax({
+        url: paymentRoutes.verify,
+        type: 'POST',
+        data: {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            reference: reference,
+            _token: csrfToken
+        },
+        success: function(data) {
+            if (data.success) {
+                showToast('✅ Payment successful! Reference: ' + reference, 'success');
+                // Redirect with payment_id and reference only
+                // We'll fetch the order details from the database using the reference
+                window.location.href = paymentRoutes.callback +
+                    '?reference=' + encodeURIComponent(reference) +
+                    '&payment_id=' + encodeURIComponent(response.razorpay_payment_id) +
+                    '&status=success';
+            } else {
+                showToast('Payment verification failed: ' + (data.message || 'Unknown error'), 'error');
+                btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
             }
-
-            let attempts = 0;
-            const maxAttempts = 30; // 5 minutes (10s * 30)
-
-            showToast('⏳ Waiting for payment confirmation...', 'warning');
-
-            statusCheckInterval = setInterval(function() {
-                attempts++;
-
-                $.ajax({
-                    url: paymentRoutes.checkUPIStatus + '?reference=' + reference,
-                    type: 'GET',
-                    success: function(response) {
-                        if (response.status === 'COMPLETED') {
-                            clearInterval(statusCheckInterval);
-                            showToast('✅ Payment confirmed! Receipt: ' + response.data.receipt_no, 'success');
-                            // Redirect to success page
-                            window.location.href = paymentRoutes.callback +
-                                '?reference=' + reference +
-                                '&status=success' +
-                                '&transaction_id=' + response.data.transaction_id;
-                        } else if (response.status === 'EXPIRED') {
-                            clearInterval(statusCheckInterval);
-                            showToast('⏰ Payment session expired. Please try again.', 'error');
-                        }
-                    },
-                    error: function() {
-                        // Silent fail
-                    }
-                });
-
-                if (attempts >= maxAttempts) {
-                    clearInterval(statusCheckInterval);
-                    showToast('⏳ Payment is taking longer than expected. You can manually confirm later.', 'warning');
-                }
-            }, 10000); // Check every 10 seconds
+        },
+        error: function(xhr) {
+            var message = 'Payment verification failed';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            showToast('❌ ' + message, 'error');
+            btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
         }
-
+    });
+}
         function checkPaymentStatus(reference) {
             $.ajax({
-                url: paymentRoutes.checkUPIStatus + '?reference=' + reference,
+                url: paymentRoutes.callback + '?reference=' + reference + '&ajax=1',
                 type: 'GET',
-                success: function(response) {
-                    if (response.status === 'COMPLETED') {
+                success: function(data) {
+                    if (data.success) {
                         showToast('✅ Payment confirmed!', 'success');
                     }
                 },
@@ -774,13 +755,14 @@
             });
         }
 
-        function showToast(message, type = 'success') {
+        function showToast(message, type) {
+            if (typeof type === 'undefined') type = 'success';
             var container = document.getElementById('toastContainer');
-            var icon = type === 'success' ? 'bi-check-circle-fill' : (type === 'warning' ? 'bi-exclamation-triangle-fill' : 'bi-exclamation-circle-fill');
-            var color = type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : '#dc2626');
+            var icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
+            var color = type === 'success' ? '#10b981' : '#dc2626';
 
             var toast = document.createElement('div');
-            toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '') + (type === 'warning' ? 'warning' : '');
+            toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
             toast.innerHTML = `
                 <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
                 <div class="message">${message}</div>

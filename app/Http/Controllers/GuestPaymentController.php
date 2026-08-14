@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\Resident;
 use App\Models\Hostel;
-use App\Services\RazorpayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
@@ -16,53 +15,47 @@ use Exception;
 
 class GuestPaymentController extends Controller
 {
-    protected RazorpayService $razorpay;
-
-    public function __construct(RazorpayService $razorpay)
+    /**
+     * Show payment page
+     */
+    public function index(Request $request, $encodedHostelId = null)
     {
-        $this->razorpay = $razorpay;
-    }
+        $hostelId = null;
 
-   public function index(Request $request, $encodedHostelId = null)
-{
-    $hostelId = null;
-
-    if ($encodedHostelId) {
-        try {
-            $hostelId = Crypt::decryptString($encodedHostelId);
-        } catch (Exception $e) {
-            if (is_numeric($encodedHostelId)) {
-                $hostelId = $encodedHostelId;
-            } else {
-                abort(404, 'Invalid payment link');
+        if ($encodedHostelId) {
+            try {
+                $hostelId = Crypt::decryptString($encodedHostelId);
+            } catch (Exception $e) {
+                if (is_numeric($encodedHostelId)) {
+                    $hostelId = $encodedHostelId;
+                } else {
+                    abort(404, 'Invalid payment link');
+                }
             }
         }
-    }
 
-    $hostel = null;
-    if ($hostelId) {
-        $hostel = Hostel::with('roomTypes')->find($hostelId);
-        if (!$hostel) {
-            abort(404, 'Hostel not found');
+        $hostel = null;
+        if ($hostelId) {
+            $hostel = Hostel::with('roomTypes')->find($hostelId);
+            if (!$hostel) {
+                abort(404, 'Hostel not found');
+            }
         }
+
+        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+        $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
+
+        return view('guest.payment', compact(
+            'hostel',
+            'hostelId',
+            'reference',
+            'encodedHostelId',
+            'encodedId'
+        ));
     }
-
-    // Make sure $reference is defined here
-    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-    $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
-
-    return view('guest.payment', compact(
-        'hostel',
-        'hostelId',
-        'reference',      // ✅ This MUST be included
-        'encodedHostelId',
-        'encodedId'
-    ));
-}
 
     /**
-     * Get resident details by mobile number.
-     * POST /guest/payment/resident
+     * Get resident details by mobile number
      */
     public function getResident(Request $request)
     {
@@ -95,13 +88,13 @@ class GuestPaymentController extends Controller
         $currentYear = now()->year;
         $currentDay = now()->day;
 
-        // Get all payments for this resident
+        // Get all payments
         $allPayments = Payment::where('resident_id', $resident->id)
             ->orderBy('year', 'asc')
             ->orderBy('month', 'asc')
             ->get();
 
-        // Check if current month's payment exists
+        // Check current month payment
         $currentPayment = Payment::where('resident_id', $resident->id)
             ->where('month', $currentMonth)
             ->where('year', $currentYear)
@@ -114,7 +107,6 @@ class GuestPaymentController extends Controller
             ->orderBy('month', 'asc')
             ->get();
 
-        // Check if current month is already paid
         $isCurrentMonthPaid = false;
         $currentMonthStatus = 'PENDING';
 
@@ -127,7 +119,7 @@ class GuestPaymentController extends Controller
             }
         }
 
-        // Calculate payment breakdown
+        // Calculate amounts
         $rentAmount = (float) ($resident->rent_amount ?? 0);
         $totalDue = $pendingPayments->sum('balance_amount');
 
@@ -141,7 +133,6 @@ class GuestPaymentController extends Controller
 
         // Discount calculation
         $discount = 0;
-        $discountType = null;
         $discountAmount = 0;
         $finalAmount = (float) $totalDue;
         $discountMessage = '';
@@ -149,31 +140,13 @@ class GuestPaymentController extends Controller
         if ($pendingPayments->count() == 0 && !$isCurrentMonthPaid && $totalDue > 0) {
             if ($currentDay >= 1 && $currentDay <= 5) {
                 $discountAmount = min(250, $rentAmount * 0.10);
-                $discountType = 'early_discount_250';
                 $discountMessage = 'Early payment discount (1st-5th): 10% off up to ₹250';
             } elseif ($currentDay >= 6 && $currentDay <= 10) {
                 $discountAmount = min(125, $rentAmount * 0.05);
-                $discountType = 'early_discount_125';
                 $discountMessage = 'Early payment discount (6th-10th): 5% off up to ₹125';
-            } else {
-                $discountAmount = 0;
-                $discountType = 'no_discount';
-                $discountMessage = 'No discount available. Please pay before 10th for early payment discount.';
             }
             $discount = $discountAmount;
             $finalAmount = max(0, $totalDue - $discount);
-        } else {
-            $discount = 0;
-            $discountType = 'no_discount';
-            $finalAmount = $totalDue;
-
-            if ($isCurrentMonthPaid) {
-                $discountMessage = '✅ This month\'s rent is already paid.';
-            } elseif ($pendingPayments->count() > 0) {
-                $discountMessage = '⚠️ Previous pending payments found. No discount applicable.';
-            } else {
-                $discountMessage = 'No discount applicable.';
-            }
         }
 
         // Fine calculation
@@ -182,62 +155,15 @@ class GuestPaymentController extends Controller
 
         if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
             $daysLate = $currentDay - 10;
-            $fineAmount = $daysLate * 0;
-            $fineMessage = "Late fee: ₹00 per day after 10th ({$daysLate} days late)";
-        }
-
-        // Calculate paid amounts
-        $totalUPIPaid = 0;
-        $totalCashPaid = 0;
-        $totalPaidAmount = 0;
-        $totalBalance = 0;
-        $paymentBreakdown = [];
-
-        foreach ($allPayments as $payment) {
-            $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-            $upiPaid = (float) ($payment->upi_paid_amount ?? 0);
-            $cashPaid = (float) ($payment->cash_paid_amount ?? 0);
-            $balance = (float) ($payment->balance_amount ?? 0);
-            $rentAmt = (float) ($payment->rent_amount ?? 0);
-
-            $totalUPIPaid += $upiPaid;
-            $totalCashPaid += $cashPaid;
-            $totalPaidAmount += ($upiPaid + $cashPaid);
-            $totalBalance += $balance;
-
-            $paymentBreakdown[] = [
-                'month' => $monthName . ' ' . $payment->year,
-                'rent_amount' => $rentAmt,
-                'discount' => (float) ($payment->discount_amount ?? 0),
-                'fine' => (float) ($payment->fine_amount ?? 0),
-                'upi_paid' => $upiPaid,
-                'cash_paid' => $cashPaid,
-                'total_paid' => $upiPaid + $cashPaid,
-                'balance' => $balance,
-                'status' => $payment->status
-            ];
-        }
-
-        // Payment status message
-        $paymentStatusMessage = '';
-        $paymentStatus = '';
-
-        if ($isCurrentMonthPaid && $totalDue == 0 && $totalBalance == 0) {
-            $paymentStatus = 'PAID';
-            $paymentStatusMessage = '✅ All payments are up to date! You have no pending dues.';
-        } elseif ($pendingPayments->count() > 0 || $totalBalance > 0) {
-            $paymentStatus = 'PENDING';
-            $paymentStatusMessage = '⚠️ You have pending payment(s). Please clear your dues.';
-        } elseif (!$isCurrentMonthPaid && $totalDue > 0) {
-            $paymentStatus = 'PENDING';
-            $paymentStatusMessage = '📝 You have pending payment for this month.';
-        } else {
-            $paymentStatus = 'PAID';
-            $paymentStatusMessage = '✅ All payments are up to date!';
+            $fineAmount = $daysLate * 50;
+            $fineMessage = "Late fee: ₹50 per day after 10th ({$daysLate} days late)";
         }
 
         $amountToPay = $finalAmount + $fineAmount;
         $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+
+        // Get hostel UPI details
+        $hostel = Hostel::find($resident->hostel_id);
 
         return response()->json([
             'success' => true,
@@ -250,7 +176,6 @@ class GuestPaymentController extends Controller
                 'rent_amount' => (float) $rentAmount,
                 'total_due' => (float) $totalDue,
                 'discount' => (float) $discount,
-                'discount_type' => $discountType,
                 'discount_amount' => (float) $discount,
                 'discount_message' => $discountMessage,
                 'discount_applicable' => $discount > 0,
@@ -258,295 +183,101 @@ class GuestPaymentController extends Controller
                 'fine_message' => $fineMessage,
                 'final_amount' => (float) $amountToPay,
                 'amount_to_pay' => (float) $amountToPay,
-                'total_upi_paid' => (float) $totalUPIPaid,
-                'total_cash_paid' => (float) $totalCashPaid,
-                'total_paid_amount' => (float) $totalPaidAmount,
-                'total_balance' => (float) $totalBalance,
-                'payment_status' => $paymentStatus,
-                'payment_status_message' => $paymentStatusMessage,
-                'is_paid' => $paymentStatus === 'PAID',
-                'has_pending' => $pendingPayments->count() > 0 || $totalBalance > 0,
+                'has_pending' => $pendingPayments->count() > 0,
                 'pending_count' => (int) $pendingPayments->count(),
-                'current_day' => $currentDay,
-                'current_month_status' => $currentMonthStatus,
                 'reference' => $reference,
-                'payment_breakdown' => $paymentBreakdown,
-                'pending_payments' => $paymentBreakdown,
-                'message' => $paymentStatusMessage
+                'payment_status' => $isCurrentMonthPaid ? 'PAID' : 'PENDING',
+                'is_paid' => $isCurrentMonthPaid,
+                'upi_id' => $hostel->upi_id ?? null,
+                'upi_payee_name' => $hostel->upi_payee_name ?? $hostel->hostel_name ?? 'Hostel Payment',
+                'has_upi' => !empty($hostel->upi_id),
             ]
         ], 200, [], JSON_NUMERIC_CHECK);
     }
 
-    public function createOrder(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'amount' => 'required|numeric|min:1',
-        'reference' => 'required|string',
-        'resident_id' => 'required|exists:residents,id'
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    $amount = (float) $request->amount;
-    $reference = $request->reference;
-    $residentId = $request->resident_id;
-
-    $resident = Resident::find($residentId);
-    $roomNo = $resident && $resident->room ? ($resident->room->room_no ?? 'N/A') : 'N/A';
-    $residentName = $resident ? $resident->name : 'Resident';
-
-    // Store resident ID and reference mapping
-    cache()->put('razorpay_order_resident_' . $reference, $residentId, now()->addHours(2));
-
-    try {
-        $orderData = [
-            'receipt' => $reference,
-            'amount' => $amount,
-            'currency' => 'INR',
-            'notes' => [
-                'resident_id' => $residentId,
-                'resident_name' => $residentName,
-                'room_no' => $roomNo,
-                'payment_type' => 'rent'
-            ]
-        ];
-
-        $result = $this->razorpay->createOrder($orderData);
-
-        // Store order_id for callback
-        cache()->put('razorpay_order_id_' . $reference, $result['order_id'], now()->addHours(2));
-
-        return response()->json([
-            'success' => true,
-            'order_id' => $result['order_id'],
-            'amount' => $result['amount'],
-            'currency' => $result['currency'],
-            'key_id' => $result['key_id'],
-            'reference' => $reference,
-            'resident_id' => $residentId,
+    /**
+     * Generate UPI payment link
+     */
+    public function generateUPI(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|min:1',
+            'reference' => 'required|string',
+            'resident_id' => 'required|exists:residents,id'
         ]);
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to create payment order: ' . $e->getMessage()
-        ], 500);
-    }
-}
-/**
- * Verify payment after successful Razorpay checkout
- * POST /guest/payment/verify
- */
-public function verifyPayment(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'razorpay_order_id' => 'required|string',
-        'razorpay_payment_id' => 'required|string',
-        'razorpay_signature' => 'required|string',
-        'reference' => 'required|string'
-    ]);
 
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    $payload = [
-        'razorpay_order_id' => $request->razorpay_order_id,
-        'razorpay_payment_id' => $request->razorpay_payment_id,
-        'razorpay_signature' => $request->razorpay_signature,
-    ];
-
-    try {
-        // Verify signature
-        $isValid = $this->razorpay->verifyPaymentSignature($payload);
-
-        if (!$isValid) {
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Payment verification failed: Invalid signature'
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $resident = Resident::find($request->resident_id);
+        $hostel = Hostel::find($resident->hostel_id);
+
+        // Get UPI ID from hostel
+        $upiId = $hostel->upi_id ?? null;
+
+        if (!$upiId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'UPI ID not configured for this hostel. Please contact admin.'
             ], 400);
         }
 
-        // Get payment details
-        $payment = $this->razorpay->fetchPayment($request->razorpay_payment_id);
-        $order = $this->razorpay->fetchOrder($request->razorpay_order_id);
+        $amount = (float) $request->amount;
+        $reference = $request->reference;
+        $payeeName = $hostel->upi_payee_name ?? $hostel->hostel_name ?? 'Hostel Payment';
 
-        // Record payment if status is captured
-        if ($payment['status'] === 'captured') {
-            $paymentRecord = $this->recordPaymentIfNeeded(
-                $request->reference,
-                $payment,
-                $order
-            );
+        // Build UPI URI
+        $upiUri = $this->buildUPIUri($upiId, $payeeName, $amount, $reference);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Payment verified successfully',
-                'data' => [
-                    'payment_id' => $payment['id'],
-                    'amount' => $payment['amount'] / 100,
-                    'status' => $payment['status'],
-                    'receipt_no' => $paymentRecord->receipt_no ?? $request->reference,
-                ]
-            ]);
-        }
+        // Store payment reference in cache for verification
+        cache()->put('upi_payment_' . $reference, [
+            'resident_id' => $resident->id,
+            'amount' => $amount,
+            'hostel_id' => $resident->hostel_id,
+            'created_at' => now()
+        ], now()->addHours(2));
 
         return response()->json([
-            'success' => false,
-            'message' => 'Payment is not captured. Status: ' . $payment['status']
-        ], 400);
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Payment verification failed: ' . $e->getMessage()
-        ], 500);
-    }
-}
-/**
- * Browser callback after payment
- * GET /guest/payment/callback
- */
-public function callback(Request $request)
-{
-    // Get parameters
-    $reference = $request->query('reference');
-    $paymentId = $request->query('payment_id');
-    $status = $request->query('status');
-
-    // Log everything for debugging
-    Log::info('Payment callback received', [
-        'reference' => $reference,
-        'payment_id' => $paymentId,
-        'status' => $status,
-        'all_params' => $request->all(),
-        'session' => session()->all()
-    ]);
-
-    // Handle cancellation
-    if ($status === 'cancelled') {
-        return view('guest.payment-result', [
-            'success' => false,
-            'message' => 'Payment was cancelled. You can try again.',
-            'reference' => $reference ?? 'N/A',
-            'amount' => null,
-            'receipt_no' => null,
+            'success' => true,
+            'upi_uri' => $upiUri,
+            'upi_id' => $upiId,
+            'amount' => $amount,
+            'reference' => $reference,
+            'payee_name' => $payeeName,
+            'resident_name' => $resident->name,
+            'room_no' => $resident->room->room_no ?? 'N/A',
+            'message' => 'Click to pay via UPI'
         ]);
     }
 
-    // If we have a reference, check our local database first
-    if ($reference) {
-        // Check if payment exists in our database
-        $paymentRecord = Payment::where('receipt_no', $reference)->first();
-
-        if ($paymentRecord) {
-            // Payment found in database
-            $isSuccess = $paymentRecord->status === 'PAID';
-
-            return view('guest.payment-result', [
-                'success' => $isSuccess,
-                'message' => $isSuccess ? 'Payment successful!' : 'Payment status: ' . $paymentRecord->status,
-                'reference' => $reference,
-                'amount' => $paymentRecord->upi_paid_amount + $paymentRecord->cash_paid_amount,
-                'receipt_no' => $paymentRecord->receipt_no,
-            ]);
-        }
-
-        // If we have a payment_id, try to fetch from Razorpay
-        if ($paymentId) {
-            try {
-                $payment = $this->razorpay->fetchPayment($paymentId);
-
-                if ($payment['status'] === 'captured') {
-                    // Record the payment in our database
-                    $order = $this->razorpay->fetchOrder($payment['order_id']);
-                    $newRecord = $this->recordPaymentIfNeeded($reference, $payment, $order);
-
-                    return view('guest.payment-result', [
-                        'success' => true,
-                        'message' => 'Payment successful!',
-                        'reference' => $reference,
-                        'amount' => ($payment['amount'] ?? 0) / 100,
-                        'receipt_no' => $newRecord->receipt_no ?? $reference,
-                    ]);
-                } else {
-                    return view('guest.payment-result', [
-                        'success' => false,
-                        'message' => 'Payment status: ' . $payment['status'],
-                        'reference' => $reference,
-                        'amount' => null,
-                        'receipt_no' => null,
-                    ]);
-                }
-            } catch (Exception $e) {
-                Log::error('Error fetching payment from Razorpay: ' . $e->getMessage(), [
-                    'reference' => $reference,
-                    'payment_id' => $paymentId
-                ]);
-                // Continue to try other methods
-            }
-        }
-
-        // If we couldn't find payment details, check cache
-        $cachedResidentId = cache()->get('razorpay_order_resident_' . $reference);
-        if ($cachedResidentId) {
-            // Payment might still be processing
-            return view('guest.payment-result', [
-                'success' => null,
-                'message' => 'Your payment is being processed. Please check back in a few minutes.',
-                'reference' => $reference,
-                'amount' => null,
-                'receipt_no' => null,
-            ]);
-        }
-    }
-
-    // If we have a payment_id from the URL (Razorpay redirects with payment_id in some cases)
-    if (!$reference && $paymentId) {
-        try {
-            $payment = $this->razorpay->fetchPayment($paymentId);
-            $order = $this->razorpay->fetchOrder($payment['order_id']);
-            $receipt = $order['receipt'] ?? $payment['receipt'] ?? null;
-
-            if ($receipt && $payment['status'] === 'captured') {
-                $newRecord = $this->recordPaymentIfNeeded($receipt, $payment, $order);
-
-                return view('guest.payment-result', [
-                    'success' => true,
-                    'message' => 'Payment successful!',
-                    'reference' => $receipt,
-                    'amount' => ($payment['amount'] ?? 0) / 100,
-                    'receipt_no' => $newRecord->receipt_no ?? $receipt,
-                ]);
-            }
-        } catch (Exception $e) {
-            Log::error('Error processing payment by payment_id: ' . $e->getMessage());
-        }
-    }
-
-    // Default error response
-    return view('guest.payment-result', [
-        'success' => false,
-        'message' => 'Payment details not found. Please check your payment status in your account.',
-        'reference' => $reference ?? 'N/A',
-        'amount' => null,
-        'receipt_no' => null,
-    ]);
-}
     /**
-     * AJAX polling for payment status
-     * GET /guest/payment/status?reference=PAY-...
+     * Build UPI URI
      */
-    public function status(Request $request)
+    private function buildUPIUri($upiId, $payeeName, $amount, $reference)
+    {
+        $params = [
+            'pa' => $upiId,
+            'pn' => $payeeName,
+            'am' => number_format($amount, 2),
+            'tn' => 'Rent Payment ' . $reference,
+            'cu' => 'INR'
+        ];
+
+        return 'upi://pay?' . http_build_query($params);
+    }
+
+    /**
+     * Verify UPI payment (Manual verification or automatic)
+     */
+    public function verifyUPI(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'reference' => 'required|string'
+            'reference' => 'required|string',
+            'transaction_id' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -557,103 +288,50 @@ public function callback(Request $request)
         }
 
         $reference = $request->reference;
+        $transactionId = $request->transaction_id ?? 'UPI-' . strtoupper(Str::random(10));
 
-        // Check local payment record
-        $payment = Payment::where('receipt_no', $reference)->with('resident')->first();
-        if ($payment) {
+        // Check if payment already recorded
+        $existingPayment = Payment::where('receipt_no', $reference)->first();
+        if ($existingPayment) {
             return response()->json([
                 'success' => true,
-                'state' => 'COMPLETED',
-                'data' => [
-                    'status' => $payment->status,
-                    'amount' => $payment->upi_paid_amount,
-                    'receipt_no' => $payment->receipt_no,
-                    'payment_date' => $payment->payment_date->format('d M Y h:i A'),
-                    'resident' => $payment->resident->name ?? 'N/A'
-                ]
+                'message' => 'Payment already recorded',
+                'data' => $existingPayment
             ]);
         }
 
-        return response()->json([
-            'success' => true,
-            'state' => 'PENDING',
-        ]);
-    }
-
-    /**
-     * Razorpay Webhook
-     * POST /guest/payment/webhook
-     */
-    public function webhook(Request $request)
-    {
-        // Verify webhook signature
-        $webhookSecret = config('razorpay.webhook_secret');
-        $signature = $request->header('X-Razorpay-Signature');
-
-        if (!$signature || !$webhookSecret) {
-            Log::warning('Razorpay webhook: missing signature or secret');
-            return response()->json(['message' => 'Unauthorized'], 401);
+        // Get payment data from cache
+        $paymentData = cache()->get('upi_payment_' . $reference);
+        if (!$paymentData) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment reference not found or expired'
+            ], 404);
         }
 
-        // Verify signature
-        $body = $request->getContent();
-        $expectedSignature = hash_hmac('sha256', $body, $webhookSecret);
-
-        if (!hash_equals($expectedSignature, $signature)) {
-            Log::warning('Razorpay webhook: invalid signature');
-            return response()->json(['message' => 'Unauthorized'], 401);
+        $resident = Resident::find($paymentData['resident_id']);
+        if (!$resident) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resident not found'
+            ], 404);
         }
 
-        $payload = $request->json()->all();
-        $event = $payload['event'] ?? null;
-        $payment = $payload['payload']['payment']['entity'] ?? [];
-        $order = $payload['payload']['order']['entity'] ?? [];
+        $paidAmount = $paymentData['amount'];
+        $rentAmount = (float) ($resident->rent_amount ?? 0);
 
-        Log::info('Razorpay webhook received', [
-            'event' => $event,
-            'payment_id' => $payment['id'] ?? null,
-            'order_id' => $order['id'] ?? null,
-        ]);
-
-        // Handle payment captured event
-        if ($event === 'payment.captured' && !empty($payment['id'])) {
-            $receipt = $payment['receipt'] ?? $order['receipt'] ?? null;
-            if ($receipt) {
-                $this->recordPaymentIfNeeded($receipt, $payment, $order);
-            }
+        // Determine payment status
+        $status = 'PAID';
+        $balance = 0;
+        if ($paidAmount < $rentAmount) {
+            $status = 'PARTIAL';
+            $balance = $rentAmount - $paidAmount;
         }
 
-        // Must return 2xx quickly
-        return response()->json(['status' => 'ok']);
-    }
-
-    /**
-     * Idempotently creates the local Payment record
-     */
-    protected function recordPaymentIfNeeded(string $receipt, array $payment, array $order): Payment
-    {
-        $existing = Payment::where('receipt_no', $receipt)->first();
-        if ($existing) {
-            return $existing;
-        }
-
-        $residentId = cache()->get('razorpay_order_resident_' . $receipt);
-        $resident = $residentId ? Resident::find($residentId) : null;
-
-        // Get resident ID from order notes if not in cache
-        if (!$resident && isset($order['notes']['resident_id'])) {
-            $resident = Resident::find($order['notes']['resident_id']);
-        }
-
-        $paidAmount = ($payment['amount'] ?? 0) / 100;
-        $rentAmount = $resident?->rent_amount ?? 0;
-        $transactionId = $payment['id'] ?? ('TXN-' . strtoupper(Str::random(10)));
-
-        $paymentStatus = $this->determinePaymentStatus($paidAmount, $rentAmount);
-
-        return Payment::create([
-            'resident_id' => $resident?->id,
-            'receipt_no' => $receipt,
+        // Create payment record
+        $payment = Payment::create([
+            'resident_id' => $resident->id,
+            'receipt_no' => $reference,
             'month' => now()->month,
             'year' => now()->year,
             'rent_amount' => $rentAmount,
@@ -661,33 +339,151 @@ public function callback(Request $request)
             'fine_amount' => 0,
             'cash_paid_amount' => 0,
             'upi_paid_amount' => $paidAmount,
-            'balance_amount' => max(0, $rentAmount - $paidAmount),
+            'balance_amount' => $balance,
             'payment_date' => now(),
             'transaction_id' => $transactionId,
-            'status' => $paymentStatus,
+            'status' => $status,
+        ]);
+
+        // Clear cache
+        cache()->forget('upi_payment_' . $reference);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment verified successfully!',
+            'data' => $payment
         ]);
     }
 
     /**
-     * Determine payment status based on paid amount vs total amount
+     * Check UPI payment status
      */
-    protected function determinePaymentStatus(float $paidAmount, float $totalAmount): string
+    public function checkUPIStatus(Request $request)
     {
-        if ($totalAmount <= 0) {
-            return 'PAID';
+        $reference = $request->query('reference');
+
+        if (!$reference) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Reference required'
+            ], 400);
         }
 
-        if ($paidAmount >= $totalAmount) {
-            return 'PAID';
-        } elseif ($paidAmount > 0) {
-            return 'PARTIAL';
-        } else {
-            return 'PENDING';
+        // Check in database
+        $payment = Payment::where('receipt_no', $reference)->first();
+        if ($payment) {
+            return response()->json([
+                'success' => true,
+                'status' => 'COMPLETED',
+                'data' => [
+                    'status' => $payment->status,
+                    'amount' => $payment->upi_paid_amount,
+                    'receipt_no' => $payment->receipt_no,
+                    'payment_date' => $payment->payment_date->format('d M Y h:i A'),
+                    'transaction_id' => $payment->transaction_id,
+                ]
+            ]);
         }
+
+        // Check in cache
+        $cached = cache()->get('upi_payment_' . $reference);
+        if ($cached) {
+            $createdAt = $cached['created_at'];
+            $minutesPassed = now()->diffInMinutes($createdAt);
+
+            if ($minutesPassed > 10) {
+                cache()->forget('upi_payment_' . $reference);
+                return response()->json([
+                    'success' => true,
+                    'status' => 'EXPIRED',
+                    'message' => 'Payment session expired. Please try again.'
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'status' => 'PENDING',
+                'message' => 'Waiting for payment confirmation'
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => 'NOT_FOUND',
+            'message' => 'No payment found for this reference'
+        ]);
     }
 
     /**
-     * Admin helper: generate an encoded hostel payment link.
+     * Browser callback after UPI payment
+     */
+    public function callback(Request $request)
+    {
+        $reference = $request->query('reference');
+        $status = $request->query('status');
+
+        // If status is success from UPI app return
+        if ($status === 'success' && $reference) {
+            // Verify the payment
+            $verifyResult = $this->verifyUPI(new Request([
+                'reference' => $reference,
+                'transaction_id' => $request->query('transaction_id')
+            ]));
+
+            $data = $verifyResult->getData();
+
+            if ($data->success) {
+                return view('guest.payment-result', [
+                    'success' => true,
+                    'message' => 'Payment successful!',
+                    'reference' => $reference,
+                    'amount' => $data->data->upi_paid_amount ?? 0,
+                    'receipt_no' => $data->data->receipt_no ?? $reference,
+                    'transaction_id' => $data->data->transaction_id ?? null,
+                ]);
+            }
+        }
+
+        // Check for cancellation
+        if ($status === 'cancelled') {
+            return view('guest.payment-result', [
+                'success' => false,
+                'message' => 'Payment was cancelled. You can try again.',
+                'reference' => $reference ?? 'N/A',
+                'amount' => null,
+                'receipt_no' => null,
+            ]);
+        }
+
+        // If reference exists, check status
+        if ($reference) {
+            $statusCheck = $this->checkUPIStatus(new Request(['reference' => $reference]));
+            $data = $statusCheck->getData();
+
+            if ($data->status === 'COMPLETED') {
+                return view('guest.payment-result', [
+                    'success' => true,
+                    'message' => 'Payment successful!',
+                    'reference' => $reference,
+                    'amount' => $data->data->amount ?? 0,
+                    'receipt_no' => $data->data->receipt_no ?? $reference,
+                    'transaction_id' => $data->data->transaction_id ?? null,
+                ]);
+            }
+        }
+
+        // Default - show payment pending or not found
+        return view('guest.payment-result', [
+            'success' => null,
+            'message' => 'Payment is being processed. Please check back in a few minutes.',
+            'reference' => $reference ?? 'N/A',
+            'amount' => null,
+            'receipt_no' => null,
+        ]);
+    }
+
+    /**
+     * Admin: Generate payment link
      */
     public function generateLink($hostelId)
     {
@@ -710,46 +506,26 @@ public function callback(Request $request)
                 'hostel_code' => $hostel->hostel_code ?? 'HOSTEL',
                 'encoded_id' => $encodedId,
                 'payment_link' => $url,
+                'upi_id' => $hostel->upi_id,
             ]
         ]);
     }
 
-    public function encodeId($hostelId)
-    {
-        try {
-            $encoded = Crypt::encryptString($hostelId);
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'original_id' => $hostelId,
-                    'encoded_id' => $encoded,
-                    'url' => url('/guest/payment/' . $encoded)
-                ]
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to encode ID: ' . $e->getMessage()
-            ], 500);
-        }
+    // Dummy methods for biometric (keep if needed)
+    public function disableBiometricAccess($residentId) { return response()->json(['success' => true]); }
+    public function checkBiometricAccess($residentId) { return response()->json(['success' => true]); }
+    public function syncBiometricAll() { return response()->json(['success' => true]); }
+    public function getDeviceLogs() { return response()->json(['success' => true]); }
+    public function getDeviceStatus($deviceId = null) { return response()->json(['success' => true]); }
+    public function rebootDevice($deviceId = null) { return response()->json(['success' => true]); }
+    public function encodeId($hostelId) {
+        return response()->json(['success' => true, 'encoded' => Crypt::encryptString($hostelId)]);
     }
-
-    public function decodeId($encodedId)
-    {
+    public function decodeId($encodedId) {
         try {
-            $decoded = Crypt::decryptString($encodedId);
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'encoded_id' => $encodedId,
-                    'decoded_id' => $decoded
-                ]
-            ]);
+            return response()->json(['success' => true, 'decoded' => Crypt::decryptString($encodedId)]);
         } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to decode ID: ' . $e->getMessage()
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Invalid encoded ID']);
         }
     }
 }

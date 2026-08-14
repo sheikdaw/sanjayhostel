@@ -1,4 +1,5 @@
 <?php
+// app/Http/Controllers/Admin/HostelController.php
 
 namespace App\Http\Controllers\Admin;
 
@@ -31,7 +32,7 @@ class HostelController extends Controller
             $hostel->beds_count = $hostel->rooms->sum(function($room) {
                 return $room->beds()->count();
             });
-            
+
             $hostel->biometric_residents_count = $hostel->residents()->whereNotNull('employee_code')->count();
             $hostel->biometric_access_count = $hostel->residents()->where('biometric_access', true)->count();
         }
@@ -55,7 +56,7 @@ class HostelController extends Controller
     {
         try {
             $hostel = Hostel::findOrFail($id);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $hostel
@@ -208,7 +209,7 @@ class HostelController extends Controller
     {
         try {
             $hostels = Hostel::whereNotNull('biometric_device_id')->get();
-            
+
             $totalSynced = 0;
             $hostelsSynced = 0;
             $results = [];
@@ -216,7 +217,7 @@ class HostelController extends Controller
             foreach ($hostels as $hostel) {
                 $response = $this->syncHostelBiometric($hostel->id);
                 $data = $response->getData();
-                
+
                 if ($data->success) {
                     $hostelsSynced++;
                     $totalSynced += $data->synced;
@@ -268,9 +269,9 @@ class HostelController extends Controller
 
             // Set hostel-specific configuration
             $this->ebioService->setHostelConfig($hostel);
-            
+
             $result = $this->ebioService->getDeviceList();
-            
+
             return response()->json([
                 'success' => $result['success'] ?? false,
                 'message' => $result['success'] ? 'Device is online and reachable!' : 'Device is offline or unreachable.',
@@ -293,7 +294,7 @@ class HostelController extends Controller
     {
         try {
             $hostels = Hostel::withCount(['residents'])->get();
-            
+
             $stats = [];
             foreach ($hostels as $hostel) {
                 $stats[] = [
@@ -326,7 +327,7 @@ class HostelController extends Controller
     }
 
     // ============================================
-    // BASIC CRUD METHODS
+    // BASIC CRUD METHODS WITH UPI FIELDS
     // ============================================
 
     public function store(Request $request)
@@ -345,6 +346,8 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
+            'upi_id' => 'nullable|string|max:100',
+            'upi_payee_name' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -390,6 +393,8 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
+            'upi_id' => 'nullable|string|max:100',
+            'upi_payee_name' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {

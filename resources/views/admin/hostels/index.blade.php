@@ -1,3 +1,5 @@
+<!-- resources/views/admin/hostels/index.blade.php -->
+
 @extends('layouts.office')
 
 @section('title', 'Hostel Management')
@@ -47,7 +49,7 @@
     }
     .hostel-stat-item .number { font-size: 1rem; font-weight: 700; color: var(--sanjay-primary); }
     .hostel-stat-item .label { font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-    
+
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -66,13 +68,13 @@
     .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
     .status-badge.active .dot { background: #22c55e; }
     .status-badge.inactive .dot { background: #ef4444; }
-    
-    .btn-action { 
-        padding: 0.2rem 0.5rem; 
-        border-radius: 6px; 
-        border: 1px solid #e5e7eb; 
-        background: white; 
-        font-size: 0.75rem; 
+
+    .btn-action {
+        padding: 0.2rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        font-size: 0.75rem;
         cursor: pointer;
         transition: all 0.2s;
     }
@@ -114,7 +116,7 @@
     .biometric-status-dot.offline { background: #ef4444; }
     .biometric-status-dot.configuring { background: #f59e0b; }
     .biometric-status-dot.not-configured { background: #9ca3af; }
-    
+
     .biometric-stats {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -130,6 +132,46 @@
     .biometric-stat-item .number { font-size: 0.9rem; font-weight: 700; color: var(--sanjay-primary); }
     .biometric-stat-item .label { font-size: 0.55rem; color: #6b7280; text-transform: uppercase; }
 
+    /* UPI Section Styles */
+    .upi-section {
+        background: #f0f7ff;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin: 0.75rem 0;
+        border: 1px solid #dbeafe;
+    }
+    .upi-section .upi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .upi-section .upi-header .title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #1a56db;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .upi-status-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 4px;
+    }
+    .upi-status-dot.configured { background: #22c55e; }
+    .upi-status-dot.not-configured { background: #ef4444; }
+    .upi-id-display {
+        font-family: monospace;
+        font-size: 0.8rem;
+        color: #1a56db;
+        background: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        display: inline-block;
+    }
+
     .modal-content { border-radius: 16px; border: none; }
     .modal-header {
         background: var(--sanjay-primary);
@@ -140,7 +182,7 @@
     .modal-header .btn-close { filter: brightness(0) invert(1); }
     .modal-body { padding: 1.5rem; max-height: 70vh; overflow-y: auto; }
     .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; }
-    
+
     .rv-input-box {
         position: relative;
         border: 1px solid #d1d5db;
@@ -176,10 +218,10 @@
     .form-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
     .form-label .required { color: #dc2626; margin-left: 2px; }
     .invalid-feedback { font-size: 0.75rem; color: #dc2626; margin-top: 0.25rem; }
-    
+
     .empty-state { text-align: center; padding: 4rem 2rem; }
     .empty-state i { font-size: 4rem; color: #d1d5db; margin-bottom: 1rem; }
-    
+
     .toast-container {
         position: fixed;
         top: 80px;
@@ -216,6 +258,14 @@
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(100%); opacity: 0; }
     }
+
+    /* Small screens */
+    @media (max-width: 576px) {
+        .hostel-stats { grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
+        .hostel-stat-item { padding: 0.25rem; }
+        .hostel-stat-item .number { font-size: 0.85rem; }
+        .biometric-stats { grid-template-columns: repeat(2, 1fr); }
+    }
 </style>
 @endpush
 
@@ -224,14 +274,14 @@
 <div class="ol-page-header">
     <div>
         <h1 class="ol-page-title">Hostel Management</h1>
-        <p class="ol-page-sub">Manage all hostels and their biometric devices</p>
+        <p class="ol-page-sub">Manage all hostels, biometric devices, and UPI payments</p>
     </div>
-    <div class="d-flex gap-2">
-        <button type="button" class="rv-submit" onclick="syncAllHostels()" 
+    <div class="d-flex gap-2 flex-wrap">
+        <button type="button" class="rv-submit" onclick="syncAllHostels()"
                 style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#7c3aed;">
             <i class="bi bi-cloud-upload"></i> Sync All
         </button>
-        <button type="button" class="rv-submit" id="addHostelBtn" 
+        <button type="button" class="rv-submit" id="addHostelBtn"
                 style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none;">
             <i class="bi bi-plus-circle"></i> Add Hostel
         </button>
@@ -282,9 +332,9 @@
                                 <div class="biometric-header">
                                     <span class="title"><i class="bi bi-fingerprint"></i> Biometric Device</span>
                                     <span>
-                                        <span class="biometric-status-dot {{ 
-                                            $hostel->biometric_ip_address ? 'online' : 
-                                            ($hostel->biometric_device_id ? 'configuring' : 'not-configured') 
+                                        <span class="biometric-status-dot {{
+                                            $hostel->biometric_ip_address ? 'online' :
+                                            ($hostel->biometric_device_id ? 'configuring' : 'not-configured')
                                         }}"></span>
                                         <span style="font-size:0.7rem; font-weight:500;">
                                             {{ $hostel->biometric_device_name ?? 'Not Configured' }}
@@ -311,12 +361,38 @@
                                 </div>
                             </div>
 
+                            {{-- UPI Section --}}
+                            <div class="upi-section">
+                                <div class="upi-header">
+                                    <span class="title"><i class="bi bi-phone"></i> UPI Payment</span>
+                                    <span>
+                                        <span class="upi-status-dot {{ $hostel->upi_id ? 'configured' : 'not-configured' }}"></span>
+                                        <span style="font-size:0.7rem; font-weight:500;">
+                                            {{ $hostel->upi_id ? 'Configured' : 'Not Configured' }}
+                                        </span>
+                                    </span>
+                                </div>
+                                @if($hostel->upi_id)
+                                    <div style="font-size:0.65rem; color:#6b7280;">
+                                        <i class="bi bi-upc-scan"></i>
+                                        <span class="upi-id-display">{{ $hostel->upi_id }}</span>
+                                        @if($hostel->upi_payee_name)
+                                            <span class="ms-2">👤 {{ $hostel->upi_payee_name }}</span>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div style="font-size:0.65rem; color:#6b7280;">
+                                        <i class="bi bi-exclamation-circle"></i> No UPI ID configured
+                                    </div>
+                                @endif
+                            </div>
+
                             <div class="d-flex justify-content-between align-items-center">
                                 <button class="status-badge {{ strtolower($hostel->status) }}" onclick="toggleStatus({{ $hostel->id }}, '{{ $hostel->status }}')">
                                     <span class="dot"></span>
                                     {{ $hostel->status }}
                                 </button>
-                                <div class="d-flex gap-1">
+                                <div class="d-flex gap-1 flex-wrap">
                                     <button class="btn-action text-info" onclick="openBiometricConfig({{ $hostel->id }})" title="Configure Biometric">
                                         <i class="bi bi-gear"></i>
                                     </button>
@@ -363,6 +439,7 @@
                 <input type="hidden" id="editId" name="edit_id">
                 <div class="modal-body">
                     <div class="row g-3">
+                        <!-- Basic Details -->
                         <div class="col-md-6">
                             <label class="form-label">Hostel Code <span class="required">*</span></label>
                             <div class="rv-input-box">
@@ -425,6 +502,38 @@
                                 <input type="email" name="email" id="email" class="rv-input" placeholder="hostel@domain.com">
                             </div>
                             <div class="invalid-feedback" id="email_error"></div>
+                        </div>
+
+                        {{-- UPI Configuration --}}
+                        <div class="col-12">
+                            <hr>
+                            <h6><i class="bi bi-phone"></i> UPI Payment Configuration</h6>
+                            <p class="text-muted small">Configure UPI for receiving rent payments directly</p>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">UPI ID <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-upc-scan rv-input-icon"></i>
+                                <input type="text" name="upi_id" id="upi_id" class="rv-input"
+                                       placeholder="merchant@upi" value="{{ old('upi_id') }}">
+                            </div>
+                            <div class="invalid-feedback" id="upi_id_error"></div>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                Examples: merchant@ybl (Google Pay), merchant@paytm (PhonePe/Paytm)
+                            </small>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">UPI Payee Name</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-person rv-input-icon"></i>
+                                <input type="text" name="upi_payee_name" id="upi_payee_name" class="rv-input"
+                                       placeholder="Hostel Name" value="{{ old('upi_payee_name') }}">
+                            </div>
+                            <div class="invalid-feedback" id="upi_payee_name_error"></div>
+                            <small class="text-muted">Name shown in UPI app (default: Hostel Name)</small>
                         </div>
 
                         {{-- Biometric Configuration --}}
@@ -692,12 +801,19 @@ function editHostel(id) {
                 document.getElementById('address').value = data.address || '';
                 document.getElementById('phone').value = data.phone || '';
                 document.getElementById('email').value = data.email || '';
+
+                // UPI Fields
+                document.getElementById('upi_id').value = data.upi_id || '';
+                document.getElementById('upi_payee_name').value = data.upi_payee_name || '';
+
+                // Biometric Fields
                 document.getElementById('biometric_device_id').value = data.biometric_device_id || '';
                 document.getElementById('biometric_device_name').value = data.biometric_device_name || '';
                 document.getElementById('biometric_ip_address').value = data.biometric_ip_address || '';
                 document.getElementById('biometric_port').value = data.biometric_port || '4370';
                 document.getElementById('biometric_location_code').value = data.biometric_location_code || '';
                 document.getElementById('employee_code_prefix').value = data.employee_code_prefix || '';
+
                 document.getElementById('saveBtnText').textContent = 'Update';
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
