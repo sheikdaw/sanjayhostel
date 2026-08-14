@@ -687,30 +687,46 @@
 
 <!-- Toast Container -->
 <div class="toast-container" id="flashMessageContainer"></div>
-
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
+// ============================================
+// ✅ VARIABLES - Initialize at top level
+// ============================================
+var hostelModalInstance = null;
+var biometricModalInstance = null;
+
 $(document).ready(function() {
-    // ✅ Initialize Modals
-    var hostelModalEl = document.getElementById('hostelModal');
-    var biometricModalEl = document.getElementById('biometricModal');
+    console.log('✅ Hostel Management - Document ready!');
 
-    var hostelModal = new bootstrap.Modal(hostelModalEl, {
-        backdrop: 'static',
-        keyboard: true
-    });
+    // ✅ Initialize Modals with proper error handling
+    try {
+        var hostelModalEl = document.getElementById('hostelModal');
+        if (hostelModalEl) {
+            hostelModalInstance = new bootstrap.Modal(hostelModalEl, {
+                backdrop: 'static',
+                keyboard: true
+            });
+            console.log('✅ Hostel modal initialized');
+        } else {
+            console.error('❌ Hostel modal element not found!');
+        }
 
-    var biometricModal = new bootstrap.Modal(biometricModalEl, {
-        backdrop: 'static',
-        keyboard: true
-    });
-
-    // ✅ Store modal instances in global scope for access from functions
-    window.hostelModal = hostelModal;
-    window.biometricModal = biometricModal;
+        var biometricModalEl = document.getElementById('biometricModal');
+        if (biometricModalEl) {
+            biometricModalInstance = new bootstrap.Modal(biometricModalEl, {
+                backdrop: 'static',
+                keyboard: true
+            });
+            console.log('✅ Biometric modal initialized');
+        } else {
+            console.error('❌ Biometric modal element not found!');
+        }
+    } catch (e) {
+        console.error('❌ Error initializing modals:', e);
+    }
 
     // ✅ Add Hostel Button Click
     $('#addHostelBtn').on('click', function(e) {
@@ -765,6 +781,45 @@ $(document).ready(function() {
 });
 
 // ============================================
+// ✅ HELPER FUNCTION TO SHOW MODAL SAFELY
+// ============================================
+
+function showModalSafely(modalInstance, modalElementId) {
+    if (modalInstance) {
+        try {
+            modalInstance.show();
+            return true;
+        } catch (e) {
+            console.error('Error showing modal:', e);
+        }
+    }
+
+    // Fallback: Try to reinitialize and show
+    try {
+        var element = document.getElementById(modalElementId);
+        if (element) {
+            var newModal = new bootstrap.Modal(element, {
+                backdrop: 'static',
+                keyboard: true
+            });
+            newModal.show();
+
+            // Store the new instance
+            if (modalElementId === 'hostelModal') {
+                hostelModalInstance = newModal;
+            } else if (modalElementId === 'biometricModal') {
+                biometricModalInstance = newModal;
+            }
+            return true;
+        }
+    } catch (e) {
+        console.error('Fallback modal show failed:', e);
+    }
+
+    return false;
+}
+
+// ============================================
 // ✅ MODAL FUNCTIONS
 // ============================================
 
@@ -777,15 +832,8 @@ function openAddModal() {
     $('.rv-input-box').removeClass('is-invalid is-valid');
     $('#upi_payee_name').data('user-edited', false);
 
-    // ✅ Show modal using stored instance
-    if (window.hostelModal) {
-        window.hostelModal.show();
-    } else {
-        // Fallback: create new instance
-        var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
-        modal.show();
-        window.hostelModal = modal;
-    }
+    // ✅ Show modal safely
+    showModalSafely(hostelModalInstance, 'hostelModal');
 }
 
 function resetForm() {
@@ -828,8 +876,16 @@ function submitForm() {
         },
         success: function(response) {
             if (response.success) {
-                if (window.hostelModal) {
-                    window.hostelModal.hide();
+                // ✅ Hide modal safely
+                if (hostelModalInstance) {
+                    try {
+                        hostelModalInstance.hide();
+                    } catch (e) {
+                        // If hide fails, try to get element and hide via jQuery
+                        $('#hostelModal').modal('hide');
+                    }
+                } else {
+                    $('#hostelModal').modal('hide');
                 }
                 showToast(response.message, 'success');
                 setTimeout(() => location.reload(), 1500);
@@ -900,13 +956,7 @@ function editHostel(id) {
                 $('.rv-input-box').removeClass('is-invalid is-valid');
 
                 // ✅ Show modal
-                if (window.hostelModal) {
-                    window.hostelModal.show();
-                } else {
-                    var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
-                    modal.show();
-                    window.hostelModal = modal;
-                }
+                showModalSafely(hostelModalInstance, 'hostelModal');
             }
         },
         error: function(xhr) {
@@ -1042,13 +1092,7 @@ function openBiometricConfig(id) {
     });
 
     // ✅ Show biometric modal
-    if (window.biometricModal) {
-        window.biometricModal.show();
-    } else {
-        var modal = new bootstrap.Modal(document.getElementById('biometricModal'));
-        modal.show();
-        window.biometricModal = modal;
-    }
+    showModalSafely(biometricModalInstance, 'biometricModal');
 }
 
 function submitBiometricForm() {
@@ -1069,8 +1113,15 @@ function submitBiometricForm() {
         },
         success: function(response) {
             if (response.success) {
-                if (window.biometricModal) {
-                    window.biometricModal.hide();
+                // ✅ Hide biometric modal safely
+                if (biometricModalInstance) {
+                    try {
+                        biometricModalInstance.hide();
+                    } catch (e) {
+                        $('#biometricModal').modal('hide');
+                    }
+                } else {
+                    $('#biometricModal').modal('hide');
                 }
                 showToast('Biometric configuration saved successfully!', 'success');
                 setTimeout(() => location.reload(), 1500);
