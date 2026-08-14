@@ -364,6 +364,9 @@
                 <div class="subtitle">
                     <i class="bi bi-phone"></i> Enter your registered mobile number to view your rent
                 </div>
+                @if(isset($reference))
+    <input type="hidden" id="paymentReference" value="{{ $reference }}">
+@endif
                 <div class="mobile-input-group">
                     <input type="tel" class="form-control" id="mobileInput" placeholder="Enter mobile number"
                         maxlength="15">

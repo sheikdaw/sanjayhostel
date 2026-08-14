@@ -23,45 +23,42 @@ class GuestPaymentController extends Controller
         $this->razorpay = $razorpay;
     }
 
-    /**
-     * Display the guest payment page.
-     * GET /guest/payment/{encodedHostelId?}
-     */
-    public function index(Request $request, $encodedHostelId = null)
-    {
-        $hostelId = null;
+   public function index(Request $request, $encodedHostelId = null)
+{
+    $hostelId = null;
 
-        if ($encodedHostelId) {
-            try {
-                $hostelId = Crypt::decryptString($encodedHostelId);
-            } catch (Exception $e) {
-                if (is_numeric($encodedHostelId)) {
-                    $hostelId = $encodedHostelId;
-                } else {
-                    abort(404, 'Invalid payment link');
-                }
+    if ($encodedHostelId) {
+        try {
+            $hostelId = Crypt::decryptString($encodedHostelId);
+        } catch (Exception $e) {
+            if (is_numeric($encodedHostelId)) {
+                $hostelId = $encodedHostelId;
+            } else {
+                abort(404, 'Invalid payment link');
             }
         }
-
-        $hostel = null;
-        if ($hostelId) {
-            $hostel = Hostel::with('roomTypes')->find($hostelId);
-            if (!$hostel) {
-                abort(404, 'Hostel not found');
-            }
-        }
-
-        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-        $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
-
-        return view('guest.payment', compact(
-            'hostel',
-            'hostelId',
-            'reference',
-            'encodedHostelId',
-            'encodedId'
-        ));
     }
+
+    $hostel = null;
+    if ($hostelId) {
+        $hostel = Hostel::with('roomTypes')->find($hostelId);
+        if (!$hostel) {
+            abort(404, 'Hostel not found');
+        }
+    }
+
+    // Make sure $reference is defined here
+    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+    $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
+
+    return view('guest.payment', compact(
+        'hostel',
+        'hostelId',
+        'reference',      // ✅ This MUST be included
+        'encodedHostelId',
+        'encodedId'
+    ));
+}
 
     /**
      * Get resident details by mobile number.
