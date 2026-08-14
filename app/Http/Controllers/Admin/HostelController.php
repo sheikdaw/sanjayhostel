@@ -14,13 +14,71 @@ class HostelController extends Controller
 {
     protected $ebioService;
 
-    /**
-     * Shared UPI ID format: local-part@handle (e.g. merchant@ybl, 9876543210@paytm)
-     */
-
     public function __construct(EbioServerService $ebioService)
     {
         $this->ebioService = $ebioService;
+    }
+
+    /**
+     * Extract UPI ID from various formats
+     * Handles:
+     * - "merchant@ybl" (plain UPI ID)
+     * - "upi://pay?pa=merchant@ybl&pn=..." (UPI URL)
+     * - "paytm://pay?pa=merchant@ybl" (other app URLs)
+     * - "Q342895210@ybl" (numeric UPI ID)
+     */
+    protected function extractUpiId($input)
+    {
+        if (empty($input)) {
+            return null;
+        }
+
+        $input = trim($input);
+
+        // If it's already a plain UPI ID (contains @ and no ://)
+        if (strpos($input, '@') !== false && strpos($input, '://') === false) {
+            // Validate it has proper format
+            if (preg_match('/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/', $input)) {
+                return $input;
+            }
+            // If it has @ but doesn't match pattern, try to extract
+        }
+
+        // Try to extract from URL format
+        // Pattern: pa=merchant@handle
+        if (preg_match('/[?&]pa=([^&]+)/', $input, $matches)) {
+            $upiId = urldecode($matches[1]);
+            // Validate it has @ symbol and proper format
+            if (strpos($upiId, '@') !== false && preg_match('/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/', $upiId)) {
+                return $upiId;
+            }
+        }
+
+        // Try to find anything with @ symbol in the input using regex
+        if (preg_match('/[a-zA-Z0-9.\-_]+@[a-zA-Z0-9.\-_]+/', $input, $matches)) {
+            $upiId = $matches[0];
+            if (preg_match('/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/', $upiId)) {
+                return $upiId;
+            }
+        }
+
+        // If no valid UPI ID found, return null
+        return null;
+    }
+
+    /**
+     * Validate UPI ID format
+     */
+    protected function validateUpiId($upiId)
+    {
+        if (empty($upiId)) {
+            return true; // Optional field
+        }
+
+        // Basic UPI ID pattern: local-part@handle
+        // Local part: alphanumeric, dot, hyphen, underscore (2-256 chars)
+        // Handle: alphabetic (2-64 chars)
+        return preg_match('/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/', $upiId) === 1;
     }
 
     /**
@@ -350,10 +408,8 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
-            'upi_id' => 'nullable', 'string', 'max:100',
+            'upi_id' => 'nullable|string|max:255',
             'upi_payee_name' => 'nullable|string|max:255',
-        ], [
-            'upi_id.regex' => 'Enter a valid UPI ID, e.g. merchant@ybl',
         ]);
 
         if ($validator->fails()) {
@@ -364,6 +420,22 @@ class HostelController extends Controller
         }
 
         $data = $request->all();
+
+        // Extract and validate UPI ID
+        $upiId = $this->extractUpiId($data['upi_id'] ?? '');
+
+        if (!empty($upiId) && !$this->validateUpiId($upiId)) {
+            return response()->json([
+                'success' => false,
+                'errors' => [
+                    'upi_id' => ['Enter a valid UPI ID, e.g. merchant@ybl or 123456@ybl']
+                ]
+            ], 422);
+        }
+
+        // Store the extracted UPI ID
+        $data['upi_id'] = $upiId;
+
         // Default payee name to hostel name if UPI ID is set but payee name is blank
         if (!empty($data['upi_id']) && empty($data['upi_payee_name'])) {
             $data['upi_payee_name'] = $data['hostel_name'];
@@ -405,10 +477,8 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
-            'upi_id' => 'nullable', 'string', 'max:100',
+            'upi_id' => 'nullable|string|max:255',
             'upi_payee_name' => 'nullable|string|max:255',
-        ], [
-            'upi_id.regex' => 'Enter a valid UPI ID, e.g. merchant@ybl',
         ]);
 
         if ($validator->fails()) {
@@ -419,12 +489,28 @@ class HostelController extends Controller
         }
 
         $data = $request->all();
+
+        // Extract and validate UPI ID
+        $upiId = $this->extractUpiId($data['upi_id'] ?? '');
+
+        if (!empty($upiId) && !$this->validateUpiId($upiId)) {
+            return response()->json([
+                'success' => false,
+                'errors' => [
+                    'upi_id' => ['Enter a valid UPI ID, e.g. merchant@ybl or 123456@ybl']
+                ]
+            ], 422);
+        }
+
+        $data['upi_id'] = $upiId;
+
+        // Default payee name to hostel name if UPI ID is set but payee name is blank
         if (!empty($data['upi_id']) && empty($data['upi_payee_name'])) {
             $data['upi_payee_name'] = $data['hostel_name'];
         }
-        // If UPI ID is cleared, clear the payee name too so stale names don't linger
+
+        // If UPI ID is cleared, clear the payee name too
         if (empty($data['upi_id'])) {
-            $data['upi_id'] = null;
             $data['upi_payee_name'] = null;
         }
 
