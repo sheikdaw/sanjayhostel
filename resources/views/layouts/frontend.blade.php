@@ -61,7 +61,7 @@
         button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
         h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; line-height: 1.15; color: var(--ink); }
         :focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
-        
+
         @media (prefers-reduced-motion: reduce) {
             html { scroll-behavior: auto; }
             * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -452,15 +452,16 @@
                     <div class="brand">Sanjay <span class="amp">&amp;</span> Harini</div>
                     <p>Safe, affordable PG accommodation for men and women in Alandur, St. Thomas Mount and Perungalathur, Chennai.</p>
                 </div>
-                <div>
-                    <h5>Quick Links</h5>
-                    <ul>
-                        <li><a href="{{ route('home') }}">Home</a></li>
-                        <li><a href="{{ route('about') }}">About</a></li>
-                        <li><a href="{{ route('rooms') }}">Rooms &amp; Facilities</a></li>
-                        <li><a href="{{ route('contact') }}">Contact / Book Now</a></li>
-                    </ul>
-                </div>
+               <div>
+    <h5>Quick Links</h5>
+    <ul>
+        <li><a href="{{ route('home') }}">Home</a></li>
+        <li><a href="{{ route('about') }}">About</a></li>
+        <li><a href="{{ route('rooms') }}">Rooms &amp; Facilities</a></li>
+        <li><a href="{{ route('contact') }}">Contact / Book Now</a></li>
+        <li><a href="{{ route('privacy') }}">Privacy Policy</a></li>  {{-- NEW --}}
+    </ul>
+</div>
                 <div>
                     <h5>Contact</h5>
                     <ul>

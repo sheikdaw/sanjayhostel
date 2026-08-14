@@ -76,7 +76,9 @@ Route::get('/gallery', function () {
 Route::get('/contact', function () {
     return view('contact');
 })->name('contact');
-
+Route::get('/privacy-policy', function () {
+    return view('privacy');
+})->name('privacy');
 Route::post('/contact', function () {
     // Handle form submission here
     return redirect()->route('contact')->with('success', 'Thank you! We will contact you shortly.');
