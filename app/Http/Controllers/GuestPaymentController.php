@@ -88,12 +88,6 @@ class GuestPaymentController extends Controller
         $currentYear = now()->year;
         $currentDay = now()->day;
 
-        // Get all payments
-        $allPayments = Payment::where('resident_id', $resident->id)
-            ->orderBy('year', 'asc')
-            ->orderBy('month', 'asc')
-            ->get();
-
         // Check current month payment
         $currentPayment = Payment::where('resident_id', $resident->id)
             ->where('month', $currentMonth)
@@ -149,14 +143,23 @@ class GuestPaymentController extends Controller
             $finalAmount = max(0, $totalDue - $discount);
         }
 
-        // Fine calculation
+        // ✅ FINE CALCULATION - FIXED
         $fineAmount = 0;
         $fineMessage = '';
+        $daysLate = 0;
+        $lateFeePerDay = 50; // ₹50 per day
 
         if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
             $daysLate = $currentDay - 10;
-            $fineAmount = $daysLate * 0;
-            $fineMessage = "Late fee: ₹50 per day after 10th ({$daysLate} days late)";
+            $fineAmount = $daysLate * $lateFeePerDay;
+
+            // Cap late fee at 100% of rent
+            if ($fineAmount > $rentAmount) {
+                $fineAmount = $rentAmount;
+                $fineMessage = "Late fee capped at ₹{$rentAmount} (max 100% of rent)";
+            } else {
+                $fineMessage = "Late fee: ₹{$lateFeePerDay} per day after 10th ({$daysLate} days late)";
+            }
         }
 
         $amountToPay = $finalAmount + $fineAmount;
@@ -181,6 +184,7 @@ class GuestPaymentController extends Controller
                 'discount_applicable' => $discount > 0,
                 'fine_amount' => (float) $fineAmount,
                 'fine_message' => $fineMessage,
+                'days_late' => (int) $daysLate,
                 'final_amount' => (float) $amountToPay,
                 'amount_to_pay' => (float) $amountToPay,
                 'has_pending' => $pendingPayments->count() > 0,
@@ -196,7 +200,7 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Generate UPI payment link
+     * ✅ FIXED: Generate UPI payment link using existing Sound Box URL
      */
     public function generateUPI(Request $request)
     {
@@ -230,7 +234,7 @@ class GuestPaymentController extends Controller
         $reference = $request->reference;
         $payeeName = $hostel->upi_payee_name ?? $hostel->hostel_name ?? 'Hostel Payment';
 
-        // Build UPI URI
+        // ✅ Build UPI URI - Using the existing Sound Box URL pattern
         $upiUri = $this->buildUPIUri($upiId, $payeeName, $amount, $reference);
 
         // Store payment reference in cache for verification
@@ -255,10 +259,45 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Build UPI URI
+     * ✅ FIXED: Build UPI URI with existing Sound Box parameters
+     *
+     * If the UPI ID is a full URL like "upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00"
+     * It will extract and add the amount.
+     *
+     * If it's a plain UPI ID like "Q342895210@ybl", it will build a new URL.
      */
     private function buildUPIUri($upiId, $payeeName, $amount, $reference)
     {
+        // ✅ Check if it's already a full UPI URL
+        if (strpos($upiId, 'upi://pay') === 0) {
+            // Parse the existing URL
+            $parsedUrl = parse_url($upiId);
+
+            if (isset($parsedUrl['query'])) {
+                parse_str($parsedUrl['query'], $params);
+
+                // Add/update amount
+                $params['am'] = number_format($amount, 2);
+
+                // Add transaction note if not exists
+                if (!isset($params['tn'])) {
+                    $params['tn'] = 'Rent Payment ' . $reference;
+                }
+
+                // Add currency if not exists
+                if (!isset($params['cu'])) {
+                    $params['cu'] = 'INR';
+                }
+
+                // Rebuild URL
+                return 'upi://pay?' . http_build_query($params);
+            }
+
+            // If no query string, add it
+            return $upiId . '&am=' . number_format($amount, 2);
+        }
+
+        // ✅ It's a plain UPI ID - Build a new URL
         $params = [
             'pa' => $upiId,
             'pn' => $payeeName,
@@ -511,7 +550,7 @@ class GuestPaymentController extends Controller
         ]);
     }
 
-    // Dummy methods for biometric (keep if needed)
+    // Dummy methods for biometric
     public function disableBiometricAccess($residentId) { return response()->json(['success' => true]); }
     public function checkBiometricAccess($residentId) { return response()->json(['success' => true]); }
     public function syncBiometricAll() { return response()->json(['success' => true]); }
