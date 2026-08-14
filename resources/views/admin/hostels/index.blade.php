@@ -765,20 +765,7 @@ $(document).ready(function() {
     });
 
     // ✅ Live UPI ID format feedback
-    $('#upi_id').on('blur', function() {
-        var val = $(this).val().trim();
-        var box = $(this).closest('.rv-input-box');
-        box.removeClass('is-invalid is-valid');
-        $('#upi_id_error').text('');
-        if (val.length === 0) return;
-        var upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-        if (!upiPattern.test(val)) {
-            box.addClass('is-invalid');
-            $('#upi_id_error').text('Enter a valid UPI ID, e.g. merchant@ybl');
-        } else {
-            box.addClass('is-valid');
-        }
-    });
+
 });
 
 // ============================================
