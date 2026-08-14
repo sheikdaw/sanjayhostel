@@ -258,6 +258,14 @@
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(100%); opacity: 0; }
     }
+
+    /* Small screens */
+    @media (max-width: 576px) {
+        .hostel-stats { grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
+        .hostel-stat-item { padding: 0.25rem; }
+        .hostel-stat-item .number { font-size: 0.85rem; }
+        .biometric-stats { grid-template-columns: repeat(2, 1fr); }
+    }
 </style>
 @endpush
 
@@ -424,7 +432,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalTitle">Add Hostel</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="hostelForm">
                 @csrf
@@ -504,7 +512,7 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">UPI ID</label>
+                            <label class="form-label">UPI ID <span class="required">*</span></label>
                             <div class="rv-input-box">
                                 <i class="bi bi-upc-scan rv-input-icon"></i>
                                 <input type="text" name="upi_id" id="upi_id" class="rv-input"
@@ -602,7 +610,7 @@
         <div class="modal-content">
             <div class="modal-header" style="background: #7c3aed;">
                 <h5 class="modal-title"><i class="bi bi-fingerprint"></i> Biometric Configuration</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form id="biometricForm">
                 @csrf
@@ -674,16 +682,12 @@
 <!-- Toast Container -->
 <div class="toast-container" id="flashMessageContainer"></div>
 
-<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Bootstrap Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-<!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
 $(document).ready(function() {
-    // Initialize modals
     var hostelModal = new bootstrap.Modal(document.getElementById('hostelModal'), {
         backdrop: 'static',
         keyboard: true
@@ -694,33 +698,26 @@ $(document).ready(function() {
         keyboard: true
     });
 
-    // Add Hostel Button Click
     $('#addHostelBtn').on('click', function(e) {
         e.preventDefault();
         openAddModal();
     });
 
-    // Hostel Modal Hidden Event - Reset Form
     $('#hostelModal').on('hidden.bs.modal', function() {
         resetForm();
     });
 
-    // Hostel Form Submit
     $('#hostelForm').on('submit', function(e) {
         e.preventDefault();
         submitForm();
     });
 
-    // Biometric Form Submit
     $('#biometricForm').on('submit', function(e) {
         e.preventDefault();
         submitBiometricForm();
     });
 });
 
-// ============================================
-// OPEN ADD MODAL
-// ============================================
 function openAddModal() {
     resetForm();
     document.getElementById('modalTitle').textContent = 'Add Hostel';
@@ -728,14 +725,9 @@ function openAddModal() {
     document.getElementById('editId').value = '';
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid');
-
-    var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
-    modal.show();
+    hostelModal.show();
 }
 
-// ============================================
-// RESET FORM
-// ============================================
 function resetForm() {
     document.getElementById('hostelForm').reset();
     $('.invalid-feedback').text('');
@@ -745,9 +737,6 @@ function resetForm() {
     document.getElementById('modalTitle').textContent = 'Add Hostel';
 }
 
-// ============================================
-// SUBMIT FORM (Add/Edit)
-// ============================================
 function submitForm() {
     let id = document.getElementById('editId').value;
     let url = "{{ route('admin.hostels.store') }}";
@@ -771,8 +760,7 @@ function submitForm() {
         },
         success: function(response) {
             if (response.success) {
-                var modal = bootstrap.Modal.getInstance(document.getElementById('hostelModal'));
-                modal.hide();
+                hostelModal.hide();
                 showToast(response.message, 'success');
                 setTimeout(() => location.reload(), 1500);
             }
@@ -797,9 +785,6 @@ function submitForm() {
     });
 }
 
-// ============================================
-// EDIT HOSTEL
-// ============================================
 function editHostel(id) {
     $.ajax({
         url: "{{ url('admin/hostels') }}/" + id + "/edit",
@@ -809,10 +794,10 @@ function editHostel(id) {
                 let data = response.data;
                 document.getElementById('modalTitle').textContent = 'Edit Hostel';
                 document.getElementById('editId').value = data.id;
-                document.getElementById('hostel_code').value = data.hostel_code || '';
-                document.getElementById('hostel_name').value = data.hostel_name || '';
-                document.getElementById('hostel_type').value = data.hostel_type || '';
-                document.getElementById('status').value = data.status || 'ACTIVE';
+                document.getElementById('hostel_code').value = data.hostel_code;
+                document.getElementById('hostel_name').value = data.hostel_name;
+                document.getElementById('hostel_type').value = data.hostel_type;
+                document.getElementById('status').value = data.status;
                 document.getElementById('address').value = data.address || '';
                 document.getElementById('phone').value = data.phone || '';
                 document.getElementById('email').value = data.email || '';
@@ -832,9 +817,7 @@ function editHostel(id) {
                 document.getElementById('saveBtnText').textContent = 'Update';
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
-
-                var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
-                modal.show();
+                hostelModal.show();
             }
         },
         error: function(xhr) {
@@ -843,9 +826,6 @@ function editHostel(id) {
     });
 }
 
-// ============================================
-// DELETE HOSTEL
-// ============================================
 function deleteHostel(id) {
     Swal.fire({
         title: 'Are you sure?',
@@ -875,9 +855,6 @@ function deleteHostel(id) {
     });
 }
 
-// ============================================
-// TOGGLE STATUS
-// ============================================
 function toggleStatus(id, currentStatus) {
     let newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     let statusText = newStatus === 'ACTIVE' ? 'Active' : 'Inactive';
@@ -910,9 +887,6 @@ function toggleStatus(id, currentStatus) {
     });
 }
 
-// ============================================
-// BIOMETRIC CONFIGURATION
-// ============================================
 function openBiometricConfig(id) {
     $('#biometricHostelId').val(id);
     $('#biometric_device_id_edit').val('');
@@ -940,8 +914,7 @@ function openBiometricConfig(id) {
         }
     });
 
-    var modal = new bootstrap.Modal(document.getElementById('biometricModal'));
-    modal.show();
+    biometricModal.show();
 }
 
 function submitBiometricForm() {
@@ -962,8 +935,7 @@ function submitBiometricForm() {
         },
         success: function(response) {
             if (response.success) {
-                var modal = bootstrap.Modal.getInstance(document.getElementById('biometricModal'));
-                modal.hide();
+                biometricModal.hide();
                 showToast('Biometric configuration saved successfully!', 'success');
                 setTimeout(() => location.reload(), 1500);
             }
@@ -986,9 +958,6 @@ function submitBiometricForm() {
     });
 }
 
-// ============================================
-// SYNC HOSTEL
-// ============================================
 function syncHostel(id) {
     Swal.fire({
         title: 'Sync Hostel Residents?',
@@ -1020,9 +989,6 @@ function syncHostel(id) {
     });
 }
 
-// ============================================
-// SYNC ALL HOSTELS
-// ============================================
 function syncAllHostels() {
     Swal.fire({
         title: 'Sync All Hostels?',
@@ -1054,9 +1020,6 @@ function syncAllHostels() {
     });
 }
 
-// ============================================
-// SHOW TOAST
-// ============================================
 function showToast(message, type = 'success') {
     let container = document.getElementById('flashMessageContainer');
     if (!container) {
