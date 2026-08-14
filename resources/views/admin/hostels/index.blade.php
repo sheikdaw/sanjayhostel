@@ -1092,16 +1092,16 @@
                     $('.rv-input-box').removeClass('is-invalid is-valid');
                 },
                 success: function(response) {
-                    if (response.success) {
-                        if (hostelModalInstance) {
-                            try { hostelModalInstance.hide(); } catch (e) { $('#hostelModal').modal(
-                                'hide'); }
-                        } else {
-                            $('#hostelModal').modal('hide');
-                        }
-                        showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    }
+                    // if (response.success) {
+                    //     if (hostelModalInstance) {
+                    //         try { hostelModalInstance.hide(); } catch (e) { $('#hostelModal').modal(
+                    //             'hide'); }
+                    //     } else {
+                    //         $('#hostelModal').modal('hide');
+                    //     }
+                    //     showToast(response.message, 'success');
+                    //     setTimeout(() => location.reload(), 1500);
+                    // }
                 },
                 error: function(xhr) {
                     if (xhr.status === 422) {
