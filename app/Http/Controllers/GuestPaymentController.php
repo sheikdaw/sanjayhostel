@@ -277,67 +277,66 @@ class GuestPaymentController extends Controller
         ], 200, [], JSON_NUMERIC_CHECK);
     }
 
-    /**
-     * Create a Razorpay payment order and return order details
-     * POST /guest/payment/create-order
-     */
     public function createOrder(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'amount' => 'required|numeric|min:1',
-            'reference' => 'required|string',
-            'resident_id' => 'required|exists:residents,id'
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'amount' => 'required|numeric|min:1',
+        'reference' => 'required|string',
+        'resident_id' => 'required|exists:residents,id'
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $amount = (float) $request->amount;
-        $reference = $request->reference;
-        $residentId = $request->resident_id;
-
-        $resident = Resident::find($residentId);
-        $roomNo = $resident && $resident->room ? ($resident->room->room_no ?? 'N/A') : 'N/A';
-        $residentName = $resident ? $resident->name : 'Resident';
-
-        // Store resident ID for webhook/callback
-        cache()->put('razorpay_order_resident_' . $reference, $residentId, now()->addHours(2));
-
-        try {
-            $orderData = [
-                'receipt' => $reference,
-                'amount' => $amount,
-                'currency' => 'INR',
-                'notes' => [
-                    'resident_id' => $residentId,
-                    'resident_name' => $residentName,
-                    'room_no' => $roomNo,
-                    'payment_type' => 'rent'
-                ]
-            ];
-
-            $result = $this->razorpay->createOrder($orderData);
-
-            return response()->json([
-                'success' => true,
-                'order_id' => $result['order_id'],
-                'amount' => $result['amount'],
-                'currency' => $result['currency'],
-                'key_id' => $result['key_id'],
-                'reference' => $reference,
-                'resident_id' => $residentId,
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create payment order: ' . $e->getMessage()
-            ], 500);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'errors' => $validator->errors()
+        ], 422);
     }
+
+    $amount = (float) $request->amount;
+    $reference = $request->reference;
+    $residentId = $request->resident_id;
+
+    $resident = Resident::find($residentId);
+    $roomNo = $resident && $resident->room ? ($resident->room->room_no ?? 'N/A') : 'N/A';
+    $residentName = $resident ? $resident->name : 'Resident';
+
+    // Store resident ID and reference mapping
+    cache()->put('razorpay_order_resident_' . $reference, $residentId, now()->addHours(2));
+
+    try {
+        $orderData = [
+            'receipt' => $reference,
+            'amount' => $amount,
+            'currency' => 'INR',
+            'notes' => [
+                'resident_id' => $residentId,
+                'resident_name' => $residentName,
+                'room_no' => $roomNo,
+                'payment_type' => 'rent'
+            ]
+        ];
+
+        $result = $this->razorpay->createOrder($orderData);
+
+        // Store order_id for callback
+        cache()->put('razorpay_order_id_' . $reference, $result['order_id'], now()->addHours(2));
+
+        return response()->json([
+            'success' => true,
+            'order_id' => $result['order_id'],
+            'amount' => $result['amount'],
+            'currency' => $result['currency'],
+            'key_id' => $result['key_id'],
+            'reference' => $reference,
+            'resident_id' => $residentId,
+        ]);
+    } catch (Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to create payment order: ' . $e->getMessage()
+        ], 500);
+    }
+}
 /**
  * Verify payment after successful Razorpay checkout
  * POST /guest/payment/verify
@@ -410,94 +409,136 @@ public function verifyPayment(Request $request)
         ], 500);
     }
 }
-    /**
-     * Browser callback after payment
-     * GET /guest/payment/callback
-     */
-    /**
+/**
  * Browser callback after payment
  * GET /guest/payment/callback
  */
 public function callback(Request $request)
 {
-    $orderId = $request->query('order_id');
-    $paymentId = $request->query('payment_id');
+    // Get parameters
     $reference = $request->query('reference');
+    $paymentId = $request->query('payment_id');
+    $status = $request->query('status');
 
-    // If we have a reference but no order_id, try to get status
-    if (!$orderId && $reference) {
+    // Log everything for debugging
+    Log::info('Payment callback received', [
+        'reference' => $reference,
+        'payment_id' => $paymentId,
+        'status' => $status,
+        'all_params' => $request->all(),
+        'session' => session()->all()
+    ]);
+
+    // Handle cancellation
+    if ($status === 'cancelled') {
         return view('guest.payment-result', [
             'success' => false,
-            'message' => 'Missing payment details. Please check your payment status.',
-            'reference' => $reference,
-            'amount' => null,
-            'receipt_no' => null,
-        ]);
-    }
-
-    if (!$orderId || !$reference) {
-        return view('guest.payment-result', [
-            'success' => false,
-            'message' => 'Missing payment reference.',
+            'message' => 'Payment was cancelled. You can try again.',
             'reference' => $reference ?? 'N/A',
             'amount' => null,
             'receipt_no' => null,
         ]);
     }
 
-    try {
-        // Fetch payment details
-        $payment = $this->razorpay->fetchPayment($paymentId);
-        $order = $this->razorpay->fetchOrder($orderId);
+    // If we have a reference, check our local database first
+    if ($reference) {
+        // Check if payment exists in our database
+        $paymentRecord = Payment::where('receipt_no', $reference)->first();
 
-        $state = $payment['status'] ?? 'UNKNOWN';
-
-        if ($state === 'captured') {
-            $paymentRecord = $this->recordPaymentIfNeeded($reference, $payment, $order);
+        if ($paymentRecord) {
+            // Payment found in database
+            $isSuccess = $paymentRecord->status === 'PAID';
 
             return view('guest.payment-result', [
-                'success' => true,
-                'message' => 'Payment successful!',
+                'success' => $isSuccess,
+                'message' => $isSuccess ? 'Payment successful!' : 'Payment status: ' . $paymentRecord->status,
                 'reference' => $reference,
-                'amount' => ($payment['amount'] ?? 0) / 100,
-                'receipt_no' => $paymentRecord->receipt_no ?? $reference,
+                'amount' => $paymentRecord->upi_paid_amount + $paymentRecord->cash_paid_amount,
+                'receipt_no' => $paymentRecord->receipt_no,
             ]);
         }
 
-        if ($state === 'pending' || $state === 'authorized') {
+        // If we have a payment_id, try to fetch from Razorpay
+        if ($paymentId) {
+            try {
+                $payment = $this->razorpay->fetchPayment($paymentId);
+
+                if ($payment['status'] === 'captured') {
+                    // Record the payment in our database
+                    $order = $this->razorpay->fetchOrder($payment['order_id']);
+                    $newRecord = $this->recordPaymentIfNeeded($reference, $payment, $order);
+
+                    return view('guest.payment-result', [
+                        'success' => true,
+                        'message' => 'Payment successful!',
+                        'reference' => $reference,
+                        'amount' => ($payment['amount'] ?? 0) / 100,
+                        'receipt_no' => $newRecord->receipt_no ?? $reference,
+                    ]);
+                } else {
+                    return view('guest.payment-result', [
+                        'success' => false,
+                        'message' => 'Payment status: ' . $payment['status'],
+                        'reference' => $reference,
+                        'amount' => null,
+                        'receipt_no' => null,
+                    ]);
+                }
+            } catch (Exception $e) {
+                Log::error('Error fetching payment from Razorpay: ' . $e->getMessage(), [
+                    'reference' => $reference,
+                    'payment_id' => $paymentId
+                ]);
+                // Continue to try other methods
+            }
+        }
+
+        // If we couldn't find payment details, check cache
+        $cachedResidentId = cache()->get('razorpay_order_resident_' . $reference);
+        if ($cachedResidentId) {
+            // Payment might still be processing
             return view('guest.payment-result', [
                 'success' => null,
-                'message' => 'Your payment is still processing. Please check back later.',
+                'message' => 'Your payment is being processed. Please check back in a few minutes.',
                 'reference' => $reference,
                 'amount' => null,
                 'receipt_no' => null,
             ]);
         }
-
-        return view('guest.payment-result', [
-            'success' => false,
-            'message' => 'Payment was not completed (' . $state . '). You can try again.',
-            'reference' => $reference,
-            'amount' => null,
-            'receipt_no' => null,
-        ]);
-    } catch (Exception $e) {
-        Log::error('Payment callback error: ' . $e->getMessage(), [
-            'reference' => $reference,
-            'order_id' => $orderId,
-            'payment_id' => $paymentId,
-        ]);
-
-        return view('guest.payment-result', [
-            'success' => false,
-            'message' => 'Could not verify payment. Reference: ' . $reference,
-            'reference' => $reference,
-            'amount' => null,
-            'receipt_no' => null,
-        ]);
     }
-}
 
+    // If we have a payment_id from the URL (Razorpay redirects with payment_id in some cases)
+    if (!$reference && $paymentId) {
+        try {
+            $payment = $this->razorpay->fetchPayment($paymentId);
+            $order = $this->razorpay->fetchOrder($payment['order_id']);
+            $receipt = $order['receipt'] ?? $payment['receipt'] ?? null;
+
+            if ($receipt && $payment['status'] === 'captured') {
+                $newRecord = $this->recordPaymentIfNeeded($receipt, $payment, $order);
+
+                return view('guest.payment-result', [
+                    'success' => true,
+                    'message' => 'Payment successful!',
+                    'reference' => $receipt,
+                    'amount' => ($payment['amount'] ?? 0) / 100,
+                    'receipt_no' => $newRecord->receipt_no ?? $receipt,
+                ]);
+            }
+        } catch (Exception $e) {
+            Log::error('Error processing payment by payment_id: ' . $e->getMessage());
+        }
+    }
+
+    // Default error response
+    return view('guest.payment-result', [
+        'success' => false,
+        'message' => 'Payment details not found. Please check your payment status in your account.',
+        'reference' => $reference ?? 'N/A',
+        'amount' => null,
+        'receipt_no' => null,
+    ]);
+}
     /**
      * AJAX polling for payment status
      * GET /guest/payment/status?reference=PAY-...

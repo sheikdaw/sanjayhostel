@@ -317,27 +317,66 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
         }
 
         @media (max-width: 480px) {
-            .payment-body { padding: 1.25rem; }
-            .mobile-input-group { flex-direction: column; }
-            .mobile-input-group .btn-find { width: 100%; }
-            .resident-info .info-row { flex-direction: column; gap: 0.2rem; }
-            .resident-info .info-row .value { text-align: left; }
-            .payment-methods { gap: 0.5rem; }
+            .payment-body {
+                padding: 1.25rem;
+            }
+
+            .mobile-input-group {
+                flex-direction: column;
+            }
+
+            .mobile-input-group .btn-find {
+                width: 100%;
+            }
+
+            .resident-info .info-row {
+                flex-direction: column;
+                gap: 0.2rem;
+            }
+
+            .resident-info .info-row .value {
+                text-align: left;
+            }
+
+            .payment-methods {
+                gap: 0.5rem;
+            }
         }
     </style>
 </head>
@@ -364,9 +403,9 @@
                 <div class="subtitle">
                     <i class="bi bi-phone"></i> Enter your registered mobile number to view your rent
                 </div>
-                @if(isset($reference))
-    <input type="hidden" id="paymentReference" value="{{ $reference }}">
-@endif
+                @if (isset($reference))
+                    <input type="hidden" id="paymentReference" value="{{ $reference }}">
+                @endif
                 <div class="mobile-input-group">
                     <input type="tel" class="form-control" id="mobileInput" placeholder="Enter mobile number"
                         maxlength="15">
@@ -400,11 +439,14 @@
 
                 <!-- Discount & Fine Display -->
                 <div id="discountDisplay" style="display: none; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb;">
-                    <span class="badge-discount" id="discountBadge"><i class="bi bi-tag"></i> <span id="discountText">0% off</span></span>
-                    <span class="badge-fine" id="fineBadge" style="display: none;"><i class="bi bi-clock"></i> <span id="fineText">Late fee</span></span>
+                    <span class="badge-discount" id="discountBadge"><i class="bi bi-tag"></i> <span id="discountText">0%
+                            off</span></span>
+                    <span class="badge-fine" id="fineBadge" style="display: none;"><i class="bi bi-clock"></i> <span
+                            id="fineText">Late fee</span></span>
                 </div>
 
-                <div class="info-row" style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
+                <div class="info-row"
+                    style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
                     <span class="label"><i class="bi bi-currency-rupee"></i> Amount to Pay</span>
                     <span class="value due-amount" id="totalDue">₹0.00</span>
                 </div>
@@ -419,10 +461,12 @@
                 </button>
 
                 <div class="payment-methods">
-                    <span style="font-size: 0.7rem; color: #9ca3af; width: 100%; text-align: center; margin-bottom: 0.25rem;">
+                    <span
+                        style="font-size: 0.7rem; color: #9ca3af; width: 100%; text-align: center; margin-bottom: 0.25rem;">
                         Secure payments via
                     </span>
-                    <img src="https://razorpay.com/assets/razorpay-glyph.svg" alt="Razorpay" class="active" style="height: 20px;">
+                    <img src="https://razorpay.com/assets/razorpay-glyph.svg" alt="Razorpay" class="active"
+                        style="height: 20px;">
                     <img src="https://www.visa.com/logo.svg" alt="Visa" style="height: 20px;">
                     <img src="https://www.mastercard.com/logo.svg" alt="Mastercard" style="height: 20px;">
                     <img src="https://www.upi.com/logo.svg" alt="UPI" style="height: 20px;">
@@ -594,8 +638,10 @@
                         orderData = response;
                         openRazorpayCheckout(response);
                     } else {
-                        showToast('Failed to create payment order: ' + (response.message || 'Unknown error'), 'error');
-                        btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+                        showToast('Failed to create payment order: ' + (response.message || 'Unknown error'),
+                            'error');
+                        btn.prop('disabled', false).html(
+                            '<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
                     }
                 },
                 error: function(xhr) {
@@ -604,7 +650,8 @@
                         message = xhr.responseJSON.message;
                     }
                     showToast('❌ ' + message, 'error');
-                    btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+                    btn.prop('disabled', false).html(
+                        '<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
                 }
             });
         }
@@ -613,9 +660,13 @@
     const btn = $('#payNowBtn');
     btn.html('<span class="spinner-border spinner-border-sm"></span> Opening checkout...');
 
+    // Store the reference in session/cookie for callback
+    sessionStorage.setItem('payment_reference', data.reference);
+    sessionStorage.setItem('payment_order_id', data.order_id);
+
     const options = {
         key: data.key_id,
-        amount: data.amount * 100, // Convert to paise
+        amount: data.amount * 100,
         currency: data.currency || 'INR',
         name: 'Hostel Rent Payment',
         description: 'Rent Payment - ' + currentResident.name,
@@ -634,12 +685,12 @@
             color: '#0c3b6f'
         },
         handler: function(response) {
+            // This is called when payment is successful
             verifyPayment(response, data.reference);
         },
         modal: {
             ondismiss: function() {
                 btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
-                // Redirect to callback with cancelled status
                 window.location.href = paymentRoutes.callback +
                     '?status=cancelled' +
                     '&reference=' + encodeURIComponent(data.reference);
@@ -651,7 +702,7 @@
     razorpayInstance.open();
 }
 
-        function verifyPayment(response, reference) {
+      function verifyPayment(response, reference) {
     const btn = $('#payNowBtn');
     btn.html('<span class="spinner-border spinner-border-sm"></span> Verifying payment...');
 
@@ -668,12 +719,12 @@
         success: function(data) {
             if (data.success) {
                 showToast('✅ Payment successful! Reference: ' + reference, 'success');
-                // Redirect with all required parameters
+                // Redirect with payment_id and reference only
+                // We'll fetch the order details from the database using the reference
                 window.location.href = paymentRoutes.callback +
-                    '?status=success' +
-                    '&reference=' + encodeURIComponent(reference) +
+                    '?reference=' + encodeURIComponent(reference) +
                     '&payment_id=' + encodeURIComponent(response.razorpay_payment_id) +
-                    '&order_id=' + encodeURIComponent(response.razorpay_order_id);
+                    '&status=success';
             } else {
                 showToast('Payment verification failed: ' + (data.message || 'Unknown error'), 'error');
                 btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
@@ -722,7 +773,9 @@
             setTimeout(function() {
                 if (toast.parentElement) {
                     toast.style.animation = 'slideOutRight 0.3s ease forwards';
-                    setTimeout(function() { toast.remove(); }, 300);
+                    setTimeout(function() {
+                        toast.remove();
+                    }, 300);
                 }
             }, 8000);
         }
