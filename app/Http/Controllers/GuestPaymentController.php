@@ -143,11 +143,11 @@ class GuestPaymentController extends Controller
             $finalAmount = max(0, $totalDue - $discount);
         }
 
-        // ✅ FINE CALCULATION - FIXED
+        // FINE CALCULATION
         $fineAmount = 0;
         $fineMessage = '';
         $daysLate = 0;
-        $lateFeePerDay = 00; // ₹50 per day
+        $lateFeePerDay = 50; // ₹50 per day
 
         if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
             $daysLate = $currentDay - 10;
@@ -200,7 +200,7 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * ✅ FIXED: Generate UPI payment link using existing Sound Box URL
+     * Generate UPI payment link using existing hostel UPI URI / ID
      */
     public function generateUPI(Request $request)
     {
@@ -234,10 +234,10 @@ class GuestPaymentController extends Controller
         $reference = $request->reference;
         $payeeName = $hostel->upi_payee_name ?? $hostel->hostel_name ?? 'Hostel Payment';
 
-        // ✅ Build UPI URI - Using the existing Sound Box URL pattern
+        // Build UPI URI
         $upiUri = $this->buildUPIUri($upiId, $payeeName, $amount, $reference);
 
-        // Store payment reference in cache for verification
+        // Store payment reference in cache for verification / polling
         cache()->put('upi_payment_' . $reference, [
             'resident_id' => $resident->id,
             'amount' => $amount,
@@ -258,74 +258,99 @@ class GuestPaymentController extends Controller
         ]);
     }
 
-  /**
- * Build UPI URI with existing Sound Box parameters, preserving original param order.
- *
- * If the UPI ID is a full URL like "upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00"
- * it appends/updates "am" at the end without touching existing params.
- *
- * If it's a plain UPI ID like "Q342895210@ybl", it builds a new URL.
- */
-private function buildUPIUri($upiId, $payeeName, $amount, $reference)
-{
-    // Whole numbers -> "100", decimals -> "100.50"
-    $formattedAmount = (floor($amount) == $amount)
-        ? (string) intval($amount)
-        : number_format($amount, 2, '.', '');
+    /**
+     * Build UPI URI, preserving the original parameter order of an existing
+     * "upi://pay?..." link and appending/updating "am" (amount) without
+     * re-encoding or reordering existing parameters.
+     *
+     * Example:
+     *   Input : upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00
+     *   Amount: 100
+     *   Output: upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00&am=100
+     *
+     * If $upiId is a plain UPI handle (e.g. "name@ybl") instead of a full URL,
+     * a fresh upi://pay URL is built from scratch.
+     */
+    private function buildUPIUri($upiId, $payeeName, $amount, $reference)
+    {
+        // Whole numbers -> "100", decimals -> "100.50"
+        $formattedAmount = (floor($amount) == $amount)
+            ? (string) intval($amount)
+            : number_format($amount, 2, '.', '');
 
-    // ✅ Full UPI URL case
-    if (strpos($upiId, 'upi://pay') === 0) {
-        $parts = explode('?', $upiId, 2);
-        $base = $parts[0];
-        $queryString = $parts[1] ?? '';
+        // Full UPI URL case — preserve existing param order
+        if (strpos($upiId, 'upi://pay') === 0) {
+            $parts = explode('?', $upiId, 2);
+            $base = $parts[0];
+            $queryString = $parts[1] ?? '';
 
-        // Parse manually to preserve original key order
-        $paramsList = [];
-        if ($queryString !== '') {
-            foreach (explode('&', $queryString) as $pair) {
-                if ($pair === '') continue;
-                $kv = explode('=', $pair, 2);
-                $key = $kv[0];
-                $val = $kv[1] ?? '';
-                $paramsList[$key] = $val;
+            // Parse manually to preserve original key order (parse_str/http_build_query do not)
+            $paramsList = [];
+            if ($queryString !== '') {
+                foreach (explode('&', $queryString) as $pair) {
+                    if ($pair === '') continue;
+                    $kv = explode('=', $pair, 2);
+                    $key = $kv[0];
+                    $val = $kv[1] ?? '';
+                    $paramsList[$key] = $val;
+                }
             }
+
+            // Add/update amount (appended at end if not already present)
+            $paramsList['am'] = $formattedAmount;
+
+            // Add transaction note if not exists
+            if (!isset($paramsList['tn'])) {
+                $paramsList['tn'] = rawurlencode('Rent Payment ' . $reference);
+            }
+
+            // Add currency if not exists
+            if (!isset($paramsList['cu'])) {
+                $paramsList['cu'] = 'INR';
+            }
+
+            // Rebuild query string preserving insertion order
+            $rebuilt = [];
+            foreach ($paramsList as $key => $val) {
+                $rebuilt[] = $val === '' ? $key : $key . '=' . $val;
+            }
+
+            return $base . '?' . implode('&', $rebuilt);
         }
 
-        // Add/update amount (appended at end if not already present)
-        $paramsList['am'] = $formattedAmount;
+        // Plain UPI ID case - build a fresh URL
+        $params = [
+            'pa' => $upiId,
+            'pn' => $payeeName,
+            'am' => $formattedAmount,
+            'tn' => 'Rent Payment ' . $reference,
+            'cu' => 'INR'
+        ];
 
-        // Add transaction note if not exists
-        if (!isset($paramsList['tn'])) {
-            $paramsList['tn'] = rawurlencode('Rent Payment ' . $reference);
-        }
-
-        // Add currency if not exists
-        if (!isset($paramsList['cu'])) {
-            $paramsList['cu'] = 'INR';
-        }
-
-        // Rebuild query string preserving order (PHP arrays keep insertion order)
-        $rebuilt = [];
-        foreach ($paramsList as $key => $val) {
-            $rebuilt[] = $val === '' ? $key : $key . '=' . $val;
-        }
-
-        return $base . '?' . implode('&', $rebuilt);
+        return 'upi://pay?' . http_build_query($params);
     }
 
-    // ✅ Plain UPI ID case - build a fresh URL
-    $params = [
-        'pa' => $upiId,
-        'pn' => $payeeName,
-        'am' => $formattedAmount,
-        'tn' => 'Rent Payment ' . $reference,
-        'cu' => 'INR'
-    ];
-
-    return 'upi://pay?' . http_build_query($params);
-}
     /**
-     * Verify UPI payment (Manual verification or automatic)
+     * Record a payment for a UPI reference.
+     *
+     * IMPORTANT SAFETY NOTE:
+     * Plain "upi://pay" intent links give NO server-to-server callback from the
+     * bank or UPI app. This endpoint is called either:
+     *   (a) automatically by the client-side polling loop (rare — nothing actually
+     *       confirms status without a real payment gateway), or
+     *   (b) by the guest themselves tapping "Yes, Paid" after returning from their
+     *       UPI app (self-reported).
+     *
+     * Because (b) is user-asserted and NOT verified against the bank, payments
+     * created this way are stored with status = 'PENDING_VERIFICATION' instead
+     * of 'PAID'. An admin must reconcile against the actual bank/UPI statement
+     * and mark it PAID (e.g. via PaymentController::markAsPaid) before it should
+     * be treated as settled. This prevents a guest from marking rent as paid
+     * without actually paying.
+     *
+     * If you have (or later add) a real gateway webhook (Razorpay/PhonePe Business
+     * API/Cashfree) that hits this same flow with a verified signature, you can
+     * set status = 'PAID' directly for that trusted path only.
      */
     public function verifyUPI(Request $request)
     {
@@ -342,9 +367,9 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
         }
 
         $reference = $request->reference;
-        $transactionId = $request->transaction_id ?? 'UPI-' . strtoupper(Str::random(10));
+        $transactionId = $request->transaction_id ?: null;
 
-        // Check if payment already recorded
+        // Check if payment already recorded for this reference
         $existingPayment = Payment::where('receipt_no', $reference)->first();
         if ($existingPayment) {
             return response()->json([
@@ -354,7 +379,7 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
             ]);
         }
 
-        // Get payment data from cache
+        // Get payment data from cache (created during generateUPI)
         $paymentData = cache()->get('upi_payment_' . $reference);
         if (!$paymentData) {
             return response()->json([
@@ -374,13 +399,10 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
         $paidAmount = $paymentData['amount'];
         $rentAmount = (float) ($resident->rent_amount ?? 0);
 
-        // Determine payment status
-        $status = 'PAID';
-        $balance = 0;
-        if ($paidAmount < $rentAmount) {
-            $status = 'PARTIAL';
-            $balance = $rentAmount - $paidAmount;
-        }
+        // Self-reported confirmation -> always goes to PENDING_VERIFICATION,
+        // regardless of amount, until an admin reconciles it against the bank.
+        $status = 'PENDING_VERIFICATION';
+        $balance = max(0, $rentAmount - $paidAmount);
 
         // Create payment record
         $payment = Payment::create([
@@ -399,18 +421,18 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
             'status' => $status,
         ]);
 
-        // Clear cache
+        // Clear cache — no need to keep polling for this reference anymore
         cache()->forget('upi_payment_' . $reference);
 
         return response()->json([
             'success' => true,
-            'message' => 'Payment verified successfully!',
+            'message' => 'Thanks! Your payment has been recorded and is pending verification by the hostel admin.',
             'data' => $payment
         ]);
     }
 
     /**
-     * Check UPI payment status
+     * Check UPI payment status (used by the client-side polling loop)
      */
     public function checkUPIStatus(Request $request)
     {
@@ -423,7 +445,7 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
             ], 400);
         }
 
-        // Check in database
+        // Check in database first
         $payment = Payment::where('receipt_no', $reference)->first();
         if ($payment) {
             return response()->json([
@@ -469,7 +491,7 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
     }
 
     /**
-     * Browser callback after UPI payment
+     * Browser callback after UPI payment (kept for deep-link based flows / older links)
      */
     public function callback(Request $request)
     {
@@ -478,7 +500,6 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
 
         // If status is success from UPI app return
         if ($status === 'success' && $reference) {
-            // Verify the payment
             $verifyResult = $this->verifyUPI(new Request([
                 'reference' => $reference,
                 'transaction_id' => $request->query('transaction_id')
@@ -489,7 +510,7 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
             if ($data->success) {
                 return view('guest.payment-result', [
                     'success' => true,
-                    'message' => 'Payment successful!',
+                    'message' => 'Payment recorded! It will be verified by the hostel admin shortly.',
                     'reference' => $reference,
                     'amount' => $data->data->upi_paid_amount ?? 0,
                     'receipt_no' => $data->data->receipt_no ?? $reference,
@@ -517,7 +538,7 @@ private function buildUPIUri($upiId, $payeeName, $amount, $reference)
             if ($data->status === 'COMPLETED') {
                 return view('guest.payment-result', [
                     'success' => true,
-                    'message' => 'Payment successful!',
+                    'message' => 'Payment recorded! It will be verified by the hostel admin shortly.',
                     'reference' => $reference,
                     'amount' => $data->data->amount ?? 0,
                     'receipt_no' => $data->data->receipt_no ?? $reference,
