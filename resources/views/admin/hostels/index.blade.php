@@ -132,7 +132,6 @@
     .biometric-stat-item .number { font-size: 0.9rem; font-weight: 700; color: var(--sanjay-primary); }
     .biometric-stat-item .label { font-size: 0.55rem; color: #6b7280; text-transform: uppercase; }
 
-    /* UPI Section Styles */
     .upi-section {
         background: #f0f7ff;
         border-radius: 8px;
@@ -267,7 +266,6 @@
         to { transform: translateX(100%); opacity: 0; }
     }
 
-    /* Small screens */
     @media (max-width: 576px) {
         .hostel-stats { grid-template-columns: repeat(3, 1fr); gap: 0.25rem; }
         .hostel-stat-item { padding: 0.25rem; }
@@ -696,53 +694,66 @@
 
 <script>
 $(document).ready(function() {
-    var hostelModal = new bootstrap.Modal(document.getElementById('hostelModal'), {
+    // ✅ Initialize Modals
+    var hostelModalEl = document.getElementById('hostelModal');
+    var biometricModalEl = document.getElementById('biometricModal');
+
+    var hostelModal = new bootstrap.Modal(hostelModalEl, {
         backdrop: 'static',
         keyboard: true
     });
 
-    var biometricModal = new bootstrap.Modal(document.getElementById('biometricModal'), {
+    var biometricModal = new bootstrap.Modal(biometricModalEl, {
         backdrop: 'static',
         keyboard: true
     });
 
+    // ✅ Store modal instances in global scope for access from functions
+    window.hostelModal = hostelModal;
+    window.biometricModal = biometricModal;
+
+    // ✅ Add Hostel Button Click
     $('#addHostelBtn').on('click', function(e) {
         e.preventDefault();
         openAddModal();
     });
 
+    // ✅ Reset form when modal is hidden
     $('#hostelModal').on('hidden.bs.modal', function() {
         resetForm();
     });
 
+    // ✅ Form submission
     $('#hostelForm').on('submit', function(e) {
         e.preventDefault();
         submitForm();
     });
 
+    // ✅ Biometric form submission
     $('#biometricForm').on('submit', function(e) {
         e.preventDefault();
         submitBiometricForm();
     });
 
-    // Auto-fill UPI payee name from hostel name, unless the user has typed their own
+    // ✅ Auto-fill UPI payee name from hostel name
     $('#hostel_name').on('input', function() {
         var payeeField = $('#upi_payee_name');
         if (!payeeField.data('user-edited')) {
             payeeField.val($(this).val());
         }
     });
+
     $('#upi_payee_name').on('input', function() {
         $(this).data('user-edited', $(this).val().length > 0);
     });
 
-    // Live UPI ID format feedback
+    // ✅ Live UPI ID format feedback
     $('#upi_id').on('blur', function() {
         var val = $(this).val().trim();
         var box = $(this).closest('.rv-input-box');
         box.removeClass('is-invalid is-valid');
         $('#upi_id_error').text('');
-        if (val.length === 0) return; // optional field
+        if (val.length === 0) return;
         var upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
         if (!upiPattern.test(val)) {
             box.addClass('is-invalid');
@@ -753,6 +764,10 @@ $(document).ready(function() {
     });
 });
 
+// ============================================
+// ✅ MODAL FUNCTIONS
+// ============================================
+
 function openAddModal() {
     resetForm();
     document.getElementById('modalTitle').textContent = 'Add Hostel';
@@ -761,7 +776,16 @@ function openAddModal() {
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid is-valid');
     $('#upi_payee_name').data('user-edited', false);
-    hostelModal.show();
+
+    // ✅ Show modal using stored instance
+    if (window.hostelModal) {
+        window.hostelModal.show();
+    } else {
+        // Fallback: create new instance
+        var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
+        modal.show();
+        window.hostelModal = modal;
+    }
 }
 
 function resetForm() {
@@ -774,6 +798,10 @@ function resetForm() {
     $('#upi_payee_name').data('user-edited', false);
 }
 
+// ============================================
+// ✅ FORM SUBMISSION
+// ============================================
+
 function submitForm() {
     let id = document.getElementById('editId').value;
     let url = "{{ route('admin.hostels.store') }}";
@@ -783,6 +811,9 @@ function submitForm() {
         url = "{{ url('admin/hostels') }}/" + id;
         formData.append('_method', 'PUT');
     }
+
+    // ✅ Add CSRF token
+    formData.append('_token', '{{ csrf_token() }}');
 
     $.ajax({
         url: url,
@@ -797,7 +828,9 @@ function submitForm() {
         },
         success: function(response) {
             if (response.success) {
-                hostelModal.hide();
+                if (window.hostelModal) {
+                    window.hostelModal.hide();
+                }
                 showToast(response.message, 'success');
                 setTimeout(() => location.reload(), 1500);
             }
@@ -806,8 +839,11 @@ function submitForm() {
             if (xhr.status === 422) {
                 let errors = xhr.responseJSON.errors;
                 $.each(errors, function(field, messages) {
-                    $('#' + field).closest('.rv-input-box').addClass('is-invalid');
-                    $('#' + field + '_error').text(messages[0]);
+                    var fieldElement = $('#' + field);
+                    if (fieldElement.length) {
+                        fieldElement.closest('.rv-input-box').addClass('is-invalid');
+                        $('#' + field + '_error').text(messages[0]);
+                    }
                 });
                 showToast('Please fix validation errors', 'error');
             } else {
@@ -822,19 +858,26 @@ function submitForm() {
     });
 }
 
+// ============================================
+// ✅ EDIT HOSTEL
+// ============================================
+
 function editHostel(id) {
     $.ajax({
         url: "{{ url('admin/hostels') }}/" + id + "/edit",
         type: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
         success: function(response) {
             if (response.success) {
                 let data = response.data;
                 document.getElementById('modalTitle').textContent = 'Edit Hostel';
                 document.getElementById('editId').value = data.id;
-                document.getElementById('hostel_code').value = data.hostel_code;
-                document.getElementById('hostel_name').value = data.hostel_name;
-                document.getElementById('hostel_type').value = data.hostel_type;
-                document.getElementById('status').value = data.status;
+                document.getElementById('hostel_code').value = data.hostel_code || '';
+                document.getElementById('hostel_name').value = data.hostel_name || '';
+                document.getElementById('hostel_type').value = data.hostel_type || '';
+                document.getElementById('status').value = data.status || 'ACTIVE';
                 document.getElementById('address').value = data.address || '';
                 document.getElementById('phone').value = data.phone || '';
                 document.getElementById('email').value = data.email || '';
@@ -855,14 +898,30 @@ function editHostel(id) {
                 document.getElementById('saveBtnText').textContent = 'Update';
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid is-valid');
-                hostelModal.show();
+
+                // ✅ Show modal
+                if (window.hostelModal) {
+                    window.hostelModal.show();
+                } else {
+                    var modal = new bootstrap.Modal(document.getElementById('hostelModal'));
+                    modal.show();
+                    window.hostelModal = modal;
+                }
             }
         },
         error: function(xhr) {
-            showToast('Failed to load hostel data', 'error');
+            if (xhr.status === 403) {
+                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+            } else {
+                showToast('Failed to load hostel data', 'error');
+            }
         }
     });
 }
+
+// ============================================
+// ✅ DELETE HOSTEL
+// ============================================
 
 function deleteHostel(id) {
     Swal.fire({
@@ -878,7 +937,10 @@ function deleteHostel(id) {
             $.ajax({
                 url: "{{ url('admin/hostels') }}/" + id,
                 type: 'POST',
-                data: { _method: 'DELETE', _token: '{{ csrf_token() }}' },
+                data: {
+                    _method: 'DELETE',
+                    _token: '{{ csrf_token() }}'
+                },
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
@@ -886,12 +948,20 @@ function deleteHostel(id) {
                     }
                 },
                 error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                    } else {
+                        showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
+                    }
                 }
             });
         }
     });
 }
+
+// ============================================
+// ✅ TOGGLE STATUS
+// ============================================
 
 function toggleStatus(id, currentStatus) {
     let newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
@@ -910,7 +980,10 @@ function toggleStatus(id, currentStatus) {
             $.ajax({
                 url: "{{ url('admin/hostels') }}/" + id + "/toggle-status",
                 type: 'POST',
-                data: { _method: 'PATCH', _token: '{{ csrf_token() }}' },
+                data: {
+                    _method: 'PATCH',
+                    _token: '{{ csrf_token() }}'
+                },
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
@@ -918,12 +991,20 @@ function toggleStatus(id, currentStatus) {
                     }
                 },
                 error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed to update status!', 'error');
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                    } else {
+                        showToast(xhr.responseJSON?.message || 'Failed to update status!', 'error');
+                    }
                 }
             });
         }
     });
 }
+
+// ============================================
+// ✅ BIOMETRIC CONFIGURATION
+// ============================================
 
 function openBiometricConfig(id) {
     $('#biometricHostelId').val(id);
@@ -939,6 +1020,9 @@ function openBiometricConfig(id) {
     $.ajax({
         url: '/admin/hostels/' + id + '/biometric-config',
         type: 'GET',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+        },
         success: function(response) {
             if (response.success) {
                 const data = response.data;
@@ -949,15 +1033,28 @@ function openBiometricConfig(id) {
                 $('#biometric_location_code_edit').val(data.biometric_location_code || '');
                 $('#employee_code_prefix_edit').val(data.employee_code_prefix || 'H' + data.id);
             }
+        },
+        error: function(xhr) {
+            if (xhr.status === 403) {
+                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+            }
         }
     });
 
-    biometricModal.show();
+    // ✅ Show biometric modal
+    if (window.biometricModal) {
+        window.biometricModal.show();
+    } else {
+        var modal = new bootstrap.Modal(document.getElementById('biometricModal'));
+        modal.show();
+        window.biometricModal = modal;
+    }
 }
 
 function submitBiometricForm() {
     const id = $('#biometricHostelId').val();
     const formData = new FormData(document.getElementById('biometricForm'));
+    formData.append('_token', '{{ csrf_token() }}');
 
     $.ajax({
         url: '/admin/hostels/' + id + '/biometric-config',
@@ -965,7 +1062,6 @@ function submitBiometricForm() {
         data: formData,
         processData: false,
         contentType: false,
-        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
         beforeSend: function() {
             $('#biometricSaveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
             $('.invalid-feedback').text('');
@@ -973,7 +1069,9 @@ function submitBiometricForm() {
         },
         success: function(response) {
             if (response.success) {
-                biometricModal.hide();
+                if (window.biometricModal) {
+                    window.biometricModal.hide();
+                }
                 showToast('Biometric configuration saved successfully!', 'success');
                 setTimeout(() => location.reload(), 1500);
             }
@@ -995,6 +1093,10 @@ function submitBiometricForm() {
         }
     });
 }
+
+// ============================================
+// ✅ SYNC FUNCTIONS
+// ============================================
 
 function syncHostel(id) {
     Swal.fire({
@@ -1020,7 +1122,11 @@ function syncHostel(id) {
                     }
                 },
                 error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed to sync!', 'error');
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                    } else {
+                        showToast(xhr.responseJSON?.message || 'Failed to sync!', 'error');
+                    }
                 }
             });
         }
@@ -1051,12 +1157,20 @@ function syncAllHostels() {
                     }
                 },
                 error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed to sync!', 'error');
+                    if (xhr.status === 403) {
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                    } else {
+                        showToast(xhr.responseJSON?.message || 'Failed to sync!', 'error');
+                    }
                 }
             });
         }
     });
 }
+
+// ============================================
+// ✅ TOAST NOTIFICATIONS
+// ============================================
 
 function showToast(message, type = 'success') {
     let container = document.getElementById('flashMessageContainer');
