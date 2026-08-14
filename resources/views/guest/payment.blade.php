@@ -466,7 +466,7 @@
             const urlParams = new URLSearchParams(window.location.search);
             const status = urlParams.get('status');
             const reference = urlParams.get('reference');
-            
+
             if (status === 'success' && reference) {
                 showToast('✅ Payment successful! Reference: ' + reference, 'success');
                 // Optionally fetch updated status
@@ -514,7 +514,7 @@
                         // Show discount and fine badges
                         const discount = parseFloat(response.data.discount_amount || 0);
                         const fine = parseFloat(response.data.fine_amount || 0);
-                        
+
                         if (discount > 0 || fine > 0) {
                             $('#discountDisplay').show();
                             if (discount > 0) {
@@ -610,78 +610,85 @@
         }
 
         function openRazorpayCheckout(data) {
-            const btn = $('#payNowBtn');
-            btn.html('<span class="spinner-border spinner-border-sm"></span> Opening checkout...');
+    const btn = $('#payNowBtn');
+    btn.html('<span class="spinner-border spinner-border-sm"></span> Opening checkout...');
 
-            const options = {
-                key: data.key_id,
-                amount: data.amount * 100, // Convert to paise
-                currency: data.currency || 'INR',
-                name: 'Hostel Rent Payment',
-                description: 'Rent Payment - ' + currentResident.name,
-                order_id: data.order_id,
-                prefill: {
-                    name: currentResident.name,
-                    email: currentResident.email || '',
-                    contact: currentResident.phone
-                },
-                notes: {
-                    resident_id: currentResident.resident_id,
-                    reference: data.reference,
-                    room_no: currentResident.room_no
-                },
-                theme: {
-                    color: '#0c3b6f'
-                },
-                handler: function(response) {
-                    verifyPayment(response, data.reference);
-                },
-                modal: {
-                    ondismiss: function() {
-                        btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
-                        window.location.href = paymentRoutes.callback + '?status=cancelled&reference=' + data.reference;
-                    }
-                }
-            };
-
-            razorpayInstance = new Razorpay(options);
-            razorpayInstance.open();
+    const options = {
+        key: data.key_id,
+        amount: data.amount * 100, // Convert to paise
+        currency: data.currency || 'INR',
+        name: 'Hostel Rent Payment',
+        description: 'Rent Payment - ' + currentResident.name,
+        order_id: data.order_id,
+        prefill: {
+            name: currentResident.name,
+            email: currentResident.email || '',
+            contact: currentResident.phone
+        },
+        notes: {
+            resident_id: currentResident.resident_id,
+            reference: data.reference,
+            room_no: currentResident.room_no
+        },
+        theme: {
+            color: '#0c3b6f'
+        },
+        handler: function(response) {
+            verifyPayment(response, data.reference);
+        },
+        modal: {
+            ondismiss: function() {
+                btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+                // Redirect to callback with cancelled status
+                window.location.href = paymentRoutes.callback +
+                    '?status=cancelled' +
+                    '&reference=' + encodeURIComponent(data.reference);
+            }
         }
+    };
+
+    razorpayInstance = new Razorpay(options);
+    razorpayInstance.open();
+}
 
         function verifyPayment(response, reference) {
-            const btn = $('#payNowBtn');
-            btn.html('<span class="spinner-border spinner-border-sm"></span> Verifying payment...');
+    const btn = $('#payNowBtn');
+    btn.html('<span class="spinner-border spinner-border-sm"></span> Verifying payment...');
 
-            $.ajax({
-                url: paymentRoutes.verify,
-                type: 'POST',
-                data: {
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature,
-                    reference: reference,
-                    _token: csrfToken
-                },
-                success: function(data) {
-                    if (data.success) {
-                        showToast('✅ Payment successful! Reference: ' + reference, 'success');
-                        window.location.href = paymentRoutes.callback + '?status=success&reference=' + reference + '&payment_id=' + response.razorpay_payment_id;
-                    } else {
-                        showToast('Payment verification failed: ' + (data.message || 'Unknown error'), 'error');
-                        btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
-                    }
-                },
-                error: function(xhr) {
-                    var message = 'Payment verification failed';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        message = xhr.responseJSON.message;
-                    }
-                    showToast('❌ ' + message, 'error');
-                    btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
-                }
-            });
+    $.ajax({
+        url: paymentRoutes.verify,
+        type: 'POST',
+        data: {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            reference: reference,
+            _token: csrfToken
+        },
+        success: function(data) {
+            if (data.success) {
+                showToast('✅ Payment successful! Reference: ' + reference, 'success');
+                // Redirect with all required parameters
+                window.location.href = paymentRoutes.callback +
+                    '?status=success' +
+                    '&reference=' + encodeURIComponent(reference) +
+                    '&payment_id=' + encodeURIComponent(response.razorpay_payment_id) +
+                    '&order_id=' + encodeURIComponent(response.razorpay_order_id);
+            } else {
+                showToast('Payment verification failed: ' + (data.message || 'Unknown error'), 'error');
+                btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+            }
+        },
+        error: function(xhr) {
+            var message = 'Payment verification failed';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                message = xhr.responseJSON.message;
+            }
+            showToast('❌ ' + message, 'error');
+            btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
         }
-
+    });
+}
         function checkPaymentStatus(reference) {
             $.ajax({
                 url: paymentRoutes.callback + '?reference=' + reference + '&ajax=1',

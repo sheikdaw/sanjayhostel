@@ -166,7 +166,7 @@ class GuestPaymentController extends Controller
             $discount = 0;
             $discountType = 'no_discount';
             $finalAmount = $totalDue;
-            
+
             if ($isCurrentMonthPaid) {
                 $discountMessage = '✅ This month\'s rent is already paid.';
             } elseif ($pendingPayments->count() > 0) {
@@ -179,7 +179,7 @@ class GuestPaymentController extends Controller
         // Fine calculation
         $fineAmount = 0;
         $fineMessage = '';
-        
+
         if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
             $daysLate = $currentDay - 10;
             $fineAmount = $daysLate * 0;
@@ -199,7 +199,7 @@ class GuestPaymentController extends Controller
             $cashPaid = (float) ($payment->cash_paid_amount ?? 0);
             $balance = (float) ($payment->balance_amount ?? 0);
             $rentAmt = (float) ($payment->rent_amount ?? 0);
-            
+
             $totalUPIPaid += $upiPaid;
             $totalCashPaid += $cashPaid;
             $totalPaidAmount += ($upiPaid + $cashPaid);
@@ -338,137 +338,165 @@ class GuestPaymentController extends Controller
             ], 500);
         }
     }
+/**
+ * Verify payment after successful Razorpay checkout
+ * POST /guest/payment/verify
+ */
+public function verifyPayment(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'razorpay_order_id' => 'required|string',
+        'razorpay_payment_id' => 'required|string',
+        'razorpay_signature' => 'required|string',
+        'reference' => 'required|string'
+    ]);
 
-    /**
-     * Verify payment after successful Razorpay checkout
-     * POST /guest/payment/verify
-     */
-    public function verifyPayment(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'razorpay_order_id' => 'required|string',
-            'razorpay_payment_id' => 'required|string',
-            'razorpay_signature' => 'required|string',
-            'reference' => 'required|string'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $payload = [
-            'razorpay_order_id' => $request->razorpay_order_id,
-            'razorpay_payment_id' => $request->razorpay_payment_id,
-            'razorpay_signature' => $request->razorpay_signature,
-        ];
-
-        try {
-            // Verify signature
-            $isValid = $this->razorpay->verifyPaymentSignature($payload);
-
-            if (!$isValid) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Payment verification failed: Invalid signature'
-                ], 400);
-            }
-
-            // Get payment details
-            $payment = $this->razorpay->fetchPayment($request->razorpay_payment_id);
-            $order = $this->razorpay->fetchOrder($request->razorpay_order_id);
-
-            // Record payment if status is captured
-            if ($payment['status'] === 'captured') {
-                $paymentRecord = $this->recordPaymentIfNeeded(
-                    $request->reference,
-                    $payment,
-                    $order
-                );
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Payment verified successfully',
-                    'data' => [
-                        'payment_id' => $payment['id'],
-                        'amount' => $payment['amount'] / 100,
-                        'status' => $payment['status'],
-                        'receipt_no' => $paymentRecord->receipt_no ?? $request->reference,
-                    ]
-                ]);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Payment is not captured. Status: ' . $payment['status']
-            ], 400);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Payment verification failed: ' . $e->getMessage()
-            ], 500);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'errors' => $validator->errors()
+        ], 422);
     }
 
+    $payload = [
+        'razorpay_order_id' => $request->razorpay_order_id,
+        'razorpay_payment_id' => $request->razorpay_payment_id,
+        'razorpay_signature' => $request->razorpay_signature,
+    ];
+
+    try {
+        // Verify signature
+        $isValid = $this->razorpay->verifyPaymentSignature($payload);
+
+        if (!$isValid) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment verification failed: Invalid signature'
+            ], 400);
+        }
+
+        // Get payment details
+        $payment = $this->razorpay->fetchPayment($request->razorpay_payment_id);
+        $order = $this->razorpay->fetchOrder($request->razorpay_order_id);
+
+        // Record payment if status is captured
+        if ($payment['status'] === 'captured') {
+            $paymentRecord = $this->recordPaymentIfNeeded(
+                $request->reference,
+                $payment,
+                $order
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment verified successfully',
+                'data' => [
+                    'payment_id' => $payment['id'],
+                    'amount' => $payment['amount'] / 100,
+                    'status' => $payment['status'],
+                    'receipt_no' => $paymentRecord->receipt_no ?? $request->reference,
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Payment is not captured. Status: ' . $payment['status']
+        ], 400);
+    } catch (Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Payment verification failed: ' . $e->getMessage()
+        ], 500);
+    }
+}
     /**
      * Browser callback after payment
      * GET /guest/payment/callback
      */
-    public function callback(Request $request)
-    {
-        $orderId = $request->query('order_id');
-        $paymentId = $request->query('payment_id');
-        $reference = $request->query('reference');
+    /**
+ * Browser callback after payment
+ * GET /guest/payment/callback
+ */
+public function callback(Request $request)
+{
+    $orderId = $request->query('order_id');
+    $paymentId = $request->query('payment_id');
+    $reference = $request->query('reference');
 
-        if (!$orderId || !$reference) {
-            return view('guest.payment-result', [
-                'success' => false,
-                'message' => 'Missing payment reference.',
-            ]);
-        }
-
-        try {
-            // Fetch payment details
-            $payment = $this->razorpay->fetchPayment($paymentId);
-            $order = $this->razorpay->fetchOrder($orderId);
-
-            $state = $payment['status'] ?? 'UNKNOWN';
-
-            if ($state === 'captured') {
-                $paymentRecord = $this->recordPaymentIfNeeded($reference, $payment, $order);
-
-                return view('guest.payment-result', [
-                    'success' => true,
-                    'message' => 'Payment successful!',
-                    'reference' => $reference,
-                    'amount' => ($payment['amount'] ?? 0) / 100,
-                    'receipt_no' => $paymentRecord->receipt_no ?? $reference,
-                ]);
-            }
-
-            if ($state === 'pending' || $state === 'authorized') {
-                return view('guest.payment-result', [
-                    'success' => null,
-                    'message' => 'Your payment is still processing. Please check back later.',
-                    'reference' => $reference,
-                ]);
-            }
-
-            return view('guest.payment-result', [
-                'success' => false,
-                'message' => 'Payment was not completed (' . $state . '). You can try again.',
-                'reference' => $reference,
-            ]);
-        } catch (Exception $e) {
-            return view('guest.payment-result', [
-                'success' => false,
-                'message' => 'Could not verify payment. Reference: ' . $reference,
-                'reference' => $reference,
-            ]);
-        }
+    // If we have a reference but no order_id, try to get status
+    if (!$orderId && $reference) {
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Missing payment details. Please check your payment status.',
+            'reference' => $reference,
+            'amount' => null,
+            'receipt_no' => null,
+        ]);
     }
+
+    if (!$orderId || !$reference) {
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Missing payment reference.',
+            'reference' => $reference ?? 'N/A',
+            'amount' => null,
+            'receipt_no' => null,
+        ]);
+    }
+
+    try {
+        // Fetch payment details
+        $payment = $this->razorpay->fetchPayment($paymentId);
+        $order = $this->razorpay->fetchOrder($orderId);
+
+        $state = $payment['status'] ?? 'UNKNOWN';
+
+        if ($state === 'captured') {
+            $paymentRecord = $this->recordPaymentIfNeeded($reference, $payment, $order);
+
+            return view('guest.payment-result', [
+                'success' => true,
+                'message' => 'Payment successful!',
+                'reference' => $reference,
+                'amount' => ($payment['amount'] ?? 0) / 100,
+                'receipt_no' => $paymentRecord->receipt_no ?? $reference,
+            ]);
+        }
+
+        if ($state === 'pending' || $state === 'authorized') {
+            return view('guest.payment-result', [
+                'success' => null,
+                'message' => 'Your payment is still processing. Please check back later.',
+                'reference' => $reference,
+                'amount' => null,
+                'receipt_no' => null,
+            ]);
+        }
+
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Payment was not completed (' . $state . '). You can try again.',
+            'reference' => $reference,
+            'amount' => null,
+            'receipt_no' => null,
+        ]);
+    } catch (Exception $e) {
+        Log::error('Payment callback error: ' . $e->getMessage(), [
+            'reference' => $reference,
+            'order_id' => $orderId,
+            'payment_id' => $paymentId,
+        ]);
+
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Could not verify payment. Reference: ' . $reference,
+            'reference' => $reference,
+            'amount' => null,
+            'receipt_no' => null,
+        ]);
+    }
+}
 
     /**
      * AJAX polling for payment status
