@@ -276,13 +276,14 @@
 
         .upi-id-display {
             font-family: monospace;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #1a56db;
             background: white;
             padding: 0.25rem 0.75rem;
             border-radius: 4px;
             display: inline-block;
             word-break: break-all;
+            max-width: 100%;
         }
 
         .modal-content {
@@ -460,22 +461,6 @@
             }
         }
 
-        /* UPI Paste Helper */
-        .upi-paste-helper {
-            font-size: 0.65rem;
-            color: #6b7280;
-            background: #f3f4f6;
-            padding: 0.2rem 0.6rem;
-            border-radius: 4px;
-            display: inline-block;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .upi-paste-helper:hover {
-            background: #e5e7eb;
-        }
-
         @media (max-width: 576px) {
             .hostel-stats {
                 grid-template-columns: repeat(3, 1fr);
@@ -608,7 +593,9 @@
                                         <div style="font-size:0.65rem; color:#6b7280;">
                                             <i class="bi bi-upc-scan"></i>
                                             <span class="upi-id-display">{{ $hostel->upi_id }}</span>
-                                            <span class="ms-2">👤 {{ $hostel->upi_payee_name }}</span>
+                                            @if ($hostel->upi_payee_name)
+                                                <span class="ms-2">👤 {{ $hostel->upi_payee_name }}</span>
+                                            @endif
                                         </div>
                                     @else
                                         <div style="font-size:0.65rem; color:#6b7280;">
@@ -754,7 +741,7 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">UPI ID <span class="optional-tag">(optional)</span></label>
+                                <label class="form-label">UPI ID / URL <span class="optional-tag">(optional)</span></label>
                                 <div class="rv-input-box">
                                     <i class="bi bi-upc-scan rv-input-icon"></i>
                                     <input type="text" name="upi_id" id="upi_id" class="rv-input"
@@ -762,18 +749,9 @@
                                         maxlength="500">
                                 </div>
                                 <div class="invalid-feedback" id="upi_id_error"></div>
-                                <div style="margin-top: 0.3rem;">
-                                    <span class="upi-paste-helper" onclick="pasteExampleUPI()">
-                                        <i class="bi bi-clipboard"></i> Paste Sound Box URL
-                                    </span>
-                                    <span style="font-size:0.65rem; color:#6b7280; margin-left:0.5rem;">
-                                        <i class="bi bi-info-circle"></i>
-                                        Auto-extracts UPI ID from URL
-                                    </span>
-                                </div>
                                 <small class="text-muted d-block mt-1">
-                                    Examples: <strong>Q342895210@ybl</strong> or
-                                    <strong>upi://pay?pa=Q342895210@ybl</strong>
+                                    <i class="bi bi-info-circle"></i>
+                                    Paste your Sound Box UPI URL or enter UPI ID directly
                                 </small>
                             </div>
 
@@ -957,61 +935,6 @@
 
     <script>
         // ============================================
-        // ✅ UPI ID EXTRACTION HELPER
-        // ============================================
-
-        function extractUpiId(input) {
-            if (!input || input.trim() === '') return '';
-
-            input = input.trim();
-
-            // ✅ Check if it's a UPI URL with pa parameter
-            var match = input.match(/[?&]pa=([^&]+)/);
-            if (match) {
-                var upiId = decodeURIComponent(match[1]);
-                if (upiId.includes('@')) {
-                    return upiId;
-                }
-            }
-
-            // ✅ Check if it's already a plain UPI ID (contains @)
-            if (input.includes('@') && !input.includes('://')) {
-                return input;
-            }
-
-            // ✅ Try to find anything with @ symbol
-            match = input.match(/[a-zA-Z0-9.\-_]+@[a-zA-Z0-9.\-_]+/);
-            if (match) {
-                return match[0];
-            }
-
-            // ✅ If nothing found, return empty string
-            return '';
-        }
-
-        function isValidUpiId(input) {
-            if (!input || input.trim() === '') return true;
-            var upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-            return upiPattern.test(input.trim());
-        }
-
-        // ============================================
-        // ✅ PASTE EXAMPLE UPI URL
-        // ============================================
-
-        function pasteExampleUPI() {
-            var example = 'upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00';
-            var input = document.getElementById('upi_id');
-            if (input) {
-                input.value = example;
-                // Trigger paste event
-                $(input).trigger('paste');
-                $(input).trigger('blur');
-                showToast('Example UPI URL pasted! Auto-extracting UPI ID...', 'success');
-            }
-        }
-
-        // ============================================
         // ✅ VARIABLES
         // ============================================
 
@@ -1077,86 +1000,6 @@
 
             $('#upi_payee_name').on('input', function() {
                 $(this).data('user-edited', $(this).val().length > 0);
-            });
-
-            // ✅ UPI ID - Extract on paste
-            $('#upi_id').on('paste', function() {
-                setTimeout(() => {
-                    var val = $(this).val().trim();
-                    if (val) {
-                        var extracted = extractUpiId(val);
-                        if (extracted && extracted !== val) {
-                            $(this).val(extracted);
-                            showToast('✅ UPI ID extracted: ' + extracted, 'success');
-                        } else if (!extracted && val.includes('upi://')) {
-                            showToast('⚠️ Could not extract UPI ID from URL', 'error');
-                        }
-                        // Trigger validation
-                        $(this).trigger('blur');
-                    }
-                }, 100);
-            });
-
-            // ✅ UPI ID validation on blur
-            $('#upi_id').on('blur', function() {
-                var val = $(this).val().trim();
-                var box = $(this).closest('.rv-input-box');
-                var errorEl = $('#upi_id_error');
-
-                box.removeClass('is-invalid is-valid');
-                errorEl.text('');
-
-                if (val.length === 0) {
-                    return;
-                }
-
-                // Try to extract UPI ID if it's a full URL
-                if (val.includes('://') || val.includes('pa=')) {
-                    var extracted = extractUpiId(val);
-                    if (extracted) {
-                        $(this).val(extracted);
-                        val = extracted;
-                    }
-                }
-
-                // Validate
-                if (!isValidUpiId(val)) {
-                    box.addClass('is-invalid');
-                    errorEl.text('Enter a valid UPI ID (e.g., merchant@ybl or 123456@ybl)');
-                } else {
-                    box.addClass('is-valid');
-                }
-            });
-
-            // ✅ UPI ID validation on input (live feedback)
-            $('#upi_id').on('input', function() {
-                var val = $(this).val().trim();
-                var box = $(this).closest('.rv-input-box');
-                var errorEl = $('#upi_id_error');
-
-                if (val.length === 0) {
-                    box.removeClass('is-invalid is-valid');
-                    errorEl.text('');
-                    return;
-                }
-
-                // Only show validation if it looks like a UPI ID or URL
-                if (val.includes('@') || val.includes('upi://') || val.includes('pa=')) {
-                    var extracted = extractUpiId(val);
-                    if (extracted && extracted !== val) {
-                        $(this).val(extracted);
-                        val = extracted;
-                    }
-
-                    if (!isValidUpiId(val)) {
-                        box.addClass('is-invalid');
-                        errorEl.text('Enter a valid UPI ID (e.g., merchant@ybl or 123456@ybl)');
-                    } else {
-                        box.removeClass('is-invalid');
-                        box.addClass('is-valid');
-                        errorEl.text('');
-                    }
-                }
             });
         });
 
@@ -1236,16 +1079,6 @@
 
             formData.append('_token', '{{ csrf_token() }}');
 
-            // Extract UPI ID before submitting
-            var upiInput = document.getElementById('upi_id');
-            if (upiInput && upiInput.value.trim() !== '') {
-                var extracted = extractUpiId(upiInput.value.trim());
-                if (extracted) {
-                    upiInput.value = extracted;
-                    formData.set('upi_id', extracted);
-                }
-            }
-
             $.ajax({
                 url: url,
                 type: 'POST',
@@ -1254,7 +1087,7 @@
                 contentType: false,
                 beforeSend: function() {
                     $('#saveBtn').prop('disabled', true).html(
-                    '<i class="bi bi-spinner bi-spin"></i> Saving...');
+                        '<i class="bi bi-spinner bi-spin"></i> Saving...');
                     $('.invalid-feedback').text('');
                     $('.rv-input-box').removeClass('is-invalid is-valid');
                 },
@@ -1338,7 +1171,6 @@
                         $('.invalid-feedback').text('');
                         $('.rv-input-box').removeClass('is-invalid is-valid');
 
-                        // Show modal
                         showModalSafely(hostelModalInstance, 'hostelModal');
                     }
                 },
