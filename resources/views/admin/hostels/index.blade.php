@@ -132,7 +132,7 @@
     .biometric-stat-item .number { font-size: 0.9rem; font-weight: 700; color: var(--sanjay-primary); }
     .biometric-stat-item .label { font-size: 0.55rem; color: #6b7280; text-transform: uppercase; }
 
-    /* UPI Section Styles */
+    /* UPI Section Styles - NEW */
     .upi-section {
         background: #f0f7ff;
         border-radius: 8px;
@@ -512,7 +512,7 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">UPI ID <span class="required">*</span></label>
+                            <label class="form-label">UPI ID</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-upc-scan rv-input-icon"></i>
                                 <input type="text" name="upi_id" id="upi_id" class="rv-input"
