@@ -258,57 +258,72 @@ class GuestPaymentController extends Controller
         ]);
     }
 
-    /**
-     * ✅ FIXED: Build UPI URI with existing Sound Box parameters
-     *
-     * If the UPI ID is a full URL like "upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00"
-     * It will extract and add the amount.
-     *
-     * If it's a plain UPI ID like "Q342895210@ybl", it will build a new URL.
-     */
-    private function buildUPIUri($upiId, $payeeName, $amount, $reference)
+  /**
+ * Build UPI URI with existing Sound Box parameters, preserving original param order.
+ *
+ * If the UPI ID is a full URL like "upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00"
+ * it appends/updates "am" at the end without touching existing params.
+ *
+ * If it's a plain UPI ID like "Q342895210@ybl", it builds a new URL.
+ */
+private function buildUPIUri($upiId, $payeeName, $amount, $reference)
 {
-    // ✅ Check if it's already a full UPI URL
+    // Whole numbers -> "100", decimals -> "100.50"
+    $formattedAmount = (floor($amount) == $amount)
+        ? (string) intval($amount)
+        : number_format($amount, 2, '.', '');
+
+    // ✅ Full UPI URL case
     if (strpos($upiId, 'upi://pay') === 0) {
-        // Parse the existing URL
-        $parsedUrl = parse_url($upiId);
+        $parts = explode('?', $upiId, 2);
+        $base = $parts[0];
+        $queryString = $parts[1] ?? '';
 
-        if (isset($parsedUrl['query'])) {
-            parse_str($parsedUrl['query'], $params);
-
-            // Add/update amount
-            $params['am'] = number_format($amount, 2);
-
-            // Add transaction note if not exists
-            if (!isset($params['tn'])) {
-                $params['tn'] = 'Rent Payment ' . $reference;
+        // Parse manually to preserve original key order
+        $paramsList = [];
+        if ($queryString !== '') {
+            foreach (explode('&', $queryString) as $pair) {
+                if ($pair === '') continue;
+                $kv = explode('=', $pair, 2);
+                $key = $kv[0];
+                $val = $kv[1] ?? '';
+                $paramsList[$key] = $val;
             }
-
-            // Add currency if not exists
-            if (!isset($params['cu'])) {
-                $params['cu'] = 'INR';
-            }
-
-            // Rebuild URL
-            return 'upi://pay?' . http_build_query($params);
         }
 
-        // If no query string, add it
-        return $upiId . '&am=' . number_format($amount, 2);
+        // Add/update amount (appended at end if not already present)
+        $paramsList['am'] = $formattedAmount;
+
+        // Add transaction note if not exists
+        if (!isset($paramsList['tn'])) {
+            $paramsList['tn'] = rawurlencode('Rent Payment ' . $reference);
+        }
+
+        // Add currency if not exists
+        if (!isset($paramsList['cu'])) {
+            $paramsList['cu'] = 'INR';
+        }
+
+        // Rebuild query string preserving order (PHP arrays keep insertion order)
+        $rebuilt = [];
+        foreach ($paramsList as $key => $val) {
+            $rebuilt[] = $val === '' ? $key : $key . '=' . $val;
+        }
+
+        return $base . '?' . implode('&', $rebuilt);
     }
 
-    // ✅ It's a plain UPI ID - Build a new URL
+    // ✅ Plain UPI ID case - build a fresh URL
     $params = [
         'pa' => $upiId,
         'pn' => $payeeName,
-        'am' => number_format($amount, 2),
+        'am' => $formattedAmount,
         'tn' => 'Rent Payment ' . $reference,
         'cu' => 'INR'
     ];
 
     return 'upi://pay?' . http_build_query($params);
 }
-
     /**
      * Verify UPI payment (Manual verification or automatic)
      */
