@@ -17,7 +17,6 @@ class HostelController extends Controller
     /**
      * Shared UPI ID format: local-part@handle (e.g. merchant@ybl, 9876543210@paytm)
      */
-    const UPI_ID_REGEX = '/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/';
 
     public function __construct(EbioServerService $ebioService)
     {
@@ -351,7 +350,7 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
-            'upi_id' => ['nullable', 'string', 'max:100', 'regex:' . self::UPI_ID_REGEX],
+            'upi_id' => 'nullable', 'string', 'max:100',
             'upi_payee_name' => 'nullable|string|max:255',
         ], [
             'upi_id.regex' => 'Enter a valid UPI ID, e.g. merchant@ybl',
@@ -406,7 +405,7 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
-            'upi_id' => ['nullable', 'string', 'max:100', 'regex:' . self::UPI_ID_REGEX],
+            'upi_id' => 'nullable', 'string', 'max:100',
             'upi_payee_name' => 'nullable|string|max:255',
         ], [
             'upi_id.regex' => 'Enter a valid UPI ID, e.g. merchant@ybl',
