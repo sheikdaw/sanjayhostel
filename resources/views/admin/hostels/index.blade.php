@@ -196,7 +196,6 @@
         background: white;
     }
     .rv-input-box.is-invalid { border-color: #dc2626; }
-    .rv-input-box.is-valid { border-color: #16a34a; }
     .rv-input-icon {
         position: absolute;
         left: 12px;
@@ -218,13 +217,6 @@
     select.rv-input { appearance: none; padding-right: 2rem; cursor: pointer; }
     .form-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
     .form-label .required { color: #dc2626; margin-left: 2px; }
-    .form-label .optional-tag {
-        font-size: 0.65rem;
-        font-weight: 500;
-        color: #9ca3af;
-        text-transform: none;
-        margin-left: 4px;
-    }
     .invalid-feedback { font-size: 0.75rem; color: #dc2626; margin-top: 0.25rem; }
 
     .empty-state { text-align: center; padding: 4rem 2rem; }
@@ -384,7 +376,9 @@
                                     <div style="font-size:0.65rem; color:#6b7280;">
                                         <i class="bi bi-upc-scan"></i>
                                         <span class="upi-id-display">{{ $hostel->upi_id }}</span>
-                                        <span class="ms-2">👤 {{ $hostel->upi_payee_name }}</span>
+                                        @if($hostel->upi_payee_name)
+                                            <span class="ms-2">👤 {{ $hostel->upi_payee_name }}</span>
+                                        @endif
                                     </div>
                                 @else
                                     <div style="font-size:0.65rem; color:#6b7280;">
@@ -485,6 +479,32 @@
                             </div>
                             <div class="invalid-feedback" id="status_error"></div>
                         </div>
+                        <div class="col-md-6">
+    <label class="form-label">UPI ID</label>
+    <div class="rv-input-box">
+        <i class="bi bi-upc-scan rv-input-icon"></i>
+        <input type="text" name="upi_id" id="upi_id" class="rv-input"
+               placeholder="merchant@upi" value="{{ old('upi_id') }}"
+               pattern="^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$"
+               title="Enter a valid UPI ID, e.g. merchant@ybl">
+    </div>
+    <div class="invalid-feedback" id="upi_id_error"></div>
+    <small class="text-muted">
+        <i class="bi bi-info-circle"></i>
+        Optional. Examples: merchant@ybl (Google Pay), merchant@paytm (PhonePe/Paytm)
+    </small>
+</div>
+
+<div class="col-md-6">
+    <label class="form-label">UPI Payee Name</label>
+    <div class="rv-input-box">
+        <i class="bi bi-person rv-input-icon"></i>
+        <input type="text" name="upi_payee_name" id="upi_payee_name" class="rv-input"
+               placeholder="Hostel Name" value="{{ old('upi_payee_name') }}">
+    </div>
+    <div class="invalid-feedback" id="upi_payee_name_error"></div>
+    <small class="text-muted">Shown in the payer's UPI app. Leave blank to default to the hostel name.</small>
+</div>
                         <div class="col-12">
                             <label class="form-label">Address</label>
                             <div class="rv-input-box">
@@ -514,17 +534,15 @@
                         <div class="col-12">
                             <hr>
                             <h6><i class="bi bi-phone"></i> UPI Payment Configuration</h6>
-                            <p class="text-muted small mb-0">Configure UPI for receiving rent payments directly. Leave blank if not accepting UPI payments yet.</p>
+                            <p class="text-muted small">Configure UPI for receiving rent payments directly</p>
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">UPI ID <span class="optional-tag">(optional)</span></label>
+                            <label class="form-label">UPI ID <span class="required">*</span></label>
                             <div class="rv-input-box">
                                 <i class="bi bi-upc-scan rv-input-icon"></i>
                                 <input type="text" name="upi_id" id="upi_id" class="rv-input"
-                                       placeholder="merchant@upi" value="{{ old('upi_id') }}"
-                                       pattern="^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$"
-                                       title="Enter a valid UPI ID, e.g. merchant@ybl" maxlength="100">
+                                       placeholder="merchant@upi" value="{{ old('upi_id') }}">
                             </div>
                             <div class="invalid-feedback" id="upi_id_error"></div>
                             <small class="text-muted">
@@ -534,14 +552,14 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label">UPI Payee Name <span class="optional-tag">(optional)</span></label>
+                            <label class="form-label">UPI Payee Name</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-person rv-input-icon"></i>
                                 <input type="text" name="upi_payee_name" id="upi_payee_name" class="rv-input"
-                                       placeholder="Defaults to Hostel Name" value="{{ old('upi_payee_name') }}" maxlength="255">
+                                       placeholder="Hostel Name" value="{{ old('upi_payee_name') }}">
                             </div>
                             <div class="invalid-feedback" id="upi_payee_name_error"></div>
-                            <small class="text-muted">Name shown in the payer's UPI app. Auto-fills from Hostel Name unless you type your own.</small>
+                            <small class="text-muted">Name shown in UPI app (default: Hostel Name)</small>
                         </div>
 
                         {{-- Biometric Configuration --}}
@@ -724,33 +742,6 @@ $(document).ready(function() {
         e.preventDefault();
         submitBiometricForm();
     });
-
-    // Auto-fill UPI payee name from hostel name, unless the user has typed their own
-    $('#hostel_name').on('input', function() {
-        var payeeField = $('#upi_payee_name');
-        if (!payeeField.data('user-edited')) {
-            payeeField.val($(this).val());
-        }
-    });
-    $('#upi_payee_name').on('input', function() {
-        $(this).data('user-edited', $(this).val().length > 0);
-    });
-
-    // Live UPI ID format feedback
-    $('#upi_id').on('blur', function() {
-        var val = $(this).val().trim();
-        var box = $(this).closest('.rv-input-box');
-        box.removeClass('is-invalid is-valid');
-        $('#upi_id_error').text('');
-        if (val.length === 0) return; // optional field
-        var upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-        if (!upiPattern.test(val)) {
-            box.addClass('is-invalid');
-            $('#upi_id_error').text('Enter a valid UPI ID, e.g. merchant@ybl');
-        } else {
-            box.addClass('is-valid');
-        }
-    });
 });
 
 function openAddModal() {
@@ -759,19 +750,17 @@ function openAddModal() {
     document.getElementById('saveBtnText').textContent = 'Save';
     document.getElementById('editId').value = '';
     $('.invalid-feedback').text('');
-    $('.rv-input-box').removeClass('is-invalid is-valid');
-    $('#upi_payee_name').data('user-edited', false);
+    $('.rv-input-box').removeClass('is-invalid');
     hostelModal.show();
 }
 
 function resetForm() {
     document.getElementById('hostelForm').reset();
     $('.invalid-feedback').text('');
-    $('.rv-input-box').removeClass('is-invalid is-valid');
+    $('.rv-input-box').removeClass('is-invalid');
     document.getElementById('saveBtnText').textContent = 'Save';
     document.getElementById('editId').value = '';
     document.getElementById('modalTitle').textContent = 'Add Hostel';
-    $('#upi_payee_name').data('user-edited', false);
 }
 
 function submitForm() {
@@ -793,7 +782,7 @@ function submitForm() {
         beforeSend: function() {
             $('#saveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
             $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid is-valid');
+            $('.rv-input-box').removeClass('is-invalid');
         },
         success: function(response) {
             if (response.success) {
@@ -842,7 +831,6 @@ function editHostel(id) {
                 // UPI Fields
                 document.getElementById('upi_id').value = data.upi_id || '';
                 document.getElementById('upi_payee_name').value = data.upi_payee_name || '';
-                $('#upi_payee_name').data('user-edited', !!(data.upi_payee_name && data.upi_payee_name !== data.hostel_name));
 
                 // Biometric Fields
                 document.getElementById('biometric_device_id').value = data.biometric_device_id || '';
@@ -854,7 +842,7 @@ function editHostel(id) {
 
                 document.getElementById('saveBtnText').textContent = 'Update';
                 $('.invalid-feedback').text('');
-                $('.rv-input-box').removeClass('is-invalid is-valid');
+                $('.rv-input-box').removeClass('is-invalid');
                 hostelModal.show();
             }
         },
@@ -934,7 +922,7 @@ function openBiometricConfig(id) {
     $('#biometric_location_code_edit').val('');
     $('#employee_code_prefix_edit').val('');
     $('.invalid-feedback').text('');
-    $('.rv-input-box').removeClass('is-invalid is-valid');
+    $('.rv-input-box').removeClass('is-invalid');
 
     $.ajax({
         url: '/admin/hostels/' + id + '/biometric-config',
@@ -969,7 +957,7 @@ function submitBiometricForm() {
         beforeSend: function() {
             $('#biometricSaveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
             $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid is-valid');
+            $('.rv-input-box').removeClass('is-invalid');
         },
         success: function(response) {
             if (response.success) {
