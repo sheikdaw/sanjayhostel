@@ -296,18 +296,9 @@ class GuestPaymentController extends Controller
                 }
             }
 
-            // Add/update amount (appended at end if not already present)
+            // Add/update amount only — do NOT add tn/cu, keep the URI exactly
+            // as stored plus the amount, per requirement.
             $paramsList['am'] = $formattedAmount;
-
-            // Add transaction note if not exists
-            if (!isset($paramsList['tn'])) {
-                $paramsList['tn'] = rawurlencode('Rent Payment ' . $reference);
-            }
-
-            // Add currency if not exists
-            if (!isset($paramsList['cu'])) {
-                $paramsList['cu'] = 'INR';
-            }
 
             // Rebuild query string preserving insertion order
             $rebuilt = [];
