@@ -152,7 +152,7 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 8px; padding-left: 58px;">
                 <div style="background: var(--ivory); border-radius: var(--radius); padding: 16px 18px; border-left: 4px solid var(--amber);">
                     <div style="font-size: 0.75rem; color: var(--stone); font-family: var(--font-mono); letter-spacing: 0.04em;">Phone</div>
-                    <div style="font-weight: 600; font-size: 0.98rem;">+91 98765 43210</div>
+                    <div style="font-weight: 600; font-size: 0.98rem;">+91 9043093470</div>
                 </div>
                 <div style="background: var(--ivory); border-radius: var(--radius); padding: 16px 18px; border-left: 4px solid var(--rose);">
                     <div style="font-size: 0.75rem; color: var(--stone); font-family: var(--font-mono); letter-spacing: 0.04em;">Email</div>
