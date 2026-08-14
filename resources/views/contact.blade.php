@@ -4,67 +4,7 @@
 @section('canonical', 'https://www.sanjayandharinihostels.com/contact')
 @section('meta_description', "Contact Sanjay Boys Hostel and Harini Girls Hostel to check room availability and book a PG in Alandur, St. Thomas Mount or Perungalathur, Chennai. Call, WhatsApp, or fill the enquiry form.")
 
-@section('schema')
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@graph": [
-            {
-                "@type": "LodgingBusiness",
-                "@id": "https://www.sanjayandharinihostels.com/#organization",
-                "name": "Sanjay & Harini Hostels",
-                "description": "PG accommodation in Alandur, St. Thomas Mount and Perungalathur, Chennai.",
-                "url": "https://www.sanjayandharinihostels.com",
-                "telephone": "+91-9876543210",
-                "priceRange": "₹₹",
-                "address": {
-                    "@type": "PostalAddress",
-                    "addressLocality": "Chennai",
-                    "addressRegion": "Tamil Nadu",
-                    "addressCountry": "IN"
-                }
-            },
-            {
-                "@type": "BreadcrumbList",
-                "itemListElement": [
-                    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.sanjayandharinihostels.com/" },
-                    { "@type": "ListItem", "position": 2, "name": "Contact / Book Now", "item": "https://www.sanjayandharinihostels.com/contact" }
-                ]
-            },
-            {
-                "@type": "FAQPage",
-                "mainEntity": [
-                    {
-                        "@type": "Question",
-                        "name": "What room types are available?",
-                        "acceptedAnswer": { "@type": "Answer", "text": "Single, double, triple, and dormitory sharing — both AC and non-AC options." }
-                    },
-                    {
-                        "@type": "Question",
-                        "name": "Are meals provided?",
-                        "acceptedAnswer": { "@type": "Answer", "text": "Yes, 4 meals daily (breakfast, lunch, snacks, dinner). Lunch box delivery is also available." }
-                    },
-                    {
-                        "@type": "Question",
-                        "name": "Is the hostel safe for women?",
-                        "acceptedAnswer": { "@type": "Answer", "text": "Harini Girls Hostel is exclusively for women, with 24/7 CCTV, biometric entry and on-site warden supervision." }
-                    },
-                    {
-                        "@type": "Question",
-                        "name": "Which locations do you operate in?",
-                        "acceptedAnswer": { "@type": "Answer", "text": "Sanjay Boys Hostel operates in Alandur, St. Thomas Mount and Perungalathur. Harini Girls Hostel operates in Alandur and St. Thomas Mount." }
-                    },
-                    {
-                        "@type": "Question",
-                        "name": "How can I book a room?",
-                        "acceptedAnswer": { "@type": "Answer", "text": "Fill out the enquiry form on the website, call the hostel directly, or message on WhatsApp to check availability." }
-                    }
-                ]
-            }
-        ]
-    }
-    </script>
-@endsection
+
 
 @section('content')
     <div class="page-hero panel-ivory">
