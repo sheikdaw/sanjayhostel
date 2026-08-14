@@ -212,7 +212,7 @@ public function getResident(Request $request)
     if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
         // Calculate late fee: ₹50 per day after 10th (example)
         $daysLate = $currentDay - 10;
-        $fineAmount = $daysLate * 50; // ₹50 per day
+        $fineAmount = $daysLate * 0; // ₹50 per day
         $fineMessage = "Late fee: ₹50 per day after 10th ({$daysLate} days late)";
     }
 
@@ -395,61 +395,102 @@ public function getResident(Request $request)
         }
     }
 
-    /**
-     * Browser lands here after PhonePe checkout (success, failure, or
-     * abandonment). We ALWAYS re-verify with the Order Status API.
-     * GET /guest/payment/callback
-     */
-    public function callback(Request $request)
-    {
-        $merchantOrderId = $request->query('merchant_order_id');
+ /**
+ * Browser callback after payment
+ * GET /guest/payment/callback
+ */
+public function callback(Request $request)
+{
+    // Get all parameters from URL
+    $orderId = $request->query('order_id');
+    $paymentId = $request->query('payment_id');
+    $reference = $request->query('reference');
+    $status = $request->query('status');
 
-        if (!$merchantOrderId) {
-            return view('guest.payment-result', [
-                'success' => false,
-                'message' => 'Missing payment reference.',
-            ]);
-        }
+    // If no reference in URL, try to get from session or generate
+    if (empty($reference)) {
+        $reference = $request->session()->get('payment_reference', 'N/A');
+    }
 
+    // If still no reference, check if we can get from order
+    if (empty($reference) && !empty($orderId)) {
         try {
-            $status = $this->phonePe->orderStatus($merchantOrderId, true);
+            $order = $this->razorpay->fetchOrder($orderId);
+            $reference = $order['receipt'] ?? 'N/A';
         } catch (Exception $e) {
-            return view('guest.payment-result', [
-                'success' => false,
-                'message' => 'Could not verify payment. Reference: ' . $merchantOrderId,
-                'reference' => $merchantOrderId,
-            ]);
+            $reference = 'N/A';
         }
+    }
 
-        $state = $status['state'] ?? 'UNKNOWN';
+    // Handle cancelled payment
+    if ($status === 'cancelled') {
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Payment was cancelled by you.',
+            'reference' => $reference,  // ✅ Always pass reference
+        ]);
+    }
 
-        if ($state === 'COMPLETED') {
-            $payment = $this->recordPaymentIfNeeded($merchantOrderId, $status);
+    // Handle failed payment
+    if ($status === 'failed') {
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Payment failed. Please try again.',
+            'reference' => $reference,  // ✅ Always pass reference
+        ]);
+    }
+
+    // Validate required parameters
+    if (!$orderId) {
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Missing payment reference. Please try again.',
+            'reference' => $reference ?? 'N/A',  // ✅ Always pass reference
+        ]);
+    }
+
+    try {
+        // Fetch payment details
+        $payment = $this->razorpay->fetchPayment($paymentId);
+        $order = $this->razorpay->fetchOrder($orderId);
+
+        $state = $payment['status'] ?? 'UNKNOWN';
+
+        if ($state === 'captured') {
+            $paymentRecord = $this->recordPaymentIfNeeded($reference, $payment, $order);
 
             return view('guest.payment-result', [
                 'success' => true,
                 'message' => 'Payment successful!',
-                'reference' => $merchantOrderId,
-                'amount' => ($status['amount'] ?? 0) / 100,
-                'receipt_no' => $payment->receipt_no ?? $merchantOrderId,
+                'reference' => $reference,  // ✅ Pass reference
+                'amount' => ($payment['amount'] ?? 0) / 100,
+                'receipt_no' => $paymentRecord->receipt_no ?? $reference,
+                'payment_id' => $payment['id'] ?? null,
+                'order_id' => $orderId,
             ]);
         }
 
-        if ($state === 'PENDING') {
+        if ($state === 'pending' || $state === 'authorized') {
             return view('guest.payment-result', [
                 'success' => null,
-                'message' => 'Your payment is still processing. This page will update automatically.',
-                'reference' => $merchantOrderId,
+                'message' => 'Your payment is still processing. Please check back later.',
+                'reference' => $reference,  // ✅ Pass reference
             ]);
         }
 
         return view('guest.payment-result', [
             'success' => false,
             'message' => 'Payment was not completed (' . $state . '). You can try again.',
-            'reference' => $merchantOrderId,
+            'reference' => $reference,  // ✅ Pass reference
+        ]);
+    } catch (Exception $e) {
+        return view('guest.payment-result', [
+            'success' => false,
+            'message' => 'Could not verify payment. Please contact support.',
+            'reference' => $reference ?? 'N/A',  // ✅ Always pass reference
         ]);
     }
-
+}
     /**
      * AJAX polling / lookup endpoint.
      * GET /guest/payment/status?reference=PAY-...
