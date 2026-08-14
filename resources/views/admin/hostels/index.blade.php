@@ -522,7 +522,7 @@
         <i class="bi bi-upc-scan rv-input-icon"></i>
         <input type="text" name="upi_id" id="upi_id" class="rv-input"
                placeholder="merchant@upi" value="{{ old('upi_id') }}"
-               pattern="^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$"
+
                title="Enter a valid UPI ID, e.g. merchant@ybl or 123456@ybl" maxlength="100">
     </div>
     <div class="invalid-feedback" id="upi_id_error"></div>
