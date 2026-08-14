@@ -282,6 +282,7 @@
             padding: 0.25rem 0.75rem;
             border-radius: 4px;
             display: inline-block;
+            word-break: break-all;
         }
 
         .modal-content {
@@ -457,6 +458,22 @@
                 transform: translateX(100%);
                 opacity: 0;
             }
+        }
+
+        /* UPI Paste Helper */
+        .upi-paste-helper {
+            font-size: 0.65rem;
+            color: #6b7280;
+            background: #f3f4f6;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            display: inline-block;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upi-paste-helper:hover {
+            background: #e5e7eb;
         }
 
         @media (max-width: 576px) {
@@ -728,6 +745,7 @@
                                 <div class="invalid-feedback" id="email_error"></div>
                             </div>
 
+                            {{-- UPI Configuration --}}
                             <div class="col-12">
                                 <hr>
                                 <h6><i class="bi bi-phone"></i> UPI Payment Configuration</h6>
@@ -740,14 +758,22 @@
                                 <div class="rv-input-box">
                                     <i class="bi bi-upc-scan rv-input-icon"></i>
                                     <input type="text" name="upi_id" id="upi_id" class="rv-input"
-                                        placeholder="merchant@upi or paste UPI URL" value="{{ old('upi_id') }}"
-                                        maxlength="255">
+                                        placeholder="Paste UPI URL or enter UPI ID" value="{{ old('upi_id') }}"
+                                        maxlength="500">
                                 </div>
                                 <div class="invalid-feedback" id="upi_id_error"></div>
-                                <small class="text-muted">
-                                    <i class="bi bi-info-circle"></i>
-                                    Enter UPI ID like <strong>merchant@ybl</strong> or <strong>123456@ybl</strong>,
-                                    or paste a UPI URL like <strong>upi://pay?pa=123456@ybl</strong>
+                                <div style="margin-top: 0.3rem;">
+                                    <span class="upi-paste-helper" onclick="pasteExampleUPI()">
+                                        <i class="bi bi-clipboard"></i> Paste Sound Box URL
+                                    </span>
+                                    <span style="font-size:0.65rem; color:#6b7280; margin-left:0.5rem;">
+                                        <i class="bi bi-info-circle"></i>
+                                        Auto-extracts UPI ID from URL
+                                    </span>
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    Examples: <strong>Q342895210@ybl</strong> or
+                                    <strong>upi://pay?pa=Q342895210@ybl</strong>
                                 </small>
                             </div>
 
@@ -922,6 +948,9 @@
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="toast-container" id="flashMessageContainer"></div>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -936,34 +965,50 @@
 
             input = input.trim();
 
-            // If it's already a plain UPI ID (contains @ and no ://)
-            if (input.includes('@') && !input.includes('://')) {
-                // Validate it has proper format
-                if (/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(input)) {
-                    return input;
-                }
-            }
-
-            // Try to extract from URL format: pa=merchant@handle
+            // ✅ Check if it's a UPI URL with pa parameter
             var match = input.match(/[?&]pa=([^&]+)/);
             if (match) {
                 var upiId = decodeURIComponent(match[1]);
-                if (upiId.includes('@') && /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
+                if (upiId.includes('@')) {
                     return upiId;
                 }
             }
 
-            // Try to find anything with @ symbol using regex
+            // ✅ Check if it's already a plain UPI ID (contains @)
+            if (input.includes('@') && !input.includes('://')) {
+                return input;
+            }
+
+            // ✅ Try to find anything with @ symbol
             match = input.match(/[a-zA-Z0-9.\-_]+@[a-zA-Z0-9.\-_]+/);
             if (match) {
-                var upiId = match[0];
-                if (/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
-                    return upiId;
-                }
+                return match[0];
             }
 
-            // Return the original input if no extraction works
-            return input;
+            // ✅ If nothing found, return empty string
+            return '';
+        }
+
+        function isValidUpiId(input) {
+            if (!input || input.trim() === '') return true;
+            var upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+            return upiPattern.test(input.trim());
+        }
+
+        // ============================================
+        // ✅ PASTE EXAMPLE UPI URL
+        // ============================================
+
+        function pasteExampleUPI() {
+            var example = 'upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00';
+            var input = document.getElementById('upi_id');
+            if (input) {
+                input.value = example;
+                // Trigger paste event
+                $(input).trigger('paste');
+                $(input).trigger('blur');
+                showToast('Example UPI URL pasted! Auto-extracting UPI ID...', 'success');
+            }
         }
 
         // ============================================
@@ -1034,63 +1079,83 @@
                 $(this).data('user-edited', $(this).val().length > 0);
             });
 
-            // ✅ UPI ID validation with extraction
+            // ✅ UPI ID - Extract on paste
+            $('#upi_id').on('paste', function() {
+                setTimeout(() => {
+                    var val = $(this).val().trim();
+                    if (val) {
+                        var extracted = extractUpiId(val);
+                        if (extracted && extracted !== val) {
+                            $(this).val(extracted);
+                            showToast('✅ UPI ID extracted: ' + extracted, 'success');
+                        } else if (!extracted && val.includes('upi://')) {
+                            showToast('⚠️ Could not extract UPI ID from URL', 'error');
+                        }
+                        // Trigger validation
+                        $(this).trigger('blur');
+                    }
+                }, 100);
+            });
+
+            // ✅ UPI ID validation on blur
             $('#upi_id').on('blur', function() {
                 var val = $(this).val().trim();
                 var box = $(this).closest('.rv-input-box');
+                var errorEl = $('#upi_id_error');
+
                 box.removeClass('is-invalid is-valid');
-                $('#upi_id_error').text('');
+                errorEl.text('');
 
                 if (val.length === 0) {
-                    // If field is empty, it's optional - remove any validation state
                     return;
                 }
 
-                // ✅ Extract UPI ID from URL if needed
-                var extracted = extractUpiId(val);
-
-                // Update the input with extracted value
-                if (extracted !== val) {
-                    $(this).val(extracted);
-                    val = extracted;
+                // Try to extract UPI ID if it's a full URL
+                if (val.includes('://') || val.includes('pa=')) {
+                    var extracted = extractUpiId(val);
+                    if (extracted) {
+                        $(this).val(extracted);
+                        val = extracted;
+                    }
                 }
 
-                // Validate the extracted UPI ID
-                var upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-                if (!upiPattern.test(val)) {
+                // Validate
+                if (!isValidUpiId(val)) {
                     box.addClass('is-invalid');
-                    $('#upi_id_error').text('Enter a valid UPI ID, e.g. merchant@ybl or 123456@ybl');
+                    errorEl.text('Enter a valid UPI ID (e.g., merchant@ybl or 123456@ybl)');
                 } else {
                     box.addClass('is-valid');
                 }
             });
 
-            // ✅ Also validate on input change
+            // ✅ UPI ID validation on input (live feedback)
             $('#upi_id').on('input', function() {
                 var val = $(this).val().trim();
                 var box = $(this).closest('.rv-input-box');
+                var errorEl = $('#upi_id_error');
 
-                // Only show validation if there's content
-                if (val.length > 0) {
+                if (val.length === 0) {
+                    box.removeClass('is-invalid is-valid');
+                    errorEl.text('');
+                    return;
+                }
+
+                // Only show validation if it looks like a UPI ID or URL
+                if (val.includes('@') || val.includes('upi://') || val.includes('pa=')) {
                     var extracted = extractUpiId(val);
-                    if (extracted !== val) {
+                    if (extracted && extracted !== val) {
                         $(this).val(extracted);
                         val = extracted;
                     }
 
-                    var upiPattern = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-                    box.removeClass('is-invalid is-valid');
-                    $('#upi_id_error').text('');
-
-                    if (!upiPattern.test(val)) {
+                    if (!isValidUpiId(val)) {
                         box.addClass('is-invalid');
-                        $('#upi_id_error').text('Enter a valid UPI ID, e.g. merchant@ybl or 123456@ybl');
+                        errorEl.text('Enter a valid UPI ID (e.g., merchant@ybl or 123456@ybl)');
                     } else {
+                        box.removeClass('is-invalid');
                         box.addClass('is-valid');
+                        errorEl.text('');
                     }
-                } else {
-                    box.removeClass('is-invalid is-valid');
-                    $('#upi_id_error').text('');
                 }
             });
         });
@@ -1109,7 +1174,6 @@
                 }
             }
 
-            // Fallback: Try to reinitialize and show
             try {
                 var element = document.getElementById(modalElementId);
                 if (element) {
@@ -1118,8 +1182,6 @@
                         keyboard: true
                     });
                     newModal.show();
-
-                    // Store the new instance
                     if (modalElementId === 'hostelModal') {
                         hostelModalInstance = newModal;
                     } else if (modalElementId === 'biometricModal') {
@@ -1130,7 +1192,6 @@
             } catch (e) {
                 console.error('Fallback modal show failed:', e);
             }
-
             return false;
         }
 
@@ -1146,7 +1207,6 @@
             $('.invalid-feedback').text('');
             $('.rv-input-box').removeClass('is-invalid is-valid');
             $('#upi_payee_name').data('user-edited', false);
-
             showModalSafely(hostelModalInstance, 'hostelModal');
         }
 
@@ -1174,18 +1234,16 @@
                 formData.append('_method', 'PUT');
             }
 
-            // Add CSRF token
             formData.append('_token', '{{ csrf_token() }}');
 
-            // Before submitting, extract UPI ID again to ensure clean data
+            // Extract UPI ID before submitting
             var upiInput = document.getElementById('upi_id');
             if (upiInput && upiInput.value.trim() !== '') {
                 var extracted = extractUpiId(upiInput.value.trim());
-                if (extracted !== upiInput.value) {
+                if (extracted) {
                     upiInput.value = extracted;
+                    formData.set('upi_id', extracted);
                 }
-                // Update formData with extracted value
-                formData.set('upi_id', extracted);
             }
 
             $.ajax({
@@ -1203,11 +1261,8 @@
                 success: function(response) {
                     if (response.success) {
                         if (hostelModalInstance) {
-                            try {
-                                hostelModalInstance.hide();
-                            } catch (e) {
-                                $('#hostelModal').modal('hide');
-                            }
+                            try { hostelModalInstance.hide(); } catch (e) { $('#hostelModal').modal(
+                                'hide'); }
                         } else {
                             $('#hostelModal').modal('hide');
                         }
@@ -1263,7 +1318,7 @@
                         document.getElementById('phone').value = data.phone || '';
                         document.getElementById('email').value = data.email || '';
 
-                        // UPI Fields - Show the stored UPI ID
+                        // UPI Fields
                         document.getElementById('upi_id').value = data.upi_id || '';
                         document.getElementById('upi_payee_name').value = data.upi_payee_name || '';
                         $('#upi_payee_name').data('user-edited', !!(data.upi_payee_name && data
@@ -1443,11 +1498,8 @@
                 success: function(response) {
                     if (response.success) {
                         if (biometricModalInstance) {
-                            try {
-                                biometricModalInstance.hide();
-                            } catch (e) {
-                                $('#biometricModal').modal('hide');
-                            }
+                            try { biometricModalInstance.hide(); } catch (e) { $('#biometricModal').modal(
+                                    'hide'); }
                         } else {
                             $('#biometricModal').modal('hide');
                         }
@@ -1574,10 +1626,10 @@
             const toast = document.createElement('div');
             toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
             toast.innerHTML = `
-        <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
-        <div class="message">${message}</div>
-        <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
-    `;
+                <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
+                <div class="message">${message}</div>
+                <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
+            `;
             container.appendChild(toast);
 
             setTimeout(() => {
