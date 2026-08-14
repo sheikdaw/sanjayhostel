@@ -14,6 +14,11 @@ class HostelController extends Controller
 {
     protected $ebioService;
 
+    /**
+     * Shared UPI ID format: local-part@handle (e.g. merchant@ybl, 9876543210@paytm)
+     */
+    const UPI_ID_REGEX = '/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/';
+
     public function __construct(EbioServerService $ebioService)
     {
         $this->ebioService = $ebioService;
@@ -29,7 +34,7 @@ class HostelController extends Controller
             ->get();
 
         foreach ($hostels as $hostel) {
-            $hostel->beds_count = $hostel->rooms->sum(function($room) {
+            $hostel->beds_count = $hostel->rooms->sum(function ($room) {
                 return $room->beds()->count();
             });
 
@@ -346,8 +351,10 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
-            'upi_id' => 'nullable|string|max:100',
+            'upi_id' => ['nullable', 'string', 'max:100', 'regex:' . self::UPI_ID_REGEX],
             'upi_payee_name' => 'nullable|string|max:255',
+        ], [
+            'upi_id.regex' => 'Enter a valid UPI ID, e.g. merchant@ybl',
         ]);
 
         if ($validator->fails()) {
@@ -357,7 +364,13 @@ class HostelController extends Controller
             ], 422);
         }
 
-        $hostel = Hostel::create($request->all());
+        $data = $request->all();
+        // Default payee name to hostel name if UPI ID is set but payee name is blank
+        if (!empty($data['upi_id']) && empty($data['upi_payee_name'])) {
+            $data['upi_payee_name'] = $data['hostel_name'];
+        }
+
+        $hostel = Hostel::create($data);
 
         return response()->json([
             'success' => true,
@@ -393,8 +406,10 @@ class HostelController extends Controller
             'biometric_port' => 'nullable|string|max:10',
             'biometric_location_code' => 'nullable|string|max:100',
             'employee_code_prefix' => 'nullable|string|max:20',
-            'upi_id' => 'nullable|string|max:100',
+            'upi_id' => ['nullable', 'string', 'max:100', 'regex:' . self::UPI_ID_REGEX],
             'upi_payee_name' => 'nullable|string|max:255',
+        ], [
+            'upi_id.regex' => 'Enter a valid UPI ID, e.g. merchant@ybl',
         ]);
 
         if ($validator->fails()) {
@@ -404,7 +419,17 @@ class HostelController extends Controller
             ], 422);
         }
 
-        $hostel->update($request->all());
+        $data = $request->all();
+        if (!empty($data['upi_id']) && empty($data['upi_payee_name'])) {
+            $data['upi_payee_name'] = $data['hostel_name'];
+        }
+        // If UPI ID is cleared, clear the payee name too so stale names don't linger
+        if (empty($data['upi_id'])) {
+            $data['upi_id'] = null;
+            $data['upi_payee_name'] = null;
+        }
+
+        $hostel->update($data);
 
         return response()->json([
             'success' => true,
