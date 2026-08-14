@@ -1381,7 +1381,7 @@
             </div>
             <div class="foot-bottom">
                 <span>&copy; {{ date('Y') }} Sanjay &amp; Harini Hostels. All rights reserved.</span>
-                <span>Built with <span style="color:var(--rose);">♥</span> in Chennai</span>
+                <span>developed by <span style="color:var(--rose);">♥</span> sheik</span>
             </div>
         </div>
     </footer>
