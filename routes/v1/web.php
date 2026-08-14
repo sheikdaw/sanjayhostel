@@ -79,6 +79,13 @@ Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::get('/privacy-policy', function () {
     return view('privacy');
 })->name('privacy');
+Route::get('/terms', function () {
+    return view('terms');
+})->name('terms');
+Route::get('/refund-policy', function () {
+    return view('refund-policy');
+})->name('refund.policy');
+
 
 Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
 Route::middleware('guest')->group(function () {
