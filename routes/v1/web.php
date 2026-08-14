@@ -17,6 +17,7 @@ use App\Http\Controllers\FaceController;
 use App\Http\Controllers\GuestPaymentController;
 use App\Http\Controllers\PhonePeController;
 
+use App\Http\Controllers\ContactController;
 
 Route::get('/test', function () {
     return view('biometric.dashboard');
@@ -73,17 +74,13 @@ Route::get('/gallery', function () {
     return view('gallery');
 })->name('gallery');
 
-Route::get('/contact', function () {
-    return view('contact');
-})->name('contact');
+
+Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::get('/privacy-policy', function () {
     return view('privacy');
 })->name('privacy');
-Route::post('/contact', function () {
-    // Handle form submission here
-    return redirect()->route('contact')->with('success', 'Thank you! We will contact you shortly.');
-})->name('contact.submit');
 
+Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'submitLogin'])->name('login.submit');
