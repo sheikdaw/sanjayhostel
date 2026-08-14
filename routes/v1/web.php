@@ -19,6 +19,8 @@ use App\Http\Controllers\PhonePeController;
 
 use App\Http\Controllers\ContactController;
 
+use App\Http\Controllers\RazorpayController;
+
 Route::get('/test', function () {
     return view('biometric.dashboard');
 });
@@ -311,22 +313,29 @@ Route::get('/clear-cache', function () {
     return nl2br(Artisan::output()) . "<br><br>✅ All cache cleared successfully.";
 });
 
-Route::prefix('phonepe')->name('phonepe.')->group(function () {
-    Route::get('/test', [PhonePeController::class, 'test'])->name('test');
-    Route::post('/pay', [PhonePeController::class, 'pay'])->name('pay');
-    Route::get('/status/{merchantOrderId}', [PhonePeController::class, 'status'])->name('status');
-    Route::post('/refund', [PhonePeController::class, 'refund'])->name('refund');
-    Route::get('/refund-status/{merchantRefundId}', [PhonePeController::class, 'refundStatus'])->name('refund-status');
-});
+// Route::prefix('phonepe')->name('phonepe.')->group(function () {
+//     Route::get('/test', [PhonePeController::class, 'test'])->name('test');
+//     Route::post('/pay', [PhonePeController::class, 'pay'])->name('pay');
+//     Route::get('/status/{merchantOrderId}', [PhonePeController::class, 'status'])->name('status');
+//     Route::post('/refund', [PhonePeController::class, 'refund'])->name('refund');
+//     Route::get('/refund-status/{merchantRefundId}', [PhonePeController::class, 'refundStatus'])->name('refund-status');
+// });
+
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     // Main routes
     Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
-    Route::get('/generate-qr', [GuestPaymentController::class, 'generateQR'])->name('qr');
+    
+    // CHANGE THIS: From generate-qr to create-order
+    // Route::get('/generate-qr', [GuestPaymentController::class, 'generateQR'])->name('qr');
+    Route::post('/create-order', [GuestPaymentController::class, 'createOrder'])->name('create-order');
+    Route::post('/verify', [GuestPaymentController::class, 'verifyPayment'])->name('verify');
+    
+    // Keep these as they are
     Route::get('/callback', [GuestPaymentController::class, 'callback'])->name('callback');
     Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
     Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
 
-    // Biometric routes
+    // Biometric routes (keep as is)
     Route::post('/biometric/disable/{residentId}', [GuestPaymentController::class, 'disableBiometricAccess'])->name('biometric.disable');
     Route::get('/biometric/check/{residentId}', [GuestPaymentController::class, 'checkBiometricAccess'])->name('biometric.check');
     Route::post('/biometric/sync-all', [GuestPaymentController::class, 'syncBiometricAll'])->name('biometric.sync-all');
@@ -334,7 +343,7 @@ Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     Route::get('/biometric/device-status/{deviceId?}', [GuestPaymentController::class, 'getDeviceStatus'])->name('biometric.device-status');
     Route::post('/biometric/reboot/{deviceId?}', [GuestPaymentController::class, 'rebootDevice'])->name('biometric.reboot');
 
-    // Admin helper routes
+    // Admin helper routes (keep as is)
     Route::get('/generate-link/{hostelId}', [GuestPaymentController::class, 'generateLink'])->name('generate-link');
     Route::get('/encode/{hostelId}', [GuestPaymentController::class, 'encodeId'])->name('encode');
     Route::get('/decode/{encodedId}', [GuestPaymentController::class, 'decodeId'])->name('decode');
