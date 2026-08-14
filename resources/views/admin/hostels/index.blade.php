@@ -515,21 +515,22 @@
                             <p class="text-muted small mb-0">Configure UPI for receiving rent payments directly. Leave blank if not accepting UPI payments yet.</p>
                         </div>
 
-                        <div class="col-md-6">
-                            <label class="form-label">UPI ID <span class="optional-tag">(optional)</span></label>
-                            <div class="rv-input-box">
-                                <i class="bi bi-upc-scan rv-input-icon"></i>
-                                <input type="text" name="upi_id" id="upi_id" class="rv-input"
-                                       placeholder="merchant@upi" value="{{ old('upi_id') }}"
-                                       pattern="^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$"
-                                       title="Enter a valid UPI ID, e.g. merchant@ybl" maxlength="100">
-                            </div>
-                            <div class="invalid-feedback" id="upi_id_error"></div>
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle"></i>
-                                Examples: merchant@ybl (Google Pay), merchant@paytm (PhonePe/Paytm)
-                            </small>
-                        </div>
+                        <!-- In the UPI ID input field -->
+<div class="col-md-6">
+    <label class="form-label">UPI ID <span class="optional-tag">(optional)</span></label>
+    <div class="rv-input-box">
+        <i class="bi bi-upc-scan rv-input-icon"></i>
+        <input type="text" name="upi_id" id="upi_id" class="rv-input"
+               placeholder="merchant@upi" value="{{ old('upi_id') }}"
+               pattern="^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$"
+               title="Enter a valid UPI ID, e.g. merchant@ybl or 123456@ybl" maxlength="100">
+    </div>
+    <div class="invalid-feedback" id="upi_id_error"></div>
+    <small class="text-muted">
+        <i class="bi bi-info-circle"></i>
+        Examples: merchant@ybl, 123456@ybl, pay@icici, contact@paytm
+    </small>
+</div>
 
                         <div class="col-md-6">
                             <label class="form-label">UPI Payee Name <span class="optional-tag">(optional)</span></label>

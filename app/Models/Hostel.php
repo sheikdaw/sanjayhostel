@@ -24,8 +24,8 @@ class Hostel extends Model
         'biometric_port',
         'biometric_location_code',
         'employee_code_prefix',
-        'upi_id',           // NEW - UPI ID for payments
-        'upi_payee_name',   // NEW - Payee name shown in UPI app
+        'upi_id',
+        'upi_payee_name',
     ];
 
     // Relationships
