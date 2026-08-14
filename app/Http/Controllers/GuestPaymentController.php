@@ -267,47 +267,47 @@ class GuestPaymentController extends Controller
      * If it's a plain UPI ID like "Q342895210@ybl", it will build a new URL.
      */
     private function buildUPIUri($upiId, $payeeName, $amount, $reference)
-    {
-        // ✅ Check if it's already a full UPI URL
-        if (strpos($upiId, 'upi://pay') === 0) {
-            // Parse the existing URL
-            $parsedUrl = parse_url($upiId);
+{
+    // ✅ Check if it's already a full UPI URL
+    if (strpos($upiId, 'upi://pay') === 0) {
+        // Parse the existing URL
+        $parsedUrl = parse_url($upiId);
 
-            if (isset($parsedUrl['query'])) {
-                parse_str($parsedUrl['query'], $params);
+        if (isset($parsedUrl['query'])) {
+            parse_str($parsedUrl['query'], $params);
 
-                // Add/update amount
-                $params['am'] = number_format($amount, 2);
+            // Add/update amount
+            $params['am'] = number_format($amount, 2);
 
-                // Add transaction note if not exists
-                if (!isset($params['tn'])) {
-                    $params['tn'] = 'Rent Payment ' . $reference;
-                }
-
-                // Add currency if not exists
-                if (!isset($params['cu'])) {
-                    $params['cu'] = 'INR';
-                }
-
-                // Rebuild URL
-                return 'upi://pay?' . http_build_query($params);
+            // Add transaction note if not exists
+            if (!isset($params['tn'])) {
+                $params['tn'] = 'Rent Payment ' . $reference;
             }
 
-            // If no query string, add it
-            return $upiId . '&am=' . number_format($amount, 2);
+            // Add currency if not exists
+            if (!isset($params['cu'])) {
+                $params['cu'] = 'INR';
+            }
+
+            // Rebuild URL
+            return 'upi://pay?' . http_build_query($params);
         }
 
-        // ✅ It's a plain UPI ID - Build a new URL
-        $params = [
-            'pa' => $upiId,
-            'pn' => $payeeName,
-            'am' => number_format($amount, 2),
-            'tn' => 'Rent Payment ' . $reference,
-            'cu' => 'INR'
-        ];
-
-        return 'upi://pay?' . http_build_query($params);
+        // If no query string, add it
+        return $upiId . '&am=' . number_format($amount, 2);
     }
+
+    // ✅ It's a plain UPI ID - Build a new URL
+    $params = [
+        'pa' => $upiId,
+        'pn' => $payeeName,
+        'am' => number_format($amount, 2),
+        'tn' => 'Rent Payment ' . $reference,
+        'cu' => 'INR'
+    ];
+
+    return 'upi://pay?' . http_build_query($params);
+}
 
     /**
      * Verify UPI payment (Manual verification or automatic)
