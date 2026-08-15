@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/UPIController.php
 
 namespace App\Http\Controllers;
 
@@ -17,7 +16,7 @@ class UPIController extends Controller
     public function initiatePayment(Request $request)
     {
         // 🔹 CHANGE THIS TO YOUR UPI ID
-        $upiId = "Q940590249@ybl";
+        $upiId = "sheikjob888@okicici";
         $amount = $request->amount ?? 1.00;
         $merchantName = "Your Store";
         $transactionId = "TXN" . time();
