@@ -259,17 +259,26 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Build UPI URI, preserving the original parameter order of an existing
-     * "upi://pay?..." link and appending/updating "am" (amount) without
-     * re-encoding or reordering existing parameters.
+     * Build a UPI payment URI for the given amount.
      *
-     * Example:
-     *   Input : upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00
-     *   Amount: 100
-     *   Output: upi://pay?pa=Q342895210@ybl&pn=PhonePeMerchant&mc=0000&mode=02&purpose=00&am=100
+     * IMPORTANT — why this changed from the original version:
+     * If $upiId came from a PhonePe *signed* dynamic QR link (one with a
+     * "sign=" parameter, e.g. pa=Q940590249@ybl&...&sign=MEUCIQ...), that
+     * signature is cryptographically bound to the ORIGINAL amount PhonePe
+     * generated it for. Reusing that URI and only swapping "am=" causes the
+     * UPI app to detect a signature/amount mismatch and reject or "lock"
+     * the payment instead of letting it proceed.
      *
-     * If $upiId is a plain UPI handle (e.g. "name@ybl") instead of a full URL,
-     * a fresh upi://pay URL is built from scratch.
+     * Fix: never reuse a signed URI as a template. Extract only the VPA
+     * (pa=) from whatever is stored, and always build a brand-new,
+     * UNSIGNED link. Unsigned upi://pay links work with any amount in
+     * every UPI app — you just don't get PhonePe's "verified merchant"
+     * badge, which doesn't matter since you're not going through their
+     * gateway anyway.
+     *
+     * Works whether $upiId is:
+     *   - a plain VPA, e.g. "name@ybl"
+     *   - a full upi://pay?... URL (signed or unsigned) — only pa= is used
      */
     private function buildUPIUri($upiId, $payeeName, $amount, $reference)
     {
@@ -278,44 +287,27 @@ class GuestPaymentController extends Controller
             ? (string) intval($amount)
             : number_format($amount, 2, '.', '');
 
-        // Full UPI URL case — preserve existing param order
+        // Extract just the VPA (pa=) whether $upiId is a full URL or a plain handle
+        $vpa = $upiId;
         if (strpos($upiId, 'upi://pay') === 0) {
-            $parts = explode('?', $upiId, 2);
-            $base = $parts[0];
-            $queryString = $parts[1] ?? '';
+            $queryString = explode('?', $upiId, 2)[1] ?? '';
+            parse_str($queryString, $existingParams);
+            $vpa = $existingParams['pa'] ?? null;
 
-            // Parse manually to preserve original key order (parse_str/http_build_query do not)
-            $paramsList = [];
-            if ($queryString !== '') {
-                foreach (explode('&', $queryString) as $pair) {
-                    if ($pair === '') continue;
-                    $kv = explode('=', $pair, 2);
-                    $key = $kv[0];
-                    $val = $kv[1] ?? '';
-                    $paramsList[$key] = $val;
-                }
+            if (!$vpa) {
+                Log::warning('buildUPIUri: could not extract pa= from stored UPI URI', ['upi_id' => $upiId]);
+                $vpa = $upiId; // fall back, though this will likely fail downstream
             }
-
-            // Add/update amount only — do NOT add tn/cu, keep the URI exactly
-            // as stored plus the amount, per requirement.
-            $paramsList['am'] = $formattedAmount;
-
-            // Rebuild query string preserving insertion order
-            $rebuilt = [];
-            foreach ($paramsList as $key => $val) {
-                $rebuilt[] = $val === '' ? $key : $key . '=' . $val;
-            }
-
-            return $base . '?' . implode('&', $rebuilt);
         }
 
-        // Plain UPI ID case - build a fresh URL
+        // Always build a fresh, unsigned link — safe to use with any amount
         $params = [
-            'pa' => $upiId,
+            'pa' => $vpa,
             'pn' => $payeeName,
             'am' => $formattedAmount,
             'tn' => 'Rent Payment ' . $reference,
-            'cu' => 'INR'
+            'cu' => 'INR',
+            'tr' => $reference,
         ];
 
         return 'upi://pay?' . http_build_query($params);
@@ -329,7 +321,7 @@ class GuestPaymentController extends Controller
      * bank or UPI app. This endpoint is called either:
      *   (a) automatically by the client-side polling loop (rare — nothing actually
      *       confirms status without a real payment gateway), or
-     *   (b) by the guest themselves tapping "Yes, Paid" after returning from their
+     *   (b) by the guest themselves tapping "I've Paid" after returning from their
      *       UPI app (self-reported).
      *
      * Because (b) is user-asserted and NOT verified against the bank, payments

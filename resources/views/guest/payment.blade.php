@@ -261,6 +261,12 @@
             font-size: 1.1rem;
         }
 
+        /* "I've Paid" confirm button — distinct green styling so it doesn't
+           get confused with the main blue "Pay with UPI" button */
+        .btn-ive-paid {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        }
+
         /* UPI App Buttons */
         .upi-apps {
             display: flex;
@@ -325,6 +331,24 @@
         .payment-methods img.active {
             opacity: 1;
             filter: grayscale(0%);
+        }
+
+        /* UTR input shown alongside the I've Paid button */
+        #utrHelp {
+            display: none;
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        #utrHelp input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 6px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            font-size: 0.85rem;
         }
 
         /* Toast */
@@ -481,18 +505,27 @@
 
                 <!-- UPI App Quick Links -->
                 <div class="upi-apps" id="upiApps" style="display: none;">
-                    <a href="#" class="upi-app-btn google-pay" onclick="openUPIApp('googlepay')">
+                    <a href="#" class="upi-app-btn google-pay" onclick="openUPIApp('googlepay'); return false;">
                         <span>📱</span> Google Pay
                     </a>
-                    <a href="#" class="upi-app-btn phonepe" onclick="openUPIApp('phonepe')">
+                    <a href="#" class="upi-app-btn phonepe" onclick="openUPIApp('phonepe'); return false;">
                         <span>📱</span> PhonePe
                     </a>
-                    <a href="#" class="upi-app-btn paytm" onclick="openUPIApp('paytm')">
+                    <a href="#" class="upi-app-btn paytm" onclick="openUPIApp('paytm'); return false;">
                         <span>📱</span> Paytm
                     </a>
-                    <a href="#" class="upi-app-btn" onclick="openUPIApp('other')">
+                    <a href="#" class="upi-app-btn" onclick="openUPIApp('other'); return false;">
                         <span>📱</span> Other UPI
                     </a>
+                </div>
+
+                <!-- "I've Paid" Confirmation (shown after Pay with UPI / an app is tapped) -->
+                <button class="btn-pay-upi btn-ive-paid" id="ivePaidBtn" onclick="confirmIvePaid()" style="display: none;">
+                    <i class="bi bi-check-circle"></i> I've Paid — Confirm
+                </button>
+                <div id="utrHelp">
+                    Optional: enter your UTR/reference number from the payment app for faster verification
+                    <input type="text" id="utrInput" placeholder="UTR / Ref No. (optional)">
                 </div>
 
                 <div class="payment-methods">
@@ -506,7 +539,7 @@
 
                 <div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.5rem; text-align:center;">
                     <i class="bi bi-shield-check"></i>
-                    Pay directly via any UPI app. Your payment will be confirmed automatically.
+                    Pay directly via any UPI app, then tap "I've Paid" to confirm — our team verifies each payment before it's marked complete.
                 </div>
             </div>
         </div>
@@ -620,6 +653,15 @@
                             $('#pendingInfo').hide();
                         }
 
+                        // Reset confirm-payment UI for a fresh lookup
+                        $('#ivePaidBtn').hide();
+                        $('#utrHelp').hide();
+                        $('#utrInput').val('');
+                        if (statusCheckInterval) {
+                            clearInterval(statusCheckInterval);
+                            statusCheckInterval = null;
+                        }
+
                         // Show UPI ID
                         if (response.data.has_upi && response.data.upi_id) {
                             $('#upiIdText').text(response.data.upi_id);
@@ -684,7 +726,8 @@
                         // Redirect to UPI
                         window.location.href = response.upi_uri;
 
-                        // Start checking payment status
+                        // Reveal the "I've Paid" confirmation UI and start background polling
+                        showConfirmPaymentUI();
                         startStatusCheck(response.reference);
 
                         btn.prop('disabled', false).html('<i class="bi bi-phone"></i> Pay with UPI');
@@ -712,8 +755,56 @@
 
             window.location.href = upiData.upi_uri;
 
-            // Start checking payment status
+            // Reveal the "I've Paid" confirmation UI and start background polling
+            showConfirmPaymentUI();
             startStatusCheck(upiData.reference);
+        }
+
+        function showConfirmPaymentUI() {
+            $('#ivePaidBtn').show();
+            $('#utrHelp').show();
+        }
+
+        function confirmIvePaid() {
+            if (!currentReference) {
+                showToast('Missing payment reference, please start again', 'error');
+                return;
+            }
+
+            const btn = $('#ivePaidBtn');
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Confirming...');
+
+            $.ajax({
+                url: paymentRoutes.verifyUPI,
+                type: 'POST',
+                data: {
+                    reference: currentReference,
+                    transaction_id: $('#utrInput').val() || null,
+                    _token: csrfToken
+                },
+                success: function(response) {
+                    if (response.success) {
+                        if (statusCheckInterval) {
+                            clearInterval(statusCheckInterval);
+                            statusCheckInterval = null;
+                        }
+                        showToast('✅ ' + response.message, 'success');
+                        btn.hide();
+                        $('#utrHelp').hide();
+                    } else {
+                        showToast('❌ ' + (response.message || 'Could not confirm payment'), 'error');
+                        btn.prop('disabled', false).html('<i class="bi bi-check-circle"></i> I\'ve Paid — Confirm');
+                    }
+                },
+                error: function(xhr) {
+                    var message = 'Could not confirm payment. Please try again.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    showToast('❌ ' + message, 'error');
+                    btn.prop('disabled', false).html('<i class="bi bi-check-circle"></i> I\'ve Paid — Confirm');
+                }
+            });
         }
 
         function startStatusCheck(reference) {
@@ -736,14 +827,13 @@
                     success: function(response) {
                         if (response.status === 'COMPLETED') {
                             clearInterval(statusCheckInterval);
-                            showToast('✅ Payment confirmed! Receipt: ' + response.data.receipt_no, 'success');
-                            // Redirect to success page
-                            window.location.href = paymentRoutes.callback +
-                                '?reference=' + reference +
-                                '&status=success' +
-                                '&transaction_id=' + response.data.transaction_id;
+                            statusCheckInterval = null;
+                            showToast('✅ Payment recorded! Receipt: ' + response.data.receipt_no, 'success');
+                            $('#ivePaidBtn').hide();
+                            $('#utrHelp').hide();
                         } else if (response.status === 'EXPIRED') {
                             clearInterval(statusCheckInterval);
+                            statusCheckInterval = null;
                             showToast('⏰ Payment session expired. Please try again.', 'error');
                         }
                     },
@@ -754,7 +844,8 @@
 
                 if (attempts >= maxAttempts) {
                     clearInterval(statusCheckInterval);
-                    showToast('⏳ Payment is taking longer than expected. You can manually confirm later.', 'warning');
+                    statusCheckInterval = null;
+                    showToast('⏳ Still waiting — tap "I\'ve Paid" once you\'ve completed the payment.', 'warning');
                 }
             }, 10000); // Check every 10 seconds
         }
