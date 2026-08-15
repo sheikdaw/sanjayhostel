@@ -19,7 +19,7 @@ use App\Http\Controllers\PhonePeController;
 
 use App\Http\Controllers\ContactController;
 
-use App\Http\Controllers\RazorpayController;
+use App\Http\Controllers\UPIController;
 
 Route::get('/test', function () {
     return view('biometric.dashboard');
