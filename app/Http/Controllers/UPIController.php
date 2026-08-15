@@ -3,19 +3,29 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class UPIController extends Controller
 {
-    // Show Payment Form
+    // Show Payment Page with QR
     public function showPaymentForm()
     {
-        return view('payment');
+        $upiId = "sheikjob888@okicici";
+        $amount = 1.00;
+        $merchantName = "Your Store";
+        
+        // Generate UPI URL
+        $upiUrl = "upi://pay?pa={$upiId}&pn={$merchantName}&am={$amount}&cu=INR";
+        
+        // Generate QR Code
+        $qrCode = QrCode::size(250)->generate($upiUrl);
+        
+        return view('payment', compact('qrCode', 'upiId', 'amount', 'upiUrl'));
     }
 
-    // Initiate UPI Payment
+    // Initiate UPI Payment (Auto-Pay)
     public function initiatePayment(Request $request)
     {
-        // 🔹 CHANGE THIS TO YOUR UPI ID
         $upiId = "sheikjob888@okicici";
         $amount = $request->amount ?? 1.00;
         $merchantName = "Your Store";
@@ -25,27 +35,25 @@ class UPIController extends Controller
         // UPI Deep Link URL
         $upiUrl = "upi://pay?pa={$upiId}&pn={$merchantName}&am={$amount}&cu=INR&tn={$description}&tid={$transactionId}";
 
-        // Store transaction in session for verification
-        session(['txn_id' => $transactionId, 'amount' => $amount]);
+        // Store transaction in session
+        session(['txn_id' => $transactionId, 'amount' => $amount, 'upi_id' => $upiId]);
 
-        // Redirect to UPI app
+        // Auto-redirect to UPI app
         return redirect()->away($upiUrl);
     }
 
     // Handle Return After Payment
     public function paymentStatus(Request $request)
     {
-        // Get transaction details from session
         $txnId = session('txn_id');
         $amount = session('amount');
-
-        // In real scenario, you need to verify payment status via bank API
-        // For demo, we assume success if they return
+        $upiId = session('upi_id');
 
         return view('payment-status', [
             'status' => 'success',
             'txn_id' => $txnId,
-            'amount' => $amount
+            'amount' => $amount,
+            'upi_id' => $upiId
         ]);
     }
 }

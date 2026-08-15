@@ -354,7 +354,7 @@ Route::get('/payment-links', function () {
     return view('admin.payment-links', compact('hostels', 'encodedLinks'));
 })->name('admin.payment-links');
 
-// routes/web.php
+
 Route::get('/pay', [UPIController::class, 'showPaymentForm'])->name('pay.form');
 Route::post('/pay/initiate', [UPIController::class, 'initiatePayment'])->name('pay.initiate');
 Route::get('/payment/status', [UPIController::class, 'paymentStatus'])->name('payment.status');
