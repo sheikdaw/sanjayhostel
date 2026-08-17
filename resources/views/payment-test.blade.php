@@ -3,65 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UPI Payment Demo</title>
+
+    <title>UPI Payment</title>
 
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+        * {
+            box-sizing: border-box;
         }
 
-        .payment-box {
-            background: #fff;
+        body {
+            margin: 0;
+            min-height: 100vh;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-family: Arial, sans-serif;
+
+            background: #f3f6f9;
+        }
+
+        .payment-card {
+            width: 380px;
+            max-width: 92%;
+
+            background: #ffffff;
+
             padding: 30px;
-            width: 350px;
+
+            border-radius: 16px;
+
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.12);
+
             text-align: center;
-            border-radius: 12px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .payment-card h2 {
+            margin: 0 0 8px;
+            font-size: 26px;
+        }
+
+        .payment-card p {
+            color: #666;
+            margin: 0 0 25px;
         }
 
         .amount {
-            font-size: 30px;
+            font-size: 38px;
             font-weight: bold;
-            margin: 20px 0;
+
+            margin-bottom: 25px;
         }
 
-        .pay-btn {
+        .pay-button {
             width: 100%;
-            padding: 14px;
+
+            padding: 15px 20px;
+
             border: none;
+
             border-radius: 8px;
+
             background: #1976d2;
-            color: white;
+
+            color: #ffffff;
+
             font-size: 17px;
+            font-weight: bold;
+
             cursor: pointer;
+
+            transition: 0.2s;
         }
 
-        .pay-btn:hover {
+        .pay-button:hover {
             background: #125ca8;
+        }
+
+        .pay-button:active {
+            transform: scale(0.98);
+        }
+
+        .upi-details {
+            margin-top: 22px;
+
+            padding: 15px;
+
+            border-radius: 10px;
+
+            background: #f7f7f7;
+
+            text-align: left;
+
+            font-size: 14px;
+
+            line-height: 1.7;
+
+            word-break: break-word;
+        }
+
+        .label {
+            color: #777;
+        }
+
+        .value {
+            font-weight: bold;
+        }
+
+        .status {
+            margin-top: 18px;
+
+            font-size: 14px;
+
+            color: #555;
+
+            min-height: 20px;
         }
     </style>
 </head>
 
 <body>
 
-<div class="payment-box">
+<div class="payment-card">
 
-    <h2>Payment</h2>
+    <h2>UPI Payment</h2>
 
-    <p>Amount to Pay</p>
+    <p>Make a secure test payment</p>
 
     <div class="amount">
-        ₹100
+        ₹1.00
     </div>
 
-    <button class="pay-btn" onclick="payNow()">
-        Pay ₹100 via UPI
+    <button
+        type="button"
+        class="pay-button"
+        onclick="payNow()"
+    >
+        Pay ₹1 via UPI
     </button>
+
+    <div class="upi-details">
+
+        <div>
+            <span class="label">Receiver:</span>
+            <span class="value">Sheik Dawood</span>
+        </div>
+
+        <div>
+            <span class="label">UPI ID:</span>
+            <span class="value">sheikjob888@okicici</span>
+        </div>
+
+        <div>
+            <span class="label">Amount:</span>
+            <span class="value">₹1.00</span>
+        </div>
+
+    </div>
+
+    <div
+        id="status"
+        class="status"
+    ></div>
 
 </div>
 
@@ -70,29 +174,78 @@
 
 function payNow() {
 
-    // Receiver UPI ID
+    const status = document.getElementById("status");
+
+    status.innerText = "Opening UPI app...";
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Your UPI Payment Details
+    |--------------------------------------------------------------------------
+    */
+
     const upiId = "sheikjob888@okicici";
 
-    // Receiver name
-    const name = "SGT Solutions";
+    const receiverName = "Sheik Dawood";
 
-    // Amount
-    const amount = "1";
+    const amount = "1.00";
 
-    // Transaction note
+    const currency = "INR";
+
     const note = "Test Payment";
 
-    // Create UPI URL
+    const aid = "uGICAgMDy_sjXBQ";
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create UPI URL
+    |--------------------------------------------------------------------------
+    */
+
     const upiUrl =
         "upi://pay" +
         "?pa=" + encodeURIComponent(upiId) +
-        "&pn=" + encodeURIComponent(name) +
+        "&pn=" + encodeURIComponent(receiverName) +
         "&am=" + encodeURIComponent(amount) +
-        "&cu=INR" +
-        "&tn=" + encodeURIComponent(note);
+        "&cu=" + encodeURIComponent(currency) +
+        "&tn=" + encodeURIComponent(note) +
+        "&aid=" + encodeURIComponent(aid);
 
-    // Open UPI application
+
+    /*
+    |--------------------------------------------------------------------------
+    | Show URL in browser console
+    |--------------------------------------------------------------------------
+    */
+
+    console.log("UPI URL:");
+    console.log(upiUrl);
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Open UPI Application
+    |--------------------------------------------------------------------------
+    */
+
     window.location.href = upiUrl;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fallback message
+    |--------------------------------------------------------------------------
+    */
+
+    setTimeout(function () {
+
+        status.innerText =
+            "If the UPI app did not open, please open this page on your mobile.";
+
+    }, 2500);
+
 }
 
 </script>
