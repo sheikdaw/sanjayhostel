@@ -362,33 +362,4 @@ Route::get('/pay', [UPIController::class, 'showPaymentForm'])->name('pay.form');
 Route::post('/pay/initiate', [UPIController::class, 'initiatePayment'])->name('pay.initiate');
 Route::get('/payment/status', [UPIController::class, 'paymentStatus'])->name('payment.status');
 
-Route::get('/check-device', function () {
-    $deviceIP = env('EBIOSERVER_URL', 'http://192.168.1.200:99/webservice.asmx');
-
-    try {
-        $response = Http::timeout(5)->get($deviceIP);
-
-        if ($response->successful()) {
-            return response()->json([
-                'status' => '✅ Connected',
-                'message' => 'Device is reachable',
-                'ip' => $deviceIP,
-                'response_code' => $response->status()
-            ]);
-        } else {
-            return response()->json([
-                'status' => '⚠️ Error',
-                'message' => 'Device returned error',
-                'ip' => $deviceIP,
-                'response_code' => $response->status()
-            ]);
-        }
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => '❌ Not Connected',
-            'message' => 'Device is not reachable',
-            'ip' => $deviceIP,
-            'error' => $e->getMessage()
-        ]);
-    }
-});
+Route::get('/check-device-service', [BiometricController::class, 'testConnection']);

@@ -124,7 +124,6 @@ class BiometricController extends Controller
                 'hostel_id' => $resident->hostel_id ?? 1,
                 'device_response' => $result
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -184,7 +183,6 @@ class BiometricController extends Controller
                         'status' => ($result['success'] ?? false) ? 'success' : 'failed',
                         'message' => $result['message'] ?? 'Unknown error'
                     ];
-
                 } catch (\Exception $e) {
                     $failureCount++;
                     $results[] = [
@@ -203,7 +201,6 @@ class BiometricController extends Controller
                 'failure_count' => $failureCount,
                 'data' => $results
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -274,7 +271,6 @@ class BiometricController extends Controller
                         ]);
                     }
                 }
-
             } elseif ($hasPaid) {
                 // ✅ AFTER 10TH AND PAID - DOOR OPEN
                 $doorStatus = 'OPEN';
@@ -291,7 +287,6 @@ class BiometricController extends Controller
                         ]);
                     }
                 }
-
             } else {
                 // ❌ AFTER 10TH AND NOT PAID - DOOR LOCKED
                 $doorStatus = 'LOCKED';
@@ -336,7 +331,6 @@ class BiometricController extends Controller
                 'message' => $message,
                 'rule_applied' => $currentDay <= 10 ? 'Before 10th - Free Access' : ($hasPaid ? 'Payment Verified' : 'Payment Pending')
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -399,7 +393,6 @@ class BiometricController extends Controller
                 'year' => $currentYear,
                 'door_status' => $doorStatus
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -517,7 +510,6 @@ class BiometricController extends Controller
                 'rule' => $currentDay <= 10 ? 'Before 10th - All Access Open' : 'After 10th - Payment Check Required',
                 'data' => $results
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -720,7 +712,7 @@ class BiometricController extends Controller
         try {
             $this->checkBiometricColumns();
 
-            $residents = Resident::all()->map(function($resident) {
+            $residents = Resident::all()->map(function ($resident) {
                 return [
                     'id' => $resident->id,
                     'name' => $resident->name,
@@ -737,7 +729,6 @@ class BiometricController extends Controller
                 'total' => $residents->count(),
                 'data' => $residents
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -756,19 +747,19 @@ class BiometricController extends Controller
      * Test eBioServer Connection
      * GET /api/test/connection
      */
-    public function testConnection()
-    {
-        try {
-            $service = $this->useMock ? $this->ebioService : $this->getService();
-            $result = $service->testConnection();
-            return response()->json($result);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
+    // public function testConnection()
+    // {
+    //     try {
+    //         $service = $this->useMock ? $this->ebioService : $this->getService();
+    //         $result = $service->testConnection();
+    //         return response()->json($result);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'error' => $e->getMessage()
+    //         ]);
+    //     }
+    // }
 
     /**
      * Get Employee Codes
@@ -870,6 +861,20 @@ class BiometricController extends Controller
             $service = $this->getService();
             $result = $service->validateVisitorDesk($visitorCode);
 
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    public function testConnection()
+    {
+        try {
+            $service = $this->useMock ? $this->ebioService : $this->getService();
+            $result = $service->testConnection();
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
