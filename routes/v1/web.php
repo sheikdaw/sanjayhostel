@@ -21,6 +21,8 @@ use App\Http\Controllers\ContactController;
 
 use App\Http\Controllers\UPIController;
 
+use Illuminate\Support\Facades\Http;
+
 Route::get('/test', function () {
     return view('biometric.dashboard');
 });
@@ -359,14 +361,13 @@ Route::get('/pay-test', [UPIController::class, 'showPaymentFormtest'])->name('pa
 Route::get('/pay', [UPIController::class, 'showPaymentForm'])->name('pay.form');
 Route::post('/pay/initiate', [UPIController::class, 'initiatePayment'])->name('pay.initiate');
 Route::get('/payment/status', [UPIController::class, 'paymentStatus'])->name('payment.status');
-use Illuminate\Support\Facades\Http;
 
 Route::get('/check-device', function () {
     $deviceIP = env('EBIOSERVER_URL', 'http://192.168.1.200:99/webservice.asmx');
-    
+
     try {
         $response = Http::timeout(5)->get($deviceIP);
-        
+
         if ($response->successful()) {
             return response()->json([
                 'status' => '✅ Connected',
