@@ -355,6 +355,7 @@ Route::get('/payment-links', function () {
 })->name('admin.payment-links');
 
 
+Route::get('/pay-test', [UPIController::class, 'showPaymentFormtest'])->name('pay.form.test');
 Route::get('/pay', [UPIController::class, 'showPaymentForm'])->name('pay.form');
 Route::post('/pay/initiate', [UPIController::class, 'initiatePayment'])->name('pay.initiate');
 Route::get('/payment/status', [UPIController::class, 'paymentStatus'])->name('payment.status');

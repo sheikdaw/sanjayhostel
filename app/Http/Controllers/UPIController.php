@@ -8,7 +8,13 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 class UPIController extends Controller
 {
     // Show Payment Page with QR
-    public function showPaymentForm()
+    public function showPaymentFormtest()
+    {
+       
+        
+        return view('payment-test');
+    }
+public function showPaymentForm()
     {
         $upiId = "sheikjob888@okicici";
         $amount = 1.00;
@@ -22,7 +28,6 @@ class UPIController extends Controller
         
         return view('payment', compact('qrCode', 'upiId', 'amount', 'upiUrl'));
     }
-
     // Initiate UPI Payment (Auto-Pay)
     public function initiatePayment(Request $request)
     {
