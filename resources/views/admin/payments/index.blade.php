@@ -325,7 +325,6 @@
         to { transform: translateX(100%); opacity: 0; }
     }
 
-    /* Enhanced Filter Styles */
     .filter-section .form-select-sm,
     .filter-section .form-control-sm {
         font-size: 0.8rem;
@@ -401,26 +400,26 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:320px; padding:0.5rem;">
                 <li class="dropdown-header">📊 Payment Reports</li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.all') }}"><i class="bi bi-file-earmark-text me-2 text-primary"></i> All Payments (CSV)</a></li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.all') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> All Payments (PDF)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.export.all') }}"><i class="bi bi-file-earmark-text me-2 text-primary"></i> All Payments (CSV)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.pdf.all') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> All Payments (PDF)</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">🏢 Hostel Wise Reports</li>
                 @foreach($hostels as $hostel)
-                    <li><a class="dropdown-item" href="#" onclick="exportHostelWise({{ $hostel->id }})" style="font-size:0.8rem; padding:0.3rem 1rem;"><i class="bi bi-building me-2 text-warning"></i> {{ $hostel->hostel_name }} (CSV)</a></li>
-                    <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.hostel-wise', ['hostel_id' => $hostel->id]) }}" style="font-size:0.8rem; padding:0.3rem 1rem;"><i class="bi bi-file-pdf me-2 text-danger"></i> {{ $hostel->hostel_name }} (PDF)</a></li>
+                    <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.export.hostel-wise') }}" data-hostel-id="{{ $hostel->id }}" style="font-size:0.8rem; padding:0.3rem 1rem;"><i class="bi bi-building me-2 text-warning"></i> {{ $hostel->hostel_name }} (CSV)</a></li>
+                    <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.pdf.hostel-wise') }}" data-hostel-id="{{ $hostel->id }}" style="font-size:0.8rem; padding:0.3rem 1rem;"><i class="bi bi-file-pdf me-2 text-danger"></i> {{ $hostel->hostel_name }} (PDF)</a></li>
                 @endforeach
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">📈 Summary</li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.summary') }}"><i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (CSV)</a></li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.summary') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Payment Summary (PDF)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.export.summary') }}"><i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (CSV)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.pdf.summary') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Payment Summary (PDF)</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">🔴 Unpaid Reports</li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.unpaid') }}"><i class="bi bi-exclamation-circle me-2 text-danger"></i> Unpaid (CSV)</a></li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.unpaid') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid (PDF)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.export.unpaid') }}"><i class="bi bi-exclamation-circle me-2 text-danger"></i> Unpaid (CSV)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.pdf.unpaid') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid (PDF)</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">✅ Paid Reports</li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.export.paid') }}"><i class="bi bi-check-circle me-2 text-success"></i> Paid (CSV)</a></li>
-                <li><a class="dropdown-item" href="{{ route('admin.payments.pdf.paid') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Paid (PDF)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.export.paid') }}"><i class="bi bi-check-circle me-2 text-success"></i> Paid (CSV)</a></li>
+                <li><a class="dropdown-item export-link" href="#" data-url="{{ route('admin.payments.pdf.paid') }}"><i class="bi bi-file-pdf me-2 text-danger"></i> Paid (PDF)</a></li>
             </ul>
         </div>
         <button type="button" class="rv-submit" id="bulkPaymentBtn"
@@ -1445,18 +1444,75 @@ function bulkDelete() {
     });
 }
 
-// ========== EXPORT ==========
+// ========== EXPORT (filter-aware) ==========
 
-function exportHostelWise(hostelId) {
-    var month = $('#filterMonth').val() || '';
-    var year = $('#filterYear').val() || '';
-    var status = $('#filterStatus').val() || '';
-    var url = "{{ route('admin.payments.export.hostel-wise') }}?hostel_id=" + hostelId;
-    if (month) url += '&month=' + month;
-    if (year) url += '&year=' + year;
-    if (status) url += '&status=' + status;
-    window.location.href = url;
+// Collect whatever is currently active in the filter bar
+function getActiveFilters() {
+    var monthYear = $('#filterMonthYear').val();
+    var month = '', year = '';
+    if (monthYear) {
+        var parts = monthYear.split('-');
+        year = parts[0];
+        month = parts[1];
+    }
+    return {
+        status: $('#filterStatus').val() || '',
+        hostel_id: $('#filterHostel').val() || '',
+        room_id: $('#filterRoom').val() || '',
+        month: month,
+        year: year,
+        date_from: $('#filterDateFrom').val() || '',
+        date_to: $('#filterDateTo').val() || '',
+        min_amount: $('#filterMinAmount').val() || '',
+        max_amount: $('#filterMaxAmount').val() || '',
+        payment_mode: $('#filterPaymentMode').val() || '',
+        search: $('#searchPayment').val() || ''
+    };
 }
+
+// Merge page filters into a base export URL.
+// `overrides` always wins (used so a named hostel-wise link forces that hostel).
+function buildUrlWithFilters(baseUrl, overrides) {
+    var filters = $.extend({}, getActiveFilters(), overrides || {});
+    var parts = [];
+    $.each(filters, function (k, v) {
+        if (v !== '' && v !== null && typeof v !== 'undefined') {
+            parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+        }
+    });
+    if (!parts.length) return baseUrl;
+    return baseUrl + (baseUrl.indexOf('?') === -1 ? '?' : '&') + parts.join('&');
+}
+
+// Override the default click behavior for export links to preserve filters
+$(document).on('click', '.export-link', function (e) {
+    e.preventDefault();
+    var $this = $(this);
+    var baseUrl = $this.data('url');
+    var overrides = {};
+    var hostelId = $this.data('hostel-id');
+    if (hostelId) {
+        overrides.hostel_id = hostelId;
+    }
+    window.location.href = buildUrlWithFilters(baseUrl, overrides);
+});
+
+// Also handle the dropdown toggles for quick filter exports
+$(document).on('click', '.quick-export', function (e) {
+    e.preventDefault();
+    var $this = $(this);
+    var baseUrl = $this.data('url');
+    var overrides = {};
+    // If it's a hostel-wise export, force the hostel
+    if ($this.data('hostel-id')) {
+        overrides.hostel_id = $this.data('hostel-id');
+    }
+    // Force status filter if specified
+    if ($this.data('status')) {
+        overrides.status = $this.data('status');
+    }
+    window.location.href = buildUrlWithFilters(baseUrl, overrides);
+});
 
 // ========== MODAL FUNCTIONS ==========
 
