@@ -179,7 +179,7 @@ class GuestPaymentController extends Controller
 
         if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
             $daysLate = $currentDay - 10;
-            $fineAmount = $daysLate * 50; // ₹50 per day late fee
+            $fineAmount = $daysLate * 10; // ₹50 per day late fee
             $fineMessage = "Late fee: ₹50 per day after 10th ({$daysLate} days late)";
         }
 
