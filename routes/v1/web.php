@@ -324,26 +324,15 @@ Route::get('/clear-cache', function () {
 // });
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
-
-    // Order creation / verification (Razorpay)
     Route::post('/create-order', [GuestPaymentController::class, 'createOrder'])->name('create-order');
     Route::post('/verify', [GuestPaymentController::class, 'verifyPayment'])->name('verify');
-
-    // Browser redirect back after checkout
     Route::get('/callback', [GuestPaymentController::class, 'callback'])->name('callback');
-
-    // AJAX polling
+    Route::get('/cancel', [GuestPaymentController::class, 'cancel'])->name('cancel');
     Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
-
-    // Server-to-server webhook (should be exempt from CSRF!)
     Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
-
-    // Admin helper routes for generating links
     Route::get('/generate-link/{hostelId}', [GuestPaymentController::class, 'generateLink'])->name('generate-link');
     Route::get('/encode/{hostelId}', [GuestPaymentController::class, 'encodeId'])->name('encode');
     Route::get('/decode/{encodedId}', [GuestPaymentController::class, 'decodeId'])->name('decode');
-
-    // Catch-all — MUST stay last in this group
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
 });
 // Payment Links Generator (Admin only)
@@ -357,9 +346,5 @@ Route::get('/payment-links', function () {
 })->name('admin.payment-links');
 
 
-Route::get('/pay-test', [UPIController::class, 'showPaymentFormtest'])->name('pay.form.test');
-Route::get('/pay', [UPIController::class, 'showPaymentForm'])->name('pay.form');
-Route::post('/pay/initiate', [UPIController::class, 'initiatePayment'])->name('pay.initiate');
-Route::get('/payment/status', [UPIController::class, 'paymentStatus'])->name('payment.status');
 
 Route::get('/check-device-service', [BiometricController::class, 'testConnection']);

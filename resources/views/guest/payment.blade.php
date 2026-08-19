@@ -11,16 +11,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Razorpay Checkout -->
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
     <style>
         :root {
             --primary-color: #1a3a5c;
             --primary-light: #2a5a8c;
             --gold-color: #c5a028;
-            --razorpay-color: #0c3b6f;
-            --razorpay-gradient: linear-gradient(135deg, #0c3b6f 0%, #1a5a8c 100%);
+            --axis-color: #0066b3;
+            --axis-gradient: linear-gradient(135deg, #0066b3 0%, #004080 100%);
             --bg-gradient-start: #f0f4f8;
             --bg-gradient-end: #e2e8f0;
         }
@@ -46,7 +44,7 @@
         }
 
         .payment-header {
-            background: var(--razorpay-gradient);
+            background: var(--axis-gradient);
             padding: 1.75rem 2rem;
             text-align: center;
             color: white;
@@ -85,7 +83,7 @@
             border-radius: 12px;
         }
 
-        .payment-header .razorpay-badge {
+        .payment-header .axis-badge {
             position: absolute;
             bottom: 8px;
             right: 16px;
@@ -98,7 +96,6 @@
             padding: 2rem;
         }
 
-        /* Mobile Input Section */
         .mobile-section {
             text-align: center;
             padding: 0.5rem 0 1.5rem 0;
@@ -153,7 +150,6 @@
             transform: none;
         }
 
-        /* Resident Info Card */
         .resident-info {
             display: none;
             background: #f8fafc;
@@ -210,7 +206,6 @@
             margin-top: 0.5rem;
         }
 
-        /* Discount & Fine Badges */
         .badge-discount {
             background: #d1fae5;
             color: #065f46;
@@ -236,7 +231,7 @@
             font-weight: 700;
             border-radius: 12px;
             border: none;
-            background: var(--razorpay-gradient);
+            background: var(--axis-gradient);
             color: white;
             transition: all 0.3s;
             margin-top: 0.5rem;
@@ -244,7 +239,7 @@
 
         .btn-pay-now:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(12, 59, 111, 0.3);
+            box-shadow: 0 8px 25px rgba(0, 102, 179, 0.3);
         }
 
         .btn-pay-now:disabled {
@@ -253,7 +248,7 @@
             transform: none;
         }
 
-        .btn-pay-now .razorpay-icon {
+        .btn-pay-now .axis-icon {
             font-size: 1.1rem;
         }
 
@@ -276,7 +271,6 @@
             filter: grayscale(0%);
         }
 
-        /* Toast */
         .toast-container {
             position: fixed;
             top: 20px;
@@ -321,7 +315,6 @@
                 opacity: 0;
                 transform: translateY(10px);
             }
-
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -333,7 +326,6 @@
                 transform: translateX(100%);
                 opacity: 0;
             }
-
             to {
                 transform: translateX(0);
                 opacity: 1;
@@ -345,7 +337,6 @@
                 transform: translateX(0);
                 opacity: 1;
             }
-
             to {
                 transform: translateX(100%);
                 opacity: 0;
@@ -356,38 +347,80 @@
             .payment-body {
                 padding: 1.25rem;
             }
-
             .mobile-input-group {
                 flex-direction: column;
             }
-
             .mobile-input-group .btn-find {
                 width: 100%;
             }
-
             .resident-info .info-row {
                 flex-direction: column;
                 gap: 0.2rem;
             }
-
             .resident-info .info-row .value {
                 text-align: left;
             }
-
             .payment-methods {
                 gap: 0.5rem;
             }
+        }
+
+        /* Axis Bank Loading Overlay */
+        .payment-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .payment-overlay.show {
+            display: flex;
+        }
+
+        .payment-overlay .spinner {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .payment-overlay .spinner .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+
+        .payment-overlay .spinner p {
+            margin-top: 15px;
+            color: #333;
+            font-weight: 500;
         }
     </style>
 </head>
 
 <body>
 
+    <!-- Payment Overlay -->
+    <div class="payment-overlay" id="paymentOverlay">
+        <div class="spinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p id="overlayMessage">Redirecting to Axis Bank secure payment gateway...</p>
+        </div>
+    </div>
+
     <div class="payment-container" id="paymentApp">
         <!-- Header -->
         <div class="payment-header">
             <span class="secure-badge"><i class="bi bi-shield-lock"></i> Secure</span>
-            <span class="razorpay-badge">Powered by Razorpay</span>
+            <span class="axis-badge">Powered by Axis Bank</span>
             <div class="hostel-icon"><i class="bi bi-building"></i></div>
             <h1>{{ isset($hostel->hostel_name) ? $hostel->hostel_name : 'Hostel Rent Payment' }}</h1>
             @if (isset($hostel) && !empty($hostel->hostel_code))
@@ -456,8 +489,8 @@
                     <span id="pendingCount">0</span> pending payments from previous months
                 </div>
 
-                <button class="btn-pay-now" id="payNowBtn" onclick="initiateRazorpayPayment()">
-                    <i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay
+                <button class="btn-pay-now" id="payNowBtn" onclick="initiateAxisPayment()">
+                    <i class="bi bi-shield-check axis-icon"></i> Pay with Axis Bank
                 </button>
 
                 <div class="payment-methods">
@@ -465,7 +498,7 @@
                         style="font-size: 0.7rem; color: #9ca3af; width: 100%; text-align: center; margin-bottom: 0.25rem;">
                         Secure payments via
                     </span>
-                    <img src="https://razorpay.com/assets/razorpay-glyph.svg" alt="Razorpay" class="active"
+                    <img src="https://www.axisbank.com/images/axis-bank-logo.svg" alt="Axis Bank" class="active"
                         style="height: 20px;">
                     <img src="https://www.visa.com/logo.svg" alt="Visa" style="height: 20px;">
                     <img src="https://www.mastercard.com/logo.svg" alt="Mastercard" style="height: 20px;">
@@ -473,7 +506,7 @@
                 </div>
 
                 <div style="font-size: 0.7rem; color: #9ca3af; margin-top: 0.5rem; text-align:center;">
-                    You'll be redirected to Razorpay's secure checkout. Once you finish paying there,
+                    You'll be redirected to Axis Bank's secure checkout. Once you finish paying there,
                     you'll be brought straight back here and we'll confirm it automatically.
                 </div>
             </div>
@@ -497,7 +530,6 @@
         let currentResident = null;
         let currentReference = null;
         let orderData = null;
-        let razorpayInstance = null;
 
         $(document).ready(function() {
             $('#mobileInput').on('keypress', function(e) {
@@ -510,15 +542,22 @@
             const urlParams = new URLSearchParams(window.location.search);
             const status = urlParams.get('status');
             const reference = urlParams.get('reference');
+            const transactionId = urlParams.get('transaction_id');
 
             if (status === 'success' && reference) {
                 showToast('✅ Payment successful! Reference: ' + reference, 'success');
-                // Optionally fetch updated status
                 checkPaymentStatus(reference);
             } else if (status === 'cancelled' && reference) {
                 showToast('Payment was cancelled. You can try again.', 'error');
+                $('#paymentOverlay').removeClass('show');
             } else if (status === 'failed' && reference) {
                 showToast('Payment failed. Please try again.', 'error');
+                $('#paymentOverlay').removeClass('show');
+            } else if (transactionId) {
+                // Check if we have a transaction ID but no status, might be a successful redirect
+                if (reference) {
+                    checkPaymentStatus(reference);
+                }
             }
         });
 
@@ -551,11 +590,9 @@
                         $('#residentPhone').text(response.data.phone);
                         $('#residentEmail').text(response.data.email || 'Not provided');
 
-                        // Show amount to pay (after discount + fine)
                         const amountToPay = parseFloat(response.data.amount_to_pay || response.data.total_due);
                         $('#totalDue').text('₹' + amountToPay.toFixed(2));
 
-                        // Show discount and fine badges
                         const discount = parseFloat(response.data.discount_amount || 0);
                         const fine = parseFloat(response.data.fine_amount || 0);
 
@@ -591,7 +628,7 @@
                         }
 
                         $('#residentInfo').addClass('show');
-                        showToast('Resident found! Click "Pay with Razorpay" to continue.', 'success');
+                        showToast('Resident found! Click "Pay with Axis Bank" to continue.', 'success');
                     }
                 },
                 error: function(xhr) {
@@ -608,7 +645,7 @@
             });
         }
 
-        function initiateRazorpayPayment() {
+        function initiateAxisPayment() {
             if (!currentResident) {
                 showToast('Please find your resident details first', 'error');
                 return;
@@ -623,7 +660,11 @@
             const btn = $('#payNowBtn');
             btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Creating order...');
 
-            // Step 1: Create Razorpay Order
+            // Show overlay
+            $('#paymentOverlay').addClass('show');
+            $('#overlayMessage').text('Creating payment order...');
+
+            // Step 1: Create Axis Bank Order
             $.ajax({
                 url: paymentRoutes.createOrder,
                 type: 'POST',
@@ -636,110 +677,131 @@
                 success: function(response) {
                     if (response.success) {
                         orderData = response;
-                        openRazorpayCheckout(response);
+                        $('#overlayMessage').text('Redirecting to Axis Bank secure payment gateway...');
+                        redirectToAxisBank(response);
                     } else {
+                        $('#paymentOverlay').removeClass('show');
                         showToast('Failed to create payment order: ' + (response.message || 'Unknown error'),
                             'error');
                         btn.prop('disabled', false).html(
-                            '<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+                            '<i class="bi bi-shield-check axis-icon"></i> Pay with Axis Bank');
                     }
                 },
                 error: function(xhr) {
+                    $('#paymentOverlay').removeClass('show');
                     var message = 'Failed to create payment order';
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         message = xhr.responseJSON.message;
                     }
                     showToast('❌ ' + message, 'error');
                     btn.prop('disabled', false).html(
-                        '<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+                        '<i class="bi bi-shield-check axis-icon"></i> Pay with Axis Bank');
                 }
             });
         }
 
-        function openRazorpayCheckout(data) {
-    const btn = $('#payNowBtn');
-    btn.html('<span class="spinner-border spinner-border-sm"></span> Opening checkout...');
+        function redirectToAxisBank(data) {
+            // Store the reference in session for callback
+            sessionStorage.setItem('axis_payment_reference', data.reference);
+            sessionStorage.setItem('axis_order_id', data.order_id);
 
-    // Store the reference in session/cookie for callback
-    sessionStorage.setItem('payment_reference', data.reference);
-    sessionStorage.setItem('payment_order_id', data.order_id);
+            // Build the Axis Bank payment URL with all parameters
+            const paymentUrl = data.payment_url || 'https://secure.axisbank.com/payment';
 
-    const options = {
-        key: data.key_id,
-        amount: data.amount * 100,
-        currency: data.currency || 'INR',
-        name: 'Hostel Rent Payment',
-        description: 'Rent Payment - ' + currentResident.name,
-        order_id: data.order_id,
-        prefill: {
-            name: currentResident.name,
-            email: currentResident.email || '',
-            contact: currentResident.phone
-        },
-        notes: {
-            resident_id: currentResident.resident_id,
-            reference: data.reference,
-            room_no: currentResident.room_no
-        },
-        theme: {
-            color: '#0c3b6f'
-        },
-        handler: function(response) {
-            // This is called when payment is successful
-            verifyPayment(response, data.reference);
-        },
-        modal: {
-            ondismiss: function() {
-                btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
-                window.location.href = paymentRoutes.callback +
-                    '?status=cancelled' +
-                    '&reference=' + encodeURIComponent(data.reference);
+            // Create a form to submit to Axis Bank
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = paymentUrl;
+
+            // Add all required parameters
+            const params = {
+                merchant_id: data.merchant_id,
+                order_id: data.order_id,
+                transaction_id: data.transaction_id,
+                amount: data.amount,
+                currency: data.currency || 'INR',
+                reference_id: data.reference,
+                return_url: '{{ url('/guest/payment/callback') }}',
+                cancel_url: '{{ url('/guest/payment/cancel') }}',
+                signature: data.signature,
+                customer_name: currentResident.name,
+                customer_email: currentResident.email || '',
+                customer_phone: currentResident.phone,
+            };
+
+            // Add resident_id and reference in notes
+            params.notes_resident_id = currentResident.resident_id;
+            params.notes_reference = data.reference;
+
+            // Create hidden inputs
+            for (let key in params) {
+                if (params[key] !== null && params[key] !== undefined) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = params[key];
+                    form.appendChild(input);
+                }
             }
+
+            document.body.appendChild(form);
+
+            // Submit the form to redirect to Axis Bank
+            form.submit();
+
+            // Fallback: if form submission doesn't work, redirect directly
+            setTimeout(function() {
+                if (document.body.contains(form)) {
+                    document.body.removeChild(form);
+                    window.location.href = paymentUrl + '?' + new URLSearchParams(params).toString();
+                }
+            }, 3000);
         }
-    };
 
-    razorpayInstance = new Razorpay(options);
-    razorpayInstance.open();
-}
+        function verifyAxisPayment(orderId, transactionId, reference, signature) {
+            const btn = $('#payNowBtn');
+            btn.html('<span class="spinner-border spinner-border-sm"></span> Verifying payment...');
+            $('#overlayMessage').text('Verifying your payment...');
 
-      function verifyPayment(response, reference) {
-    const btn = $('#payNowBtn');
-    btn.html('<span class="spinner-border spinner-border-sm"></span> Verifying payment...');
-
-    $.ajax({
-        url: paymentRoutes.verify,
-        type: 'POST',
-        data: {
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-            reference: reference,
-            _token: csrfToken
-        },
-        success: function(data) {
-            if (data.success) {
-                showToast('✅ Payment successful! Reference: ' + reference, 'success');
-                // Redirect with payment_id and reference only
-                // We'll fetch the order details from the database using the reference
-                window.location.href = paymentRoutes.callback +
-                    '?reference=' + encodeURIComponent(reference) +
-                    '&payment_id=' + encodeURIComponent(response.razorpay_payment_id) +
-                    '&status=success';
-            } else {
-                showToast('Payment verification failed: ' + (data.message || 'Unknown error'), 'error');
-                btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
-            }
-        },
-        error: function(xhr) {
-            var message = 'Payment verification failed';
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-                message = xhr.responseJSON.message;
-            }
-            showToast('❌ ' + message, 'error');
-            btn.prop('disabled', false).html('<i class="bi bi-shield-check razorpay-icon"></i> Pay with Razorpay');
+            $.ajax({
+                url: paymentRoutes.verify,
+                type: 'POST',
+                data: {
+                    order_id: orderId,
+                    transaction_id: transactionId,
+                    reference: reference,
+                    signature: signature,
+                    status: 'SUCCESS',
+                    _token: csrfToken
+                },
+                success: function(data) {
+                    if (data.success) {
+                        showToast('✅ Payment successful! Reference: ' + reference, 'success');
+                        window.location.href = paymentRoutes.callback +
+                            '?reference=' + encodeURIComponent(reference) +
+                            '&transaction_id=' + encodeURIComponent(transactionId) +
+                            '&status=success';
+                    } else {
+                        $('#paymentOverlay').removeClass('show');
+                        showToast('Payment verification failed: ' + (data.message || 'Unknown error'),
+                            'error');
+                        btn.prop('disabled', false).html(
+                            '<i class="bi bi-shield-check axis-icon"></i> Pay with Axis Bank');
+                    }
+                },
+                error: function(xhr) {
+                    $('#paymentOverlay').removeClass('show');
+                    var message = 'Payment verification failed';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    showToast('❌ ' + message, 'error');
+                    btn.prop('disabled', false).html(
+                        '<i class="bi bi-shield-check axis-icon"></i> Pay with Axis Bank');
+                }
+            });
         }
-    });
-}
+
         function checkPaymentStatus(reference) {
             $.ajax({
                 url: paymentRoutes.callback + '?reference=' + reference + '&ajax=1',
@@ -779,6 +841,15 @@
                 }
             }, 8000);
         }
+
+        // Handle browser back/forward for payment flow
+        window.addEventListener('popstate', function(e) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status');
+            if (status === 'success' || status === 'cancelled') {
+                location.reload();
+            }
+        });
     </script>
 
 </body>

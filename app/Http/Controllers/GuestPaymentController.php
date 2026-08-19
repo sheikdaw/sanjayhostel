@@ -1,12 +1,11 @@
 <?php
-// app/Http/Controllers/GuestPaymentController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Models\Resident;
 use App\Models\Hostel;
-use App\Services\RazorpayService;
+use App\Services\AxisBankService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
@@ -16,53 +15,51 @@ use Exception;
 
 class GuestPaymentController extends Controller
 {
-    protected RazorpayService $razorpay;
+    protected AxisBankService $axisBank;
 
-    public function __construct(RazorpayService $razorpay)
+    public function __construct(AxisBankService $axisBank)
     {
-        $this->razorpay = $razorpay;
+        $this->axisBank = $axisBank;
     }
 
-   public function index(Request $request, $encodedHostelId = null)
-{
-    $hostelId = null;
+    public function index(Request $request, $encodedHostelId = null)
+    {
+        $hostelId = null;
 
-    if ($encodedHostelId) {
-        try {
-            $hostelId = Crypt::decryptString($encodedHostelId);
-        } catch (Exception $e) {
-            if (is_numeric($encodedHostelId)) {
-                $hostelId = $encodedHostelId;
-            } else {
-                abort(404, 'Invalid payment link');
+        if ($encodedHostelId) {
+            try {
+                $hostelId = Crypt::decryptString($encodedHostelId);
+            } catch (Exception $e) {
+                if (is_numeric($encodedHostelId)) {
+                    $hostelId = $encodedHostelId;
+                } else {
+                    abort(404, 'Invalid payment link');
+                }
             }
         }
-    }
 
-    $hostel = null;
-    if ($hostelId) {
-        $hostel = Hostel::with('roomTypes')->find($hostelId);
-        if (!$hostel) {
-            abort(404, 'Hostel not found');
+        $hostel = null;
+        if ($hostelId) {
+            $hostel = Hostel::with('roomTypes')->find($hostelId);
+            if (!$hostel) {
+                abort(404, 'Hostel not found');
+            }
         }
+
+        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+        $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
+
+        return view('guest.payment', compact(
+            'hostel',
+            'hostelId',
+            'reference',
+            'encodedHostelId',
+            'encodedId'
+        ));
     }
-
-    // Make sure $reference is defined here
-    $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-    $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
-
-    return view('guest.payment', compact(
-        'hostel',
-        'hostelId',
-        'reference',      // ✅ This MUST be included
-        'encodedHostelId',
-        'encodedId'
-    ));
-}
 
     /**
      * Get resident details by mobile number.
-     * POST /guest/payment/resident
      */
     public function getResident(Request $request)
     {
@@ -182,8 +179,8 @@ class GuestPaymentController extends Controller
 
         if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
             $daysLate = $currentDay - 10;
-            $fineAmount = $daysLate * 0;
-            $fineMessage = "Late fee: ₹00 per day after 10th ({$daysLate} days late)";
+            $fineAmount = $daysLate * 50; // ₹50 per day late fee
+            $fineMessage = "Late fee: ₹50 per day after 10th ({$daysLate} days late)";
         }
 
         // Calculate paid amounts
@@ -277,271 +274,281 @@ class GuestPaymentController extends Controller
         ], 200, [], JSON_NUMERIC_CHECK);
     }
 
+    /**
+     * Create Axis Bank order
+     */
     public function createOrder(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'amount' => 'required|numeric|min:1',
-        'reference' => 'required|string',
-        'resident_id' => 'required|exists:residents,id'
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    $amount = (float) $request->amount;
-    $reference = $request->reference;
-    $residentId = $request->resident_id;
-
-    $resident = Resident::find($residentId);
-    $roomNo = $resident && $resident->room ? ($resident->room->room_no ?? 'N/A') : 'N/A';
-    $residentName = $resident ? $resident->name : 'Resident';
-
-    // Store resident ID and reference mapping
-    cache()->put('razorpay_order_resident_' . $reference, $residentId, now()->addHours(2));
-
-    try {
-        $orderData = [
-            'receipt' => $reference,
-            'amount' => $amount,
-            'currency' => 'INR',
-            'notes' => [
-                'resident_id' => $residentId,
-                'resident_name' => $residentName,
-                'room_no' => $roomNo,
-                'payment_type' => 'rent'
-            ]
-        ];
-
-        $result = $this->razorpay->createOrder($orderData);
-
-        // Store order_id for callback
-        cache()->put('razorpay_order_id_' . $reference, $result['order_id'], now()->addHours(2));
-
-        return response()->json([
-            'success' => true,
-            'order_id' => $result['order_id'],
-            'amount' => $result['amount'],
-            'currency' => $result['currency'],
-            'key_id' => $result['key_id'],
-            'reference' => $reference,
-            'resident_id' => $residentId,
+    {
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|min:1',
+            'reference' => 'required|string',
+            'resident_id' => 'required|exists:residents,id'
         ]);
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to create payment order: ' . $e->getMessage()
-        ], 500);
-    }
-}
-/**
- * Verify payment after successful Razorpay checkout
- * POST /guest/payment/verify
- */
-public function verifyPayment(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'razorpay_order_id' => 'required|string',
-        'razorpay_payment_id' => 'required|string',
-        'razorpay_signature' => 'required|string',
-        'reference' => 'required|string'
-    ]);
 
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'errors' => $validator->errors()
-        ], 422);
-    }
-
-    $payload = [
-        'razorpay_order_id' => $request->razorpay_order_id,
-        'razorpay_payment_id' => $request->razorpay_payment_id,
-        'razorpay_signature' => $request->razorpay_signature,
-    ];
-
-    try {
-        // Verify signature
-        $isValid = $this->razorpay->verifyPaymentSignature($payload);
-
-        if (!$isValid) {
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Payment verification failed: Invalid signature'
-            ], 400);
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        // Get payment details
-        $payment = $this->razorpay->fetchPayment($request->razorpay_payment_id);
-        $order = $this->razorpay->fetchOrder($request->razorpay_order_id);
+        $amount = (float) $request->amount;
+        $reference = $request->reference;
+        $residentId = $request->resident_id;
 
-        // Record payment if status is captured
-        if ($payment['status'] === 'captured') {
-            $paymentRecord = $this->recordPaymentIfNeeded(
-                $request->reference,
-                $payment,
-                $order
-            );
+        $resident = Resident::find($residentId);
+        $roomNo = $resident && $resident->room ? ($resident->room->room_no ?? 'N/A') : 'N/A';
+        $residentName = $resident ? $resident->name : 'Resident';
+
+        // Store resident ID and reference mapping
+        Cache::put('axis_order_resident_' . $reference, $residentId, now()->addHours(2));
+
+        try {
+            $orderData = [
+                'receipt' => $reference,
+                'amount' => $amount,
+                'currency' => config('axisbank.currency', 'INR'),
+                'reference_id' => $reference,
+                'description' => 'Rent Payment - ' . $residentName,
+                'customer_name' => $residentName,
+                'customer_email' => $resident->email ?? '',
+                'customer_phone' => $resident->phone ?? '',
+                'notes' => [
+                    'resident_id' => $residentId,
+                    'resident_name' => $residentName,
+                    'room_no' => $roomNo,
+                    'payment_type' => 'rent'
+                ]
+            ];
+
+            $result = $this->axisBank->createOrder($orderData);
+
+            if ($result['success']) {
+                // Store order_id for callback
+                Cache::put('axis_order_id_' . $reference, $result['order_id'], now()->addHours(2));
+
+                return response()->json([
+                    'success' => true,
+                    'order_id' => $result['order_id'],
+                    'transaction_id' => $result['transaction_id'],
+                    'payment_url' => $result['payment_url'],
+                    'amount' => $result['amount'],
+                    'currency' => $result['currency'],
+                    'merchant_id' => $result['merchant_id'],
+                    'signature' => $result['signature'],
+                    'reference' => $reference,
+                    'resident_id' => $residentId,
+                ]);
+            }
 
             return response()->json([
-                'success' => true,
-                'message' => 'Payment verified successfully',
-                'data' => [
-                    'payment_id' => $payment['id'],
-                    'amount' => $payment['amount'] / 100,
-                    'status' => $payment['status'],
-                    'receipt_no' => $paymentRecord->receipt_no ?? $request->reference,
-                ]
+                'success' => false,
+                'message' => $result['message'] ?? 'Failed to create payment order'
+            ], 500);
+
+        } catch (Exception $e) {
+            Log::error('Axis Bank: Order creation error', [
+                'error' => $e->getMessage(),
+                'resident_id' => $residentId,
+                'reference' => $reference
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create payment order: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify payment after successful Axis Bank checkout
+     */
+    public function verifyPayment(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_id' => 'required|string',
+            'transaction_id' => 'required|string',
+            'status' => 'required|string',
+            'reference' => 'required|string',
+            'signature' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Verify signature
+            $payload = $request->all();
+            $isValid = $this->axisBank->verifyPaymentSignature($payload);
+
+            if (!$isValid) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment verification failed: Invalid signature'
+                ], 400);
+            }
+
+            // Get payment details
+            $paymentData = $this->axisBank->fetchPayment($request->transaction_id);
+
+            if (!$paymentData['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $paymentData['message'] ?? 'Failed to fetch payment details'
+                ], 400);
+            }
+
+            // Record payment if status is SUCCESS
+            if ($paymentData['status'] === 'SUCCESS' || $paymentData['status'] === 'CAPTURED') {
+                $paymentRecord = $this->recordPaymentIfNeeded(
+                    $request->reference,
+                    $paymentData,
+                    $request->all()
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment verified successfully',
+                    'data' => [
+                        'payment_id' => $paymentData['transaction_id'],
+                        'amount' => $paymentData['amount'],
+                        'status' => $paymentData['status'],
+                        'receipt_no' => $paymentRecord->receipt_no ?? $request->reference,
+                    ]
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment is not completed. Status: ' . $paymentData['status']
+            ], 400);
+
+        } catch (Exception $e) {
+            Log::error('Axis Bank: Payment verification error', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment verification failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Browser callback after payment
+     */
+    public function callback(Request $request)
+    {
+        // Get parameters
+        $reference = $request->query('reference');
+        $transactionId = $request->query('transaction_id');
+        $status = $request->query('status');
+        $orderId = $request->query('order_id');
+
+        Log::info('Axis Bank: Payment callback received', [
+            'reference' => $reference,
+            'transaction_id' => $transactionId,
+            'status' => $status,
+            'all_params' => $request->all()
+        ]);
+
+        // Handle cancellation
+        if ($status === 'CANCELLED' || $status === 'FAILED') {
+            return view('guest.payment-result', [
+                'success' => false,
+                'message' => 'Payment was cancelled or failed. You can try again.',
+                'reference' => $reference ?? 'N/A',
+                'amount' => null,
+                'receipt_no' => null,
+                'payment_method' => 'Axis Bank'
             ]);
         }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Payment is not captured. Status: ' . $payment['status']
-        ], 400);
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Payment verification failed: ' . $e->getMessage()
-        ], 500);
-    }
-}
-/**
- * Browser callback after payment
- * GET /guest/payment/callback
- */
-public function callback(Request $request)
-{
-    // Get parameters
-    $reference = $request->query('reference');
-    $paymentId = $request->query('payment_id');
-    $status = $request->query('status');
+        // If we have a reference, check our local database first
+        if ($reference) {
+            $paymentRecord = Payment::where('receipt_no', $reference)->first();
 
-    // Log everything for debugging
-    Log::info('Payment callback received', [
-        'reference' => $reference,
-        'payment_id' => $paymentId,
-        'status' => $status,
-        'all_params' => $request->all(),
-        'session' => session()->all()
-    ]);
+            if ($paymentRecord) {
+                $isSuccess = $paymentRecord->status === 'PAID';
 
-    // Handle cancellation
-    if ($status === 'cancelled') {
+                return view('guest.payment-result', [
+                    'success' => $isSuccess,
+                    'message' => $isSuccess ? 'Payment successful!' : 'Payment status: ' . $paymentRecord->status,
+                    'reference' => $reference,
+                    'amount' => $paymentRecord->upi_paid_amount + $paymentRecord->cash_paid_amount,
+                    'receipt_no' => $paymentRecord->receipt_no,
+                    'payment_method' => 'Axis Bank'
+                ]);
+            }
+
+            // If we have a transaction_id, try to fetch from Axis Bank
+            if ($transactionId) {
+                try {
+                    $payment = $this->axisBank->fetchPayment($transactionId);
+
+                    if ($payment['success'] && ($payment['status'] === 'SUCCESS' || $payment['status'] === 'CAPTURED')) {
+                        $newRecord = $this->recordPaymentIfNeeded($reference, $payment, $request->all());
+
+                        return view('guest.payment-result', [
+                            'success' => true,
+                            'message' => 'Payment successful!',
+                            'reference' => $reference,
+                            'amount' => $payment['amount'] ?? 0,
+                            'receipt_no' => $newRecord->receipt_no ?? $reference,
+                            'payment_method' => 'Axis Bank'
+                        ]);
+                    } else {
+                        return view('guest.payment-result', [
+                            'success' => false,
+                            'message' => 'Payment status: ' . ($payment['status'] ?? 'UNKNOWN'),
+                            'reference' => $reference,
+                            'amount' => null,
+                            'receipt_no' => null,
+                            'payment_method' => 'Axis Bank'
+                        ]);
+                    }
+                } catch (Exception $e) {
+                    Log::error('Axis Bank: Callback error', [
+                        'error' => $e->getMessage(),
+                        'reference' => $reference,
+                        'transaction_id' => $transactionId
+                    ]);
+                }
+            }
+
+            // If we couldn't find payment details, check cache
+            $cachedResidentId = Cache::get('axis_order_resident_' . $reference);
+            if ($cachedResidentId) {
+                return view('guest.payment-result', [
+                    'success' => null,
+                    'message' => 'Your payment is being processed. Please check back in a few minutes.',
+                    'reference' => $reference,
+                    'amount' => null,
+                    'receipt_no' => null,
+                    'payment_method' => 'Axis Bank'
+                ]);
+            }
+        }
+
+        // Default error response
         return view('guest.payment-result', [
             'success' => false,
-            'message' => 'Payment was cancelled. You can try again.',
+            'message' => 'Payment details not found. Please check your payment status in your account.',
             'reference' => $reference ?? 'N/A',
             'amount' => null,
             'receipt_no' => null,
+            'payment_method' => 'Axis Bank'
         ]);
     }
 
-    // If we have a reference, check our local database first
-    if ($reference) {
-        // Check if payment exists in our database
-        $paymentRecord = Payment::where('receipt_no', $reference)->first();
-
-        if ($paymentRecord) {
-            // Payment found in database
-            $isSuccess = $paymentRecord->status === 'PAID';
-
-            return view('guest.payment-result', [
-                'success' => $isSuccess,
-                'message' => $isSuccess ? 'Payment successful!' : 'Payment status: ' . $paymentRecord->status,
-                'reference' => $reference,
-                'amount' => $paymentRecord->upi_paid_amount + $paymentRecord->cash_paid_amount,
-                'receipt_no' => $paymentRecord->receipt_no,
-            ]);
-        }
-
-        // If we have a payment_id, try to fetch from Razorpay
-        if ($paymentId) {
-            try {
-                $payment = $this->razorpay->fetchPayment($paymentId);
-
-                if ($payment['status'] === 'captured') {
-                    // Record the payment in our database
-                    $order = $this->razorpay->fetchOrder($payment['order_id']);
-                    $newRecord = $this->recordPaymentIfNeeded($reference, $payment, $order);
-
-                    return view('guest.payment-result', [
-                        'success' => true,
-                        'message' => 'Payment successful!',
-                        'reference' => $reference,
-                        'amount' => ($payment['amount'] ?? 0) / 100,
-                        'receipt_no' => $newRecord->receipt_no ?? $reference,
-                    ]);
-                } else {
-                    return view('guest.payment-result', [
-                        'success' => false,
-                        'message' => 'Payment status: ' . $payment['status'],
-                        'reference' => $reference,
-                        'amount' => null,
-                        'receipt_no' => null,
-                    ]);
-                }
-            } catch (Exception $e) {
-                Log::error('Error fetching payment from Razorpay: ' . $e->getMessage(), [
-                    'reference' => $reference,
-                    'payment_id' => $paymentId
-                ]);
-                // Continue to try other methods
-            }
-        }
-
-        // If we couldn't find payment details, check cache
-        $cachedResidentId = cache()->get('razorpay_order_resident_' . $reference);
-        if ($cachedResidentId) {
-            // Payment might still be processing
-            return view('guest.payment-result', [
-                'success' => null,
-                'message' => 'Your payment is being processed. Please check back in a few minutes.',
-                'reference' => $reference,
-                'amount' => null,
-                'receipt_no' => null,
-            ]);
-        }
-    }
-
-    // If we have a payment_id from the URL (Razorpay redirects with payment_id in some cases)
-    if (!$reference && $paymentId) {
-        try {
-            $payment = $this->razorpay->fetchPayment($paymentId);
-            $order = $this->razorpay->fetchOrder($payment['order_id']);
-            $receipt = $order['receipt'] ?? $payment['receipt'] ?? null;
-
-            if ($receipt && $payment['status'] === 'captured') {
-                $newRecord = $this->recordPaymentIfNeeded($receipt, $payment, $order);
-
-                return view('guest.payment-result', [
-                    'success' => true,
-                    'message' => 'Payment successful!',
-                    'reference' => $receipt,
-                    'amount' => ($payment['amount'] ?? 0) / 100,
-                    'receipt_no' => $newRecord->receipt_no ?? $receipt,
-                ]);
-            }
-        } catch (Exception $e) {
-            Log::error('Error processing payment by payment_id: ' . $e->getMessage());
-        }
-    }
-
-    // Default error response
-    return view('guest.payment-result', [
-        'success' => false,
-        'message' => 'Payment details not found. Please check your payment status in your account.',
-        'reference' => $reference ?? 'N/A',
-        'amount' => null,
-        'receipt_no' => null,
-    ]);
-}
     /**
      * AJAX polling for payment status
-     * GET /guest/payment/status?reference=PAY-...
      */
     public function status(Request $request)
     {
@@ -581,43 +588,42 @@ public function callback(Request $request)
     }
 
     /**
-     * Razorpay Webhook
-     * POST /guest/payment/webhook
+     * Axis Bank Webhook
      */
     public function webhook(Request $request)
     {
         // Verify webhook signature
-        $webhookSecret = config('razorpay.webhook_secret');
-        $signature = $request->header('X-Razorpay-Signature');
+        $webhookSecret = config('axisbank.webhook_secret');
+        $signature = $request->header('X-AxisBank-Signature');
 
         if (!$signature || !$webhookSecret) {
-            Log::warning('Razorpay webhook: missing signature or secret');
+            Log::warning('Axis Bank webhook: missing signature or secret');
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        // Verify signature
+        // Verify signature (implement based on Axis Bank webhook documentation)
         $body = $request->getContent();
         $expectedSignature = hash_hmac('sha256', $body, $webhookSecret);
 
         if (!hash_equals($expectedSignature, $signature)) {
-            Log::warning('Razorpay webhook: invalid signature');
+            Log::warning('Axis Bank webhook: invalid signature');
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         $payload = $request->json()->all();
         $event = $payload['event'] ?? null;
-        $payment = $payload['payload']['payment']['entity'] ?? [];
-        $order = $payload['payload']['order']['entity'] ?? [];
+        $payment = $payload['payload']['payment'] ?? [];
+        $order = $payload['payload']['order'] ?? [];
 
-        Log::info('Razorpay webhook received', [
+        Log::info('Axis Bank webhook received', [
             'event' => $event,
-            'payment_id' => $payment['id'] ?? null,
-            'order_id' => $order['id'] ?? null,
+            'transaction_id' => $payment['transaction_id'] ?? null,
+            'order_id' => $order['order_id'] ?? null,
         ]);
 
-        // Handle payment captured event
-        if ($event === 'payment.captured' && !empty($payment['id'])) {
-            $receipt = $payment['receipt'] ?? $order['receipt'] ?? null;
+        // Handle payment success event
+        if ($event === 'payment.success' && !empty($payment['transaction_id'])) {
+            $receipt = $payment['reference_id'] ?? $order['receipt'] ?? null;
             if ($receipt) {
                 $this->recordPaymentIfNeeded($receipt, $payment, $order);
             }
@@ -637,7 +643,7 @@ public function callback(Request $request)
             return $existing;
         }
 
-        $residentId = cache()->get('razorpay_order_resident_' . $receipt);
+        $residentId = Cache::get('axis_order_resident_' . $receipt);
         $resident = $residentId ? Resident::find($residentId) : null;
 
         // Get resident ID from order notes if not in cache
@@ -645,9 +651,9 @@ public function callback(Request $request)
             $resident = Resident::find($order['notes']['resident_id']);
         }
 
-        $paidAmount = ($payment['amount'] ?? 0) / 100;
+        $paidAmount = $payment['amount'] ?? 0;
         $rentAmount = $resident?->rent_amount ?? 0;
-        $transactionId = $payment['id'] ?? ('TXN-' . strtoupper(Str::random(10)));
+        $transactionId = $payment['transaction_id'] ?? ('TXN-' . strtoupper(Str::random(10)));
 
         $paymentStatus = $this->determinePaymentStatus($paidAmount, $rentAmount);
 
