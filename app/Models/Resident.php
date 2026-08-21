@@ -390,17 +390,6 @@ class Resident extends Model
         throw new \Exception('Hostel ID is required');
     }
 
-    $lastEmployee = self::where('hostel_id', $hostelId)
-        ->whereNotNull('employee_code')
-        ->orderByRaw('CAST(employee_code AS UNSIGNED) DESC')
-        ->first();
-
-    if (!$lastEmployee) {
-        $sequence = 1;
-    } else {
-        $sequence = ((int) $lastEmployee->employee_code % 10000) + 1;
-    }
-
-    return ($hostelId * 10000) + $sequence;
+    return ($hostelId * 10000) + $this->id;
 }
 }
