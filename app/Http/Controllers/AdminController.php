@@ -101,8 +101,10 @@ class AdminController extends Controller
         $pendingDetails = []; // For debugging
 
         foreach ($activeResidents as $resident) {
-            // Get the resident's rent amount
-            $rentAmount = (float) ($resident->room->rent_amount ?? 0);
+            // Rent amount lives on the Resident model itself, NOT on Room.
+            // (Room has no rent_amount column — that was the actual bug:
+            // $resident->room->rent_amount was always null/0.)
+            $rentAmount = (float) ($resident->rent_amount ?? 0);
             $totalRentForActiveResidents += $rentAmount;
 
             // Get this month's payment for this resident
@@ -273,7 +275,8 @@ class AdminController extends Controller
             $hostelPartialCount = 0;
 
             foreach ($hostelActiveResidents as $resident) {
-                $rentAmount = (float) ($resident->room->rent_amount ?? 0);
+                // Same fix: rent_amount is on Resident, not Room.
+                $rentAmount = (float) ($resident->rent_amount ?? 0);
                 $monthlyPayment = $hostelCurrentMonthPayments->firstWhere('resident_id', $resident->id);
 
                 if ($monthlyPayment) {
@@ -364,78 +367,37 @@ class AdminController extends Controller
 
         // Get current user
         $currentUser = auth()->user();
-return response()->json([
-    'success' => true,
-    'message' => 'Dashboard data fetched successfully',
-    'data' => [
-        'hostels' => $hostels,
-        'totalHostels' => $totalHostels,
-        'totalRooms' => $totalRooms,
-        'totalBeds' => $totalBeds,
-        'totalResidents' => $totalResidents,
-        'totalVacated' => $totalVacated,
 
-        'occupiedBeds' => $occupiedBeds,
-        'vacantBeds' => $vacantBeds,
-        'blockedBeds' => $blockedBeds,
-        'occupancyRate' => $occupancyRate,
-
-        'totalPayments' => $totalPayments,
-        'totalCollected' => $totalCollected,
-        'totalPending' => $totalPending,
-        'totalBalance' => $totalBalance,
-        'totalRent' => $totalRent,
-
-        'pendingCount' => $pendingCount,
-        'partialCount' => $partialCount,
-        'paidCount' => $paidCount,
-
-        'months' => $months,
-        'collections' => $collections,
-        'balances' => $balances,
-
-        'recentPayments' => $recentPayments,
-        'recentResidents' => $recentResidents,
-
-        'hostelStats' => $hostelStats,
-        'roomTypeDistribution' => $roomTypeDistribution,
-        'bedTypeDistribution' => $bedTypeDistribution,
-        'statusDistribution' => $statusDistribution,
-
-        'currentUser' => $currentUser,
-        'calculationSummary' => $calculationSummary,
-    ]
-]);
-        // return view('main.admin.dashboard', compact(
-        //     'hostels',
-        //     'totalHostels',
-        //     'totalRooms',
-        //     'totalBeds',
-        //     'totalResidents',
-        //     'totalVacated',
-        //     'occupiedBeds',
-        //     'vacantBeds',
-        //     'blockedBeds',
-        //     'occupancyRate',
-        //     'totalPayments',
-        //     'totalCollected',
-        //     'totalPending',
-        //     'totalBalance',
-        //     'totalRent',
-        //     'pendingCount',
-        //     'partialCount',
-        //     'paidCount',
-        //     'months',
-        //     'collections',
-        //     'balances',
-        //     'recentPayments',
-        //     'recentResidents',
-        //     'hostelStats',
-        //     'roomTypeDistribution',
-        //     'bedTypeDistribution',
-        //     'statusDistribution',
-        //     'currentUser',
-        //     'calculationSummary'
-        // ));
+        return view('main.admin.dashboard', compact(
+            'hostels',
+            'totalHostels',
+            'totalRooms',
+            'totalBeds',
+            'totalResidents',
+            'totalVacated',
+            'occupiedBeds',
+            'vacantBeds',
+            'blockedBeds',
+            'occupancyRate',
+            'totalPayments',
+            'totalCollected',
+            'totalPending',
+            'totalBalance',
+            'totalRent',
+            'pendingCount',
+            'partialCount',
+            'paidCount',
+            'months',
+            'collections',
+            'balances',
+            'recentPayments',
+            'recentResidents',
+            'hostelStats',
+            'roomTypeDistribution',
+            'bedTypeDistribution',
+            'statusDistribution',
+            'currentUser',
+            'calculationSummary'
+        ));
     }
 }
