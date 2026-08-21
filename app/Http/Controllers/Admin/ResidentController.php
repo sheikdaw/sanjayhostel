@@ -832,9 +832,9 @@ class ResidentController extends Controller
 
             // Generate numeric employee code
             if (!$resident->employee_code) {
-                $resident->employee_code = $resident->generateEmployeeCode();
+               
             }
-
+ $resident->employee_code = $resident->generateEmployeeCode();
             $resident->biometric_access = true;
             $resident->last_sync_at = now();
             $resident->access_enabled_at = now();
