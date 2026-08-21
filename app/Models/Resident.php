@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Resident extends Model
 {
@@ -309,130 +308,6 @@ class Resident extends Model
     // ============================================
 
     /**
-     * Generate employee code based on hostel ID
-     * Format: HOSTEL_CODE + SEQUENTIAL_NUMBER
-     * Example: For Hostel ID 1 (SAN), first resident: SAN001, second: SAN002, etc.
-     */
-    public function generateEmployeeCode(): string
-    {
-        // Get hostel code prefix
-        $hostelCode = $this->getHostelCodePrefix();
-        
-        // Get the next sequential number for this hostel
-        $lastResident = Resident::where('hostel_id', $this->hostel_id)
-            ->whereNotNull('employee_code')
-            ->orderBy('employee_code', 'desc')
-            ->first();
-
-        if ($lastResident && $lastResident->employee_code) {
-            // Extract the number part from the last employee code
-            // Example: SAN001 -> 001
-            $lastNumber = (int) substr($lastResident->employee_code, -3);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
-
-        // Format: HOSTEL_PREFIX + 3-digit number (padded with zeros)
-        return $hostelCode . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Generate employee code based on hostel ID (Alternative - Numeric Only)
-     * Format: HOSTEL_ID + SEQUENTIAL_NUMBER
-     * Example: For Hostel ID 1, first resident: 10001, second: 10002, etc.
-     */
-    public function generateEmployeeCodeNumeric(): int
-    {
-        // Get hostel ID as base (e.g., 1, 2, 3)
-        $hostelId = $this->hostel_id ?? 1;
-        
-        // Get the count of residents in this hostel
-        $residentCount = Resident::where('hostel_id', $hostelId)->count();
-        
-        // Generate code: HostelID * 10000 + (Count + 1)
-        // Example: Hostel 1 -> 10001, 10002, 10003...
-        // Hostel 2 -> 20001, 20002, 20003...
-        $code = ($hostelId * 10000) + ($residentCount + 1);
-        
-        return $code;
-    }
-
-    /**
-     * Generate employee code with custom format
-     * Format: HOSTEL_CODE + YEAR + SEQUENTIAL_NUMBER
-     * Example: SAN2026001, SAN2026002, etc.
-     */
-    public function generateEmployeeCodeWithYear(): string
-    {
-        $hostelCode = $this->getHostelCodePrefix();
-        $year = date('Y');
-        
-        $lastResident = Resident::where('hostel_id', $this->hostel_id)
-            ->whereNotNull('employee_code')
-            ->where('employee_code', 'LIKE', $hostelCode . $year . '%')
-            ->orderBy('employee_code', 'desc')
-            ->first();
-
-        if ($lastResident && $lastResident->employee_code) {
-            $lastNumber = (int) substr($lastResident->employee_code, -3);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
-
-        return $hostelCode . $year . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Get hostel code prefix for employee code
-     */
-    private function getHostelCodePrefix(): string
-    {
-        $hostel = Hostel::find($this->hostel_id);
-        if ($hostel) {
-            // Remove spaces and take first 3 characters
-            $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $hostel->hostel_code));
-            return substr($code, 0, 3);
-        }
-        
-        // Default fallback based on hostel ID
-        return 'H' . str_pad($this->hostel_id ?? 1, 2, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Get next employee code for a specific hostel (without saving)
-     */
-    public static function getNextEmployeeCodeForHostel(int $hostelId): string
-    {
-        $hostel = Hostel::find($hostelId);
-        $hostelCode = $hostel ? substr(strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $hostel->hostel_code)), 0, 3) : 'H' . str_pad($hostelId, 2, '0', STR_PAD_LEFT);
-        
-        $lastResident = Resident::where('hostel_id', $hostelId)
-            ->whereNotNull('employee_code')
-            ->orderBy('employee_code', 'desc')
-            ->first();
-
-        if ($lastResident && $lastResident->employee_code) {
-            $lastNumber = (int) substr($lastResident->employee_code, -3);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
-        }
-
-        return $hostelCode . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Get next numeric employee code for a specific hostel (without saving)
-     */
-    public static function getNextNumericEmployeeCodeForHostel(int $hostelId): int
-    {
-        $residentCount = Resident::where('hostel_id', $hostelId)->count();
-        return ($hostelId * 10000) + ($residentCount + 1);
-    }
-
-    /**
      * Enable biometric access for this resident
      */
     public function enableBiometricAccess(): void
@@ -507,4 +382,25 @@ class Resident extends Model
             'balance' => $payment->balance_amount ?? 0,
         ];
     }
+  public function generateEmployeeCode()
+{
+    $hostelId = $this->hostel_id;
+
+    if (!$hostelId) {
+        throw new \Exception('Hostel ID is required');
+    }
+
+    $lastEmployee = self::where('hostel_id', $hostelId)
+        ->whereNotNull('employee_code')
+        ->orderByRaw('CAST(employee_code AS UNSIGNED) DESC')
+        ->first();
+
+    if (!$lastEmployee) {
+        $sequence = 1;
+    } else {
+        $sequence = ((int) $lastEmployee->employee_code % 10000) + 1;
+    }
+
+    return ($hostelId * 10000) + $sequence;
+}
 }
