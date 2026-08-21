@@ -535,8 +535,16 @@
         <div class="ds-stat red">
             <div class="ds-stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
             <div class="ds-stat-label">Pending Amount</div>
-            <div class="ds-stat-value">₹{{ number_format($totalPending / 100000, 1) }}L</div>
-            <span class="ds-stat-change down"><i class="bi bi-arrow-up-short"></i>{{ $pendingCount }} pending</span>
+            <div class="ds-stat-value">
+                ₹{{ $totalPending > 0 ? number_format($totalPending / 100000, 1) : '0.0' }}L
+            </div>
+            <span class="ds-stat-change down">
+                <i class="bi bi-arrow-up-short"></i>
+                {{ $pendingCount }} pending
+                @if($partialCount > 0)
+                    ({{ $partialCount }} partial)
+                @endif
+            </span>
         </div>
     </div>
 </div>
@@ -653,6 +661,14 @@
                                     <span>Beds</span>
                                     <span class="value">{{ $stat['occupied'] }}/{{ $stat['beds'] }}</span>
                                 </div>
+                                <div class="stat-item">
+                                    <span>Collected</span>
+                                    <span class="value">₹{{ number_format($stat['collected'] / 100000, 1) }}L</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span>Pending</span>
+                                    <span class="value" style="color:#ef4444;">₹{{ number_format($stat['pending'] / 100000, 1) }}L</span>
+                                </div>
                                 <div class="occupancy-bar">
                                     <div class="fill" style="width: {{ $stat['occupancy_rate'] }}%; background: {{ $stat['occupancy_rate'] >= 70 ? '#10b981' : ($stat['occupancy_rate'] >= 40 ? '#f59e0b' : '#ef4444') }};"></div>
                                 </div>
@@ -702,7 +718,16 @@
                                 <td><span style="color:#6b7280;">{{ $payment->resident->hostel->hostel_name ?? 'N/A' }}</span></td>
                                 <td><span style="font-family:var(--font-mono); font-weight:500; color:#0a2e1a;">₹{{ number_format($payment->rent_amount, 0) }}</span></td>
                                 <td><span style="color:#9ca3af; font-size:0.72rem;">{{ $payment->payment_date->format('d M Y') }}</span></td>
-                                <td><span class="ds-pill {{ $payment->status_badge }}">{{ $payment->status_label }}</span></td>
+                                <td>
+                                    @php
+                                        $statusClass = '';
+                                        if($payment->status == 'PAID') $statusClass = 'paid';
+                                        elseif($payment->status == 'PENDING') $statusClass = 'pending';
+                                        elseif($payment->status == 'PARTIAL') $statusClass = 'partial';
+                                        else $statusClass = 'overdue';
+                                    @endphp
+                                    <span class="ds-pill {{ $statusClass }}">{{ $payment->status }}</span>
+                                </td>
                                 <td>
                                     <a href="#" style="color:#10b981; font-size:13px;" title="View">
                                         <i class="bi bi-eye"></i>
@@ -770,7 +795,7 @@
                             <div class="ds-activity-time">
                                 {{ $payment->created_at->diffForHumans() }}
                                 <span style="color:#6b7280;">•</span>
-                                {{ $payment->status_label }}
+                                {{ $payment->status }}
                             </div>
                         </div>
                     </div>
@@ -913,6 +938,104 @@
         </div>
     </div>
 </div>
+
+{{-- ── Debug Section (Only shows in development) ── --}}
+@if(config('app.debug'))
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="ds-card" style="background:#f8f9fa; border-color: #dc3545;">
+            <div class="ds-card-head" style="border-bottom-color: #dc3545;">
+                <div class="ds-card-title" style="color:#dc3545;">
+                    <i class="bi bi-bug"></i> Debug: Payment Calculation
+                </div>
+                <span style="font-size:0.7rem; color:#6b7280;">Remove in production</span>
+            </div>
+            <div class="ds-card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Summary</h6>
+                        <table class="table table-sm table-bordered">
+                            <tr>
+                                <th style="width: 40%;">Month</th>
+                                <td>{{ $calculationSummary['month'] ?? 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Active Residents</th>
+                                <td>{{ $calculationSummary['total_active_residents'] ?? 0 }}</td>
+                            </tr>
+                            <tr>
+                                <th>Total Rent (All Active)</th>
+                                <td>₹{{ number_format($calculationSummary['total_rent_for_active_residents'] ?? 0, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <th>Total Collected</th>
+                                <td>₹{{ number_format($calculationSummary['total_collected'] ?? 0, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <th class="fw-bold text-danger">Total Pending</th>
+                                <td class="fw-bold text-danger">₹{{ number_format($calculationSummary['total_pending'] ?? 0, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <th>Pending (Alternative)</th>
+                                <td>₹{{ number_format($calculationSummary['total_pending_alternative'] ?? 0, 2) }}</td>
+                            </tr>
+                            <tr>
+                                <th>Paid Residents</th>
+                                <td>{{ $calculationSummary['paid_count'] ?? 0 }}</td>
+                            </tr>
+                            <tr>
+                                <th>Pending Residents</th>
+                                <td>{{ $calculationSummary['pending_count'] ?? 0 }}</td>
+                            </tr>
+                            <tr>
+                                <th>Partial Residents</th>
+                                <td>{{ $calculationSummary['partial_count'] ?? 0 }}</td>
+                            </tr>
+                            <tr>
+                                <th>Payments This Month</th>
+                                <td>{{ $calculationSummary['payment_count'] ?? 0 }}</td>
+                            </tr>
+                            <tr>
+                                <th>Residents with Payments</th>
+                                <td>{{ $calculationSummary['residents_with_payments'] ?? 0 }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="mb-3">Pending Details</h6>
+                        @if(!empty($calculationSummary['pending_details']))
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Resident</th>
+                                            <th>Rent</th>
+                                            <th>Balance</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($calculationSummary['pending_details'] as $detail)
+                                        <tr>
+                                            <td>{{ $detail['resident'] }}</td>
+                                            <td>₹{{ number_format($detail['rent'], 2) }}</td>
+                                            <td class="text-danger fw-bold">₹{{ number_format($detail['balance'], 2) }}</td>
+                                            <td><span class="badge bg-warning">{{ $detail['status'] }}</span></td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <p class="text-muted">No pending details available</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 @endsection
 

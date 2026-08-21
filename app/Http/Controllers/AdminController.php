@@ -69,6 +69,7 @@ class AdminController extends Controller
         // Get all ACTIVE residents for this hostel
         $activeResidents = Resident::whereIn('hostel_id', $hostelIds)
             ->where('status', 'ACTIVE')
+            ->with(['room', 'hostel']) // Eager load relationships
             ->get();
 
         // Get payments for current month
@@ -90,6 +91,7 @@ class AdminController extends Controller
         $paidResidents = 0;
         $partialResidents = 0;
         $totalRentForActiveResidents = 0;
+        $pendingDetails = []; // For debugging
 
         foreach ($activeResidents as $resident) {
             // Get the resident's rent amount
@@ -107,13 +109,31 @@ class AdminController extends Controller
                     if ($monthlyPayment->status === 'PARTIAL') {
                         $partialResidents++;
                         $totalPending += $balance;
+                        $pendingDetails[] = [
+                            'resident' => $resident->name,
+                            'rent' => $rentAmount,
+                            'balance' => $balance,
+                            'status' => 'PARTIAL'
+                        ];
                     } elseif ($monthlyPayment->status === 'PENDING') {
                         $pendingResidents++;
                         $totalPending += $balance;
+                        $pendingDetails[] = [
+                            'resident' => $resident->name,
+                            'rent' => $rentAmount,
+                            'balance' => $balance,
+                            'status' => 'PENDING'
+                        ];
                     } else {
                         // If status is PAID but balance > 0 (shouldn't happen, but just in case)
                         $partialResidents++;
                         $totalPending += $balance;
+                        $pendingDetails[] = [
+                            'resident' => $resident->name,
+                            'rent' => $rentAmount,
+                            'balance' => $balance,
+                            'status' => 'PAID_WITH_BALANCE'
+                        ];
                     }
                 } else {
                     // Fully paid
@@ -123,11 +143,25 @@ class AdminController extends Controller
                 // No payment made this month - FULL PENDING
                 $pendingResidents++;
                 $totalPending += $rentAmount;
+                $pendingDetails[] = [
+                    'resident' => $resident->name,
+                    'rent' => $rentAmount,
+                    'balance' => $rentAmount,
+                    'status' => 'NO_PAYMENT'
+                ];
             }
         }
 
         // Alternative calculation: Total Pending = (Total Rent for all active residents) - Total Collected
         $totalPendingAlternative = $totalRentForActiveResidents - $totalCollected;
+
+        // If totalPending is 0 but there are residents, check if we have any payments at all
+        if ($totalPending == 0 && $activeResidents->count() > 0 && $currentMonthPayments->count() == 0) {
+            // No payments made this month at all - all residents are pending
+            $totalPending = $totalRentForActiveResidents;
+            $pendingResidents = $activeResidents->count();
+            $paidResidents = 0;
+        }
 
         // Payment status counts for current month
         $paidCount = $paidResidents;
@@ -226,6 +260,7 @@ class AdminController extends Controller
             // Hostel wise payment summary for current month
             $hostelActiveResidents = Resident::where('hostel_id', $hostel->id)
                 ->where('status', 'ACTIVE')
+                ->with('room')
                 ->get();
             
             $hostelCurrentMonthPayments = Payment::whereHas('resident', function($q) use ($hostel) {
@@ -327,6 +362,7 @@ class AdminController extends Controller
             'partial_count' => $partialCount,
             'payment_count' => $totalPayments,
             'residents_with_payments' => $currentMonthPayments->pluck('resident_id')->unique()->count(),
+            'pending_details' => $pendingDetails
         ];
 
         // Get current user
