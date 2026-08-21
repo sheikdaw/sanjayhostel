@@ -59,41 +59,84 @@ class AdminController extends Controller
         $occupancyRate = $totalBeds > 0 ? round(($occupiedBeds / $totalBeds) * 100, 1) : 0;
 
         // ============================================================
-        // PAYMENT STATISTICS - FIXED
+        // PAYMENT STATISTICS - FIXED FOR CURRENT MONTH
         // ============================================================
 
-        // Get all payments for this hostel
-        $payments = Payment::whereHas('resident', function($q) use ($hostelIds) {
+        // Get current month range
+        $currentMonthStart = now()->startOfMonth();
+        $currentMonthEnd = now()->endOfMonth();
+
+        // Get all ACTIVE residents for this hostel
+        $activeResidents = Resident::whereIn('hostel_id', $hostelIds)
+            ->where('status', 'ACTIVE')
+            ->get();
+
+        // Get payments for current month
+        $currentMonthPayments = Payment::whereHas('resident', function($q) use ($hostelIds) {
             $q->whereIn('hostel_id', $hostelIds);
-        })->get();
+        })
+        ->whereBetween('payment_date', [$currentMonthStart, $currentMonthEnd])
+        ->get();
 
-        $totalPayments = $payments->count();
+        // Total payments count for current month
+        $totalPayments = $currentMonthPayments->count();
 
-        // Total Collected (Cash + UPI)
-        $totalCollected = $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount');
+        // Total Collected (Cash + UPI) for current month
+        $totalCollected = $currentMonthPayments->sum('cash_paid_amount') + $currentMonthPayments->sum('upi_paid_amount');
 
-        // Total Rent Amount (from all payments)
-        $totalRent = $payments->sum('rent_amount');
+        // Calculate pending amount for each active resident
+        $totalPending = 0;
+        $pendingResidents = 0;
+        $paidResidents = 0;
+        $partialResidents = 0;
+        $totalRentForActiveResidents = 0;
 
-        // Total Balance (sum of all balance amounts)
-        $totalBalance = $payments->sum('balance_amount');
+        foreach ($activeResidents as $resident) {
+            // Get the resident's rent amount
+            $rentAmount = $resident->room->rent_amount ?? 0;
+            $totalRentForActiveResidents += $rentAmount;
 
-        // Total Pending = SUM of balance_amount where status is PENDING or PARTIAL
-        // This is the amount still due from residents
-        $totalPending = $payments->whereIn('status', ['PENDING', 'PARTIAL'])->sum('balance_amount');
+            // Get this month's payment for this resident
+            $monthlyPayment = $currentMonthPayments->firstWhere('resident_id', $resident->id);
+            
+            if ($monthlyPayment) {
+                $balance = $monthlyPayment->balance_amount;
+                
+                if ($balance > 0) {
+                    // Partial payment or pending
+                    if ($monthlyPayment->status === 'PARTIAL') {
+                        $partialResidents++;
+                        $totalPending += $balance;
+                    } elseif ($monthlyPayment->status === 'PENDING') {
+                        $pendingResidents++;
+                        $totalPending += $balance;
+                    } else {
+                        // If status is PAID but balance > 0 (shouldn't happen, but just in case)
+                        $partialResidents++;
+                        $totalPending += $balance;
+                    }
+                } else {
+                    // Fully paid
+                    $paidResidents++;
+                }
+            } else {
+                // No payment made this month - FULL PENDING
+                $pendingResidents++;
+                $totalPending += $rentAmount;
+            }
+        }
 
-        // Alternative calculation: Total Pending = Total Rent - Total Collected
-        // But we use the balance_amount sum as it's more accurate
-        // $totalPendingAlternative = $totalRent - $totalCollected;
+        // Alternative calculation: Total Pending = (Total Rent for all active residents) - Total Collected
+        $totalPendingAlternative = $totalRentForActiveResidents - $totalCollected;
 
-        // Count of pending payments
-        $pendingCount = $payments->where('status', 'PENDING')->count();
+        // Payment status counts for current month
+        $paidCount = $paidResidents;
+        $pendingCount = $pendingResidents;
+        $partialCount = $partialResidents;
 
-        // Count of partial payments
-        $partialCount = $payments->where('status', 'PARTIAL')->count();
-
-        // Count of paid payments
-        $paidCount = $payments->where('status', 'PAID')->count();
+        // Total balance for current month
+        $totalBalance = $currentMonthPayments->sum('balance_amount');
+        $totalRent = $currentMonthPayments->sum('rent_amount');
 
         // ============================================================
         // MONTHLY PAYMENTS CHART (Last 6 months)
@@ -180,16 +223,46 @@ class AdminController extends Controller
                 $q->where('hostel_id', $hostel->id);
             })->where('status', 'OCCUPIED')->count();
 
-            // Hostel wise payment summary
-            $hostelPayments = Payment::whereHas('resident', function($q) use ($hostel) {
+            // Hostel wise payment summary for current month
+            $hostelActiveResidents = Resident::where('hostel_id', $hostel->id)
+                ->where('status', 'ACTIVE')
+                ->get();
+            
+            $hostelCurrentMonthPayments = Payment::whereHas('resident', function($q) use ($hostel) {
                 $q->where('hostel_id', $hostel->id);
-            })->get();
+            })
+            ->whereBetween('payment_date', [$currentMonthStart, $currentMonthEnd])
+            ->get();
 
-            $hostelCollected = $hostelPayments->sum('cash_paid_amount') + $hostelPayments->sum('upi_paid_amount');
-            $hostelPending = $hostelPayments->whereIn('status', ['PENDING', 'PARTIAL'])->sum('balance_amount');
-            $hostelPaidCount = $hostelPayments->where('status', 'PAID')->count();
-            $hostelPendingCount = $hostelPayments->where('status', 'PENDING')->count();
-            $hostelPartialCount = $hostelPayments->where('status', 'PARTIAL')->count();
+            $hostelCollected = $hostelCurrentMonthPayments->sum('cash_paid_amount') + $hostelCurrentMonthPayments->sum('upi_paid_amount');
+            
+            // Calculate hostel pending
+            $hostelPending = 0;
+            $hostelPaidCount = 0;
+            $hostelPendingCount = 0;
+            $hostelPartialCount = 0;
+            
+            foreach ($hostelActiveResidents as $resident) {
+                $rentAmount = $resident->room->rent_amount ?? 0;
+                $monthlyPayment = $hostelCurrentMonthPayments->firstWhere('resident_id', $resident->id);
+                
+                if ($monthlyPayment) {
+                    if ($monthlyPayment->balance_amount > 0) {
+                        if ($monthlyPayment->status === 'PARTIAL') {
+                            $hostelPartialCount++;
+                            $hostelPending += $monthlyPayment->balance_amount;
+                        } elseif ($monthlyPayment->status === 'PENDING') {
+                            $hostelPendingCount++;
+                            $hostelPending += $monthlyPayment->balance_amount;
+                        }
+                    } else {
+                        $hostelPaidCount++;
+                    }
+                } else {
+                    $hostelPendingCount++;
+                    $hostelPending += $rentAmount;
+                }
+            }
 
             $hostelStats[] = [
                 'name' => $hostel->hostel_name,
@@ -243,16 +316,17 @@ class AdminController extends Controller
         // ============================================================
 
         $calculationSummary = [
-            'total_rent' => $totalRent,
+            'month' => $currentMonthStart->format('F Y'),
+            'total_active_residents' => $activeResidents->count(),
+            'total_rent_for_active_residents' => $totalRentForActiveResidents,
             'total_collected' => $totalCollected,
-            'total_balance' => $totalBalance,
             'total_pending' => $totalPending,
+            'total_pending_alternative' => $totalPendingAlternative,
+            'paid_count' => $paidCount,
             'pending_count' => $pendingCount,
             'partial_count' => $partialCount,
-            'paid_count' => $paidCount,
             'payment_count' => $totalPayments,
-            // Formula: Total Pending = Total Rent - Total Collected
-            'pending_by_formula' => $totalRent - $totalCollected
+            'residents_with_payments' => $currentMonthPayments->pluck('resident_id')->unique()->count(),
         ];
 
         // Get current user
