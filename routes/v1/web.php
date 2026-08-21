@@ -278,15 +278,15 @@ Route::prefix('residents')->name('residents.')->group(function () {
             // 5. Summary Reports
             Route::get('/export/summary', [PaymentController::class, 'exportPaymentSummary'])->name('export.summary');
                Route::get('pdf/resident-status', [PaymentController::class, 'pdfResidentPaymentStatus'])->name('pdf.resident-status');
-    Route::get('pdf/pending-residents', [PaymentController::class, 'pdfPendingResidents'])->name('pdf.pending-residents');
-    Route::get('pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
-    Route::get('pdf/paid', [PaymentController::class, 'pdfPaidPayments'])->name('pdf.paid');
-    Route::get('pdf/unpaid', [PaymentController::class, 'pdfUnpaidPayments'])->name('pdf.unpaid');
-    Route::get('pdf/hostel-wise', [PaymentController::class, 'pdfHostelWise'])->name('pdf.hostel-wise');
-    Route::get('pdf/summary', [PaymentController::class, 'pdfPaymentSummary'])->name('pdf.summary');
-    Route::get('pdf/monthly-unpaid', [PaymentController::class, 'pdfMonthlyUnpaid'])->name('pdf.monthly-unpaid');
-    Route::get('pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
-    Route::post('pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
+                Route::get('pdf/pending-residents', [PaymentController::class, 'pdfPendingResidents'])->name('pdf.pending-residents');
+                Route::get('pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
+                Route::get('pdf/paid', [PaymentController::class, 'pdfPaidPayments'])->name('pdf.paid');
+                Route::get('pdf/unpaid', [PaymentController::class, 'pdfUnpaidPayments'])->name('pdf.unpaid');
+                Route::get('pdf/hostel-wise', [PaymentController::class, 'pdfHostelWise'])->name('pdf.hostel-wise');
+                Route::get('pdf/summary', [PaymentController::class, 'pdfPaymentSummary'])->name('pdf.summary');
+                Route::get('pdf/monthly-unpaid', [PaymentController::class, 'pdfMonthlyUnpaid'])->name('pdf.monthly-unpaid');
+                Route::get('pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
+                Route::post('pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
         });
 
         // 7. User Management
