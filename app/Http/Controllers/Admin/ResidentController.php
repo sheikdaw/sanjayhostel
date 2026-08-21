@@ -69,6 +69,148 @@ class ResidentController extends Controller
     }
 
     /**
+     * Export filtered residents to CSV
+     */
+    public function export(Request $request)
+    {
+        $user = auth()->user();
+
+        // Build query based on filters
+        $query = Resident::with(['hostel', 'room', 'bed']);
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by hostel
+        if ($request->filled('hostel_id')) {
+            $query->where('hostel_id', $request->hostel_id);
+        }
+
+        // Filter by gender (based on hostel type)
+        if ($request->filled('gender')) {
+            $hostelIds = Hostel::where('hostel_type', $request->gender)->pluck('id');
+            $query->whereIn('hostel_id', $hostelIds);
+        }
+
+        // Filter by food status
+        if ($request->filled('food_status')) {
+            $query->where('food_status', $request->food_status);
+        }
+
+        // Filter by biometric status
+        if ($request->filled('biometric_status')) {
+            if ($request->biometric_status == 'enabled') {
+                $query->where('biometric_access', true);
+            } elseif ($request->biometric_status == 'disabled') {
+                $query->where('biometric_access', false);
+            } elseif ($request->biometric_status == 'not_synced') {
+                $query->whereNull('employee_code');
+            }
+        }
+
+        // Search filter
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('resident_code', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%")
+                  ->orWhere('employee_code', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Apply user role restriction
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $query->whereIn('hostel_id', $hostelIds);
+        }
+
+        // Order by
+        $query->orderBy('name');
+
+        $residents = $query->get();
+
+        // If no residents found, return empty CSV with headers
+        if ($residents->isEmpty()) {
+            $csv = "\xEF\xBB\xBF";
+            $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Hostel Type,Room,Bed,Bed Type,Food Status,Joining Date,Vacate Date,Rent (₹),Deposit (₹),Status,Employee Code,Biometric Access,Last Sync\n";
+            $csv .= "No data found matching the filters,,,,,,,,,,,,,,,,,,,\n";
+
+            return response($csv)
+                ->header('Content-Type', 'text/csv; charset=UTF-8')
+                ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"');
+        }
+
+        // Build CSV content
+        $csv = "\xEF\xBB\xBF"; // UTF-8 BOM
+        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Hostel Type,Room,Bed,Bed Type,Food Status,Joining Date,Vacate Date,Rent (₹),Deposit (₹),Status,Employee Code,Biometric Access,Last Sync\n";
+
+        foreach ($residents as $resident) {
+            $hostelName = $resident->hostel ? $resident->hostel->hostel_name : 'N/A';
+            $hostelType = $resident->hostel ? $resident->hostel->hostel_type : 'N/A';
+            $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
+            $bedNo = $resident->bed ? $resident->bed->bed_no : 'N/A';
+            $bedType = $resident->bed ? $resident->bed->bed_type : 'N/A';
+            $foodLabel = $resident->food_status == 'WITH_FOOD' ? 'With Food' : 'Without Food';
+            $biometricAccess = $resident->biometric_access ? 'Enabled' : 'Disabled';
+            $lastSync = $resident->last_sync_at ? $resident->last_sync_at->format('Y-m-d H:i:s') : 'Never';
+
+            $csv .= $this->csvEscape($resident->id) . ",";
+            $csv .= $this->csvEscape($resident->resident_code) . ",";
+            $csv .= $this->csvEscape($resident->name) . ",";
+            $csv .= $this->csvEscape($resident->phone) . ",";
+            $csv .= $this->csvEscape($resident->parentsphone ?? '') . ",";
+            $csv .= $this->csvEscape($resident->email ?? '') . ",";
+            $csv .= $this->csvEscape($hostelName) . ",";
+            $csv .= $this->csvEscape($hostelType) . ",";
+            $csv .= $this->csvEscape($roomNo) . ",";
+            $csv .= $this->csvEscape($bedNo) . ",";
+            $csv .= $this->csvEscape($bedType) . ",";
+            $csv .= $this->csvEscape($foodLabel) . ",";
+            $csv .= $this->csvEscape($resident->joining_date ? $resident->joining_date->format('Y-m-d') : '') . ",";
+            $csv .= $this->csvEscape($resident->vacate_date ? $resident->vacate_date->format('Y-m-d') : '') . ",";
+            $csv .= $this->csvEscape(number_format($resident->rent_amount ?? 0, 2)) . ",";
+            $csv .= $this->csvEscape(number_format($resident->deposit_amount ?? 0, 2)) . ",";
+            $csv .= $this->csvEscape($resident->status) . ",";
+            $csv .= $this->csvEscape($resident->employee_code ?? 'Not Synced') . ",";
+            $csv .= $this->csvEscape($biometricAccess) . ",";
+            $csv .= $this->csvEscape($lastSync) . "\n";
+        }
+
+        // Generate filename with filters info
+        $filename = 'residents';
+        if ($request->filled('status')) {
+            $filename .= '-' . strtolower($request->status);
+        }
+        if ($request->filled('hostel_id')) {
+            $hostel = Hostel::find($request->hostel_id);
+            if ($hostel) {
+                $filename .= '-' . $hostel->hostel_code;
+            }
+        }
+        $filename .= '-' . date('Y-m-d') . '.csv';
+
+        return response($csv)
+            ->header('Content-Type', 'text/csv; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->header('Pragma', 'public')
+            ->header('Cache-Control', 'max-age=86400');
+    }
+
+    /**
+     * Export filtered residents to Excel (optional - if you want to add later)
+     */
+    public function exportExcel(Request $request)
+    {
+        // This is a placeholder for Excel export if needed
+        // You can use Laravel Excel package for this
+        return $this->export($request);
+    }
+
+    /**
      * Get full resident details including all information
      */
     public function getResidentDetails($id)
@@ -684,101 +826,101 @@ class ResidentController extends Controller
      * Sync a single resident to biometric system
      */
     public function syncToBiometric($id)
-{
-    try {
-        $resident = Resident::findOrFail($id);
+    {
+        try {
+            $resident = Resident::findOrFail($id);
 
-        // ✅ Generate numeric employee code
-        if (!$resident->employee_code) {
-            $resident->employee_code = $resident->generateEmployeeCode();  // Returns number
+            // Generate numeric employee code
+            if (!$resident->employee_code) {
+                $resident->employee_code = $resident->generateEmployeeCode();
+            }
+
+            $resident->biometric_access = true;
+            $resident->last_sync_at = now();
+            $resident->access_enabled_at = now();
+            $resident->access_disabled_at = null;
+            $resident->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Resident synced to biometric system successfully',
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'employee_code' => $resident->employee_code,
+                    'biometric_access' => $resident->biometric_access
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
         }
-
-        $resident->biometric_access = true;
-        $resident->last_sync_at = now();
-        $resident->access_enabled_at = now();
-        $resident->access_disabled_at = null;
-        $resident->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Resident synced to biometric system successfully',
-            'data' => [
-                'resident_id' => $resident->id,
-                'name' => $resident->name,
-                'employee_code' => $resident->employee_code,  // Now numeric: 10001
-                'biometric_access' => $resident->biometric_access
-            ]
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
     }
-}
 
     /**
      * Sync all residents to biometric system
      */
-   public function syncAllToBiometric()
-{
-    try {
-        $residents = Resident::all();
+    public function syncAllToBiometric()
+    {
+        try {
+            $residents = Resident::all();
 
-        if ($residents->isEmpty()) {
+            if ($residents->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No residents found'
+                ]);
+            }
+
+            $successCount = 0;
+            $failureCount = 0;
+            $results = [];
+
+            foreach ($residents as $resident) {
+                try {
+                    $resident->employee_code = $resident->generateEmployeeCode();
+                    $resident->biometric_access = true;
+                    $resident->last_sync_at = now();
+                    $resident->access_enabled_at = now();
+                    $resident->access_disabled_at = null;
+                    $resident->save();
+                    $successCount++;
+                    $results[] = [
+                        'resident_id' => $resident->id,
+                        'name' => $resident->name,
+                        'employee_code' => $resident->employee_code,
+                        'status' => 'success'
+                    ];
+                } catch (\Exception $e) {
+                    $failureCount++;
+                    $results[] = [
+                        'resident_id' => $resident->id,
+                        'name' => $resident->name,
+                        'status' => 'failed',
+                        'message' => $e->getMessage()
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => $failureCount === 0,
+                'total' => $residents->count(),
+                'success_count' => $successCount,
+                'failure_count' => $failureCount,
+                'data' => $results
+            ]);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'No residents found'
+                'error' => $e->getMessage()
             ]);
         }
-
-        $successCount = 0;
-        $failureCount = 0;
-        $results = [];
-
-        foreach ($residents as $resident) {
-            try {
-                // ✅ Generate numeric employee code
-                $resident->employee_code = $resident->generateEmployeeCode();  // Returns number
-                $resident->biometric_access = true;
-                $resident->last_sync_at = now();
-                $resident->access_enabled_at = now();
-                $resident->access_disabled_at = null;
-                $resident->save();
-                $successCount++;
-                $results[] = [
-                    'resident_id' => $resident->id,
-                    'name' => $resident->name,
-                    'employee_code' => $resident->employee_code,  // Now numeric
-                    'status' => 'success'
-                ];
-            } catch (\Exception $e) {
-                $failureCount++;
-                $results[] = [
-                    'resident_id' => $resident->id,
-                    'name' => $resident->name,
-                    'status' => 'failed',
-                    'message' => $e->getMessage()
-                ];
-            }
-        }
-
-        return response()->json([
-            'success' => $failureCount === 0,
-            'total' => $residents->count(),
-            'success_count' => $successCount,
-            'failure_count' => $failureCount,
-            'data' => $results
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
     }
-}
+
     /**
      * Get residents with biometric status
      */
@@ -851,92 +993,6 @@ class ResidentController extends Controller
                 'error' => $e->getMessage()
             ]);
         }
-    }
-
-    /**
-     * Export residents to CSV
-     *
-     * Supports two modes:
-     *  - No `ids` param: exports all residents the user can see (same as before).
-     *  - `ids[]=1&ids[]=2...`: exports ONLY those residents — used by the
-     *    "Export" button on the dashboard so it respects whatever client-side
-     *    filters (status/hostel/gender/food/biometric/search) are currently applied.
-     *
-     * In both cases, results are sorted by room number (natural sort, so
-     * A1, A2, A10 order correctly instead of A1, A10, A2).
-     */
-    public function export(Request $request)
-    {
-        $user = auth()->user();
-
-        $query = Resident::with(['hostel', 'room', 'bed']);
-
-        // Always enforce the user's hostel scope first, regardless of ids passed in,
-        // so a non-admin can never export residents outside their assigned hostels.
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $query->whereIn('hostel_id', $hostelIds);
-        }
-
-        // If specific IDs were passed (i.e. the export was triggered while
-        // filters were applied on the page), restrict to just those.
-        if ($request->filled('ids')) {
-            $query->whereIn('id', (array) $request->input('ids'));
-        }
-
-        $residents = $query->get();
-
-        if ($residents->isEmpty()) {
-            $csv = "No residents found matching the current selection.\n";
-            $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
-            $csv .= "No data available,,,,,,,,,,,,,,,,,,\n";
-
-            return response($csv)
-                ->header('Content-Type', 'text/csv; charset=UTF-8')
-                ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"');
-        }
-
-        // Sort by room number using natural ordering (A1, A2, A10 — not A1, A10, A2)
-        $residents = $residents->sort(function ($a, $b) {
-            $roomA = $a->room->room_no ?? '';
-            $roomB = $b->room->room_no ?? '';
-            return strnatcmp($roomA, $roomB);
-        })->values();
-
-        $csv = "\xEF\xBB\xBF";
-        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
-
-        foreach ($residents as $resident) {
-            $hostelName = $resident->hostel ? $resident->hostel->hostel_name : 'N/A';
-            $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
-            $bedNo = $resident->bed ? $resident->bed->bed_no : 'N/A';
-            $foodLabel = $resident->food_status == 'WITH_FOOD' ? 'With Food' : 'Without Food';
-            $biometricAccess = $resident->biometric_access ? 'Enabled' : 'Disabled';
-
-            $csv .= $this->csvEscape($resident->id) . ",";
-            $csv .= $this->csvEscape($resident->resident_code) . ",";
-            $csv .= $this->csvEscape($resident->name) . ",";
-            $csv .= $this->csvEscape($resident->phone) . ",";
-            $csv .= $this->csvEscape($resident->parentsphone ?? '') . ",";
-            $csv .= $this->csvEscape($resident->email ?? '') . ",";
-            $csv .= $this->csvEscape($hostelName) . ",";
-            $csv .= $this->csvEscape($roomNo) . ",";
-            $csv .= $this->csvEscape($bedNo) . ",";
-            $csv .= $this->csvEscape($foodLabel) . ",";
-            $csv .= $this->csvEscape($resident->joining_date ? $resident->joining_date->format('Y-m-d') : '') . ",";
-            $csv .= $this->csvEscape($resident->vacate_date ? $resident->vacate_date->format('Y-m-d') : '') . ",";
-            $csv .= $this->csvEscape(number_format($resident->rent_amount ?? 0, 2)) . ",";
-            $csv .= $this->csvEscape(number_format($resident->deposit_amount ?? 0, 2)) . ",";
-            $csv .= $this->csvEscape($resident->status) . ",";
-            $csv .= $this->csvEscape($resident->employee_code ?? 'Not Synced') . ",";
-            $csv .= $this->csvEscape($biometricAccess) . "\n";
-        }
-
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"')
-            ->header('Pragma', 'public')
-            ->header('Cache-Control', 'max-age=86400');
     }
 
     // ============================================

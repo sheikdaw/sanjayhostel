@@ -992,8 +992,8 @@
                 @endif
             </div>
             <div class="header-actions">
-                <button type="button" class="btn-secondary-custom" onclick="exportData()">
-                    <i class="bi bi-download"></i> Export
+                <button type="button" class="btn-secondary-custom" onclick="exportFilteredData()">
+                    <i class="bi bi-download"></i> Export Filtered
                 </button>
                 <button type="button" class="btn-purple-custom" onclick="syncAllBiometric()">
                     <i class="bi bi-cloud-upload"></i> Sync Biometric
@@ -1078,7 +1078,7 @@
         </div>
 
         {{-- ============================================
-        FILTERS - FIXED WITH PROPER DATA ATTRIBUTES
+        FILTERS
         ============================================ --}}
         <div class="filter-section no-print">
             <div class="filter-group">
@@ -1132,16 +1132,12 @@
         </div>
 
         {{-- ============================================
-        RESIDENTS GRID - WITH PROPER DATA ATTRIBUTES
+        RESIDENTS GRID
         ============================================ --}}
         <div id="residentsContainer">
             @if ($residents->count() > 0)
                 <div class="row g-4" id="residentsGrid">
                     @foreach ($residents as $resident)
-                        {{--
-                            IMPORTANT: All data-* attributes must be properly set
-                            These are used by the filter JavaScript
-                        --}}
                         <div class="col-xl-3 col-lg-4 col-md-6 resident-item"
                              data-id="{{ $resident->id }}"
                              data-status="{{ $resident->status }}"
@@ -1236,17 +1232,17 @@
                                         <i class="bi bi-files"></i>
                                         <span class="label">Docs:</span>
                                         @if ($resident->profile_image)
-                                            <span class="document-badge has-doc" onclick="viewDocument('{{ $resident->profile_image_url }}', 'Profile Image')">
+                                            <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->profile_image) }}', 'Profile Image')">
                                                 <i class="bi bi-image"></i> Profile
                                             </span>
                                         @endif
                                         @if ($resident->aadhar_document)
-                                            <span class="document-badge has-doc" onclick="viewDocument('{{ $resident->aadhar_document_url }}', 'Aadhar Document')">
+                                            <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->aadhar_document) }}', 'Aadhar Document')">
                                                 <i class="bi bi-file-earmark-pdf"></i> Aadhar
                                             </span>
                                         @endif
                                         @if ($resident->application_document)
-                                            <span class="document-badge has-doc" onclick="viewDocument('{{ $resident->application_document_url }}', 'Application')">
+                                            <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->application_document) }}', 'Application')">
                                                 <i class="bi bi-file-earmark-text"></i> App
                                             </span>
                                         @endif
@@ -1345,7 +1341,7 @@
     </div>
 
     {{-- ============================================
-    ADD/EDIT MODAL - SCROLLABLE
+    ADD/EDIT MODAL
     ============================================ --}}
     <div class="modal fade" id="residentModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -1672,7 +1668,7 @@
 @endsection
 
 {{-- ============================================
-JAVASCRIPT - FIXED FILTERS WITH DEBUG
+JAVASCRIPT
 ============================================ --}}
 @push('scripts')
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -1703,63 +1699,41 @@ $(document).ready(function() {
     });
 
     // ============================================
-    // FILTER BINDING - USING INPUT/CHANGE EVENTS
+    // FILTER BINDING
     // ============================================
 
-    // ✅ Search with keyup (debounced)
+    // Search with debounce
     let searchTimeout;
     $('#searchResident').on('keyup', function() {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(function() {
-            console.log('🔍 Searching for:', $('#searchResident').val());
             applyFilters();
         }, 300);
     });
 
-    // ✅ All filter dropdowns - use change event
-    $('#filterStatus').on('change', function() {
-        console.log('📌 Status filter:', $(this).val());
+    // All filter dropdowns
+    $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', function() {
         applyFilters();
     });
 
-    $('#filterHostel').on('change', function() {
-        console.log('🏠 Hostel filter:', $(this).val());
-        applyFilters();
-    });
-
-    $('#filterGender').on('change', function() {
-        console.log('👤 Gender filter:', $(this).val());
-        applyFilters();
-    });
-
-    $('#filterFood').on('change', function() {
-        console.log('🍽️ Food filter:', $(this).val());
-        applyFilters();
-    });
-
-    $('#filterBiometric').on('change', function() {
-        console.log('🔒 Biometric filter:', $(this).val());
-        applyFilters();
-    });
-
-    // ✅ Add Resident Button
+    // Add Resident Button
     $('#addResidentBtn').on('click', function(e) {
         e.preventDefault();
         openAddModal();
     });
 
-    // ✅ Modal hidden event
+    // Modal hidden event
     $('#residentModal').on('hidden.bs.modal', function() {
         resetForm();
     });
 
-    // ✅ Form submit
+    // Form submit
     $('#residentForm').on('submit', function(e) {
         e.preventDefault();
         submitForm();
     });
 
-    // ✅ Hostel -> Room
+    // Hostel -> Room
     $('#hostel_id').on('change', function() {
         let hostelId = $(this).val();
         if (hostelId) {
@@ -1772,12 +1746,8 @@ $(document).ready(function() {
                     select.empty().append('<option value="">Select Room</option>');
                     if (response.success && response.data.length > 0) {
                         $.each(response.data, function(key, room) {
-                            let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room
-                                .available_beds + ')' : ' (Full)';
-                            select.append('<option value="' + room.id + '" data-beds="' +
-                                room.available_beds + '">Room #' + room.room_no +
-                                ' - ' + room.room_type.room_type_name + bedInfo +
-                                '</option>');
+                            let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
+                            select.append('<option value="' + room.id + '" data-beds="' + room.available_beds + '">Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
                         });
                     } else {
                         select.append('<option value="">No rooms available</option>');
@@ -1786,8 +1756,7 @@ $(document).ready(function() {
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!',
-                        'error');
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                     }
                 }
             });
@@ -1797,7 +1766,7 @@ $(document).ready(function() {
         }
     });
 
-    // ✅ Room -> Bed
+    // Room -> Bed
     $('#room_id').on('change', function() {
         let roomId = $(this).val();
         if (roomId) {
@@ -1809,13 +1778,9 @@ $(document).ready(function() {
                     select.empty().append('<option value="">Select Bed</option>');
                     if (response.success && response.data.length > 0) {
                         $.each(response.data, function(key, bed) {
-                            let statusLabel = bed.status === 'OCCUPIED' ?
-                                ' (Occupied)' : ' (Vacant)';
-                            let disabled = bed.status === 'OCCUPIED' ? 'disabled' :
-                                '';
-                            select.append('<option value="' + bed.id + '" ' +
-                                disabled + '>Bed #' + bed.bed_no + ' (' + bed
-                                .bed_type + ')' + statusLabel + '</option>');
+                            let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
+                            let disabled = bed.status === 'OCCUPIED' ? 'disabled' : '';
+                            select.append('<option value="' + bed.id + '" ' + disabled + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
                         });
                     } else {
                         select.append('<option value="">No vacant beds</option>');
@@ -1823,8 +1788,7 @@ $(document).ready(function() {
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!',
-                        'error');
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                     }
                 }
             });
@@ -1833,7 +1797,7 @@ $(document).ready(function() {
         }
     });
 
-    // ✅ Status -> Vacate Date
+    // Status -> Vacate Date
     $('#status').on('change', function() {
         if ($(this).val() === 'VACATED') {
             $('#vacateDateDiv').show();
@@ -1844,27 +1808,22 @@ $(document).ready(function() {
         }
     });
 
-    // ✅ Set joining date
+    // Set joining date
     $('#joining_date').val(new Date().toISOString().split('T')[0]);
 
-    // ✅ File input handlers
+    // File input handlers
     setupFileInput('profile_image', 'image');
     setupFileInput('aadhar_document', 'document');
     setupFileInput('application_document', 'document');
 
-    // ✅ Run initial filter after page load
-    console.log('🔄 Running initial filter...');
+    // Run initial filter
     applyFilters();
-
-    console.log('✅ All filters initialized!');
 });
 
 // ============================================
-// ✅ FIXED: applyFilters with PROPER DATA ATTRIBUTES
+// APPLY FILTERS
 // ============================================
 function applyFilters() {
-    console.log('🚀 applyFilters() called!');
-
     var status = $('#filterStatus').val() || '';
     var hostel = $('#filterHostel').val() || '';
     var gender = $('#filterGender').val() || '';
@@ -1872,95 +1831,42 @@ function applyFilters() {
     var biometric = $('#filterBiometric').val() || '';
     var search = $('#searchResident').val().toLowerCase().trim() || '';
 
-    console.log('📊 Filters:', { status, hostel, gender, food, biometric, search });
-
     var visibleCount = 0;
     var totalCount = $('.resident-item').length;
-
-    console.log('📦 Total resident items:', totalCount);
-
-    if (totalCount === 0) {
-        console.warn('⚠️ No resident items found in DOM!');
-        return;
-    }
 
     $('.resident-item').each(function(index) {
         var show = true;
         var $item = $(this);
 
-        // ✅ Get data attributes from the element
         var resStatus = $item.attr('data-status') || '';
         var resHostel = $item.attr('data-hostel') || '';
         var resGender = $item.attr('data-gender') || '';
         var resFood = $item.attr('data-food') || '';
         var resBiometric = $item.attr('data-biometric') || '';
-
-        // Search fields - get from data attributes
         var resName = ($item.attr('data-name') || '').toLowerCase();
         var resCode = ($item.attr('data-code') || '').toLowerCase();
         var resPhone = ($item.attr('data-phone') || '').toLowerCase();
         var resEmail = ($item.attr('data-email') || '').toLowerCase();
         var resId = String($item.attr('data-id') || '');
 
-        // ✅ Log first 3 items for debugging
-        if (index < 3) {
-            console.log(`🔍 Item ${index + 1} data:`, {
-                status: resStatus,
-                hostel: resHostel,
-                gender: resGender,
-                food: resFood,
-                biometric: resBiometric,
-                name: resName,
-                code: resCode
-            });
-        }
+        if (status && resStatus !== status) show = false;
+        if (hostel && show && resHostel !== String(hostel)) show = false;
+        if (gender && show && resGender !== gender) show = false;
+        if (food && show && resFood !== food) show = false;
+        if (biometric && show && resBiometric !== biometric) show = false;
 
-        // ✅ Apply status filter
-        if (status && resStatus !== status) {
-            show = false;
-        }
-
-        // ✅ Apply hostel filter
-        if (hostel && show && resHostel !== String(hostel)) {
-            show = false;
-        }
-
-        // ✅ Apply gender filter
-        if (gender && show && resGender !== gender) {
-            show = false;
-        }
-
-        // ✅ Apply food filter
-        if (food && show && resFood !== food) {
-            show = false;
-        }
-
-        // ✅ Apply biometric filter
-        if (biometric && show && resBiometric !== biometric) {
-            show = false;
-        }
-
-        // ✅ Apply search filter
         if (search && show) {
             var searchMatch = false;
-
-            // Check all searchable fields
             if (resName.includes(search)) searchMatch = true;
             if (resCode.includes(search)) searchMatch = true;
             if (resPhone.includes(search)) searchMatch = true;
             if (resEmail.includes(search)) searchMatch = true;
             if (resId.includes(search)) searchMatch = true;
-
-            // Also check the full text content as fallback
             var textContent = $item.text().toLowerCase();
             if (textContent.includes(search)) searchMatch = true;
-
-            if (!searchMatch) {
-                show = false;
-            }
+            if (!searchMatch) show = false;
         }
 
-        // ✅ Show or hide
         if (show) {
             $item.show();
             visibleCount++;
@@ -1969,9 +1875,6 @@ function applyFilters() {
         }
     });
 
-    console.log('✅ Visible count:', visibleCount, '/', totalCount);
-
-    // ✅ Update result count
     var resultCountEl = $('#resultCount');
     if (visibleCount === totalCount) {
         resultCountEl.text('');
@@ -1979,13 +1882,10 @@ function applyFilters() {
         resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
     }
 
-    // ✅ Show/hide no results message
-    var noResultsDiv = $('#noSearchResults');
     if (visibleCount === 0 && totalCount > 0) {
-        noResultsDiv.show();
-        console.warn('⚠️ No results found!');
+        $('#noSearchResults').show();
     } else {
-        noResultsDiv.hide();
+        $('#noSearchResults').hide();
     }
 }
 
@@ -1993,13 +1893,47 @@ function applyFilters() {
 // CLEAR FILTERS
 // ============================================
 function clearFilters() {
-    console.log('🧹 Clearing all filters...');
     $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
     $('#searchResident').val('');
     $('#resultCount').text('');
     $('#noSearchResults').hide();
     applyFilters();
-    console.log('✅ Filters cleared!');
+}
+
+// ============================================
+// EXPORT FILTERED DATA
+// ============================================
+function exportFilteredData() {
+    var status = $('#filterStatus').val() || '';
+    var hostel = $('#filterHostel').val() || '';
+    var gender = $('#filterGender').val() || '';
+    var food = $('#filterFood').val() || '';
+    var biometric = $('#filterBiometric').val() || '';
+    var search = $('#searchResident').val() || '';
+    
+    var params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (hostel) params.append('hostel_id', hostel);
+    if (gender) params.append('gender', gender);
+    if (food) params.append('food_status', food);
+    if (biometric) params.append('biometric_status', biometric);
+    if (search) params.append('search', search);
+    
+    var exportBtn = document.querySelector('.btn-secondary-custom');
+    if (exportBtn) {
+        var originalText = exportBtn.innerHTML;
+        exportBtn.innerHTML = '<i class="bi bi-spinner bi-spin"></i> Exporting...';
+        exportBtn.disabled = true;
+        
+        window.location.href = "{{ route('admin.residents.export') }}?" + params.toString();
+        
+        setTimeout(function() {
+            exportBtn.innerHTML = originalText;
+            exportBtn.disabled = false;
+        }, 3000);
+    } else {
+        window.location.href = "{{ route('admin.residents.export') }}?" + params.toString();
+    }
 }
 
 // ============================================
@@ -2027,8 +1961,7 @@ function setupFileInput(inputId, type) {
                 };
                 reader.readAsDataURL(file);
             } else {
-                const iconClass = file.type === 'application/pdf' ? 'bi-file-earmark-pdf' :
-                    'bi-file-earmark-text';
+                const iconClass = file.type === 'application/pdf' ? 'bi-file-earmark-pdf' : 'bi-file-earmark-text';
                 const iconColor = file.type === 'application/pdf' ? '#dc2626' : '#2563eb';
                 const previewContainer = $('#' + previewId + ' .file-preview-container');
                 previewContainer.find('i').attr('class', 'bi ' + iconClass).css('color', iconColor);
@@ -2088,7 +2021,24 @@ function syncAllBiometric() {
     });
 }
 
-w
+function syncSingleBiometric(id) {
+    $.ajax({
+        url: '/admin/residents/' + id + '/sync-biometric',
+        type: 'POST',
+        data: { _token: '{{ csrf_token() }}' },
+        success: function(response) {
+            if (response.success) {
+                showToast('Resident synced successfully! Employee Code: ' + response.data.employee_code, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showToast(response.message || 'Failed to sync!', 'error');
+            }
+        },
+        error: function(xhr) {
+            showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
+        }
+    });
+}
 
 function toggleBiometricAccess(id) {
     $.ajax({
@@ -2249,8 +2199,7 @@ function viewDocument(url, title) {
     const content = document.getElementById('documentViewerContent');
 
     if (url.match(/\.(jpeg|jpg|png|gif)$/i)) {
-        content.innerHTML =
-            `<img src="${url}" alt="${title}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
+        content.innerHTML = `<img src="${url}" alt="${title}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
     } else {
         content.innerHTML = `
             <iframe src="${url}" style="width:100%; height:70vh; border:none; border-radius:8px;"></iframe>
@@ -2323,11 +2272,9 @@ function bulkStatusUpdate() {
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!',
-                        'error');
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                     } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to update!',
-                        'error');
+                        showToast(xhr.responseJSON?.message || 'Failed to update!', 'error');
                     }
                 }
             });
@@ -2361,23 +2308,14 @@ function bulkDelete() {
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!',
-                        'error');
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                     } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to delete!',
-                        'error');
+                        showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
                     }
                 }
             });
         }
     });
-}
-
-// ============================================
-// EXPORT
-// ============================================
-function exportData() {
-    window.location.href = "{{ route('admin.residents.export') }}";
 }
 
 // ============================================
@@ -2432,8 +2370,7 @@ function submitForm() {
         processData: false,
         contentType: false,
         beforeSend: function() {
-            $('#saveBtn').prop('disabled', true).html(
-                '<i class="bi bi-spinner bi-spin"></i> Saving...');
+            $('#saveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
             $('.invalid-feedback').text('');
             $('.rv-input-box').removeClass('is-invalid');
         },
@@ -2465,9 +2402,7 @@ function submitForm() {
         complete: function() {
             let id = document.getElementById('editId').value;
             let text = id ? 'Update' : 'Save';
-            $('#saveBtn').prop('disabled', false).html(
-                '<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text +
-                '</span>');
+            $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text + '</span>');
         }
     });
 }
@@ -2498,14 +2433,12 @@ function editResident(id) {
 
                 if (data.joining_date) {
                     const joiningDate = new Date(data.joining_date);
-                    document.getElementById('joining_date').value = joiningDate.toISOString()
-                        .split('T')[0];
+                    document.getElementById('joining_date').value = joiningDate.toISOString().split('T')[0];
                 }
 
                 if (data.vacate_date) {
                     const vacateDate = new Date(data.vacate_date);
-                    document.getElementById('vacate_date').value = vacateDate.toISOString()
-                        .split('T')[0];
+                    document.getElementById('vacate_date').value = vacateDate.toISOString().split('T')[0];
                     $('#vacateDateDiv').show();
                 } else {
                     $('#vacateDateDiv').hide();
@@ -2518,8 +2451,7 @@ function editResident(id) {
                 if (data.profile_image) {
                     $('#profile_image_existing').data('has-file', true);
                     $('#profile_image_existing').show();
-                    $('#profile_existing_img').attr('src', '{{ asset('') }}' + data
-                    .profile_image);
+                    $('#profile_existing_img').attr('src', '{{ asset('') }}' + data.profile_image);
                 } else {
                     $('#profile_image_existing').hide();
                 }
@@ -2527,8 +2459,7 @@ function editResident(id) {
                 if (data.aadhar_document) {
                     $('#aadhar_document_existing').data('has-file', true);
                     $('#aadhar_document_existing').show();
-                    $('#aadhar_existing_link').attr('href', '{{ asset('') }}' + data
-                        .aadhar_document);
+                    $('#aadhar_existing_link').attr('href', '{{ asset('') }}' + data.aadhar_document);
                 } else {
                     $('#aadhar_document_existing').hide();
                 }
@@ -2536,8 +2467,7 @@ function editResident(id) {
                 if (data.application_document) {
                     $('#application_document_existing').data('has-file', true);
                     $('#application_document_existing').show();
-                    $('#application_existing_link').attr('href', '{{ asset('') }}' + data
-                        .application_document);
+                    $('#application_existing_link').attr('href', '{{ asset('') }}' + data.application_document);
                 } else {
                     $('#application_document_existing').hide();
                 }
@@ -2555,42 +2485,23 @@ function editResident(id) {
                             let currentRoomExists = false;
 
                             $.each(roomResponse.data, function(key, room) {
-                                let bedInfo = room.available_beds > 0 ? ' (Beds: ' +
-                                    room.available_beds + ')' : ' (Full)';
-                                let selected = (room.id == data.room_id) ?
-                                    'selected' : '';
+                                let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
+                                let selected = (room.id == data.room_id) ? 'selected' : '';
                                 if (room.id == data.room_id) {
                                     currentRoomExists = true;
                                 }
 
-                                select.append('<option value="' + room.id + '" ' +
-                                    selected + ' data-beds="' + room
-                                    .available_beds + '">Room #' + room
-                                    .room_no + ' - ' + room.room_type
-                                    .room_type_name + bedInfo + '</option>');
+                                select.append('<option value="' + room.id + '" ' + selected + ' data-beds="' + room.available_beds + '">Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
                             });
 
                             if (!currentRoomExists && data.room_id) {
                                 $.ajax({
-                                    url: '/admin/residents/room/' + data
-                                        .room_id + '/details',
+                                    url: '/admin/residents/room/' + data.room_id + '/details',
                                     type: 'GET',
-                                    success: function(
-                                    currentRoomResponse) {
-                                        if (currentRoomResponse
-                                            .success) {
-                                            let room = currentRoomResponse
-                                                .data;
-                                            select.append(
-                                                '<option value="' +
-                                                room.id +
-                                                '" selected>Room #' +
-                                                room.room_no +
-                                                ' - ' + room
-                                                .room_type
-                                                .room_type_name +
-                                                ' (Current Room)</option>'
-                                                );
+                                    success: function(currentRoomResponse) {
+                                        if (currentRoomResponse.success) {
+                                            let room = currentRoomResponse.data;
+                                            select.append('<option value="' + room.id + '" selected>Room #' + room.room_no + ' - ' + room.room_type.room_type_name + ' (Current Room)</option>');
                                         }
                                     }
                                 });
@@ -2605,80 +2516,43 @@ function editResident(id) {
 
                         // Load beds
                         $.ajax({
-                            url: '/admin/residents/room/' + data.room_id +
-                                '/beds',
+                            url: '/admin/residents/room/' + data.room_id + '/beds',
                             type: 'GET',
                             success: function(bedResponse) {
                                 let bedSelect = $('#bed_id');
-                                bedSelect.empty().append(
-                                    '<option value="">Select Bed</option>');
+                                bedSelect.empty().append('<option value="">Select Bed</option>');
 
-                                if (bedResponse.success && bedResponse
-                                    .data.length > 0) {
+                                if (bedResponse.success && bedResponse.data.length > 0) {
                                     let currentBedExists = false;
 
-                                    bedResponse.data.sort(function(
-                                    a, b) {
-                                        if (a.id == data.bed_id)
-                                            return -1;
-                                        if (b.id == data.bed_id)
-                                            return 1;
-                                        if (a.status === 'OCCUPIED' &&
-                                            b.status !== 'OCCUPIED')
-                                            return -1;
-                                        if (a.status !== 'OCCUPIED' &&
-                                            b.status === 'OCCUPIED')
-                                            return 1;
-                                        return a.bed_no.localeCompare(
-                                            b.bed_no);
+                                    bedResponse.data.sort(function(a, b) {
+                                        if (a.id == data.bed_id) return -1;
+                                        if (b.id == data.bed_id) return 1;
+                                        if (a.status === 'OCCUPIED' && b.status !== 'OCCUPIED') return -1;
+                                        if (a.status !== 'OCCUPIED' && b.status === 'OCCUPIED') return 1;
+                                        return a.bed_no.localeCompare(b.bed_no);
                                     });
 
-                                    $.each(bedResponse.data, function(
-                                        key, bed) {
-                                        let selected = (bed.id ==
-                                            data.bed_id) ?
-                                            'selected' : '';
+                                    $.each(bedResponse.data, function(key, bed) {
+                                        let selected = (bed.id == data.bed_id) ? 'selected' : '';
                                         let statusLabel = '';
 
                                         if (bed.id == data.bed_id) {
-                                            statusLabel =
-                                            ' (Current)';
+                                            statusLabel = ' (Current)';
                                             currentBedExists = true;
-                                        } else if (bed.status ===
-                                            'OCCUPIED') {
-                                            statusLabel =
-                                            ' (Occupied)';
+                                        } else if (bed.status === 'OCCUPIED') {
+                                            statusLabel = ' (Occupied)';
                                         } else {
-                                            statusLabel =
-                                            ' (Vacant)';
+                                            statusLabel = ' (Vacant)';
                                         }
 
-                                        let disabled = (bed.status ===
-                                            'OCCUPIED' && bed.id !=
-                                            data.bed_id) ?
-                                            'disabled' : '';
+                                        let disabled = (bed.status === 'OCCUPIED' && bed.id != data.bed_id) ? 'disabled' : '';
 
-                                        bedSelect.append(
-                                            '<option value="' + bed
-                                            .id + '" ' + selected +
-                                            ' ' + disabled + '>' +
-                                            'Bed #' + bed.bed_no +
-                                            ' (' + bed.bed_type +
-                                            ')' + statusLabel +
-                                            '</option>'
-                                        );
+                                        bedSelect.append('<option value="' + bed.id + '" ' + selected + ' ' + disabled + '>' + 'Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
                                     });
 
-                                    if (!currentBedExists && data
-                                        .bed_id) {
-                                        bedSelect.append(
-                                            '<option value="' + data
-                                            .bed_id +
-                                            '" selected>Bed #' +
-                                            (data.bed ? data.bed
-                                                .bed_no : 'N/A') +
-                                            ' (Current Bed)</option>'
-                                            );
+                                    if (!currentBedExists && data.bed_id) {
+                                        bedSelect.append('<option value="' + data.bed_id + '" selected>Bed #' + (data.bed ? data.bed.bed_no : 'N/A') + ' (Current Bed)</option>');
                                     }
 
                                     if (data.bed_id) {
@@ -2686,34 +2560,21 @@ function editResident(id) {
                                     }
                                 } else {
                                     if (data.bed) {
-                                        bedSelect.append(
-                                            '<option value="' + data
-                                            .bed.id +
-                                            '" selected>Bed #' + data
-                                            .bed.bed_no + ' (' + data
-                                            .bed.bed_type +
-                                            ') - Current</option>'
-                                            );
+                                        bedSelect.append('<option value="' + data.bed.id + '" selected>Bed #' + data.bed.bed_no + ' (' + data.bed.bed_type + ') - Current</option>');
                                     }
-                                    bedSelect.append(
-                                        '<option value="">No beds available</option>'
-                                        );
+                                    bedSelect.append('<option value="">No beds available</option>');
                                 }
                             },
                             error: function(xhr) {
                                 if (xhr.status === 403) {
-                                    showToast(xhr.responseJSON
-                                        ?.message ||
-                                        'Permission denied!',
-                                        'error');
+                                    showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                                 }
                             }
                         });
                     },
                     error: function(xhr) {
                         if (xhr.status === 403) {
-                            showToast(xhr.responseJSON?.message ||
-                                'Permission denied!', 'error');
+                            showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                         }
                     }
                 });
@@ -2756,11 +2617,9 @@ function deleteResident(id) {
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!',
-                            'error');
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                     } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to delete!',
-                            'error');
+                        showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
                     }
                 }
             });
@@ -2791,11 +2650,9 @@ function toggleStatus(id) {
                 },
                 error: function(xhr) {
                     if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!',
-                            'error');
+                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                     } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to update status!',
-                            'error');
+                        showToast(xhr.responseJSON?.message || 'Failed to update status!', 'error');
                     }
                 }
             });
