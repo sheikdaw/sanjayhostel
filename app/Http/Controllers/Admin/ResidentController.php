@@ -855,25 +855,39 @@ class ResidentController extends Controller
 
     /**
      * Export residents to CSV
+     *
+     * Supports two modes:
+     *  - No `ids` param: exports all residents the user can see (same as before).
+     *  - `ids[]=1&ids[]=2...`: exports ONLY those residents — used by the
+     *    "Export" button on the dashboard so it respects whatever client-side
+     *    filters (status/hostel/gender/food/biometric/search) are currently applied.
+     *
+     * In both cases, results are sorted by room number (natural sort, so
+     * A1, A2, A10 order correctly instead of A1, A10, A2).
      */
     public function export(Request $request)
     {
         $user = auth()->user();
 
-        if ($user->role === 'admin') {
-            $residents = Resident::with(['hostel', 'room', 'bed'])
-                ->orderBy('name')
-                ->get();
-        } else {
+        $query = Resident::with(['hostel', 'room', 'bed']);
+
+        // Always enforce the user's hostel scope first, regardless of ids passed in,
+        // so a non-admin can never export residents outside their assigned hostels.
+        if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
-            $residents = Resident::with(['hostel', 'room', 'bed'])
-                ->whereIn('hostel_id', $hostelIds)
-                ->orderBy('name')
-                ->get();
+            $query->whereIn('hostel_id', $hostelIds);
         }
 
+        // If specific IDs were passed (i.e. the export was triggered while
+        // filters were applied on the page), restrict to just those.
+        if ($request->filled('ids')) {
+            $query->whereIn('id', (array) $request->input('ids'));
+        }
+
+        $residents = $query->get();
+
         if ($residents->isEmpty()) {
-            $csv = "No residents found in the system.\n";
+            $csv = "No residents found matching the current selection.\n";
             $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
             $csv .= "No data available,,,,,,,,,,,,,,,,,,\n";
 
@@ -881,6 +895,13 @@ class ResidentController extends Controller
                 ->header('Content-Type', 'text/csv; charset=UTF-8')
                 ->header('Content-Disposition', 'attachment; filename="residents-' . date('Y-m-d') . '.csv"');
         }
+
+        // Sort by room number using natural ordering (A1, A2, A10 — not A1, A10, A2)
+        $residents = $residents->sort(function ($a, $b) {
+            $roomA = $a->room->room_no ?? '';
+            $roomB = $b->room->room_no ?? '';
+            return strnatcmp($roomA, $roomB);
+        })->values();
 
         $csv = "\xEF\xBB\xBF";
         $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Room,Bed,Food Status,Joining Date,Vacate Date,Rent,Deposit,Status,Employee Code,Biometric Access\n";
