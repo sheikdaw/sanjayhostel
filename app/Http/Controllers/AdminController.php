@@ -364,37 +364,78 @@ class AdminController extends Controller
 
         // Get current user
         $currentUser = auth()->user();
+return response()->json([
+    'success' => true,
+    'message' => 'Dashboard data fetched successfully',
+    'data' => [
+        'hostels' => $hostels,
+        'totalHostels' => $totalHostels,
+        'totalRooms' => $totalRooms,
+        'totalBeds' => $totalBeds,
+        'totalResidents' => $totalResidents,
+        'totalVacated' => $totalVacated,
 
-        return view('main.admin.dashboard', compact(
-            'hostels',
-            'totalHostels',
-            'totalRooms',
-            'totalBeds',
-            'totalResidents',
-            'totalVacated',
-            'occupiedBeds',
-            'vacantBeds',
-            'blockedBeds',
-            'occupancyRate',
-            'totalPayments',
-            'totalCollected',
-            'totalPending',
-            'totalBalance',
-            'totalRent',
-            'pendingCount',
-            'partialCount',
-            'paidCount',
-            'months',
-            'collections',
-            'balances',
-            'recentPayments',
-            'recentResidents',
-            'hostelStats',
-            'roomTypeDistribution',
-            'bedTypeDistribution',
-            'statusDistribution',
-            'currentUser',
-            'calculationSummary'
-        ));
+        'occupiedBeds' => $occupiedBeds,
+        'vacantBeds' => $vacantBeds,
+        'blockedBeds' => $blockedBeds,
+        'occupancyRate' => $occupancyRate,
+
+        'totalPayments' => $totalPayments,
+        'totalCollected' => $totalCollected,
+        'totalPending' => $totalPending,
+        'totalBalance' => $totalBalance,
+        'totalRent' => $totalRent,
+
+        'pendingCount' => $pendingCount,
+        'partialCount' => $partialCount,
+        'paidCount' => $paidCount,
+
+        'months' => $months,
+        'collections' => $collections,
+        'balances' => $balances,
+
+        'recentPayments' => $recentPayments,
+        'recentResidents' => $recentResidents,
+
+        'hostelStats' => $hostelStats,
+        'roomTypeDistribution' => $roomTypeDistribution,
+        'bedTypeDistribution' => $bedTypeDistribution,
+        'statusDistribution' => $statusDistribution,
+
+        'currentUser' => $currentUser,
+        'calculationSummary' => $calculationSummary,
+    ]
+]);
+        // return view('main.admin.dashboard', compact(
+        //     'hostels',
+        //     'totalHostels',
+        //     'totalRooms',
+        //     'totalBeds',
+        //     'totalResidents',
+        //     'totalVacated',
+        //     'occupiedBeds',
+        //     'vacantBeds',
+        //     'blockedBeds',
+        //     'occupancyRate',
+        //     'totalPayments',
+        //     'totalCollected',
+        //     'totalPending',
+        //     'totalBalance',
+        //     'totalRent',
+        //     'pendingCount',
+        //     'partialCount',
+        //     'paidCount',
+        //     'months',
+        //     'collections',
+        //     'balances',
+        //     'recentPayments',
+        //     'recentResidents',
+        //     'hostelStats',
+        //     'roomTypeDistribution',
+        //     'bedTypeDistribution',
+        //     'statusDistribution',
+        //     'currentUser',
+        //     'calculationSummary'
+        // ));
     }
 }
