@@ -383,13 +383,13 @@ class Resident extends Model
         ];
     }
   public function generateEmployeeCode()
-{
-    $hostelId = $this->hostel_id;
+    {
+        $hostelId = $this->hostel_id;
 
-    if (!$hostelId) {
-        throw new \Exception('Hostel ID is required');
+        if (!$hostelId) {
+            throw new \Exception('Hostel ID is required');
+        }
+
+        return ($hostelId * 10000) + $this->id;
     }
-
-    return ($hostelId * 10000) + $this->id;
-}
 }

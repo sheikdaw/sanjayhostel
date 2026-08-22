@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\ResidentController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\RoomTypeController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BiometricController; // <-- ADD THIS
 use Illuminate\Support\Facades\Route;
@@ -303,6 +304,17 @@ Route::prefix('hostels')->name('hostels.')->group(function () {
             Route::get('/assigned-hostels', [UserController::class, 'getAssignedHostels'])->name('assigned-hostels');
             Route::post('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
         });
+         Route::prefix('employees')->name('employees.')->group(function() {
+        Route::get('/', [EmployeeController::class, 'index'])->name('index');
+        Route::get('/export', [EmployeeController::class, 'export'])->name('export');
+        Route::post('/bulk-status', [EmployeeController::class, 'bulkStatus'])->name('bulk-status');
+        Route::post('/bulk-delete', [EmployeeController::class, 'bulkDelete'])->name('bulk-delete');
+        Route::post('/store', [EmployeeController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [EmployeeController::class, 'edit'])->name('edit');
+        Route::get('/{id}', [EmployeeController::class, 'show'])->name('show');
+        Route::put('/{id}', [EmployeeController::class, 'update'])->name('update');
+        Route::delete('/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status');
     });
 });
 
