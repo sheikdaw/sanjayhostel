@@ -194,6 +194,11 @@
                         <i class="bi bi-person-badge"></i>
                         <span class="ol-nav-label">Users</span>
                     </a>
+                    
+                    <a href="{{ route('admin.employee.index') }}" class="ol-nav-item {{ request()->routeIs('admin.employee.*') ? 'active' : '' }}">
+                        <i class="bi bi-person-badge"></i>
+                        <span class="ol-nav-label">Employee</span>
+                    </a>
 
                     <a href="#" class="ol-nav-item">
                         <i class="bi bi-gear"></i>
