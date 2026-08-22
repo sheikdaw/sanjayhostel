@@ -1,43 +1,29 @@
 <?php
-// app/Models/Attendance.php
+// app/Models/AdvanceTransaction.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Attendance extends Model
+class AdvanceTransaction extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'employee_id',
-        'attendance_date',
-        'status',
-        'check_in',
-        'check_out',
-        'working_hours',
-        'source',
-        'remarks'
+        'amount',
+        'deducted_amount',
+        'transaction_type',
+        'transaction_date',
+        'month',
+        'remarks',
     ];
 
     protected $casts = [
-        'attendance_date' => 'date',
-        'working_hours' => 'decimal:2'
-    ];
-
-    const STATUSES = [
-        'present' => 'Present',
-        'absent' => 'Absent',
-        'leave' => 'Leave',
-        'half_day' => 'Half Day',
-        'holiday' => 'Holiday',
-        'weekly_off' => 'Weekly Off'
-    ];
-
-    const SOURCES = [
-        'automatic' => 'Automatic',
-        'manual' => 'Manual'
+        'amount' => 'decimal:2',
+        'deducted_amount' => 'decimal:2',
+        'transaction_date' => 'date',
     ];
 
     public function employee()
@@ -45,31 +31,21 @@ class Attendance extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function getStatusLabelAttribute()
+    /**
+     * Human readable label used by history.blade.php
+     */
+    public function getTypeLabelAttribute()
     {
-        return self::STATUSES[$this->status] ?? ucfirst($this->status);
+        return $this->transaction_type === 'advance' ? 'Advance Taken' : 'Deduction';
     }
 
-    public function getStatusBadgeAttribute()
+    public function scopeAdvances($query)
     {
-        $badges = [
-            'present' => 'success',
-            'absent' => 'danger',
-            'leave' => 'warning',
-            'half_day' => 'info',
-            'holiday' => 'primary',
-            'weekly_off' => 'secondary'
-        ];
-        return $badges[$this->status] ?? 'secondary';
+        return $query->where('transaction_type', 'advance');
     }
 
-    public function getCheckInFormattedAttribute()
+    public function scopeDeductions($query)
     {
-        return $this->check_in ? date('h:i A', strtotime($this->check_in)) : '-';
-    }
-
-    public function getCheckOutFormattedAttribute()
-    {
-        return $this->check_out ? date('h:i A', strtotime($this->check_out)) : '-';
+        return $query->where('transaction_type', 'deduction');
     }
 }
