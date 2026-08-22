@@ -10,6 +10,8 @@ use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\RoomTypeController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\EmployeeController;
+use App\Http\Controllers\Admin\AttendanceController;
+use App\Http\Controllers\Admin\AdvanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BiometricController; // <-- ADD THIS
 use Illuminate\Support\Facades\Route;
