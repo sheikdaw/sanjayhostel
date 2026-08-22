@@ -1,11 +1,11 @@
 <?php
+// app/Http/Controllers/Admin/AdvanceController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Resident;
-use App\Models\Advance;
-use App\Models\Hostel;
+use App\Models\Employee;
+use App\Models\AdvanceTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -13,107 +13,101 @@ use Illuminate\Support\Facades\DB;
 class AdvanceController extends Controller
 {
     /**
-     * Display a listing of advances
+     * GET admin/advances  -> admin.advances.index
+     * Matches resources/views/admin/advances/index.blade.php
      */
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $month = $request->filled('month') ? $request->month : now()->format('Y-m');
 
-        // Get hostels based on user role
-        if ($user->role === 'admin') {
-            $hostels = Hostel::where('status', 'ACTIVE')->get();
-            $advances = Advance::with(['resident', 'resident.hostel'])
-                ->orderBy('created_at', 'desc')
-                ->get();
-        } else {
-            $hostelIds = $user->hostel_ids ?? [];
-            $hostels = Hostel::whereIn('id', $hostelIds)
-                ->where('status', 'ACTIVE')
-                ->get();
-            $advances = Advance::with(['resident', 'resident.hostel'])
-                ->whereHas('resident', function($q) use ($hostelIds) {
-                    $q->whereIn('hostel_id', $hostelIds);
-                })
-                ->orderBy('created_at', 'desc')
-                ->get();
+        $query = Employee::with('hostel');
+
+        if ($request->filled('employee_id')) {
+            $query->where('id', $request->employee_id);
         }
 
-        // Statistics
-        $stats = [
-            'total_advances' => $advances->count(),
-            'total_amount' => $advances->sum('amount'),
-            'pending_amount' => $advances->where('status', 'PENDING')->sum('amount'),
-            'completed_amount' => $advances->where('status', 'COMPLETED')->sum('amount'),
-            'pending_count' => $advances->where('status', 'PENDING')->count(),
-            'completed_count' => $advances->where('status', 'COMPLETED')->count(),
-            'cancelled_count' => $advances->where('status', 'CANCELLED')->count(),
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $employees = $query->orderBy('name')->paginate(15)->withQueryString();
+
+        // For the "All Employees" filter dropdown
+        $allEmployees = Employee::orderBy('name')->get();
+
+        // Stats for the selected month
+        $summary = [
+            'total_advance' => AdvanceTransaction::advances()->where('month', $month)->sum('amount'),
+            'total_deduction' => AdvanceTransaction::deductions()->where('month', $month)->sum('amount'),
+            'total_outstanding' => AdvanceTransaction::advances()->sum('amount')
+                - AdvanceTransaction::deductions()->sum('amount'),
         ];
 
-        // Get residents for dropdown
-        $residents = Resident::whereIn('hostel_id', $hostelIds ?? [])
-            ->where('status', 'ACTIVE')
-            ->get();
-
-        return view('admin.advances.index', compact('advances', 'hostels', 'stats', 'residents', 'user'));
+        return view('admin.advances.index', compact('employees', 'allEmployees', 'summary', 'month'));
     }
 
     /**
-     * Process monthly advances (show form)
+     * GET admin/advances/monthly -> admin.advances.monthly
+     * Matches resources/views/admin/advances/monthly.blade.php
+     * (previously pointed at a non-existent "process-monthly" view)
      */
     public function processMonthly(Request $request)
     {
-        $user = auth()->user();
+        $month = $request->filled('month') ? $request->month : now()->format('Y-m');
 
-        if ($user->role === 'admin') {
-            $hostels = Hostel::where('status', 'ACTIVE')->get();
-        } else {
-            $hostelIds = $user->hostel_ids ?? [];
-            $hostels = Hostel::whereIn('id', $hostelIds)
-                ->where('status', 'ACTIVE')
-                ->get();
+        $employees = Employee::with('hostel')->orderBy('name')->get();
+
+        $results = [];
+        foreach ($employees as $employee) {
+            $advanceTaken = $employee->getMonthlyAdvanceTaken($month);
+            $advanceDeducted = $employee->getMonthlyDeduction($month);
+            $advanceBalance = $employee->advance_balance;
+            $salary = $employee->salary;
+
+            $results[] = [
+                'employee' => $employee,
+                'advance_taken' => $advanceTaken,
+                'advance_deducted' => $advanceDeducted,
+                'advance_balance' => $advanceBalance,
+                'salary' => $salary,
+                'net_salary' => $salary - $advanceDeducted,
+            ];
         }
 
-        $month = $request->get('month', now()->month);
-        $year = $request->get('year', now()->year);
-
-        return view('admin.advances.process-monthly', compact('hostels', 'month', 'year'));
+        return view('admin.advances.monthly', compact('results', 'month'));
     }
 
     /**
-     * Take advance for a resident
+     * POST admin/advances/take -> admin.advances.take
+     * Fields posted by index.blade.php: employee_id, amount, month, remarks
      */
     public function takeAdvance(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'resident_id' => 'required|exists:residents,id',
-            'amount' => 'required|numeric|min:1',
-            'advance_date' => 'required|date',
-            'description' => 'nullable|string|max:500',
-            'deduction_month' => 'nullable|integer|min:1|max:12',
-            'deduction_year' => 'nullable|integer|min:2020|max:2100',
-            'hostel_id' => 'nullable|exists:hostels,id'
+            'employee_id' => 'required|exists:employees,id',
+            'amount' => 'required|numeric|min:0.01',
+            'month' => 'required|date_format:Y-m',
+            'remarks' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             DB::beginTransaction();
 
-            $advance = Advance::create([
-                'resident_id' => $request->resident_id,
-                'hostel_id' => $request->hostel_id ?? Resident::find($request->resident_id)->hostel_id,
+            $advance = AdvanceTransaction::create([
+                'employee_id' => $request->employee_id,
                 'amount' => $request->amount,
-                'advance_date' => $request->advance_date,
-                'description' => $request->description,
-                'status' => 'PENDING',
-                'deduction_month' => $request->deduction_month,
-                'deduction_year' => $request->deduction_year,
-                'created_by' => auth()->id()
+                'deducted_amount' => 0,
+                'transaction_type' => 'advance',
+                'transaction_date' => now()->toDateString(),
+                'month' => $request->month,
+                'remarks' => $request->remarks,
             ]);
 
             DB::commit();
@@ -121,123 +115,105 @@ class AdvanceController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Advance taken successfully!',
-                'data' => $advance
+                'data' => $advance,
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to take advance: ' . $e->getMessage()
+                'message' => 'Failed to take advance: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Deduct advance from payment
+     * POST admin/advances/deduct -> admin.advances.deduct
+     * Fields posted by index.blade.php: employee_id, amount, month, remarks
      */
     public function deductAdvance(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'advance_id' => 'required|exists:advances,id',
-            'deducted_amount' => 'required|numeric|min:1',
-            'payment_id' => 'nullable|exists:payments,id',
-            'deduction_date' => 'required|date',
-            'remarks' => 'nullable|string|max:500'
+            'employee_id' => 'required|exists:employees,id',
+            'amount' => 'required|numeric|min:0.01',
+            'month' => 'required|date_format:Y-m',
+            'remarks' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $employee = Employee::findOrFail($request->employee_id);
+
+        if ($request->amount > $employee->advance_balance) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Deduction amount exceeds the outstanding advance balance (₹' .
+                    number_format($employee->advance_balance, 2) . ').',
             ], 422);
         }
 
         try {
             DB::beginTransaction();
 
-            $advance = Advance::find($request->advance_id);
-
-            // Check if advance is already completed
-            if ($advance->status === 'COMPLETED') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This advance is already completed!'
-                ], 400);
-            }
-
-            // Update advance
-            $advance->deducted_amount = ($advance->deducted_amount ?? 0) + $request->deducted_amount;
-            $advance->payment_id = $request->payment_id;
-            $advance->deduction_date = $request->deduction_date;
-            $advance->remarks = $request->remarks;
-
-            // Check if advance is fully deducted
-            if ($advance->deducted_amount >= $advance->amount) {
-                $advance->status = 'COMPLETED';
-                $advance->completed_at = now();
-            }
-
-            $advance->save();
+            $deduction = AdvanceTransaction::create([
+                'employee_id' => $request->employee_id,
+                'amount' => $request->amount,
+                'deducted_amount' => $request->amount,
+                'transaction_type' => 'deduction',
+                'transaction_date' => now()->toDateString(),
+                'month' => $request->month,
+                'remarks' => $request->remarks,
+            ]);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Advance deducted successfully!',
-                'data' => $advance
+                'data' => $deduction,
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to deduct advance: ' . $e->getMessage()
+                'message' => 'Failed to deduct advance: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Get advance history for a resident
+     * GET admin/advances/{id}/history -> admin.advances.history
+     * Matches resources/views/admin/advances/history.blade.php
      */
-    public function history(Request $request, $residentId)
+    public function history(Request $request, $id)
     {
-        $advances = Advance::where('resident_id', $residentId)
-            ->orderBy('advance_date', 'desc')
+        $employee = Employee::findOrFail($id);
+
+        // Every distinct month this employee has a transaction in, newest first
+        $availableMonths = AdvanceTransaction::where('employee_id', $id)
+            ->whereNotNull('month')
+            ->distinct()
+            ->orderByDesc('month')
+            ->pluck('month');
+
+        $month = $request->filled('month')
+            ? $request->month
+            : ($availableMonths->first() ?? now()->format('Y-m'));
+
+        // Guard against an employee with zero transactions yet
+        if ($availableMonths->isEmpty()) {
+            $availableMonths = collect([$month]);
+        }
+
+        $transactions = AdvanceTransaction::where('employee_id', $id)
+            ->where('month', $month)
+            ->orderByDesc('transaction_date')
             ->get();
 
-        $summary = [
-            'total' => $advances->sum('amount'),
-            'deducted' => $advances->sum('deducted_amount'),
-            'pending' => $advances->sum('amount') - $advances->sum('deducted_amount'),
-            'count' => $advances->count()
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $advances,
-            'summary' => $summary
-        ]);
-    }
-
-    /**
-     * Get resident advance summary
-     */
-    public function getResidentAdvanceSummary($residentId)
-    {
-        $advances = Advance::where('resident_id', $residentId)
-            ->where('status', 'PENDING')
-            ->get();
-
-        $totalPending = $advances->sum('amount') - $advances->sum('deducted_amount');
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'pending_advances' => $advances->count(),
-                'total_pending_amount' => $totalPending,
-                'advances' => $advances
-            ]
-        ]);
+        return view('admin.advances.history', compact('employee', 'availableMonths', 'month', 'transactions'));
     }
 }
