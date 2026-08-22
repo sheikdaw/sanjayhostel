@@ -285,11 +285,12 @@
     <div>
         <h1 class="ol-page-title">Employee Management</h1>
         <p class="ol-page-sub">Manage staff members and their details</p>
-        @if($user->role != 'admin')
-            <p class="ol-page-sub" style="color: var(--sanjay-gold); font-size:0.8rem;">
-                <i class="bi bi-info-circle"></i> You have access to {{ $hostels->count() }} hostel(s)
-            </p>
-        @endif
+        @if(auth()->user()->role != 'admin')
+    <p class="ol-page-sub" style="color: var(--sanjay-gold); font-size:0.8rem;">
+        <i class="bi bi-info-circle"></i>
+        You have access to {{ $hostels->count() }} hostel(s)
+    </p>
+@endif
     </div>
     <div class="d-flex gap-2">
         <button type="button" class="rv-submit" onclick="exportData()" style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
