@@ -316,6 +316,7 @@ Route::prefix('hostels')->name('hostels.')->group(function () {
         Route::delete('/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
         Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status');
     });
+     });
 });
 
 // Home route
