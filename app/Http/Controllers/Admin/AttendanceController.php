@@ -1,16 +1,15 @@
 <?php
-// app/Http/Controllers/Admin/AdvanceController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Employee;
-use App\Models\AdvanceTransaction;
+use App\Models\Advance;
+use App\Models\Resident;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
 
 class AdvanceController extends Controller
+
 {
     public function index(Request $request)
     {
