@@ -194,11 +194,34 @@
                         <i class="bi bi-person-badge"></i>
                         <span class="ol-nav-label">Users</span>
                     </a>
-                    
-                    <a href="{{ route('admin.employees.index') }}" class="ol-nav-item {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
-                        <i class="bi bi-person-badge"></i>
-                        <span class="ol-nav-label">Employee</span>
-                    </a>
+                
+        <!-- Employees -->
+        <a href="{{ route('admin.employees.index') }}" class="ol-nav-item {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
+            <i class="bi bi-person-badge"></i>
+            <span class="ol-nav-label">Employees</span>
+            <span class="ol-nav-badge">{{ \App\Models\Employee::count() }}</span>
+        </a>
+
+        <!-- Attendance -->
+        <a href="{{ route('admin.attendances.index') }}" class="ol-nav-item {{ request()->routeIs('admin.attendances.*') ? 'active' : '' }}">
+            <i class="bi bi-calendar-check"></i>
+            <span class="ol-nav-label">Attendance</span>
+            <span class="ol-nav-badge">{{ \App\Models\Attendance::where('attendance_date', now()->toDateString())->count() }}</span>
+        </a>
+
+        <!-- Advances -->
+        <a href="{{ route('admin.advances.index') }}" class="ol-nav-item {{ request()->routeIs('admin.advances.*') ? 'active' : '' }}">
+            <i class="bi bi-currency-rupee"></i>
+            <span class="ol-nav-label">Advances</span>
+            @php
+                $outstandingEmployees = \App\Models\Employee::where('advance_amount', '>', 0)
+                    ->where('advance_amount', '>', \DB::raw('advance_deduct'))
+                    ->count();
+            @endphp
+            @if($outstandingEmployees > 0)
+                <span class="ol-nav-badge" style="background:#dc2626;">{{ $outstandingEmployees }}</span>
+            @endif
+        </a>
 
                     <a href="#" class="ol-nav-item">
                         <i class="bi bi-gear"></i>

@@ -304,7 +304,7 @@ Route::prefix('hostels')->name('hostels.')->group(function () {
             Route::get('/assigned-hostels', [UserController::class, 'getAssignedHostels'])->name('assigned-hostels');
             Route::post('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
         });
-         Route::prefix('employees')->name('employees.')->group(function() {
+     Route::prefix('employees')->name('employees.')->group(function() {
         Route::get('/', [EmployeeController::class, 'index'])->name('index');
         Route::get('/export', [EmployeeController::class, 'export'])->name('export');
         Route::post('/bulk-status', [EmployeeController::class, 'bulkStatus'])->name('bulk-status');
@@ -315,6 +315,28 @@ Route::prefix('hostels')->name('hostels.')->group(function () {
         Route::put('/{id}', [EmployeeController::class, 'update'])->name('update');
         Route::delete('/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
         Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
+    // Attendance Routes
+    Route::prefix('attendances')->name('attendances.')->group(function() {
+        Route::get('/', [AttendanceController::class, 'index'])->name('index');
+        Route::get('/create', [AttendanceController::class, 'create'])->name('create');
+        Route::post('/store', [AttendanceController::class, 'store'])->name('store');
+        Route::get('/{id}/edit', [AttendanceController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [AttendanceController::class, 'update'])->name('update');
+        Route::delete('/{id}', [AttendanceController::class, 'destroy'])->name('destroy');
+        Route::post('/bulk-delete', [AttendanceController::class, 'bulkDelete'])->name('bulk-delete');
+        Route::post('/bulk-mark', [AttendanceController::class, 'markBulkAttendance'])->name('bulk-mark');
+        Route::get('/report', [AttendanceController::class, 'report'])->name('report');
+    });
+
+    // Advance Routes
+    Route::prefix('advances')->name('advances.')->group(function() {
+        Route::get('/', [AdvanceController::class, 'index'])->name('index');
+        Route::get('/monthly', [AdvanceController::class, 'processMonthly'])->name('monthly');
+        Route::get('/{id}/history', [AdvanceController::class, 'history'])->name('history');
+        Route::post('/take', [AdvanceController::class, 'takeAdvance'])->name('take');
+        Route::post('/deduct', [AdvanceController::class, 'deductAdvance'])->name('deduct');
     });
      });
 });
