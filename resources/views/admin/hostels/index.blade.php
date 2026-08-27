@@ -584,7 +584,6 @@
         var csrfToken = '{{ csrf_token() }}';
         var paymentRoutes = {
             resident: '{{ route('guest.payment.resident') }}',
-            generateUPI: '{{ route('guest.payment.generate-upi') }}',
             verifyUPI: '{{ route('guest.payment.verify-upi') }}',
             checkUPIStatus: '{{ route('guest.payment.check-upi-status') }}',
             callback: '{{ route('guest.payment.callback') }}'

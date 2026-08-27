@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\AdvanceController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GuestHostelController;
 use App\Http\Controllers\BiometricController; // <-- ADD THIS
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
@@ -385,3 +386,21 @@ Route::get('/payment-links', function () {
 
 
 Route::get('/check-device-service', [BiometricController::class, 'testConnection']);
+
+// Guest Routes - Public Access
+Route::prefix('guest')->name('guest.')->group(function () {
+    // Hostel view with room-wise residents
+    Route::get('/hostel/{encodedId}', [GuestHostelController::class, 'show'])->name('hostel.view');
+    
+    // Get resident payment details
+    Route::post('/payment/resident-details', [GuestHostelController::class, 'getResidentDetails'])->name('payment.details');
+    
+    // Manual Payment (Direct to payments table)
+    Route::post('/payment/manual', [GuestHostelController::class, 'manualPayment'])->name('payment.manual');
+    
+    // Get payment history
+    Route::get('/payment/history/{residentId}', [GuestHostelController::class, 'getPaymentHistory'])->name('payment.history');
+    
+    // Generate payment link (Admin use)
+    Route::get('/generate-link/{hostelId}', [GuestHostelController::class, 'generateLink'])->name('generate.link');
+});
