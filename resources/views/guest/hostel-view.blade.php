@@ -677,444 +677,445 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <script>
-        var csrfToken = '{{ csrf_token() }}';
-        var hostelId = '{{ $hostel->id }}';
+   <script>
+    var csrfToken = '{{ csrf_token() }}';
+    var hostelId = '{{ $hostel->id }}';
 
-        var routes = {
-            details: '{{ route("guest.payment.details") }}',
-            manual: '{{ route("guest.payment.manual") }}',
-            history: '{{ route("guest.payment.history", "") }}'
-        };
+    // Define routes properly
+    var routes = {
+        details: '{{ route("guest.payment.details") }}',
+        manual: '{{ route("guest.payment.manual") }}',
+        history: '{{ url("/guest/payment/history") }}'  // FIXED: Use url() instead of route()
+    };
 
-        let paymentModal;
-        let currentResident = null;
-        let selectedMethod = 'cash';
+    let paymentModal;
+    let currentResident = null;
+    let selectedMethod = 'cash';
 
-        $(document).ready(function() {
-            paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    $(document).ready(function() {
+        paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
 
-            // Auto expand first room
-            $('.room-card:first .resident-list').slideDown(200);
-            $('.room-card:first .toggle-icon').removeClass('collapsed');
+        // Auto expand first room
+        $('.room-card:first .resident-list').slideDown(200);
+        $('.room-card:first .toggle-icon').removeClass('collapsed');
 
-            // Update stats
-            updateStats();
+        // Update stats
+        updateStats();
 
-            // Enter key for search
-            $('#searchInput').on('keyup', function(e) {
-                if (e.key === 'Enter') {
-                    filterResidents();
+        // Enter key for search
+        $('#searchInput').on('keyup', function(e) {
+            if (e.key === 'Enter') {
+                filterResidents();
+            }
+        });
+    });
+
+    function toggleRoom(header) {
+        const list = header.nextElementSibling;
+        const icon = header.querySelector('.toggle-icon');
+
+        if (list.style.display === 'none') {
+            $(list).slideDown(200);
+            icon.classList.remove('collapsed');
+        } else {
+            $(list).slideUp(200);
+            icon.classList.add('collapsed');
+        }
+    }
+
+    function filterResidents() {
+        const search = $('#searchInput').val().toLowerCase().trim();
+        const statusFilter = $('#statusFilter').val();
+        const roomFilter = $('#roomFilter').val();
+
+        let visibleCount = 0;
+        let totalCount = 0;
+        let paidCount = 0;
+        let partialCount = 0;
+        let pendingCount = 0;
+
+        $('.resident-item').each(function() {
+            const $item = $(this);
+            const name = $item.data('name') || '';
+            const status = $item.data('status') || '';
+            const roomId = String($item.data('room-id') || '');
+
+            let show = true;
+
+            // Search filter
+            if (search) {
+                const text = $item.text().toLowerCase();
+                if (!text.includes(search) && !name.includes(search)) {
+                    show = false;
                 }
-            });
+            }
+
+            // Status filter
+            if (show && statusFilter) {
+                if (statusFilter === 'NOT_PAID' && status !== 'NOT_PAID') show = false;
+                if (statusFilter !== 'NOT_PAID' && status !== statusFilter) show = false;
+            }
+
+            // Room filter
+            if (show && roomFilter) {
+                if (roomId !== roomFilter) show = false;
+            }
+
+            totalCount++;
+
+            if (show) {
+                $item.show();
+                visibleCount++;
+                // Count statuses for stats
+                if (status === 'PAID') paidCount++;
+                else if (status === 'PARTIAL') partialCount++;
+                else if (status === 'PENDING' || status === 'NOT_PAID') pendingCount++;
+            } else {
+                $item.hide();
+            }
         });
 
-        function toggleRoom(header) {
-            const list = header.nextElementSibling;
-            const icon = header.querySelector('.toggle-icon');
+        // Update result count
+        $('#resultCount').text(visibleCount === totalCount ? 'Showing all' : `Showing ${visibleCount} of ${totalCount}`);
 
-            if (list.style.display === 'none') {
-                $(list).slideDown(200);
-                icon.classList.remove('collapsed');
-            } else {
-                $(list).slideUp(200);
-                icon.classList.add('collapsed');
-            }
+        // Show/hide no results
+        if (visibleCount === 0 && totalCount > 0) {
+            $('#noResults').show();
+        } else {
+            $('#noResults').hide();
         }
 
-        function filterResidents() {
-            const search = $('#searchInput').val().toLowerCase().trim();
-            const statusFilter = $('#statusFilter').val();
-            const roomFilter = $('#roomFilter').val();
+        // Update stats
+        $('#paidCount').text(paidCount);
+        $('#partialCount').text(partialCount);
+        $('#pendingCount').text(pendingCount);
+    }
 
-            let visibleCount = 0;
-            let totalCount = 0;
-            let paidCount = 0;
-            let partialCount = 0;
-            let pendingCount = 0;
+    function clearFilters() {
+        $('#searchInput').val('');
+        $('#statusFilter').val('');
+        $('#roomFilter').val('');
+        filterResidents();
+    }
 
-            $('.resident-item').each(function() {
-                const $item = $(this);
-                const name = $item.data('name') || '';
-                const status = $item.data('status') || '';
-                const roomId = String($item.data('room-id') || '');
+    function updateStats() {
+        let paid = 0, partial = 0, pending = 0;
+        $('.resident-item').each(function() {
+            const status = $(this).data('status') || '';
+            if (status === 'PAID') paid++;
+            else if (status === 'PARTIAL') partial++;
+            else if (status === 'PENDING' || status === 'NOT_PAID') pending++;
+        });
+        $('#paidCount').text(paid);
+        $('#partialCount').text(partial);
+        $('#pendingCount').text(pending);
+    }
 
-                let show = true;
+    function openPaymentModal(event, residentId) {
+        event.preventDefault();
+        event.stopPropagation();
 
-                // Search filter
-                if (search) {
-                    const text = $item.text().toLowerCase();
-                    if (!text.includes(search) && !name.includes(search)) {
-                        show = false;
-                    }
-                }
+        currentResident = { id: residentId };
 
-                // Status filter
-                if (show && statusFilter) {
-                    if (statusFilter === 'NOT_PAID' && status !== 'NOT_PAID') show = false;
-                    if (statusFilter !== 'NOT_PAID' && status !== statusFilter) show = false;
-                }
+        // Show loading
+        document.getElementById('paymentModalBody').innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">Loading payment details...</p>
+            </div>
+        `;
 
-                // Room filter
-                if (show && roomFilter) {
-                    if (roomId !== roomFilter) show = false;
-                }
+        paymentModal.show();
 
-                totalCount++;
-
-                if (show) {
-                    $item.show();
-                    visibleCount++;
-                    // Count statuses for stats
-                    if (status === 'PAID') paidCount++;
-                    else if (status === 'PARTIAL') partialCount++;
-                    else if (status === 'PENDING' || status === 'NOT_PAID') pendingCount++;
+        // Fetch resident details
+        $.ajax({
+            url: routes.details,
+            type: 'POST',
+            data: {
+                resident_id: residentId,
+                hostel_id: hostelId,
+                _token: csrfToken
+            },
+            success: function(response) {
+                if (response.success) {
+                    currentResident = response.data;
+                    renderPaymentModal(currentResident);
                 } else {
-                    $item.hide();
-                }
-            });
-
-            // Update result count
-            $('#resultCount').text(visibleCount === totalCount ? 'Showing all' : `Showing ${visibleCount} of ${totalCount}`);
-
-            // Show/hide no results
-            if (visibleCount === 0 && totalCount > 0) {
-                $('#noResults').show();
-            } else {
-                $('#noResults').hide();
-            }
-
-            // Update stats
-            $('#paidCount').text(paidCount);
-            $('#partialCount').text(partialCount);
-            $('#pendingCount').text(pendingCount);
-        }
-
-        function clearFilters() {
-            $('#searchInput').val('');
-            $('#statusFilter').val('');
-            $('#roomFilter').val('');
-            filterResidents();
-        }
-
-        function updateStats() {
-            let paid = 0, partial = 0, pending = 0;
-            $('.resident-item').each(function() {
-                const status = $(this).data('status') || '';
-                if (status === 'PAID') paid++;
-                else if (status === 'PARTIAL') partial++;
-                else if (status === 'PENDING' || status === 'NOT_PAID') pending++;
-            });
-            $('#paidCount').text(paid);
-            $('#partialCount').text(partial);
-            $('#pendingCount').text(pending);
-        }
-
-        function openPaymentModal(event, residentId) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            currentResident = { id: residentId };
-
-            // Show loading
-            document.getElementById('paymentModalBody').innerHTML = `
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Loading payment details...</p>
-                </div>
-            `;
-
-            paymentModal.show();
-
-            // Fetch resident details
-            $.ajax({
-                url: routes.details,
-                type: 'POST',
-                data: {
-                    resident_id: residentId,
-                    hostel_id: hostelId,
-                    _token: csrfToken
-                },
-                success: function(response) {
-                    if (response.success) {
-                        currentResident = response.data;
-                        renderPaymentModal(currentResident);
-                    } else {
-                        showError('Failed to load payment details');
-                    }
-                },
-                error: function() {
                     showError('Failed to load payment details');
                 }
-            });
-        }
+            },
+            error: function() {
+                showError('Failed to load payment details');
+            }
+        });
+    }
 
-        function renderPaymentModal(data) {
-            const amount = parseFloat(data.amount_to_pay || 0);
-            const rent = parseFloat(data.rent_amount || 0);
-            const isPaid = data.is_paid || false;
+    function renderPaymentModal(data) {
+        const amount = parseFloat(data.amount_to_pay || 0);
+        const rent = parseFloat(data.rent_amount || 0);
+        const isPaid = data.is_paid || false;
 
-            let html = `
-                <!-- Resident Info -->
-                <div class="mb-3">
-                    <div class="d-flex align-items-center gap-3 mb-2">
-                        <div class="resident-avatar" style="width:56px; height:56px; font-size:1.2rem; border-color:var(--gold);">
-                            ${data.profile_image ? `<img src="${data.profile_image}" alt="${data.name}">` : data.name.charAt(0).toUpperCase()}
+        let html = `
+            <!-- Resident Info -->
+            <div class="mb-3">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="resident-avatar" style="width:56px; height:56px; font-size:1.2rem; border-color:var(--gold);">
+                        ${data.profile_image ? `<img src="${data.profile_image}" alt="${data.name}">` : data.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <h5 class="mb-0">${data.name}</h5>
+                        <div class="text-muted" style="font-size:0.8rem;">
+                            <i class="bi bi-door-open"></i> Room #${data.room_no} • 
+                            <i class="bi bi-bed"></i> Bed #${data.bed_no}
                         </div>
-                        <div>
-                            <h5 class="mb-0">${data.name}</h5>
-                            <div class="text-muted" style="font-size:0.8rem;">
-                                <i class="bi bi-door-open"></i> Room #${data.room_no} • 
-                                <i class="bi bi-bed"></i> Bed #${data.bed_no}
-                            </div>
-                        </div>
                     </div>
-
-                    <div class="payment-detail">
-                        <span class="label"><i class="bi bi-phone"></i> Phone</span>
-                        <span class="value">${data.phone}</span>
-                    </div>
-                    <div class="payment-detail">
-                        <span class="label"><i class="bi bi-envelope"></i> Email</span>
-                        <span class="value">${data.email || 'Not provided'}</span>
-                    </div>
-                    <div class="payment-detail" style="border-top:2px solid #e5e7eb; padding-top:0.5rem; margin-top:0.5rem;">
-                        <span class="label"><i class="bi bi-currency-rupee"></i> Monthly Rent</span>
-                        <span class="value">₹${rent.toFixed(2)}</span>
-                    </div>
-                    ${data.discount > 0 ? `
-                    <div class="payment-detail" style="color:#065f46;">
-                        <span class="label"><i class="bi bi-tag"></i> Discount</span>
-                        <span class="value" style="color:#065f46;">- ₹${data.discount.toFixed(2)}</span>
-                    </div>` : ''}
-                    ${data.fine_amount > 0 ? `
-                    <div class="payment-detail" style="color:#991b1b;">
-                        <span class="label"><i class="bi bi-clock"></i> Late Fee</span>
-                        <span class="value" style="color:#991b1b;">+ ₹${data.fine_amount.toFixed(2)}</span>
-                    </div>` : ''}
-                    <div class="payment-detail" style="border-top:2px solid var(--gold); padding-top:0.5rem; margin-top:0.5rem;">
-                        <span class="label"><strong>Total to Pay</strong></span>
-                        <span class="value ${amount > 0 ? 'due' : 'clear'}" style="font-size:1.2rem;">
-                            ${amount > 0 ? '₹' + amount.toFixed(2) : '✅ All Paid'}
-                        </span>
-                    </div>
-                    ${data.discount_message ? `<div class="alert alert-info mt-2" style="font-size:0.75rem; padding:0.4rem 0.75rem;"><i class="bi bi-info-circle"></i> ${data.discount_message}</div>` : ''}
-                    ${data.fine_message ? `<div class="alert alert-danger mt-2" style="font-size:0.75rem; padding:0.4rem 0.75rem;"><i class="bi bi-exclamation-circle"></i> ${data.fine_message}</div>` : ''}
-                    ${data.has_pending ? `<div class="alert alert-warning mt-2" style="font-size:0.8rem; padding:0.5rem 0.75rem;"><i class="bi bi-exclamation-triangle-fill"></i> ${data.pending_count} pending payment(s) from previous months</div>` : ''}
                 </div>
+
+                <div class="payment-detail">
+                    <span class="label"><i class="bi bi-phone"></i> Phone</span>
+                    <span class="value">${data.phone}</span>
+                </div>
+                <div class="payment-detail">
+                    <span class="label"><i class="bi bi-envelope"></i> Email</span>
+                    <span class="value">${data.email || 'Not provided'}</span>
+                </div>
+                <div class="payment-detail" style="border-top:2px solid #e5e7eb; padding-top:0.5rem; margin-top:0.5rem;">
+                    <span class="label"><i class="bi bi-currency-rupee"></i> Monthly Rent</span>
+                    <span class="value">₹${rent.toFixed(2)}</span>
+                </div>
+                ${data.discount > 0 ? `
+                <div class="payment-detail" style="color:#065f46;">
+                    <span class="label"><i class="bi bi-tag"></i> Discount</span>
+                    <span class="value" style="color:#065f46;">- ₹${data.discount.toFixed(2)}</span>
+                </div>` : ''}
+                ${data.fine_amount > 0 ? `
+                <div class="payment-detail" style="color:#991b1b;">
+                    <span class="label"><i class="bi bi-clock"></i> Late Fee</span>
+                    <span class="value" style="color:#991b1b;">+ ₹${data.fine_amount.toFixed(2)}</span>
+                </div>` : ''}
+                <div class="payment-detail" style="border-top:2px solid var(--gold); padding-top:0.5rem; margin-top:0.5rem;">
+                    <span class="label"><strong>Total to Pay</strong></span>
+                    <span class="value ${amount > 0 ? 'due' : 'clear'}" style="font-size:1.2rem;">
+                        ${amount > 0 ? '₹' + amount.toFixed(2) : '✅ All Paid'}
+                    </span>
+                </div>
+                ${data.discount_message ? `<div class="alert alert-info mt-2" style="font-size:0.75rem; padding:0.4rem 0.75rem;"><i class="bi bi-info-circle"></i> ${data.discount_message}</div>` : ''}
+                ${data.fine_message ? `<div class="alert alert-danger mt-2" style="font-size:0.75rem; padding:0.4rem 0.75rem;"><i class="bi bi-exclamation-circle"></i> ${data.fine_message}</div>` : ''}
+                ${data.has_pending ? `<div class="alert alert-warning mt-2" style="font-size:0.8rem; padding:0.5rem 0.75rem;"><i class="bi bi-exclamation-triangle-fill"></i> ${data.pending_count} pending payment(s) from previous months</div>` : ''}
+            </div>
+        `;
+
+        // Only show payment form if not fully paid
+        if (!isPaid && amount > 0) {
+            html += `
+            <hr>
+            <h6 class="mb-2"><i class="bi bi-pencil-square"></i> Enter Payment Details</h6>
+
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label" style="font-size:0.8rem; font-weight:600;">Amount (₹)</label>
+                    <input type="number" id="paymentAmount" class="form-control" 
+                           value="${amount.toFixed(2)}" 
+                           step="0.01" min="0.01" max="${amount}"
+                           style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem;">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" style="font-size:0.8rem; font-weight:600;">Payment Method</label>
+                    <div class="payment-method-group">
+                        <div class="payment-method-option selected" data-method="cash" onclick="selectMethod(this)">
+                            <i class="bi bi-cash"></i> Cash
+                        </div>
+                        <div class="payment-method-option" data-method="upi" onclick="selectMethod(this)">
+                            <i class="bi bi-phone"></i> UPI
+                        </div>
+                        <div class="payment-method-option" data-method="card" onclick="selectMethod(this)">
+                            <i class="bi bi-credit-card"></i> Card
+                        </div>
+                        <div class="payment-method-option" data-method="bank_transfer" onclick="selectMethod(this)">
+                            <i class="bi bi-bank"></i> Bank
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-2 mt-1">
+                <div class="col-md-6">
+                    <label class="form-label" style="font-size:0.8rem; font-weight:600;">Receipt/Reference No</label>
+                    <input type="text" id="paymentReference" class="form-control" 
+                           value="${data.reference || 'PAY-' + Date.now()}" 
+                           style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem; font-size:0.85rem;">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" style="font-size:0.8rem; font-weight:600;">Remarks (Optional)</label>
+                    <input type="text" id="paymentRemarks" class="form-control" 
+                           placeholder="Any notes..." 
+                           style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem; font-size:0.85rem;">
+                </div>
+            </div>
+
+            <button class="btn-submit-payment mt-3" id="submitPaymentBtn" onclick="submitPayment()">
+                <i class="bi bi-check-circle"></i> Record Payment
+            </button>
             `;
+        } else {
+            html += `
+            <div class="text-center py-2">
+                <div style="font-size:2rem; margin-bottom:0.5rem;">✅</div>
+                <h5>This month's rent is fully paid!</h5>
+                <p class="text-muted">No payment due for this month.</p>
+                <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
+            </div>
+            `;
+        }
 
-            // Only show payment form if not fully paid
-            if (!isPaid && amount > 0) {
-                html += `
-                <hr>
-                <h6 class="mb-2"><i class="bi bi-pencil-square"></i> Enter Payment Details</h6>
+        // Payment History - FIXED: Use routes.history with resident ID
+        if (data.payment_history && data.payment_history.length > 0) {
+            html += `
+            <hr>
+            <h6 class="mb-2"><i class="bi bi-clock-history"></i> Payment History</h6>
+            <div class="table-responsive">
+                <table class="table table-sm payment-history-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Rent</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.payment_history.map(p => `
+                        <tr>
+                            <td>${p.month}</td>
+                            <td>₹${p.rent}</td>
+                            <td>₹${p.paid}</td>
+                            <td>₹${p.balance}</td>
+                            <td><span class="badge-status ${p.status.toLowerCase()}">${p.status}</span></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
 
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.8rem; font-weight:600;">Amount (₹)</label>
-                        <input type="number" id="paymentAmount" class="form-control" 
-                               value="${amount.toFixed(2)}" 
-                               step="0.01" min="0.01" max="${amount}"
-                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem;">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.8rem; font-weight:600;">Payment Method</label>
-                        <div class="payment-method-group">
-                            <div class="payment-method-option selected" data-method="cash" onclick="selectMethod(this)">
-                                <i class="bi bi-cash"></i> Cash
+        document.getElementById('paymentModalBody').innerHTML = html;
+    }
+
+    function selectMethod(el) {
+        document.querySelectorAll('.payment-method-option').forEach(opt => opt.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedMethod = el.dataset.method;
+    }
+
+    function submitPayment() {
+        const amount = parseFloat(document.getElementById('paymentAmount').value);
+        const reference = document.getElementById('paymentReference').value.trim();
+        const remarks = document.getElementById('paymentRemarks').value.trim();
+
+        if (!amount || amount <= 0) {
+            showToast('Please enter a valid amount', 'error');
+            return;
+        }
+
+        if (!reference) {
+            showToast('Please enter a reference number', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('submitPaymentBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Recording...';
+
+        $.ajax({
+            url: routes.manual,
+            type: 'POST',
+            data: {
+                resident_id: currentResident.id,
+                amount: amount,
+                payment_method: selectedMethod,
+                reference: reference,
+                remarks: remarks,
+                hostel_id: hostelId,
+                _token: csrfToken
+            },
+            success: function(response) {
+                if (response.success) {
+                    showToast(response.message, 'success');
+                    const data = response.data;
+                    const statusIcon = data.is_full_paid ? '✅' : (data.is_partial ? '⚠️' : '❌');
+
+                    document.getElementById('paymentModalBody').innerHTML = `
+                        <div class="text-center py-4">
+                            <div style="font-size:3rem; margin-bottom:0.5rem;">${statusIcon}</div>
+                            <h5>${data.status_message}</h5>
+                            <div class="payment-detail" style="justify-content:center; gap:2rem; flex-wrap:wrap; border:none;">
+                                <div><span class="label">Receipt</span><br><span class="value">${data.receipt_no}</span></div>
+                                <div><span class="label">Amount Paid</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
+                                <div><span class="label">Balance</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
                             </div>
-                            <div class="payment-method-option" data-method="upi" onclick="selectMethod(this)">
-                                <i class="bi bi-phone"></i> UPI
+                            <div class="mt-3">
+                                <span class="badge-status ${data.status.toLowerCase()}">${data.status}</span>
                             </div>
-                            <div class="payment-method-option" data-method="card" onclick="selectMethod(this)">
-                                <i class="bi bi-credit-card"></i> Card
-                            </div>
-                            <div class="payment-method-option" data-method="bank_transfer" onclick="selectMethod(this)">
-                                <i class="bi bi-bank"></i> Bank
-                            </div>
+                            <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
+                                <i class="bi bi-check-circle"></i> Done
+                            </button>
                         </div>
-                    </div>
-                </div>
-
-                <div class="row g-2 mt-1">
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.8rem; font-weight:600;">Receipt/Reference No</label>
-                        <input type="text" id="paymentReference" class="form-control" 
-                               value="${data.reference || 'PAY-' + Date.now()}" 
-                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem; font-size:0.85rem;">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.8rem; font-weight:600;">Remarks (Optional)</label>
-                        <input type="text" id="paymentRemarks" class="form-control" 
-                               placeholder="Any notes..." 
-                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.5rem 0.75rem; font-size:0.85rem;">
-                    </div>
-                </div>
-
-                <button class="btn-submit-payment mt-3" id="submitPaymentBtn" onclick="submitPayment()">
-                    <i class="bi bi-check-circle"></i> Record Payment
-                </button>
-                `;
-            } else {
-                html += `
-                <div class="text-center py-2">
-                    <div style="font-size:2rem; margin-bottom:0.5rem;">✅</div>
-                    <h5>This month's rent is fully paid!</h5>
-                    <p class="text-muted">No payment due for this month.</p>
-                    <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
-                </div>
-                `;
-            }
-
-            // Payment History
-            if (data.payment_history && data.payment_history.length > 0) {
-                html += `
-                <hr>
-                <h6 class="mb-2"><i class="bi bi-clock-history"></i> Payment History</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm payment-history-table">
-                        <thead>
-                            <tr>
-                                <th>Month</th>
-                                <th>Rent</th>
-                                <th>Paid</th>
-                                <th>Balance</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.payment_history.map(p => `
-                            <tr>
-                                <td>${p.month}</td>
-                                <td>₹${p.rent}</td>
-                                <td>₹${p.paid}</td>
-                                <td>₹${p.balance}</td>
-                                <td><span class="badge-status ${p.status.toLowerCase()}">${p.status}</span></td>
-                            </tr>`).join('')}
-                        </tbody>
-                    </table>
-                </div>`;
-            }
-
-            document.getElementById('paymentModalBody').innerHTML = html;
-        }
-
-        function selectMethod(el) {
-            document.querySelectorAll('.payment-method-option').forEach(opt => opt.classList.remove('selected'));
-            el.classList.add('selected');
-            selectedMethod = el.dataset.method;
-        }
-
-        function submitPayment() {
-            const amount = parseFloat(document.getElementById('paymentAmount').value);
-            const reference = document.getElementById('paymentReference').value.trim();
-            const remarks = document.getElementById('paymentRemarks').value.trim();
-
-            if (!amount || amount <= 0) {
-                showToast('Please enter a valid amount', 'error');
-                return;
-            }
-
-            if (!reference) {
-                showToast('Please enter a reference number', 'error');
-                return;
-            }
-
-            const btn = document.getElementById('submitPaymentBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Recording...';
-
-            $.ajax({
-                url: routes.manual,
-                type: 'POST',
-                data: {
-                    resident_id: currentResident.id,
-                    amount: amount,
-                    payment_method: selectedMethod,
-                    reference: reference,
-                    remarks: remarks,
-                    hostel_id: hostelId,
-                    _token: csrfToken
-                },
-                success: function(response) {
-                    if (response.success) {
-                        showToast(response.message, 'success');
-                        const data = response.data;
-                        const statusIcon = data.is_full_paid ? '✅' : (data.is_partial ? '⚠️' : '❌');
-
-                        document.getElementById('paymentModalBody').innerHTML = `
-                            <div class="text-center py-4">
-                                <div style="font-size:3rem; margin-bottom:0.5rem;">${statusIcon}</div>
-                                <h5>${data.status_message}</h5>
-                                <div class="payment-detail" style="justify-content:center; gap:2rem; flex-wrap:wrap; border:none;">
-                                    <div><span class="label">Receipt</span><br><span class="value">${data.receipt_no}</span></div>
-                                    <div><span class="label">Amount Paid</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
-                                    <div><span class="label">Balance</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
-                                </div>
-                                <div class="mt-3">
-                                    <span class="badge-status ${data.status.toLowerCase()}">${data.status}</span>
-                                </div>
-                                <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
-                                    <i class="bi bi-check-circle"></i> Done
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        showToast(response.message || 'Failed to record payment', 'error');
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
-                    }
-                },
-                error: function(xhr) {
-                    let message = 'Failed to record payment';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        message = xhr.responseJSON.message;
-                    }
-                    if (xhr.responseJSON && xhr.responseJSON.errors) {
-                        const errors = Object.values(xhr.responseJSON.errors).flat();
-                        message = errors.join(', ');
-                    }
-                    showToast('❌ ' + message, 'error');
+                    `;
+                } else {
+                    showToast(response.message || 'Failed to record payment', 'error');
                     btn.disabled = false;
                     btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
                 }
-            });
-        }
-
-        function showError(message) {
-            document.getElementById('paymentModalBody').innerHTML = `
-                <div class="text-center py-4 text-danger">
-                    <i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i>
-                    <p class="mt-2">${message}</p>
-                    <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
-                </div>
-            `;
-        }
-
-        function showToast(message, type) {
-            if (typeof type === 'undefined') type = 'success';
-            var container = document.getElementById('toastContainer');
-            var icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
-            var color = type === 'success' ? '#10b981' : '#dc2626';
-
-            var toast = document.createElement('div');
-            toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
-            toast.innerHTML = `
-                <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
-                <div class="message">${message}</div>
-                <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
-            `;
-            container.appendChild(toast);
-
-            setTimeout(function() {
-                if (toast.parentElement) {
-                    toast.style.animation = 'slideOutRight 0.3s ease forwards';
-                    setTimeout(function() { toast.remove(); }, 300);
+            },
+            error: function(xhr) {
+                let message = 'Failed to record payment';
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    message = xhr.responseJSON.message;
                 }
-            }, 8000);
-        }
-    </script>
+                if (xhr.responseJSON && xhr.responseJSON.errors) {
+                    const errors = Object.values(xhr.responseJSON.errors).flat();
+                    message = errors.join(', ');
+                }
+                showToast('❌ ' + message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
+            }
+        });
+    }
+
+    function showError(message) {
+        document.getElementById('paymentModalBody').innerHTML = `
+            <div class="text-center py-4 text-danger">
+                <i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i>
+                <p class="mt-2">${message}</p>
+                <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
+            </div>
+        `;
+    }
+
+    function showToast(message, type) {
+        if (typeof type === 'undefined') type = 'success';
+        var container = document.getElementById('toastContainer');
+        var icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
+        var color = type === 'success' ? '#10b981' : '#dc2626';
+
+        var toast = document.createElement('div');
+        toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
+        toast.innerHTML = `
+            <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
+            <div class="message">${message}</div>
+            <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
+        `;
+        container.appendChild(toast);
+
+        setTimeout(function() {
+            if (toast.parentElement) {
+                toast.style.animation = 'slideOutRight 0.3s ease forwards';
+                setTimeout(function() { toast.remove(); }, 300);
+            }
+        }, 8000);
+    }
+</script>
 
 </body>
 </html>
