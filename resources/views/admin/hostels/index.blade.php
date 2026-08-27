@@ -583,10 +583,7 @@
         var hostelId = '{{ isset($hostelId) ? $hostelId : '' }}';
         var csrfToken = '{{ csrf_token() }}';
         var paymentRoutes = {
-            resident: '{{ route('guest.payment.resident') }}',
-            verifyUPI: '{{ route('guest.payment.verify-upi') }}',
-            checkUPIStatus: '{{ route('guest.payment.check-upi-status') }}',
-            callback: '{{ route('guest.payment.callback') }}'
+          
         };
 
         let currentResident = null;
