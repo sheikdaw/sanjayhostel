@@ -175,8 +175,8 @@
 
         /* Avatar - Always shows initials if no photo */
         .resident-avatar {
-            width: 40px;
-            height: 40px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             background: var(--gold);
             color: var(--primary);
@@ -473,7 +473,7 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="container-fluid">
 
         <!-- ===== STATISTICS ===== -->
         <div class="stats-grid" id="statsGrid">
