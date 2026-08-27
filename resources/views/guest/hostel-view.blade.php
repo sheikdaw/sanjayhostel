@@ -497,11 +497,11 @@
                 <div class="number" style="color:var(--danger);" id="pendingCount">0</div>
                 <div class="label">Pending</div>
             </div>
-            <div class="stat-card">
+            <!-- <div class="stat-card">
                 <span class="icon">💰</span>
                 <div class="number" style="color:#92400e;">₹{{ number_format($stats['total_rent'], 0) }}</div>
                 <div class="label">Total Rent</div>
-            </div>
+            </div> -->
         </div>
 
         <!-- ===== SEARCH & FILTER ===== -->
