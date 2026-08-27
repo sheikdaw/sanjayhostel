@@ -387,7 +387,6 @@ Route::get('/payment-links', function () {
 
 Route::get('/check-device-service', [BiometricController::class, 'testConnection']);
 
-// Guest Routes - Public Access
 Route::prefix('guest')->name('guest.')->group(function () {
     // Hostel view with room-wise residents
     Route::get('/hostel/{encodedId}', [GuestHostelController::class, 'show'])->name('hostel.view');
@@ -398,7 +397,7 @@ Route::prefix('guest')->name('guest.')->group(function () {
     // Manual Payment (Direct to payments table)
     Route::post('/payment/manual', [GuestHostelController::class, 'manualPayment'])->name('payment.manual');
     
-    // Get payment history
+    // Get payment history - FIXED: Removed parameter from route name generation
     Route::get('/payment/history/{residentId}', [GuestHostelController::class, 'getPaymentHistory'])->name('payment.history');
     
     // Generate payment link (Admin use)
