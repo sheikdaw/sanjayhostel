@@ -19,6 +19,14 @@
             --danger: #ef4444;
             --warning: #f59e0b;
             --info: #3b82f6;
+            
+            /* Status Colors */
+            --status-paid: #22c55e;
+            --status-paid-bg: #dcfce7;
+            --status-partial: #f59e0b;
+            --status-partial-bg: #fef3c7;
+            --status-pending: #ef4444;
+            --status-pending-bg: #fee2e2;
         }
 
         * { box-sizing: border-box; }
@@ -154,7 +162,7 @@
             gap: 0.5rem;
         }
 
-        /* ===== RESIDENT CARD ===== */
+        /* ===== RESIDENT CARD WITH STATUS COLOR ===== */
         .resident-card {
             background: white;
             border-radius: 10px;
@@ -166,6 +174,28 @@
             align-items: center;
             gap: 0.5rem;
             position: relative;
+            border-left: 4px solid #e5e7eb;
+        }
+
+        /* Status color on left border */
+        .resident-card.status-paid {
+            border-left-color: var(--status-paid);
+            background: linear-gradient(to right, rgba(34, 197, 94, 0.05), white);
+        }
+
+        .resident-card.status-partial {
+            border-left-color: var(--status-partial);
+            background: linear-gradient(to right, rgba(245, 158, 11, 0.05), white);
+        }
+
+        .resident-card.status-pending {
+            border-left-color: var(--status-pending);
+            background: linear-gradient(to right, rgba(239, 68, 68, 0.05), white);
+        }
+
+        .resident-card.status-not-paid {
+            border-left-color: var(--status-pending);
+            background: linear-gradient(to right, rgba(239, 68, 68, 0.08), white);
         }
 
         .resident-card:hover {
@@ -173,6 +203,22 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border-color: var(--gold);
         }
+
+        /* Status indicator dot - larger and colored */
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: inline-block;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        .status-indicator.paid { background: var(--status-paid); }
+        .status-indicator.partial { background: var(--status-partial); }
+        .status-indicator.pending { background: var(--status-pending); }
+        .status-indicator.not-paid { background: var(--status-pending); }
 
         /* Avatar - Always shows initials if no photo */
         .resident-avatar {
@@ -243,33 +289,55 @@
         .resident-info .details .food-badge.with-food { background: #dcfce7; color: #166534; }
         .resident-info .details .food-badge.without-food { background: #f3f4f6; color: #4b5563; }
 
-        /* Status Badge - Small */
+        /* Status Badge - Color coded */
         .status-badge {
             font-size: 0.55rem;
-            padding: 0.1rem 0.4rem;
-            border-radius: 10px;
-            font-weight: 600;
+            padding: 0.15rem 0.5rem;
+            border-radius: 20px;
+            font-weight: 700;
             white-space: nowrap;
             display: inline-flex;
             align-items: center;
-            gap: 3px;
+            gap: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
-        .status-badge.paid { background: #dcfce7; color: #166534; }
-        .status-badge.partial { background: #fef3c7; color: #92400e; }
-        .status-badge.pending { background: #fee2e2; color: #991b1b; animation: pulse 2s infinite; }
-        .status-badge.not-paid { background: #f3f4f6; color: #6b7280; }
+        .status-badge.paid {
+            background: var(--status-paid-bg);
+            color: #166534;
+            border: 1px solid var(--status-paid);
+        }
+
+        .status-badge.partial {
+            background: var(--status-partial-bg);
+            color: #92400e;
+            border: 1px solid var(--status-partial);
+        }
+
+        .status-badge.pending {
+            background: var(--status-pending-bg);
+            color: #991b1b;
+            border: 1px solid var(--status-pending);
+            animation: pulse 2s infinite;
+        }
+
+        .status-badge.not-paid {
+            background: #f3f4f6;
+            color: #6b7280;
+            border: 1px solid #d1d5db;
+        }
 
         .status-badge .dot {
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             display: inline-block;
         }
 
-        .status-badge.paid .dot { background: var(--success); }
-        .status-badge.partial .dot { background: var(--warning); }
-        .status-badge.pending .dot { background: var(--danger); }
+        .status-badge.paid .dot { background: var(--status-paid); }
+        .status-badge.partial .dot { background: var(--status-partial); }
+        .status-badge.pending .dot { background: var(--status-pending); }
         .status-badge.not-paid .dot { background: #9ca3af; }
 
         .rent-badge {
@@ -372,6 +440,7 @@
             font-size: 0.6rem;
             padding: 0.15rem 0.4rem;
             border-radius: 10px;
+            font-weight: 600;
         }
         .badge-status.paid { background: #dcfce7; color: #166534; }
         .badge-status.pending { background: #fee2e2; color: #991b1b; }
@@ -499,6 +568,49 @@
             color: #16a34a;
         }
 
+        /* ===== STATUS COLOR BADGE IN MODAL ===== */
+        .status-badge-large {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.4rem 1rem;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge-large.paid {
+            background: #dcfce7;
+            color: #166534;
+            border: 2px solid var(--status-paid);
+        }
+
+        .status-badge-large.partial {
+            background: #fef3c7;
+            color: #92400e;
+            border: 2px solid var(--status-partial);
+        }
+
+        .status-badge-large.pending {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 2px solid var(--status-pending);
+            animation: pulse 2s infinite;
+        }
+
+        .status-badge-large .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-badge-large.paid .dot { background: var(--status-paid); }
+        .status-badge-large.partial .dot { background: var(--status-partial); }
+        .status-badge-large.pending .dot { background: var(--status-pending); }
+
         /* ===== TOAST ===== */
         .toast-container {
             position: fixed;
@@ -550,6 +662,8 @@
             .resident-info .name { font-size: 0.7rem; }
             .profile-image-section .resident-avatar { width: 60px; height: 60px; font-size: 1.2rem; }
             .payment-method-group { grid-template-columns: repeat(2, 1fr); }
+            .status-badge { font-size: 0.5rem; padding: 0.1rem 0.3rem; }
+            .status-indicator { width: 8px; height: 8px; }
         }
 
         @media (max-width: 480px) {
@@ -558,6 +672,7 @@
             .hostel-header h1 { font-size: 1.2rem; }
             .profile-image-section .resident-avatar { width: 50px; height: 50px; font-size: 1rem; }
             .payment-method-group { grid-template-columns: 1fr 1fr; }
+            .status-badge { font-size: 0.45rem; padding: 0.05rem 0.25rem; }
         }
     </style>
 </head>
@@ -600,17 +715,17 @@
                 <div class="number" id="totalCount">{{ $stats['total_residents'] }}</div>
                 <div class="label">Total</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" style="border-left: 3px solid var(--status-paid);">
                 <span class="icon">✅</span>
                 <div class="number" style="color:var(--success);" id="paidCount">0</div>
                 <div class="label">Paid</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" style="border-left: 3px solid var(--status-partial);">
                 <span class="icon">⚠️</span>
                 <div class="number" style="color:var(--warning);" id="partialCount">0</div>
                 <div class="label">Partial</div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" style="border-left: 3px solid var(--status-pending);">
                 <span class="icon">❌</span>
                 <div class="number" style="color:var(--danger);" id="pendingCount">0</div>
                 <div class="label">Pending</div>
@@ -626,10 +741,10 @@
             <div class="filter-group">
                 <select id="statusFilter" onchange="filterResidents()">
                     <option value="">All Status</option>
-                    <option value="PAID">✅ Paid</option>
-                    <option value="PARTIAL">⚠️ Partial</option>
-                    <option value="PENDING">❌ Pending</option>
-                    <option value="NOT_PAID">🔴 Not Paid</option>
+                    <option value="PAID" style="color: var(--status-paid);">✅ Paid</option>
+                    <option value="PARTIAL" style="color: var(--status-partial);">⚠️ Partial</option>
+                    <option value="PENDING" style="color: var(--status-pending);">❌ Pending</option>
+                    <option value="NOT_PAID" style="color: var(--status-pending);">🔴 Not Paid</option>
                 </select>
                 <select id="roomFilter" onchange="filterResidents()">
                     <option value="">All Rooms</option>
@@ -676,8 +791,12 @@
                                     $hasDob = $resident->dob ? true : false;
                                     $dobFormatted = $hasDob ? $resident->dob->format('d M Y') : '';
                                     $age = $hasDob ? $resident->dob->age : null;
+                                    
+                                    // Status indicator class
+                                    $statusCardClass = $statusClass;
+                                    if ($status == 'NOT_PAID') $statusCardClass = 'not-paid';
                                 @endphp
-                                <div class="resident-card" 
+                                <div class="resident-card status-{{ $statusCardClass }}" 
                                      data-resident-id="{{ $resident->id }}"
                                      data-room-id="{{ $room->id }}"
                                      data-name="{{ strtolower($resident->name) }}"
@@ -714,7 +833,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Status -->
+                                    <!-- Status Badge with color -->
                                     <span class="status-badge {{ $statusClass }}">
                                         <span class="dot"></span>
                                         {{ $statusLabel }}
@@ -932,6 +1051,16 @@
             const dobDisplay = hasDob ? data.dob_formatted : '';
             const ageDisplay = data.age ? `(${data.age} years)` : '';
 
+            // Status color
+            const status = data.current_month_status || 'PENDING';
+            const statusLower = status.toLowerCase();
+            const statusLabel = status === 'NOT_PAID' ? 'Not Paid' : status;
+            const isFullPaid = status === 'PAID' && amount <= 0;
+
+            // Status badge class
+            let statusBadgeClass = statusLower;
+            if (status === 'NOT_PAID') statusBadgeClass = 'pending';
+
             let html = `
                 <div class="mb-3">
                     <!-- ===== PROFILE IMAGE SECTION WITH UPLOAD ===== -->
@@ -971,7 +1100,7 @@
                         </div>
                     </div>
 
-                    <div class="d-flex align-items-center gap-3 mb-2">
+                    <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
                         <div>
                             <h5 class="mb-0">${data.name}</h5>
                             <div class="text-muted" style="font-size:0.8rem;">
@@ -996,6 +1125,12 @@
                                     </button>
                                 </div>
                             `}
+                        </div>
+                        <!-- Status Badge in Modal -->
+                        <div class="status-badge-large ${statusBadgeClass}">
+                            <span class="dot"></span>
+                            ${isFullPaid ? '✅ PAID' : statusLabel}
+                            ${status === 'PARTIAL' ? ` (₹${data.balance || 0})` : ''}
                         </div>
                     </div>
 
@@ -1190,6 +1325,9 @@
                             `;
                         }
 
+                        // Status color in confirmation
+                        const statusClass = data.status.toLowerCase();
+
                         document.getElementById('paymentModalBody').innerHTML = `
                             <div class="text-center py-4">
                                 <div style="font-size:2.5rem;">${statusIcon}</div>
@@ -1200,7 +1338,12 @@
                                     <div><span class="label">Balance</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
                                     ${transactionHtml}
                                 </div>
-                                <div class="mt-2"><span class="badge-status ${data.status.toLowerCase()}">${data.status}</span></div>
+                                <div class="mt-2">
+                                    <span class="status-badge-large ${statusClass}">
+                                        <span class="dot"></span>
+                                        ${data.status}
+                                    </span>
+                                </div>
                                 <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
                                     <i class="bi bi-check-circle"></i> Done
                                 </button>
@@ -1265,9 +1408,7 @@
                         success: function(response) {
                             if (response.success) {
                                 showToast('Date of Birth updated successfully!', 'success');
-                                // Refresh modal content
                                 refreshModalContent(residentId);
-                                // Reload page to update card
                                 setTimeout(() => location.reload(), 1500);
                             } else {
                                 showToast(response.message || 'Failed to update DOB', 'error');
@@ -1300,7 +1441,6 @@
                 return;
             }
 
-            // Validate file type
             const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
             if (!allowedTypes.includes(file.type)) {
                 showToast('Please upload a valid image (JPEG, PNG, JPG, GIF)', 'error');
@@ -1308,7 +1448,6 @@
                 return;
             }
 
-            // Validate file size (max 2MB)
             if (file.size > 2 * 1024 * 1024) {
                 showToast('Image size should be less than 2MB', 'error');
                 event.target.value = '';
@@ -1320,7 +1459,6 @@
             formData.append('profile_image', file);
             formData.append('_token', csrfToken);
 
-            // Show loading state
             const avatar = document.getElementById('modalProfileAvatar');
             if (avatar) {
                 avatar.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>';
@@ -1357,7 +1495,6 @@
                 }
             });
 
-            // Reset file input
             event.target.value = '';
         }
 
@@ -1435,10 +1572,8 @@
             });
         }
 
-        // Store initials globally for reset
         let initials = '?';
 
-        // Override renderPaymentModal to store initials
         const originalRender = renderPaymentModal;
         renderPaymentModal = function(data) {
             initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
