@@ -29,19 +29,26 @@
         }
 
         * { box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
         body {
             background: #f0f4f8;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             padding: 0;
-            margin: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         .hostel-header {
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
             color: white;
-            padding: 1.25rem 0;
-            margin-bottom: 1rem;
-            border-radius: 0 0 20px 20px;
+            padding: 0.6rem 0;
+            margin-bottom: 0.5rem;
+            border-radius: 0 0 16px 16px;
+            flex-shrink: 0;
         }
 
         .hostel-header .hostel-icon { font-size: 2rem; color: var(--gold); }
@@ -60,11 +67,21 @@
             margin: 0.25rem 0 0;
         }
 
+        .container-fluid {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            padding-bottom: 0.4rem;
+        }
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
             gap: 0.5rem;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
+            flex-shrink: 0;
         }
 
         .stat-card {
@@ -81,14 +98,15 @@
 
         .search-section {
             background: white;
-            padding: 0.5rem 0.75rem;
+            padding: 0.4rem 0.75rem;
             border-radius: 10px;
             border: 1px solid #e5e7eb;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
             display: flex;
             gap: 0.5rem;
             align-items: center;
             flex-wrap: wrap;
+            flex-shrink: 0;
         }
 
         .search-section .search-box {
@@ -151,61 +169,80 @@
             white-space: nowrap;
         }
 
+        #residentsContainer {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
         .resident-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 0.5rem;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .resident-card {
-            background: white;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
-            padding: 0.75rem 0.5rem;
+            border-radius: 14px;
+            border: none;
+            padding: 0.6rem 0.4rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.15s, box-shadow 0.15s;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            gap: 0.4rem;
+            gap: 0.35rem;
             position: relative;
-            border-left: 4px solid #e5e7eb;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+            overflow: hidden;
         }
 
-        .resident-card.status-paid {
-            border-left-color: var(--status-paid);
-            background: linear-gradient(to right, rgba(34, 197, 94, 0.05), white);
-        }
-
-        .resident-card.status-partial {
-            border-left-color: var(--status-partial);
-            background: linear-gradient(to right, rgba(245, 158, 11, 0.05), white);
-        }
-
-        .resident-card.status-pending {
-            border-left-color: var(--status-pending);
-            background: linear-gradient(to right, rgba(239, 68, 68, 0.05), white);
-        }
-
-        .resident-card.status-not-paid {
-            border-left-color: var(--status-pending);
-            background: linear-gradient(to right, rgba(239, 68, 68, 0.08), white);
-        }
+        .resident-card.card-color-0 { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        .resident-card.card-color-1 { background: linear-gradient(135deg, #60a5fa, #2563eb); }
+        .resident-card.card-color-2 { background: linear-gradient(135deg, #34d399, #059669); }
+        .resident-card.card-color-3 { background: linear-gradient(135deg, #f472b6, #db2777); }
+        .resident-card.card-color-4 { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
+        .resident-card.card-color-5 { background: linear-gradient(135deg, #fb923c, #ea580c); }
+        .resident-card.card-color-6 { background: linear-gradient(135deg, #22d3ee, #0891b2); }
+        .resident-card.card-color-7 { background: linear-gradient(135deg, #4ade80, #16a34a); }
+        .resident-card.card-color-8 { background: linear-gradient(135deg, #38bdf8, #0284c7); }
+        .resident-card.card-color-9 { background: linear-gradient(135deg, #facc15, #ca8a04); }
 
         .resident-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            border-color: var(--gold);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.22);
+            z-index: 2;
+        }
+
+        .status-dot {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+        }
+        .status-dot.paid { background: var(--status-paid); }
+        .status-dot.partial { background: var(--status-partial); }
+        .status-dot.pending, .status-dot.not-paid {
+            background: var(--status-pending);
+            animation: pulse 2s infinite;
         }
 
         .resident-avatar {
             width: 64px;
             height: 64px;
             border-radius: 50%;
-            background: var(--gold);
-            color: var(--primary);
+            background: rgba(255,255,255,0.95);
+            color: #1f2937;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -213,7 +250,8 @@
             font-size: 1.1rem;
             flex-shrink: 0;
             overflow: hidden;
-            border: 2px solid #e5e7eb;
+            border: 3px solid rgba(255,255,255,0.6);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         }
 
         .resident-avatar img {
@@ -239,9 +277,10 @@
         }
 
         .resident-info .name {
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.8rem;
-            color: #1f2937;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.35);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -780,13 +819,15 @@
                                     $statusCardClass = $statusClass;
                                     if ($status == 'NOT_PAID') $statusCardClass = 'not-paid';
                                 @endphp
-                                <div class="resident-card status-{{ $statusCardClass }}" 
+                                <div class="resident-card card-color-{{ $colorIndex }}" 
                                      data-resident-id="{{ $resident->id }}"
                                      data-room-id="{{ $room->id }}"
                                      data-name="{{ strtolower($resident->name) }}"
                                      data-status="{{ $status }}"
                                      onclick="openPaymentModal(event, {{ $resident->id }})">
-                                    
+
+                                    <span class="status-dot {{ $statusCardClass }}" title="{{ $statusLabel }}"></span>
+
                                     <div class="resident-avatar color-{{ $colorIndex }}" id="avatar-{{ $resident->id }}">
                                         @if($hasProfileImage && $profileImageUrl)
                                             <img src="{{ $profileImageUrl }}" alt="{{ $resident->name }}">
@@ -869,11 +910,83 @@
         $(document).ready(function() {
             paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
             updateStats();
+            fitResidentGrid();
 
             $('#searchInput').on('keyup', function(e) {
                 if (e.key === 'Enter') filterResidents();
             });
         });
+
+        let fitResizeTimer = null;
+        $(window).on('resize', function() {
+            clearTimeout(fitResizeTimer);
+            fitResizeTimer = setTimeout(fitResidentGrid, 150);
+        });
+
+        // ============================================
+        // FIT-TO-SCREEN GRID (no scrolling, sized to fit all visible residents)
+        // ============================================
+        function fitResidentGrid() {
+            const container = document.getElementById('residentsContainer');
+            const grid = document.getElementById('residentGrid');
+            if (!grid || !container) return;
+
+            const cards = Array.from(grid.querySelectorAll('.resident-card'))
+                .filter(c => c.style.display !== 'none');
+            const count = cards.length;
+            if (count === 0) return;
+
+            const availWidth = container.clientWidth;
+            const availHeight = container.clientHeight;
+            if (availWidth <= 0 || availHeight <= 0) return;
+
+            // Find the column count that lets cards be as large as possible
+            // while still fitting every card within availWidth x availHeight.
+            const cardAspect = 0.82; // target width/height ratio of a card
+            let bestCols = 1;
+            let bestScale = -Infinity;
+            for (let cols = 1; cols <= count; cols++) {
+                const rows = Math.ceil(count / cols);
+                const cellW = availWidth / cols;
+                const cellH = availHeight / rows;
+                const scale = Math.min(cellW / cardAspect, cellH);
+                if (scale > bestScale) {
+                    bestScale = scale;
+                    bestCols = cols;
+                }
+            }
+            const rows = Math.ceil(count / bestCols);
+
+            grid.style.gridTemplateColumns = `repeat(${bestCols}, 1fr)`;
+            grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+            grid.style.gridAutoFlow = 'row';
+
+            const cellW = availWidth / bestCols;
+            const cellH = availHeight / rows;
+            const minCell = Math.min(cellW, cellH);
+
+            const avatarSize = Math.max(24, Math.min(120, minCell * 0.42));
+            const fontSize = Math.max(8, Math.min(24, minCell * 0.10));
+            const dotSize = Math.max(8, Math.min(16, minCell * 0.09));
+
+            cards.forEach(card => {
+                const avatar = card.querySelector('.resident-avatar');
+                const name = card.querySelector('.name');
+                const dot = card.querySelector('.status-dot');
+                if (avatar) {
+                    avatar.style.width = avatarSize + 'px';
+                    avatar.style.height = avatarSize + 'px';
+                    avatar.style.fontSize = (avatarSize * 0.32) + 'px';
+                }
+                if (name) {
+                    name.style.fontSize = fontSize + 'px';
+                }
+                if (dot) {
+                    dot.style.width = dotSize + 'px';
+                    dot.style.height = dotSize + 'px';
+                }
+            });
+        }
 
         // ============================================
         // FILTER FUNCTIONS
@@ -928,6 +1041,7 @@
             $('#paidCount').text(paidCount);
             $('#partialCount').text(partialCount);
             $('#pendingCount').text(pendingCount);
+            fitResidentGrid();
         }
 
         function clearFilters() {
