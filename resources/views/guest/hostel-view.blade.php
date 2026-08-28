@@ -438,6 +438,23 @@
             justify-content: center;
         }
 
+        /* ===== DOB BADGE ===== */
+        .dob-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            background: #fce7f3;
+            color: #831843;
+        }
+
+        .dob-badge i {
+            color: #ec4899;
+        }
+
         /* ===== TOAST ===== */
         .toast-container {
             position: fixed;
@@ -610,6 +627,9 @@
                                     $initials = strtoupper(substr($resident->name, 0, 2));
                                     $hasProfileImage = $resident->profile_image ? true : false;
                                     $profileImageUrl = $resident->profile_image_url;
+                                    $hasDob = $resident->dob ? true : false;
+                                    $dobFormatted = $hasDob ? $resident->dob->format('d M Y') : '';
+                                    $age = $hasDob ? $resident->dob->age : null;
                                 @endphp
                                 <div class="resident-card" 
                                      data-resident-id="{{ $resident->id }}"
@@ -636,6 +656,15 @@
                                                 {{ $resident->food_status == 'WITH_FOOD' ? '🍽️' : '🍞' }}
                                             </span>
                                             <span class="rent-badge">₹{{ number_format($resident->rent_amount, 0) }}</span>
+                                            @if($hasDob)
+                                                <span class="dob-badge" title="DOB: {{ $dobFormatted }}{{ $age ? ' (Age: '.$age.')' : '' }}">
+                                                    <i class="bi bi-calendar-heart"></i>
+                                                    {{ $dobFormatted }}
+                                                    @if($age)
+                                                        ({{ $age }})
+                                                    @endif
+                                                </span>
+                                            @endif
                                         </div>
                                     </div>
 
@@ -850,6 +879,11 @@
             const profileImageUrl = data.profile_image || data.profile_image_thumb || '';
             const initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
 
+            // DOB data
+            const hasDob = data.dob_formatted && data.dob_formatted !== 'N/A';
+            const dobDisplay = hasDob ? data.dob_formatted : '';
+            const ageDisplay = data.age ? `(${data.age} years)` : '';
+
             let html = `
                 <div class="mb-3">
                     <!-- ===== PROFILE IMAGE SECTION WITH UPLOAD ===== -->
@@ -896,6 +930,12 @@
                                 <i class="bi bi-door-open"></i> Room #${data.room_no} • 
                                 <i class="bi bi-bed"></i> Bed #${data.bed_no}
                             </div>
+                            ${hasDob ? `
+                                <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
+                                    <i class="bi bi-calendar-heart" style="color:#ec4899;"></i> 
+                                    ${dobDisplay} ${ageDisplay}
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
 

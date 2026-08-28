@@ -213,7 +213,7 @@ class ResidentController extends Controller
     /**
      * Get full resident details including all information
      */
-    public function getResidentDetails($id)
+   public function getResidentDetails($id)
     {
         try {
             $resident = Resident::with(['hostel', 'room', 'bed', 'room.roomType'])
@@ -244,6 +244,9 @@ class ResidentController extends Controller
                 'email' => $resident->email,
                 'aadhaar_no' => $resident->aadhaar_no,
                 'address' => $resident->address,
+                'dob' => $resident->dob ? $resident->dob->format('Y-m-d') : null, // NEW
+                'dob_formatted' => $resident->formatted_dob, // NEW
+                'age' => $resident->age, // NEW
                 'profile_image' => $resident->profile_image_url,
                 'profile_image_thumb' => $resident->profile_image_thumb,
                 'initials' => $resident->initials,
@@ -374,7 +377,6 @@ class ResidentController extends Controller
             ], 404);
         }
     }
-
     /**
      * Show the form for editing the specified resident
      */
@@ -409,10 +411,7 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Store a newly created resident
-     */
-    public function store(Request $request)
+   public function store(Request $request)
     {
         $user = auth()->user();
 
@@ -437,6 +436,7 @@ class ResidentController extends Controller
             'email' => 'nullable|email|max:100',
             'aadhaar_no' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'dob' => 'nullable|date|before:today|after:1900-01-01', // NEW: DOB validation
             'rent_amount' => 'required|numeric|min:0',
             'food_status' => 'required|in:WITH_FOOD,WITHOUT_FOOD',
             'joining_date' => 'required|date',
@@ -572,6 +572,7 @@ class ResidentController extends Controller
             'email' => 'nullable|email|max:100',
             'aadhaar_no' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'dob' => 'nullable|date|before:today|after:1900-01-01', // NEW: DOB validation
             'rent_amount' => 'required|numeric|min:0',
             'food_status' => 'required|in:WITH_FOOD,WITHOUT_FOOD',
             'joining_date' => 'required|date',
@@ -672,7 +673,6 @@ class ResidentController extends Controller
             'data' => $resident
         ]);
     }
-
     /**
      * Remove the specified resident
      */

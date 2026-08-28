@@ -65,7 +65,7 @@ class GuestHostelController extends Controller
     }
 
     /**
-     * Get resident payment details
+     * Get resident payment details with DOB and Profile Image
      */
     public function getResidentDetails(Request $request)
     {
@@ -185,6 +185,11 @@ class GuestHostelController extends Controller
                 'email' => $resident->email ?? 'Not provided',
                 'room_no' => $resident->room->room_no ?? 'N/A',
                 'bed_no' => $resident->bed->bed_no ?? 'N/A',
+                // NEW: DOB Fields
+                'dob' => $resident->dob ? $resident->dob->format('Y-m-d') : null,
+                'dob_formatted' => $resident->formatted_dob ?? 'N/A',
+                'age' => $resident->age ?? null,
+                // Profile Image
                 'profile_image' => $resident->profile_image_url,
                 'profile_image_thumb' => $resident->profile_image_thumb,
                 'rent_amount' => $rentAmount,
@@ -406,7 +411,7 @@ class GuestHostelController extends Controller
     }
 
     // ============================================
-    // PROFILE IMAGE MANAGEMENT METHODS (NEW)
+    // PROFILE IMAGE MANAGEMENT METHODS
     // ============================================
 
     /**
@@ -536,7 +541,7 @@ class GuestHostelController extends Controller
     }
 
     /**
-     * Upload helper method (optional - for reusability)
+     * Upload helper method
      */
     private function uploadFile($file, $subDirectory = '')
     {

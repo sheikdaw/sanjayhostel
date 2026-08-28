@@ -26,6 +26,7 @@ class Resident extends Model
         'vacate_date',
         'food_status',
         'rent_amount',
+        'dob',
         'deposit_amount',
         'status',
 
@@ -45,6 +46,7 @@ class Resident extends Model
     protected $casts = [
         'joining_date' => 'date',
         'vacate_date' => 'date',
+          'dob' => 'date', // NEW: Cast DOB to date
         'rent_amount' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
         'biometric_access' => 'boolean',
@@ -56,7 +58,29 @@ class Resident extends Model
     // ============================================
     // RELATIONSHIPS
     // ============================================
+  public function getFormattedDobAttribute(): string
+    {
+        return $this->dob ? $this->dob->format('d M Y') : 'N/A';
+    }
 
+    /**
+     * Get age from DOB
+     */
+    public function getAgeAttribute(): ?int
+    {
+        if (!$this->dob) {
+            return null;
+        }
+        return $this->dob->age;
+    }
+
+    /**
+     * Get DOB for input field (YYYY-MM-DD)
+     */
+    public function getDobInputAttribute(): ?string
+    {
+        return $this->dob ? $this->dob->format('Y-m-d') : null;
+    }
     public function hostel(): BelongsTo
     {
         return $this->belongsTo(Hostel::class);

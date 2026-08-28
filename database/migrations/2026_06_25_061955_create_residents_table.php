@@ -34,6 +34,7 @@ return new class extends Migration
             $table->text('address')->nullable();
 
             $table->date('joining_date');
+            $table->date('dob');
 $table->enum('food_status', ['WITH_FOOD', 'WITHOUT_FOOD'])->default('WITH_FOOD');
             $table->date('vacate_date')->nullable();
  $table->decimal('rent_amount', 10, 2)->default(0);
