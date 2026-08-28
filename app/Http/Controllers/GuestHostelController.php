@@ -211,8 +211,8 @@ class GuestHostelController extends Controller
     }
 
     /**
-     * Manual Payment Entry with Transaction ID
-     * NO total_paid_amount - Database unchanged
+     * Manual Payment Entry with Multiple Transaction ID Support
+     * If UPI payment is made multiple times, concatenate transaction IDs
      */
     public function manualPayment(Request $request)
     {
@@ -221,7 +221,7 @@ class GuestHostelController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|in:cash,upi,card,bank_transfer',
             'reference' => 'required|string|max:50',
-            'transaction_id' => 'nullable|string|max:255',
+            'transaction_id' => 'nullable|string|max:500', // Increased to store multiple IDs
             'remarks' => 'nullable|string|max:500',
             'hostel_id' => 'required|exists:hostels,id'
         ]);
@@ -251,28 +251,59 @@ class GuestHostelController extends Controller
                 $payment->cash_paid_amount = ($payment->cash_paid_amount ?? 0) + $paidAmount;
             } elseif ($request->payment_method == 'upi') {
                 $payment->upi_paid_amount = ($payment->upi_paid_amount ?? 0) + $paidAmount;
+                
+                // Store multiple transaction IDs with separator
                 if ($request->filled('transaction_id')) {
-                    $payment->transaction_id = $request->transaction_id;
+                    $newTxnId = $request->transaction_id;
+                    $existingTxnId = $payment->transaction_id;
+                    
+                    if ($existingTxnId) {
+                        // Check if transaction ID already exists
+                        $existingIds = explode('/', $existingTxnId);
+                        if (!in_array($newTxnId, $existingIds)) {
+                            // Append new transaction ID with separator
+                            $payment->transaction_id = $existingTxnId . ' / ' . $newTxnId;
+                        }
+                    } else {
+                        $payment->transaction_id = $newTxnId;
+                    }
                 }
             } elseif ($request->payment_method == 'card') {
                 $payment->card_paid_amount = ($payment->card_paid_amount ?? 0) + $paidAmount;
                 if ($request->filled('transaction_id')) {
-                    $payment->transaction_id = $request->transaction_id;
+                    $newTxnId = $request->transaction_id;
+                    $existingTxnId = $payment->transaction_id;
+                    if ($existingTxnId) {
+                        $existingIds = explode('/', $existingTxnId);
+                        if (!in_array($newTxnId, $existingIds)) {
+                            $payment->transaction_id = $existingTxnId . ' / ' . $newTxnId;
+                        }
+                    } else {
+                        $payment->transaction_id = $newTxnId;
+                    }
                 }
             } elseif ($request->payment_method == 'bank_transfer') {
                 $payment->bank_paid_amount = ($payment->bank_paid_amount ?? 0) + $paidAmount;
                 if ($request->filled('transaction_id')) {
-                    $payment->transaction_id = $request->transaction_id;
+                    $newTxnId = $request->transaction_id;
+                    $existingTxnId = $payment->transaction_id;
+                    if ($existingTxnId) {
+                        $existingIds = explode('/', $existingTxnId);
+                        if (!in_array($newTxnId, $existingIds)) {
+                            $payment->transaction_id = $existingTxnId . ' / ' . $newTxnId;
+                        }
+                    } else {
+                        $payment->transaction_id = $newTxnId;
+                    }
                 }
             }
 
-            // Calculate total paid (calculated, NOT stored in DB)
+            // Calculate total paid
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
                          ($payment->bank_paid_amount ?? 0);
             
-            // Update balance amount only
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
             // Update status
@@ -309,7 +340,6 @@ class GuestHostelController extends Controller
                 'upi_paid_amount' => 0,
                 'card_paid_amount' => 0,
                 'bank_paid_amount' => 0,
-                // NO total_paid_amount - calculated on the fly
                 'balance_amount' => $rentAmount,
                 'payment_date' => now(),
                 'status' => 'PENDING',
@@ -338,16 +368,13 @@ class GuestHostelController extends Controller
 
             $payment = Payment::create($paymentData);
 
-            // Calculate total paid (calculated, NOT stored in DB)
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
                          ($payment->bank_paid_amount ?? 0);
             
-            // Update balance amount only
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
-            // Update status
             if ($payment->balance_amount <= 0) {
                 $payment->status = 'PAID';
                 $statusMessage = '✅ Payment completed! Full rent paid.';
@@ -364,7 +391,6 @@ class GuestHostelController extends Controller
 
         $payment->refresh();
 
-        // Calculate total paid for response (calculated, NOT stored in DB)
         $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                      ($payment->upi_paid_amount ?? 0) + 
                      ($payment->card_paid_amount ?? 0) + 
@@ -377,7 +403,7 @@ class GuestHostelController extends Controller
                 'payment_id' => $payment->id,
                 'receipt_no' => $payment->receipt_no,
                 'amount_paid' => $paidAmount,
-                'total_paid' => $totalPaid, // Calculated, not stored
+                'total_paid' => $totalPaid,
                 'rent_amount' => $rentAmount,
                 'balance' => $payment->balance_amount,
                 'status' => $payment->status,

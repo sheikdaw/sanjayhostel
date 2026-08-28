@@ -166,6 +166,77 @@ class PaymentController extends Controller
     }
 
     /**
+     * Get partial payment details for a resident for specific month/year
+     * Handles multiple transaction IDs with separator
+     */
+    public function getPartialPaymentDetails($residentId, $month, $year)
+    {
+        $payment = Payment::where('resident_id', $residentId)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->where('status', 'PARTIAL')
+            ->first();
+
+        if (!$payment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No partial payment found for this period'
+            ]);
+        }
+
+        $totalPaid = ($payment->cash_paid_amount ?? 0) + 
+                     ($payment->upi_paid_amount ?? 0) + 
+                     ($payment->card_paid_amount ?? 0) + 
+                     ($payment->bank_paid_amount ?? 0);
+        
+        $totalAmount = $payment->rent_amount - ($payment->discount_amount ?? 0) + ($payment->fine_amount ?? 0);
+        $remainingBalance = max(0, $totalAmount - $totalPaid);
+
+        // Parse transaction IDs - support multiple formats
+        $transactionIds = [];
+        $transactionIdDisplay = '';
+        
+        if ($payment->transaction_id) {
+            // Check if it contains separator ( / or , or | )
+            if (strpos($payment->transaction_id, ' / ') !== false) {
+                $transactionIds = array_map('trim', explode(' / ', $payment->transaction_id));
+                $transactionIdDisplay = implode(' | ', $transactionIds);
+            } elseif (strpos($payment->transaction_id, ',') !== false) {
+                $transactionIds = array_map('trim', explode(',', $payment->transaction_id));
+                $transactionIdDisplay = implode(' | ', $transactionIds);
+            } elseif (strpos($payment->transaction_id, '|') !== false) {
+                $transactionIds = array_map('trim', explode('|', $payment->transaction_id));
+                $transactionIdDisplay = implode(' | ', $transactionIds);
+            } else {
+                $transactionIds = [$payment->transaction_id];
+                $transactionIdDisplay = $payment->transaction_id;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'payment_id' => $payment->id,
+                'receipt_no' => $payment->receipt_no,
+                'rent_amount' => $payment->rent_amount,
+                'discount_amount' => $payment->discount_amount ?? 0,
+                'fine_amount' => $payment->fine_amount ?? 0,
+                'cash_paid' => $payment->cash_paid_amount ?? 0,
+                'upi_paid' => $payment->upi_paid_amount ?? 0,
+                'card_paid' => $payment->card_paid_amount ?? 0,
+                'bank_paid' => $payment->bank_paid_amount ?? 0,
+                'total_paid' => $totalPaid,
+                'balance_amount' => $remainingBalance,
+                'transaction_ids' => $transactionIds,
+                'transaction_id_display' => $transactionIdDisplay,
+                'transaction_id_raw' => $payment->transaction_id,
+                'payment_date' => $payment->payment_date ? $payment->payment_date->format('Y-m-d') : now()->format('Y-m-d'),
+                'status' => $payment->status
+            ]
+        ]);
+    }
+
+    /**
      * Store a newly created payment.
      */
     public function store(Request $request)
@@ -211,6 +282,16 @@ class PaymentController extends Controller
             ], 422);
         }
 
+        // Check if we're completing a partial payment
+        $partialPaymentId = $request->partial_payment_id;
+        if ($partialPaymentId) {
+            $partialPayment = Payment::find($partialPaymentId);
+            if ($partialPayment && $partialPayment->status === 'PARTIAL') {
+                // Update the partial payment instead of creating new
+                return $this->updatePartialPayment($request, $partialPayment);
+            }
+        }
+
         // Check if previous months have pending payments
         $hasPendingPrevious = Payment::where('resident_id', $request->resident_id)
             ->where(function ($q) use ($request) {
@@ -232,7 +313,7 @@ class PaymentController extends Controller
 
         $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
         $totalAmount = $request->rent_amount - ($request->discount_amount ?? 0) + ($request->fine_amount ?? 0);
-        $balanceAmount = $totalAmount - $totalPaid;
+        $balanceAmount = max(0, $totalAmount - $totalPaid);
 
         $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
         while (Payment::where('receipt_no', $receiptNo)->exists()) {
@@ -260,6 +341,71 @@ class PaymentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Payment recorded successfully! Receipt: ' . $receiptNo,
+            'data' => $payment
+        ]);
+    }
+
+    /**
+     * Update a partial payment with additional payment
+     */
+    private function updatePartialPayment(Request $request, $payment)
+    {
+        $validator = Validator::make($request->all(), [
+            'cash_paid_amount' => 'required|numeric|min:0',
+            'upi_paid_amount' => 'required|numeric|min:0',
+            'transaction_id' => 'nullable|string|max:500',
+            'status' => 'required|in:PAID,PARTIAL,PENDING'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Add to existing amounts
+        $payment->cash_paid_amount = ($payment->cash_paid_amount ?? 0) + $request->cash_paid_amount;
+        $payment->upi_paid_amount = ($payment->upi_paid_amount ?? 0) + $request->upi_paid_amount;
+
+        // Handle multiple transaction IDs with separator
+        if ($request->filled('transaction_id')) {
+            $newTxnId = $request->transaction_id;
+            $existingTxnId = $payment->transaction_id;
+            
+            if ($existingTxnId) {
+                // Check if transaction ID already exists
+                $existingIds = explode(' / ', $existingTxnId);
+                if (!in_array($newTxnId, $existingIds)) {
+                    // Append new transaction ID with separator
+                    $payment->transaction_id = $existingTxnId . ' / ' . $newTxnId;
+                }
+            } else {
+                $payment->transaction_id = $newTxnId;
+            }
+        }
+
+        $totalPaid = ($payment->cash_paid_amount ?? 0) + ($payment->upi_paid_amount ?? 0);
+        $totalAmount = $payment->rent_amount - ($payment->discount_amount ?? 0) + ($payment->fine_amount ?? 0);
+        $payment->balance_amount = max(0, $totalAmount - $totalPaid);
+
+        // Update status
+        if ($payment->balance_amount <= 0) {
+            $payment->status = 'PAID';
+        } elseif ($totalPaid > 0) {
+            $payment->status = 'PARTIAL';
+        } else {
+            $payment->status = 'PENDING';
+        }
+
+        $payment->payment_date = now();
+        $payment->save();
+
+        $payment->load(['resident.hostel', 'resident.room']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Partial payment completed successfully!',
             'data' => $payment
         ]);
     }
@@ -328,7 +474,7 @@ class PaymentController extends Controller
 
         $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
         $totalAmount = $request->rent_amount - ($request->discount_amount ?? 0) + ($request->fine_amount ?? 0);
-        $balanceAmount = $totalAmount - $totalPaid;
+        $balanceAmount = max(0, $totalAmount - $totalPaid);
 
         $payment->update([
             'month' => $request->month,
@@ -728,17 +874,11 @@ class PaymentController extends Controller
     // HELPER METHODS FOR EXPORTS
     // ============================================================
 
-    /**
-     * Format numbers for CSV without thousands separator.
-     */
     private function csvNumber($value): string
     {
         return number_format((float) $value, 2, '.', '');
     }
 
-    /**
-     * Clean string for CSV (remove commas and quotes).
-     */
     private function csvString($value): string
     {
         if (is_null($value)) return '';
@@ -747,9 +887,6 @@ class PaymentController extends Controller
         return $value;
     }
 
-    /**
-     * Apply filters to export queries.
-     */
     private function applyExportFilters($query, $request)
     {
         if ($request->filled('status')) {
@@ -769,9 +906,6 @@ class PaymentController extends Controller
         return $query;
     }
 
-    /**
-     * Get room details for export.
-     */
     private function getRoomDetails($resident)
     {
         if (!$resident->room) {
@@ -787,9 +921,6 @@ class PaymentController extends Controller
     // CSV EXPORT METHODS
     // ============================================================
 
-    /**
-     * EXPORT RESIDENT PAYMENT STATUS SUMMARY
-     */
     public function exportResidentPaymentStatus(Request $request)
     {
         $user = auth()->user();
@@ -907,9 +1038,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * EXPORT PENDING RESIDENTS
-     */
     public function exportPendingResidents(Request $request)
     {
         $user = auth()->user();
@@ -994,9 +1122,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * EXPORT ALL PAYMENTS
-     */
     public function exportAll(Request $request)
     {
         $user = auth()->user();
@@ -1053,9 +1178,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * EXPORT PAID PAYMENTS ONLY
-     */
     public function exportPaid(Request $request)
     {
         $user = auth()->user();
@@ -1121,9 +1243,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * EXPORT UNPAID PAYMENTS
-     */
     public function exportUnpaid(Request $request)
     {
         $user = auth()->user();
@@ -1210,9 +1329,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * EXPORT MONTHLY UNPAID
-     */
     public function exportMonthlyUnpaid(Request $request)
     {
         $user = auth()->user();
@@ -1307,9 +1423,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * EXPORT HOSTEL WISE
-     */
     public function exportHostelWise(Request $request)
     {
         $user = auth()->user();
@@ -1428,9 +1541,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * EXPORT PAYMENT SUMMARY
-     */
     public function exportPaymentSummary(Request $request)
     {
         $user = auth()->user();
@@ -1517,9 +1627,6 @@ class PaymentController extends Controller
     // PDF EXPORT METHODS
     // ============================================================
 
-    /**
-     * EXPORT RESIDENT PAYMENT STATUS AS PDF
-     */
     public function pdfResidentPaymentStatus(Request $request)
     {
         $user = auth()->user();
@@ -1563,9 +1670,6 @@ class PaymentController extends Controller
         return $pdf->download('resident-payment-status-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * EXPORT PENDING RESIDENTS AS PDF
-     */
     public function pdfPendingResidents(Request $request)
     {
         $user = auth()->user();
@@ -1589,7 +1693,6 @@ class PaymentController extends Controller
         $residents = $residentsQuery->orderBy('name')->get();
         $payments = Payment::where('month', $month)->where('year', $year)->get()->keyBy('resident_id');
 
-        // Filter pending residents
         $pendingResidents = [];
         foreach ($residents as $resident) {
             $payment = $payments->get($resident->id);
@@ -1622,9 +1725,6 @@ class PaymentController extends Controller
         return $pdf->download('pending-residents-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * EXPORT ALL PAYMENTS AS PDF
-     */
     public function pdfAllPayments(Request $request)
     {
         $user = auth()->user();
@@ -1641,7 +1741,6 @@ class PaymentController extends Controller
         $this->applyExportFilters($query, $request);
         $payments = $query->orderBy('created_at', 'desc')->get();
 
-        // Get summary
         $summary = [
             'total' => $payments->count(),
             'total_rent' => $payments->sum('rent_amount'),
@@ -1667,9 +1766,6 @@ class PaymentController extends Controller
         return $pdf->download('all-payments-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * EXPORT PAID PAYMENTS AS PDF
-     */
     public function pdfPaidPayments(Request $request)
     {
         $user = auth()->user();
@@ -1707,9 +1803,6 @@ class PaymentController extends Controller
         return $pdf->download('paid-payments-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * EXPORT UNPAID PAYMENTS AS PDF
-     */
     public function pdfUnpaidPayments(Request $request)
     {
         $user = auth()->user();
@@ -1772,9 +1865,6 @@ class PaymentController extends Controller
         return $pdf->download('unpaid-payments-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * EXPORT HOSTEL WISE AS PDF
-     */
     public function pdfHostelWise(Request $request)
     {
         $user = auth()->user();
@@ -1857,9 +1947,6 @@ class PaymentController extends Controller
         return $pdf->download('hostel-' . $hostel->hostel_code . '-report-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * EXPORT PAYMENT SUMMARY AS PDF
-     */
     public function pdfPaymentSummary(Request $request)
     {
         $user = auth()->user();
@@ -1935,9 +2022,6 @@ class PaymentController extends Controller
         return $pdf->download('payment-summary-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * EXPORT MONTHLY UNPAID AS PDF
-     */
     public function pdfMonthlyUnpaid(Request $request)
     {
         $user = auth()->user();
@@ -2013,9 +2097,6 @@ class PaymentController extends Controller
         return $pdf->download('monthly-unpaid-' . $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT) . '.pdf');
     }
 
-    /**
-     * EXPORT SINGLE PAYMENT RECEIPT AS PDF
-     */
     public function pdfReceipt($id)
     {
         $user = auth()->user();
@@ -2046,9 +2127,6 @@ class PaymentController extends Controller
         return $pdf->download('receipt-' . $payment->receipt_no . '.pdf');
     }
 
-    /**
-     * EXPORT BULK RECEIPTS AS PDF
-     */
     public function pdfBulkReceipts(Request $request)
     {
         $user = auth()->user();

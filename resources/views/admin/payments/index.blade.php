@@ -164,7 +164,6 @@
     select.rv-input:disabled { cursor: not-allowed; opacity: 0.6; }
     select.rv-input[multiple] { min-height: 120px; }
     select.rv-input[multiple] option { padding: 0.3rem 0.5rem; }
-    select.rv-input[multiple] option:hover { background: #f3f4f6; }
 
     .form-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
     .form-label .required { color: #dc2626; margin-left: 2px; }
@@ -340,42 +339,33 @@
         box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
         background-color: white;
     }
-    .filter-section .form-select-sm {
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 0.5rem center;
-        background-size: 12px 12px;
-        padding-right: 2rem;
-        appearance: none;
+
+    .partial-details-container {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 12px;
+        padding: 1rem;
+        margin: 0.75rem 0;
     }
-    .filter-section .form-control-sm::placeholder {
-        color: #9ca3af;
-        font-size: 0.7rem;
-    }
-    #filterCountBadge {
-        background: var(--sanjay-primary);
-        color: white;
-        font-weight: 600;
-    }
-    .quick-filter-btn {
-        font-size: 0.7rem;
-        padding: 0.2rem 0.6rem;
-        border-radius: 6px;
-        border: 1px solid #e5e7eb;
-        background: white;
-        transition: all 0.2s;
-    }
-    .quick-filter-btn:hover {
+    .partial-details-container .txn-id-badge {
         background: #f3f4f6;
-        border-color: #d1d5db;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.75rem;
+        margin: 2px;
+        display: inline-block;
     }
-    .filter-label {
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: #6b7280;
-        margin-bottom: 0.15rem;
-        display: block;
+    .partial-details-container .method-box {
+        text-align: center;
+        padding: 0.4rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
     }
+    .partial-details-container .method-box.cash { background: #dcfce7; }
+    .partial-details-container .method-box.upi { background: #dbeafe; }
+    .partial-details-container .method-box.card { background: #f3e8ff; }
+    .partial-details-container .method-box.bank { background: #fef3c7; }
 </style>
 @endpush
 
@@ -760,6 +750,14 @@
                                 <i class="bi bi-cash" style="color:var(--sanjay-gold);"></i> Cash: ₹{{ number_format($payment->cash_paid_amount, 0) }}
                                 &nbsp;·&nbsp;
                                 <i class="bi bi-phone" style="color:var(--sanjay-gold);"></i> UPI: ₹{{ number_format($payment->upi_paid_amount, 0) }}
+                                @if($payment->card_paid_amount > 0)
+                                    &nbsp;·&nbsp;
+                                    <i class="bi bi-credit-card" style="color:var(--sanjay-gold);"></i> Card: ₹{{ number_format($payment->card_paid_amount, 0) }}
+                                @endif
+                                @if($payment->bank_paid_amount > 0)
+                                    &nbsp;·&nbsp;
+                                    <i class="bi bi-bank" style="color:var(--sanjay-gold);"></i> Bank: ₹{{ number_format($payment->bank_paid_amount, 0) }}
+                                @endif
                             </div>
 
                             <div class="d-flex justify-content-between align-items-center pt-2 border-top">
@@ -818,6 +816,7 @@
             <form id="paymentForm">
                 @csrf
                 <input type="hidden" id="editId" name="edit_id">
+                <input type="hidden" id="partialPaymentId" name="partial_payment_id">
                 <div class="modal-body">
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -952,6 +951,9 @@
                             <div class="invalid-feedback" id="status_error"></div>
                         </div>
                     </div>
+                    
+                    <!-- Partial Payment Details Container -->
+                    <div id="partialDetailsContainer"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
@@ -1051,6 +1053,7 @@
 <!-- Toast Container -->
 <div class="toast-container" id="flashMessageContainer"></div>
 
+@push('scripts')
 <script>
 $(document).ready(function() {
     var paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'), { backdrop: 'static', keyboard: true });
@@ -1071,7 +1074,7 @@ $(document).ready(function() {
         calculateBalance();
     });
 
-    // Enhanced filter event listeners
+    // Filter event listeners
     $('#filterStatus, #filterHostel, #filterRoom, #filterPaymentMode').on('change', function() {
         applyFilters();
     });
@@ -1122,6 +1125,7 @@ $(document).ready(function() {
         residentSelect.empty().append('<option value="">Select Room First</option>').prop('disabled', true);
         $('#rent_amount').val('');
         $('#pendingWarning').remove();
+        $('#partialDetailsContainer').empty();
         $('#saveBtn').prop('disabled', false);
 
         if (!hostelId) {
@@ -1152,6 +1156,7 @@ $(document).ready(function() {
         residentSelect.empty().append('<option value="">Select Resident</option>').prop('disabled', true);
         $('#rent_amount').val('');
         $('#pendingWarning').remove();
+        $('#partialDetailsContainer').empty();
         $('#saveBtn').prop('disabled', false);
 
         if (!roomId) {
@@ -1175,9 +1180,11 @@ $(document).ready(function() {
         });
     });
 
+    // Resident selection with partial payment check
     $('#resident_id').on('change', function() {
         let residentId = $(this).val();
         if (residentId) {
+            // Get rent amount
             $.ajax({
                 url: '/admin/payments/resident/' + residentId + '/rent',
                 type: 'GET',
@@ -1189,22 +1196,198 @@ $(document).ready(function() {
                 }
             });
 
+            // Check for partial payment
             let month = $('#month').val();
             let year = $('#year').val();
-            if (month && year) checkPendingPrevious(residentId, month, year);
+            if (month && year) {
+                checkPartialPayment(residentId, month, year);
+                checkPendingPrevious(residentId, month, year);
+            }
         }
     });
 
+    // Month/Year change with partial payment check
     $('#month, #year').on('change', function() {
         let residentId = $('#resident_id').val();
         let month = $('#month').val();
         let year = $('#year').val();
-        if (residentId && month && year) checkPendingPrevious(residentId, month, year);
+        if (residentId && month && year) {
+            checkPartialPayment(residentId, month, year);
+            checkPendingPrevious(residentId, month, year);
+        }
     });
 
     // Apply initial filters
     applyFilters();
 });
+
+// ========== PARTIAL PAYMENT FUNCTIONS ==========
+
+function checkPartialPayment(residentId, month, year) {
+    $.ajax({
+        url: '/admin/payments/resident/' + residentId + '/partial-details/' + month + '/' + year,
+        type: 'GET',
+        success: function(response) {
+            if (response.success && response.data) {
+                showPartialPaymentDetails(response.data);
+            } else {
+                $('#partialDetailsContainer').empty();
+                $('#completionNote').remove();
+                $('#saveBtn').prop('disabled', false);
+                $('#partialPaymentId').val('');
+            }
+        },
+        error: function() {
+            $('#partialDetailsContainer').empty();
+            $('#completionNote').remove();
+            $('#saveBtn').prop('disabled', false);
+            $('#partialPaymentId').val('');
+        }
+    });
+}
+
+function showPartialPaymentDetails(data) {
+    $('#partialDetailsContainer').empty();
+    $('#completionNote').remove();
+    
+    let totalPaid = data.total_paid;
+    let remaining = data.balance_amount;
+    
+    // Create transaction IDs display
+    let txnDisplay = '';
+    if (data.transaction_ids && data.transaction_ids.length > 0) {
+        txnDisplay = data.transaction_ids.map((id, index) => {
+            return `<span class="txn-id-badge">#${index + 1}: ${id}</span>`;
+        }).join(' ');
+    } else {
+        txnDisplay = '<span style="color: #6b7280; font-style: italic;">N/A</span>';
+    }
+    
+    // Create payment methods breakdown
+    let methodsHtml = '';
+    let hasCash = data.cash_paid > 0;
+    let hasUpi = data.upi_paid > 0;
+    let hasCard = data.card_paid > 0;
+    let hasBank = data.bank_paid > 0;
+    
+    if (hasCash || hasUpi || hasCard || hasBank) {
+        methodsHtml = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.5rem; margin-top: 0.5rem;">
+                ${hasCash ? `<div class="method-box cash"><div style="color:#6b7280; font-size:0.6rem;">Cash</div><div style="font-weight:700; color:#166534;">₹${Number(data.cash_paid).toFixed(2)}</div></div>` : ''}
+                ${hasUpi ? `<div class="method-box upi"><div style="color:#6b7280; font-size:0.6rem;">UPI</div><div style="font-weight:700; color:#1e40af;">₹${Number(data.upi_paid).toFixed(2)}</div></div>` : ''}
+                ${hasCard ? `<div class="method-box card"><div style="color:#6b7280; font-size:0.6rem;">Card</div><div style="font-weight:700; color:#6b21a5;">₹${Number(data.card_paid).toFixed(2)}</div></div>` : ''}
+                ${hasBank ? `<div class="method-box bank"><div style="color:#6b7280; font-size:0.6rem;">Bank</div><div style="font-weight:700; color:#92400e;">₹${Number(data.bank_paid).toFixed(2)}</div></div>` : ''}
+            </div>
+        `;
+    }
+    
+    let html = `
+        <div class="partial-details-container" data-payment-id="${data.payment_id}">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                <i class="bi bi-exclamation-triangle-fill" style="color: #f59e0b; font-size: 1.2rem;"></i>
+                <strong style="color: #92400e;">Partial Payment Already Exists</strong>
+                <span class="status-badge partial" style="margin-left: auto;">
+                    <span class="dot"></span> PARTIAL
+                </span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; background: white; border-radius: 8px; padding: 0.75rem;">
+                <div>
+                    <span style="color: #6b7280;">Receipt:</span>
+                    <strong>${data.receipt_no}</strong>
+                </div>
+                <div>
+                    <span style="color: #6b7280;">Payment Date:</span>
+                    <strong>${data.payment_date}</strong>
+                </div>
+                <div>
+                    <span style="color: #6b7280;">Rent Amount:</span>
+                    <strong>₹${Number(data.rent_amount).toFixed(2)}</strong>
+                </div>
+                <div>
+                    <span style="color: #6b7280;">Discount:</span>
+                    <strong style="color: #22c55e;">-₹${Number(data.discount_amount).toFixed(2)}</strong>
+                </div>
+                <div>
+                    <span style="color: #6b7280;">Fine:</span>
+                    <strong style="color: #ef4444;">+₹${Number(data.fine_amount).toFixed(2)}</strong>
+                </div>
+                <div>
+                    <span style="color: #6b7280;">Transaction IDs:</span>
+                    <div style="margin-top: 2px;">${txnDisplay}</div>
+                </div>
+            </div>
+            
+            ${methodsHtml}
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem;">
+                <div style="text-align: center; padding: 0.5rem; background: #dcfce7; border-radius: 8px;">
+                    <div style="font-size: 0.6rem; color: #6b7280; text-transform: uppercase;">Total Paid</div>
+                    <div style="font-weight: 700; color: #166534;">₹${Number(totalPaid).toFixed(2)}</div>
+                </div>
+                <div style="text-align: center; padding: 0.5rem; background: #fee2e2; border-radius: 8px;">
+                    <div style="font-size: 0.6rem; color: #6b7280; text-transform: uppercase;">Remaining Balance</div>
+                    <div style="font-weight: 700; color: #dc2626;">₹${Number(remaining).toFixed(2)}</div>
+                </div>
+                <div style="text-align: center; padding: 0.5rem; background: #dbeafe; border-radius: 8px;">
+                    <div style="font-size: 0.6rem; color: #6b7280; text-transform: uppercase;">Total Amount</div>
+                    <div style="font-weight: 700; color: #1e40af;">₹${Number(data.rent_amount - data.discount_amount + data.fine_amount).toFixed(2)}</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 0.75rem; padding: 0.75rem; background: #fff3cd; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div>
+                        <span style="color: #92400e; font-weight: 600;">Remaining Balance:</span>
+                        <span style="color: #dc2626; font-weight: 700; font-size: 1.1rem;">₹${Number(remaining).toFixed(2)}</span>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-sm" style="background: #f59e0b; color: white; border: none; padding: 0.25rem 1rem; border-radius: 6px; font-weight: 600;" onclick="fillRemainingAmount()">
+                            <i class="bi bi-cash"></i> Complete Payment
+                        </button>
+                    </div>
+                </div>
+                <div style="font-size: 0.7rem; color: #92400e; margin-top: 0.25rem;">
+                    <i class="bi bi-info-circle"></i> Enter the remaining amount below and submit to complete this payment.
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('#partialDetailsContainer').html(html);
+    $('#partialPaymentId').val(data.payment_id);
+    
+    // Auto-fill remaining balance
+    $('#cash_paid_amount').val(remaining);
+    $('#upi_paid_amount').val(0);
+    $('#status').val('PAID');
+    $('#saveBtn').prop('disabled', false);
+    
+    // Show completion note
+    let note = `
+        <div id="completionNote" style="font-size: 0.8rem; color: #166534; margin-top: 0.25rem; background: #dcfce7; padding: 0.25rem 0.75rem; border-radius: 6px; display: inline-block;">
+            <i class="bi bi-check-circle-fill"></i> 
+            This will complete the partial payment. Balance will be ₹0.00
+        </div>
+    `;
+    $('#cash_paid_amount').closest('.col-md-4').after(note);
+}
+
+function fillRemainingAmount() {
+    let remainingText = $('#partialDetailsContainer .text-danger').text();
+    let remaining = parseFloat(remainingText.replace(/[₹,]/g, '')) || 0;
+    
+    $('#cash_paid_amount').val(remaining);
+    $('#upi_paid_amount').val(0);
+    $('#status').val('PAID');
+    
+    $('#cash_paid_amount').closest('.rv-input-box').css('border-color', '#22c55e');
+    $('#upi_paid_amount').closest('.rv-input-box').css('border-color', '#22c55e');
+    
+    $('#cash_paid_amount').focus();
+    
+    showToast('Remaining amount ₹' + remaining.toFixed(2) + ' set for payment', 'success');
+}
 
 // ========== FILTER FUNCTIONS ==========
 
@@ -1220,7 +1403,6 @@ function applyFilters() {
     var maxAmount = parseFloat($('#filterMaxAmount').val()) || Infinity;
     var paymentMode = $('#filterPaymentMode').val();
 
-    // Parse month/year
     var month = null;
     var year = null;
     if (monthYear) {
@@ -1236,7 +1418,6 @@ function applyFilters() {
         var show = true;
         var $item = $(this);
 
-        // Get all data attributes
         var paymentStatus = $item.data('status');
         var paymentHostel = $item.data('hostel');
         var paymentRoom = $item.data('room');
@@ -1246,31 +1427,20 @@ function applyFilters() {
         var paymentResident = $item.data('resident') || '';
         var paymentDate = $item.data('payment-date');
         var rent = parseFloat($item.data('rent')) || 0;
-        var paid = parseFloat($item.data('paid')) || 0;
-        var balance = parseFloat($item.data('balance')) || 0;
 
-        // Get payment mode from the card
-        var cashMatch = $item.find('.payment-body').text().match(/Cash:\s*₹([\d,]+)/);
-        var upiMatch = $item.find('.payment-body').text().match(/UPI:\s*₹([\d,]+)/);
+        // Get payment mode from card
+        var text = $item.find('.payment-body').text();
+        var cashMatch = text.match(/Cash:\s*₹([\d,]+)/);
+        var upiMatch = text.match(/UPI:\s*₹([\d,]+)/);
         var cashAmount = cashMatch ? parseFloat(cashMatch[1].replace(/,/g, '')) || 0 : 0;
         var upiAmount = upiMatch ? parseFloat(upiMatch[1].replace(/,/g, '')) || 0 : 0;
 
-        // --- Apply filters ---
-
-        // Status filter
         if (status && paymentStatus !== status) show = false;
-
-        // Hostel filter
         if (hostel && paymentHostel != hostel) show = false;
-
-        // Room filter
         if (room && paymentRoom != room) show = false;
-
-        // Month/Year filter
         if (month && paymentMonth != month) show = false;
         if (year && paymentYear != year) show = false;
 
-        // Search filter
         if (search) {
             var match = paymentReceipt.includes(search) ||
                        paymentResident.includes(search) ||
@@ -1278,21 +1448,16 @@ function applyFilters() {
             if (!match) show = false;
         }
 
-        // Date range filter
         if (paymentDate && dateFrom && paymentDate < dateFrom) show = false;
         if (paymentDate && dateTo && paymentDate > dateTo) show = false;
-
-        // Amount range filter (based on rent)
         if (rent < minAmount || rent > maxAmount) show = false;
 
-        // Payment mode filter
         if (paymentMode) {
             if (paymentMode === 'cash' && cashAmount === 0) show = false;
             if (paymentMode === 'upi' && upiAmount === 0) show = false;
             if (paymentMode === 'both' && (cashAmount === 0 || upiAmount === 0)) show = false;
         }
 
-        // Show/Hide
         if (show) {
             $item.show();
             visibleCount++;
@@ -1302,7 +1467,6 @@ function applyFilters() {
         totalCount++;
     });
 
-    // Update counts
     $('#visibleCount').text(visibleCount);
     $('#totalCount').text(totalCount);
 }
@@ -1336,17 +1500,6 @@ function filterThisMonth() {
 function filterByAmountRange(min, max) {
     $('#filterMinAmount').val(min || '');
     $('#filterMaxAmount').val(max || '');
-    applyFilters();
-}
-
-function filterByDateRange(from, to) {
-    if (from) $('#filterDateFrom').val(from);
-    if (to) $('#filterDateTo').val(to);
-    applyFilters();
-}
-
-function filterByPaymentMode(mode) {
-    $('#filterPaymentMode').val(mode);
     applyFilters();
 }
 
@@ -1444,76 +1597,6 @@ function bulkDelete() {
     });
 }
 
-// ========== EXPORT (filter-aware) ==========
-
-// Collect whatever is currently active in the filter bar
-function getActiveFilters() {
-    var monthYear = $('#filterMonthYear').val();
-    var month = '', year = '';
-    if (monthYear) {
-        var parts = monthYear.split('-');
-        year = parts[0];
-        month = parts[1];
-    }
-    return {
-        status: $('#filterStatus').val() || '',
-        hostel_id: $('#filterHostel').val() || '',
-        room_id: $('#filterRoom').val() || '',
-        month: month,
-        year: year,
-        date_from: $('#filterDateFrom').val() || '',
-        date_to: $('#filterDateTo').val() || '',
-        min_amount: $('#filterMinAmount').val() || '',
-        max_amount: $('#filterMaxAmount').val() || '',
-        payment_mode: $('#filterPaymentMode').val() || '',
-        search: $('#searchPayment').val() || ''
-    };
-}
-
-// Merge page filters into a base export URL.
-// `overrides` always wins (used so a named hostel-wise link forces that hostel).
-function buildUrlWithFilters(baseUrl, overrides) {
-    var filters = $.extend({}, getActiveFilters(), overrides || {});
-    var parts = [];
-    $.each(filters, function (k, v) {
-        if (v !== '' && v !== null && typeof v !== 'undefined') {
-            parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
-        }
-    });
-    if (!parts.length) return baseUrl;
-    return baseUrl + (baseUrl.indexOf('?') === -1 ? '?' : '&') + parts.join('&');
-}
-
-// Override the default click behavior for export links to preserve filters
-$(document).on('click', '.export-link', function (e) {
-    e.preventDefault();
-    var $this = $(this);
-    var baseUrl = $this.data('url');
-    var overrides = {};
-    var hostelId = $this.data('hostel-id');
-    if (hostelId) {
-        overrides.hostel_id = hostelId;
-    }
-    window.location.href = buildUrlWithFilters(baseUrl, overrides);
-});
-
-// Also handle the dropdown toggles for quick filter exports
-$(document).on('click', '.quick-export', function (e) {
-    e.preventDefault();
-    var $this = $(this);
-    var baseUrl = $this.data('url');
-    var overrides = {};
-    // If it's a hostel-wise export, force the hostel
-    if ($this.data('hostel-id')) {
-        overrides.hostel_id = $this.data('hostel-id');
-    }
-    // Force status filter if specified
-    if ($this.data('status')) {
-        overrides.status = $this.data('status');
-    }
-    window.location.href = buildUrlWithFilters(baseUrl, overrides);
-});
-
 // ========== MODAL FUNCTIONS ==========
 
 function openAddModal() {
@@ -1521,9 +1604,12 @@ function openAddModal() {
     document.getElementById('modalTitle').textContent = 'Add Payment';
     document.getElementById('saveBtnText').textContent = 'Save';
     document.getElementById('editId').value = '';
+    document.getElementById('partialPaymentId').value = '';
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid');
     $('#pendingWarning').remove();
+    $('#partialDetailsContainer').empty();
+    $('#completionNote').remove();
     $('#saveBtn').prop('disabled', false);
     var modal = new bootstrap.Modal(document.getElementById('paymentModal'));
     modal.show();
@@ -1544,13 +1630,17 @@ function resetForm() {
     $('.rv-input-box').removeClass('is-invalid');
     document.getElementById('saveBtnText').textContent = 'Save';
     document.getElementById('editId').value = '';
+    document.getElementById('partialPaymentId').value = '';
     document.getElementById('modalTitle').textContent = 'Add Payment';
     $('#payment_date').val(new Date().toISOString().split('T')[0]);
     $('#pendingWarning').remove();
+    $('#partialDetailsContainer').empty();
+    $('#completionNote').remove();
     $('#saveBtn').prop('disabled', false);
     $('#modal_hostel_id').val('');
     $('#modal_room_id').empty().append('<option value="">Select Hostel First</option>').prop('disabled', true);
     $('#resident_id').empty().append('<option value="">Select Room First</option>').prop('disabled', true);
+    $('.rv-input-box').css('border-color', '');
 }
 
 function resetBulkForm() {
@@ -1605,16 +1695,40 @@ function checkPendingPrevious(residentId, month, year) {
 
 function submitForm() {
     let id = document.getElementById('editId').value;
+    let partialId = document.getElementById('partialPaymentId').value;
     let url = "{{ route('admin.payments.store') }}";
     let formData = new FormData(document.getElementById('paymentForm'));
-    if (id) {
+    
+    // If completing a partial payment, use update route with partial ID
+    if (partialId) {
+        url = "{{ url('admin/payments') }}/" + partialId;
+        formData.append('_method', 'PUT');
+        formData.append('partial_payment_id', partialId);
+    } else if (id) {
         url = "{{ url('admin/payments') }}/" + id;
         formData.append('_method', 'PUT');
     }
-    if ($('#pendingWarning').length > 0) {
+    
+    // Calculate totals for balance check
+    let cash = parseFloat($('#cash_paid_amount').val()) || 0;
+    let upi = parseFloat($('#upi_paid_amount').val()) || 0;
+    let totalPaid = cash + upi;
+    let rent = parseFloat($('#rent_amount').val()) || 0;
+    let discount = parseFloat($('#discount_amount').val()) || 0;
+    let fine = parseFloat($('#fine_amount').val()) || 0;
+    let totalAmount = rent - discount + fine;
+    let balance = totalAmount - totalPaid;
+    
+    // If completing partial payment and balance is 0, force status to PAID
+    if (partialId && balance <= 0) {
+        formData.set('status', 'PAID');
+    }
+    
+    if ($('#pendingWarning').length > 0 && !partialId) {
         showToast('Please clear previous pending payments first!', 'error');
         return;
     }
+    
     $.ajax({
         url: url,
         type: 'POST',
@@ -1631,7 +1745,9 @@ function submitForm() {
             if (response.success) {
                 var modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
                 if (modal) modal.hide();
-                showToast(response.message, 'success');
+                
+                let message = partialId ? 'Partial payment completed successfully!' : response.message;
+                showToast(message, 'success');
                 setTimeout(() => location.reload(), 1500);
             }
         },
@@ -1654,8 +1770,7 @@ function submitForm() {
             }
         },
         complete: function() {
-            let id = document.getElementById('editId').value;
-            let text = id ? 'Update' : 'Save';
+            let text = partialId ? 'Complete' : (id ? 'Update' : 'Save');
             $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text + '</span>');
         }
     });
@@ -1719,6 +1834,7 @@ function editPayment(id) {
                 let data = response.data;
                 document.getElementById('modalTitle').textContent = 'Edit Payment';
                 document.getElementById('editId').value = data.id;
+                document.getElementById('partialPaymentId').value = '';
                 document.getElementById('month').value = data.month;
                 document.getElementById('year').value = data.year;
                 document.getElementById('rent_amount').value = data.rent_amount;
@@ -1736,6 +1852,8 @@ function editPayment(id) {
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
                 $('#pendingWarning').remove();
+                $('#partialDetailsContainer').empty();
+                $('#completionNote').remove();
                 $('#saveBtn').prop('disabled', false);
 
                 let hostelId = data.resident ? data.resident.hostel_id : null;
@@ -1898,6 +2016,9 @@ function buildBillMessage(payment, resident) {
     let roomNo = resident.room ? resident.room.room_no : 'N/A';
     let paymentDate = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN') : '';
 
+    // Parse transaction IDs
+    let txnDisplay = payment.transaction_id || 'N/A';
+
     let lines = [
         '🏠 *' + (hostelName || 'Hostel') + '*',
         '------------------------------',
@@ -1919,7 +2040,7 @@ function buildBillMessage(payment, resident) {
     ];
 
     if (payment.transaction_id) {
-        lines.push('Txn ID: ' + payment.transaction_id);
+        lines.push('Txn ID: ' + txnDisplay);
     }
 
     lines.push('', 'Thank you for your payment! 🙏');
@@ -1953,6 +2074,55 @@ function showToast(message, type = 'success') {
         }
     }, 5000);
 }
+
+// Export with filters
+$(document).on('click', '.export-link', function (e) {
+    e.preventDefault();
+    var $this = $(this);
+    var baseUrl = $this.data('url');
+    var overrides = {};
+    var hostelId = $this.data('hostel-id');
+    if (hostelId) {
+        overrides.hostel_id = hostelId;
+    }
+    window.location.href = buildUrlWithFilters(baseUrl, overrides);
+});
+
+function getActiveFilters() {
+    var monthYear = $('#filterMonthYear').val();
+    var month = '', year = '';
+    if (monthYear) {
+        var parts = monthYear.split('-');
+        year = parts[0];
+        month = parts[1];
+    }
+    return {
+        status: $('#filterStatus').val() || '',
+        hostel_id: $('#filterHostel').val() || '',
+        room_id: $('#filterRoom').val() || '',
+        month: month,
+        year: year,
+        date_from: $('#filterDateFrom').val() || '',
+        date_to: $('#filterDateTo').val() || '',
+        min_amount: $('#filterMinAmount').val() || '',
+        max_amount: $('#filterMaxAmount').val() || '',
+        payment_mode: $('#filterPaymentMode').val() || '',
+        search: $('#searchPayment').val() || ''
+    };
+}
+
+function buildUrlWithFilters(baseUrl, overrides) {
+    var filters = $.extend({}, getActiveFilters(), overrides || {});
+    var parts = [];
+    $.each(filters, function (k, v) {
+        if (v !== '' && v !== null && typeof v !== 'undefined') {
+            parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v));
+        }
+    });
+    if (!parts.length) return baseUrl;
+    return baseUrl + (baseUrl.indexOf('?') === -1 ? '?' : '&') + parts.join('&');
+}
 </script>
+@endpush
 
 @endsection
