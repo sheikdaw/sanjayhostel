@@ -175,8 +175,8 @@
 
         /* Avatar - Always shows initials if no photo */
         .resident-avatar {
-            width: 100px;
-            height: 100px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: var(--gold);
             color: var(--primary);
@@ -385,6 +385,59 @@
             color: #6b7280;
         }
 
+        /* ===== PROFILE IMAGE UPLOAD STYLES ===== */
+        .profile-image-section .resident-avatar {
+            transition: all 0.3s ease;
+            width: 80px;
+            height: 80px;
+            font-size: 1.5rem;
+            border: 3px solid var(--gold);
+            margin: 0 auto;
+            border-radius: 50%;
+            background: var(--gold);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .profile-image-section .resident-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .profile-image-section .resident-avatar:hover {
+            box-shadow: 0 0 20px rgba(197, 160, 40, 0.3);
+        }
+
+        .profile-image-section .btn-primary {
+            background: var(--gold);
+            border-color: var(--gold);
+            color: var(--primary);
+        }
+
+        .profile-image-section .btn-primary:hover {
+            background: #b8941a;
+            border-color: #b8941a;
+            transform: scale(1.1);
+        }
+
+        .profile-image-section .btn-danger {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            font-size: 10px;
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         /* ===== TOAST ===== */
         .toast-container {
             position: fixed;
@@ -434,12 +487,14 @@
             .resident-card { padding: 0.4rem; }
             .resident-avatar { width: 32px; height: 32px; font-size: 0.7rem; }
             .resident-info .name { font-size: 0.7rem; }
+            .profile-image-section .resident-avatar { width: 60px; height: 60px; font-size: 1.2rem; }
         }
 
         @media (max-width: 480px) {
             .resident-grid { grid-template-columns: 1fr 1fr; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .hostel-header h1 { font-size: 1.2rem; }
+            .profile-image-section .resident-avatar { width: 50px; height: 50px; font-size: 1rem; }
         }
     </style>
 </head>
@@ -497,11 +552,6 @@
                 <div class="number" style="color:var(--danger);" id="pendingCount">0</div>
                 <div class="label">Pending</div>
             </div>
-            <!-- <div class="stat-card">
-                <span class="icon">💰</span>
-                <div class="number" style="color:#92400e;">₹{{ number_format($stats['total_rent'], 0) }}</div>
-                <div class="label">Total Rent</div>
-            </div> -->
         </div>
 
         <!-- ===== SEARCH & FILTER ===== -->
@@ -556,9 +606,10 @@
 
                                     $statusClass = strtolower($status);
                                     $statusLabel = $status == 'NOT_PAID' ? 'Not Paid' : $status;
-                                    // Color index for avatar
                                     $colorIndex = crc32($resident->name) % 10;
                                     $initials = strtoupper(substr($resident->name, 0, 2));
+                                    $hasProfileImage = $resident->profile_image ? true : false;
+                                    $profileImageUrl = $resident->profile_image_url;
                                 @endphp
                                 <div class="resident-card" 
                                      data-resident-id="{{ $resident->id }}"
@@ -567,10 +618,10 @@
                                      data-status="{{ $status }}"
                                      onclick="openPaymentModal(event, {{ $resident->id }})">
                                     
-                                    <!-- Avatar with color -->
-                                    <div class="resident-avatar color-{{ $colorIndex }}">
-                                        @if($resident->profile_image)
-                                            <img src="{{ asset($resident->profile_image) }}" alt="{{ $resident->name }}">
+                                    <!-- Avatar with image or initials -->
+                                    <div class="resident-avatar color-{{ $colorIndex }}" id="avatar-{{ $resident->id }}">
+                                        @if($hasProfileImage && $profileImageUrl)
+                                            <img src="{{ $profileImageUrl }}" alt="{{ $resident->name }}">
                                         @else
                                             {{ $initials }}
                                         @endif
@@ -656,7 +707,9 @@
         var routes = {
             details: '{{ route("guest.payment.details") }}',
             manual: '{{ route("guest.payment.manual") }}',
-            history: '{{ url("/guest/payment/history") }}'
+            history: '{{ url("/guest/payment/history") }}',
+            updateProfileImage: '{{ route("guest.resident.update-profile-image") }}',
+            removeProfileImage: '{{ route("guest.resident.remove-profile-image") }}'
         };
 
         let paymentModal;
@@ -671,6 +724,10 @@
                 if (e.key === 'Enter') filterResidents();
             });
         });
+
+        // ============================================
+        // FILTER FUNCTIONS
+        // ============================================
 
         function filterResidents() {
             const search = $('#searchInput').val().toLowerCase().trim();
@@ -743,6 +800,10 @@
             $('#pendingCount').text(pending);
         }
 
+        // ============================================
+        // PAYMENT MODAL FUNCTIONS
+        // ============================================
+
         function openPaymentModal(event, residentId) {
             event.preventDefault();
             event.stopPropagation();
@@ -784,12 +845,51 @@
             const rent = parseFloat(data.rent_amount || 0);
             const isPaid = data.is_paid || false;
 
+            // Profile image data
+            const hasProfileImage = data.profile_image || data.profile_image_thumb;
+            const profileImageUrl = data.profile_image || data.profile_image_thumb || '';
+            const initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
+
             let html = `
                 <div class="mb-3">
-                    <div class="d-flex align-items-center gap-3 mb-2">
-                        <div class="resident-avatar" style="width:50px; height:50px; font-size:1.1rem; border-color:var(--gold);">
-                            ${data.profile_image ? `<img src="${data.profile_image}" alt="${data.name}">` : data.name.charAt(0).toUpperCase()}
+                    <!-- ===== PROFILE IMAGE SECTION WITH UPLOAD ===== -->
+                    <div class="profile-image-section mb-3 text-center">
+                        <div class="position-relative d-inline-block">
+                            <div class="resident-avatar" id="modalProfileAvatar">
+                                ${hasProfileImage ? 
+                                    `<img id="modalProfileImage" src="${profileImageUrl}" alt="${data.name}">` :
+                                    `<span id="modalProfileInitials" style="font-weight:700; font-size:1.8rem;">${initials}</span>`
+                                }
+                            </div>
+                            
+                            <!-- Upload Button -->
+                            <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
+                                    style="width:30px; height:30px; padding:0; font-size:14px; border:2px solid white;" 
+                                    onclick="document.getElementById('profileImageInput').click()" 
+                                    title="Change Photo">
+                                <i class="bi bi-camera"></i>
+                            </button>
+                            
+                            <!-- Remove Button (only if image exists) -->
+                            ${hasProfileImage ? 
+                                `<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle" 
+                                        style="width:24px; height:24px; padding:0; font-size:10px; border:2px solid white;" 
+                                        onclick="removeProfileImage(${data.resident_id})" 
+                                        title="Remove Photo">
+                                    <i class="bi bi-x"></i>
+                                </button>` : ''
+                            }
+                            
+                            <!-- Hidden File Input -->
+                            <input type="file" id="profileImageInput" accept="image/*" style="display:none" 
+                                   onchange="uploadProfileImage(event, ${data.resident_id})">
                         </div>
+                        <div style="font-size:0.65rem; color:#6b7280; margin-top:0.25rem;">
+                            <i class="bi bi-info-circle"></i> Click camera icon to change photo
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 mb-2">
                         <div>
                             <h5 class="mb-0">${data.name}</h5>
                             <div class="text-muted" style="font-size:0.8rem;">
@@ -966,6 +1066,188 @@
                 }
             });
         }
+
+        // ============================================
+        // PROFILE IMAGE FUNCTIONS
+        // ============================================
+
+        /**
+         * Upload profile image
+         */
+        function uploadProfileImage(event, residentId) {
+            const file = event.target.files[0];
+            if (!file) {
+                showToast('Please select an image file', 'error');
+                return;
+            }
+
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
+            if (!allowedTypes.includes(file.type)) {
+                showToast('Please upload a valid image (JPEG, PNG, JPG, GIF)', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            // Validate file size (max 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('Image size should be less than 2MB', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('resident_id', residentId);
+            formData.append('profile_image', file);
+            formData.append('_token', csrfToken);
+
+            // Show loading state
+            const avatar = document.getElementById('modalProfileAvatar');
+            if (avatar) {
+                avatar.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>';
+            }
+
+            $.ajax({
+                url: routes.updateProfileImage,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        showToast('Profile image updated successfully!', 'success');
+                        updateModalAvatar(response.data.profile_image);
+                        updateResidentCardAvatar(residentId, response.data.profile_image);
+                        // Reload the modal content to show remove button
+                        refreshModalContent(residentId);
+                    } else {
+                        showToast(response.message || 'Failed to update profile image', 'error');
+                        resetModalAvatar(initials);
+                    }
+                },
+                error: function(xhr) {
+                    let message = 'Failed to update profile image';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    if (xhr.responseJSON && xhr.responseJSON.errors) {
+                        const errors = Object.values(xhr.responseJSON.errors).flat();
+                        message = errors.join(', ');
+                    }
+                    showToast(message, 'error');
+                    resetModalAvatar(initials);
+                }
+            });
+
+            // Reset file input
+            event.target.value = '';
+        }
+
+        /**
+         * Remove profile image
+         */
+        function removeProfileImage(residentId) {
+            if (!confirm('Are you sure you want to remove this profile image?')) {
+                return;
+            }
+
+            $.ajax({
+                url: routes.removeProfileImage,
+                type: 'POST',
+                data: {
+                    resident_id: residentId,
+                    _token: csrfToken
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showToast('Profile image removed successfully!', 'success');
+                        resetModalAvatar(initials);
+                        updateResidentCardAvatar(residentId, null);
+                        // Reload the modal content to hide remove button
+                        refreshModalContent(residentId);
+                    } else {
+                        showToast(response.message || 'Failed to remove image', 'error');
+                    }
+                },
+                error: function() {
+                    showToast('Failed to remove profile image', 'error');
+                }
+            });
+        }
+
+        /**
+         * Update modal avatar with new image
+         */
+        function updateModalAvatar(imageUrl) {
+            const avatar = document.getElementById('modalProfileAvatar');
+            if (avatar) {
+                avatar.innerHTML = `<img src="${imageUrl}" alt="Profile" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+            }
+        }
+
+        /**
+         * Reset modal avatar to initials
+         */
+        function resetModalAvatar(initials) {
+            const avatar = document.getElementById('modalProfileAvatar');
+            if (avatar) {
+                avatar.innerHTML = `<span style="font-weight:700; font-size:1.8rem;">${initials || '?'}</span>`;
+            }
+        }
+
+        /**
+         * Update resident card avatar in the grid
+         */
+        function updateResidentCardAvatar(residentId, imageUrl) {
+            const avatarDiv = document.getElementById(`avatar-${residentId}`);
+            if (avatarDiv) {
+                if (imageUrl) {
+                    avatarDiv.innerHTML = `<img src="${imageUrl}" alt="Profile">`;
+                } else {
+                    // Get resident name from the card
+                    const card = $(`.resident-card[data-resident-id="${residentId}"]`);
+                    const name = card.find('.name').text() || 'Unknown';
+                    const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+                    avatarDiv.innerHTML = initials;
+                }
+            }
+        }
+
+        /**
+         * Refresh modal content to show updated state
+         */
+        function refreshModalContent(residentId) {
+            // Re-fetch resident details to update the modal
+            $.ajax({
+                url: routes.details,
+                type: 'POST',
+                data: {
+                    resident_id: residentId,
+                    hostel_id: hostelId,
+                    _token: csrfToken
+                },
+                success: function(response) {
+                    if (response.success) {
+                        currentResident = response.data;
+                        renderPaymentModal(currentResident);
+                    }
+                }
+            });
+        }
+
+        // Store initials globally for reset
+        let initials = '?';
+
+        // Override renderPaymentModal to store initials
+        const originalRender = renderPaymentModal;
+        renderPaymentModal = function(data) {
+            initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
+            originalRender(data);
+        };
+
+        // ============================================
+        // TOAST / ERROR FUNCTIONS
+        // ============================================
 
         function showError(message) {
             document.getElementById('paymentModalBody').innerHTML = `

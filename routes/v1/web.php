@@ -126,22 +126,22 @@ Route::middleware(['auth'])->group(function () {
 // routes/web.php - Add these routes
 
 // Hostel Biometric Management
-Route::prefix('hostels')->name('hostels.')->group(function () {
-    // Biometric Configuration
-    Route::get('/biometric-config', [HostelController::class, 'biometricConfig'])->name('biometric-config');
-    Route::get('/{id}/biometric-config', [HostelController::class, 'getBiometricConfig'])->name('get-biometric-config');
-    Route::post('/{id}/biometric-config', [HostelController::class, 'saveBiometricConfig'])->name('save-biometric-config');
+        Route::prefix('hostels')->name('hostels.')->group(function () {
+            // Biometric Configuration
+            Route::get('/biometric-config', [HostelController::class, 'biometricConfig'])->name('biometric-config');
+            Route::get('/{id}/biometric-config', [HostelController::class, 'getBiometricConfig'])->name('get-biometric-config');
+            Route::post('/{id}/biometric-config', [HostelController::class, 'saveBiometricConfig'])->name('save-biometric-config');
 
-    // Biometric Sync
-    Route::post('/{id}/sync-biometric', [HostelController::class, 'syncHostelBiometric'])->name('sync-biometric');
-    Route::post('/sync-all-biometric', [HostelController::class, 'syncAllHostelsBiometric'])->name('sync-all-biometric');
+            // Biometric Sync
+            Route::post('/{id}/sync-biometric', [HostelController::class, 'syncHostelBiometric'])->name('sync-biometric');
+            Route::post('/sync-all-biometric', [HostelController::class, 'syncAllHostelsBiometric'])->name('sync-all-biometric');
 
-    // Test Connection
-    Route::get('/{id}/test-connection', [HostelController::class, 'testBiometricConnection'])->name('test-connection');
+            // Test Connection
+            Route::get('/{id}/test-connection', [HostelController::class, 'testBiometricConnection'])->name('test-connection');
 
-    // Biometric Stats
-    Route::get('/biometric-stats', [HostelController::class, 'getBiometricStats'])->name('biometric-stats');
-});
+            // Biometric Stats
+            Route::get('/biometric-stats', [HostelController::class, 'getBiometricStats'])->name('biometric-stats');
+        });
         // 1. Hostel Management
         Route::get('/hostels', [HostelController::class, 'index'])->name('hostels.index');
         Route::post('/hostels', [HostelController::class, 'store'])->name('hostels.store');
@@ -230,7 +230,8 @@ Route::prefix('hostels')->name('hostels.')->group(function () {
         });
         Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
         Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
-
+        Route::post('/residents/{id}/profile-image', [ResidentController::class, 'updateProfileImage'])->name('residents.update-profile-image');
+        Route::delete('/residents/{id}/profile-image', [ResidentController::class, 'removeProfileImage'])->name('residents.remove-profile-image');
         // 6. Payment Management
        Route::prefix('payments')->name('payments.')->group(function () {
             // Main CRUD routes
@@ -387,19 +388,17 @@ Route::get('/payment-links', function () {
 
 Route::get('/check-device-service', [BiometricController::class, 'testConnection']);
 
+// Guest Routes
 Route::prefix('guest')->name('guest.')->group(function () {
-    // Hostel view with room-wise residents
-    Route::get('/hostel/{encodedId}', [GuestHostelController::class, 'show'])->name('hostel.view');
+    // Hostel view
+    Route::get('/hostel/{encodedId}', [GuestHostelController::class, 'show'])->name('hostel.show');
     
-    // Get resident payment details
-    Route::post('/payment/resident-details', [GuestHostelController::class, 'getResidentDetails'])->name('payment.details');
-    
-    // Manual Payment (Direct to payments table)
+    // Payment routes
+    Route::post('/payment/details', [GuestHostelController::class, 'getResidentDetails'])->name('payment.details');
     Route::post('/payment/manual', [GuestHostelController::class, 'manualPayment'])->name('payment.manual');
-    
-    // Get payment history - FIXED: Removed parameter from route name generation
     Route::get('/payment/history/{residentId}', [GuestHostelController::class, 'getPaymentHistory'])->name('payment.history');
     
-    // Generate payment link (Admin use)
-    Route::get('/generate-link/{hostelId}', [GuestHostelController::class, 'generateLink'])->name('generate.link');
+    // Profile Image routes (NEW)
+    Route::post('/resident/profile-image', [GuestHostelController::class, 'updateProfileImage'])->name('resident.update-profile-image');
+    Route::post('/resident/profile-image/remove', [GuestHostelController::class, 'removeProfileImage'])->name('resident.remove-profile-image');
 });
