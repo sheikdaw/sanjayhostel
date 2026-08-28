@@ -1831,26 +1831,40 @@ $(document).ready(function() {
 // LOAD BEDS FOR ROOM (Helper Function)
 // ============================================
 function loadBedsForRoom(roomId, selectedBedId) {
+    console.log('🛏️ Loading beds for room:', roomId, 'selected bed:', selectedBedId);
+    
     if (roomId) {
         $.ajax({
             url: '/admin/residents/room/' + roomId + '/beds',
             type: 'GET',
             success: function(response) {
+                console.log('🟢 Beds response:', response);
                 let select = $('#bed_id');
                 select.empty().append('<option value="">Select Bed</option>');
                 
                 if (response.success && response.data.length > 0) {
+                    let foundBed = false;
                     $.each(response.data, function(key, bed) {
                         let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
                         let disabled = bed.status === 'OCCUPIED' ? 'disabled' : '';
                         let selected = (selectedBedId && bed.id == selectedBedId) ? 'selected' : '';
+                        if (selectedBedId && bed.id == selectedBedId) {
+                            foundBed = true;
+                        }
                         select.append('<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
                     });
+                    
+                    // If the bed wasn't found in the list, add it manually (for editing)
+                    if (!foundBed && selectedBedId) {
+                        // Try to get bed info from the global data or add a placeholder
+                        select.append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
+                    }
                 } else {
                     select.append('<option value="">No vacant beds</option>');
                 }
             },
             error: function(xhr) {
+                console.log('🔴 Error loading beds:', xhr);
                 if (xhr.status === 403) {
                     showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                 }
@@ -2394,15 +2408,31 @@ function resetForm() {
 }
 
 // ============================================
-// EDIT RESIDENT - FIXED VERSION
+// EDIT RESIDENT - FIXED VERSION WITH PROPER ROOM LOADING
 // ============================================
 function editResident(id) {
+    console.log('🟢 Edit Resident called with ID:', id);
+    
+    // Show loading
+    Swal.fire({
+        title: 'Loading...',
+        text: 'Fetching resident data',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
     $.ajax({
         url: "{{ url('admin/residents') }}/" + id + "/edit",
         type: 'GET',
         success: function(response) {
+            console.log('🟢 Response received:', response);
+            Swal.close();
+
             if (response.success) {
                 let data = response.data;
+                console.log('📋 Resident data:', data);
                 
                 // Set modal title and edit ID
                 document.getElementById('modalTitle').textContent = 'Edit Resident';
@@ -2448,8 +2478,12 @@ function editResident(id) {
                     $('#vacateDateDiv').hide();
                 }
                 
-                // Set Hostel and trigger room loading
+                // Set Hostel
                 let hostelId = data.hostel_id;
+                console.log('🏢 Hostel ID:', hostelId);
+                console.log('🛏️ Room ID:', data.room_id);
+                console.log('🛏️ Bed ID:', data.bed_id);
+                
                 if (hostelId) {
                     $('#hostel_id').val(hostelId);
                     
@@ -2459,26 +2493,59 @@ function editResident(id) {
                         type: 'POST',
                         data: { hostel_id: hostelId, _token: '{{ csrf_token() }}' },
                         success: function(roomResponse) {
+                            console.log('🟢 Rooms response:', roomResponse);
                             let roomSelect = $('#room_id');
                             roomSelect.empty().append('<option value="">Select Room</option>');
                             
                             if (roomResponse.success && roomResponse.data.length > 0) {
+                                let foundRoom = false;
                                 $.each(roomResponse.data, function(key, room) {
                                     let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
-                                    let selected = room.id == data.room_id ? 'selected' : '';
+                                    let selected = (room.id == data.room_id) ? 'selected' : '';
+                                    if (room.id == data.room_id) {
+                                        foundRoom = true;
+                                    }
                                     roomSelect.append('<option value="' + room.id + '" data-beds="' + room.available_beds + '" ' + selected + '>Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
                                 });
+                                
+                                // If the room wasn't found in the list, add it manually
+                                if (!foundRoom && data.room) {
+                                    let room = data.room;
+                                    let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
+                                    roomSelect.append('<option value="' + room.id + '" data-beds="' + (room.available_beds || 0) + '" selected>Room #' + room.room_no + ' - ' + (room.room_type?.room_type_name || 'Unknown') + bedInfo + '</option>');
+                                }
                             } else {
-                                roomSelect.append('<option value="">No rooms available</option>');
+                                // If no rooms from API, try to use the room data from the response
+                                if (data.room) {
+                                    let room = data.room;
+                                    roomSelect.append('<option value="' + room.id + '" selected>Room #' + room.room_no + ' - ' + (room.room_type?.room_type_name || 'Unknown') + '</option>');
+                                } else {
+                                    roomSelect.append('<option value="">No rooms available</option>');
+                                }
+                            }
+                            
+                            // Set the room value
+                            if (data.room_id) {
+                                $('#room_id').val(data.room_id);
+                                console.log('✅ Room set to:', data.room_id);
                             }
                             
                             // Load beds for the selected room
                             if (data.room_id) {
-                                $('#room_id').val(data.room_id);
                                 loadBedsForRoom(data.room_id, data.bed_id);
                             }
                         },
                         error: function(xhr) {
+                            console.log('🔴 Error loading rooms:', xhr);
+                            // Fallback: use the room data from the response
+                            if (data.room) {
+                                let roomSelect = $('#room_id');
+                                roomSelect.empty().append('<option value="' + data.room.id + '" selected>Room #' + data.room.room_no + ' - ' + (data.room.room_type?.room_type_name || 'Unknown') + '</option>');
+                                if (data.bed) {
+                                    let bedSelect = $('#bed_id');
+                                    bedSelect.empty().append('<option value="' + data.bed.id + '" selected>Bed #' + data.bed.bed_no + ' (' + data.bed.bed_type + ')</option>');
+                                }
+                            }
                             if (xhr.status === 403) {
                                 showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                             }
@@ -2513,12 +2580,18 @@ function editResident(id) {
                 $('.rv-input-box').removeClass('is-invalid');
                 
                 // Show the modal
+                console.log('🟢 Opening modal...');
                 residentModal.show();
+                console.log('✅ Modal should be open now');
+                
             } else {
                 showToast(response.message || 'Failed to load resident data', 'error');
             }
         },
         error: function(xhr) {
+            console.log('🔴 AJAX Error:', xhr);
+            Swal.close();
+            
             if (xhr.status === 403) {
                 showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
             } else if (xhr.status === 404) {
@@ -2529,7 +2602,6 @@ function editResident(id) {
         }
     });
 }
-
 // ============================================
 // FORM SUBMISSION
 // ============================================
