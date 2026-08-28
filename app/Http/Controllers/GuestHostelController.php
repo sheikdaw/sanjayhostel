@@ -103,8 +103,20 @@ class GuestHostelController extends Controller
             ->where('year', $currentYear)
             ->first();
 
+        // IMPORTANT: exclude the current month/year here. The current month's
+        // balance is added separately below, so including it here as well
+        // was double-counting it into the total due (e.g. a ₹250 partial
+        // balance was being added once from this sum and once again from
+        // $currentPayment->balance_amount, showing ₹500 instead of ₹250).
         $pendingPayments = Payment::where('resident_id', $resident->id)
             ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->where(function ($q) use ($currentMonth, $currentYear) {
+                $q->where('year', '<', $currentYear)
+                  ->orWhere(function ($q2) use ($currentMonth, $currentYear) {
+                      $q2->where('year', $currentYear)
+                         ->where('month', '<', $currentMonth);
+                  });
+            })
             ->orderBy('year', 'asc')
             ->orderBy('month', 'asc')
             ->get();
@@ -148,6 +160,9 @@ class GuestHostelController extends Controller
             }
         }
 
+        // Late fee is currently disabled (multiplier is 0). Change the
+        // multiplier below (e.g. 10 for ₹10/day) whenever you're ready to
+        // switch it on — nothing else needs to change.
         $fineAmount = 0;
         $fineMessage = '';
 
