@@ -8,6 +8,7 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
 
     <style>
         :root {
@@ -455,6 +456,49 @@
             color: #ec4899;
         }
 
+        /* ===== TRANSACTION ID STYLES ===== */
+        #transactionIdRow {
+            animation: slideDown 0.3s ease;
+        }
+
+        #transactionIdRow input {
+            background: #f8fafc;
+        }
+
+        #transactionIdRow input:focus {
+            background: white;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Payment method option icon styling */
+        .payment-method-option[data-method="upi"] i {
+            color: #7c3aed;
+        }
+
+        .payment-method-option[data-method="card"] i {
+            color: #2563eb;
+        }
+
+        .payment-method-option[data-method="bank_transfer"] i {
+            color: #059669;
+        }
+
+        .payment-method-option[data-method="cash"] i {
+            color: #16a34a;
+        }
+
         /* ===== TOAST ===== */
         .toast-container {
             position: fixed;
@@ -505,6 +549,7 @@
             .resident-avatar { width: 32px; height: 32px; font-size: 0.7rem; }
             .resident-info .name { font-size: 0.7rem; }
             .profile-image-section .resident-avatar { width: 60px; height: 60px; font-size: 1.2rem; }
+            .payment-method-group { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 480px) {
@@ -512,6 +557,7 @@
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .hostel-header h1 { font-size: 1.2rem; }
             .profile-image-section .resident-avatar { width: 50px; height: 50px; font-size: 1rem; }
+            .payment-method-group { grid-template-columns: 1fr 1fr; }
         }
     </style>
 </head>
@@ -728,6 +774,7 @@
     <!-- ===== SCRIPTS ===== -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
         var csrfToken = '{{ csrf_token() }}';
@@ -738,7 +785,8 @@
             manual: '{{ route("guest.payment.manual") }}',
             history: '{{ url("/guest/payment/history") }}',
             updateProfileImage: '{{ route("guest.resident.update-profile-image") }}',
-            removeProfileImage: '{{ route("guest.resident.remove-profile-image") }}'
+            removeProfileImage: '{{ route("guest.resident.remove-profile-image") }}',
+            updateDob: '{{ route("guest.resident.update-dob") }}'
         };
 
         let paymentModal;
@@ -934,8 +982,20 @@
                                 <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
                                     <i class="bi bi-calendar-heart" style="color:#ec4899;"></i> 
                                     ${dobDisplay} ${ageDisplay}
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
+                                            onclick="editDob(${data.resident_id})" title="Edit DOB">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                 </div>
-                            ` : ''}
+                            ` : `
+                                <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
+                                    <span style="color:#9ca3af;">No DOB set</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
+                                            onclick="editDob(${data.resident_id})" title="Add DOB">
+                                        <i class="bi bi-plus-circle"></i>
+                                    </button>
+                                </div>
+                            `}
                         </div>
                     </div>
 
@@ -980,6 +1040,22 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- ===== TRANSACTION ID FIELD ===== -->
+                <div class="row g-2 mt-1" id="transactionIdRow" style="display:none;">
+                    <div class="col-12">
+                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">
+                            <i class="bi bi-receipt"></i> Transaction ID <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" id="transactionId" class="form-control" 
+                               placeholder="Enter UPI/Card/Bank transaction ID" 
+                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
+                        <small class="text-muted" style="font-size:0.6rem;">
+                            <i class="bi bi-info-circle"></i> Required for UPI, Card, and Bank Transfer payments
+                        </small>
+                    </div>
+                </div>
+                
                 <div class="row g-2 mt-1">
                     <div class="col-md-6">
                         <label class="form-label" style="font-size:0.75rem; font-weight:600;">Receipt No</label>
@@ -1031,16 +1107,41 @@
             document.getElementById('paymentModalBody').innerHTML = html;
         }
 
+        // ============================================
+        // PAYMENT METHOD SELECTION WITH TRANSACTION ID
+        // ============================================
+
         function selectMethod(el) {
             document.querySelectorAll('.payment-method-option').forEach(opt => opt.classList.remove('selected'));
             el.classList.add('selected');
             selectedMethod = el.dataset.method;
+            
+            // Show transaction ID field for UPI, Card, Bank Transfer
+            const transactionRow = document.getElementById('transactionIdRow');
+            const transactionInput = document.getElementById('transactionId');
+            
+            if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
+                transactionRow.style.display = 'block';
+                transactionInput.required = true;
+                transactionInput.placeholder = selectedMethod === 'upi' ? 'Enter UPI transaction ID' : 
+                                                selectedMethod === 'card' ? 'Enter card transaction ID' : 
+                                                'Enter bank transaction ID';
+            } else {
+                transactionRow.style.display = 'none';
+                transactionInput.required = false;
+                transactionInput.value = '';
+            }
         }
+
+        // ============================================
+        // SUBMIT PAYMENT WITH TRANSACTION ID
+        // ============================================
 
         function submitPayment() {
             const amount = parseFloat(document.getElementById('paymentAmount').value);
             const reference = document.getElementById('paymentReference').value.trim();
             const remarks = document.getElementById('paymentRemarks').value.trim();
+            const transactionId = document.getElementById('transactionId').value.trim();
 
             if (!amount || amount <= 0) {
                 showToast('Please enter a valid amount', 'error');
@@ -1049,6 +1150,14 @@
             if (!reference) {
                 showToast('Please enter a reference number', 'error');
                 return;
+            }
+
+            // Validate transaction ID for UPI, Card, Bank Transfer
+            if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
+                if (!transactionId) {
+                    showToast('Please enter transaction ID for ' + selectedMethod.toUpperCase() + ' payment', 'error');
+                    return;
+                }
             }
 
             const btn = document.getElementById('submitPaymentBtn');
@@ -1063,6 +1172,7 @@
                     amount: amount,
                     payment_method: selectedMethod,
                     reference: reference,
+                    transaction_id: transactionId,
                     remarks: remarks,
                     hostel_id: hostelId,
                     _token: csrfToken
@@ -1073,6 +1183,13 @@
                         const data = response.data;
                         const statusIcon = data.is_full_paid ? '✅' : (data.is_partial ? '⚠️' : '❌');
 
+                        let transactionHtml = '';
+                        if (data.transaction_id) {
+                            transactionHtml = `
+                                <div><span class="label">Transaction ID</span><br><span class="value" style="font-size:0.8rem; font-family:monospace;">${data.transaction_id}</span></div>
+                            `;
+                        }
+
                         document.getElementById('paymentModalBody').innerHTML = `
                             <div class="text-center py-4">
                                 <div style="font-size:2.5rem;">${statusIcon}</div>
@@ -1081,6 +1198,7 @@
                                     <div><span class="label">Receipt</span><br><span class="value">${data.receipt_no}</span></div>
                                     <div><span class="label">Amount Paid</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
                                     <div><span class="label">Balance</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
+                                    ${transactionHtml}
                                 </div>
                                 <div class="mt-2"><span class="badge-status ${data.status.toLowerCase()}">${data.status}</span></div>
                                 <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
@@ -1108,12 +1226,73 @@
         }
 
         // ============================================
+        // DOB EDIT FUNCTION
+        // ============================================
+
+        function editDob(residentId) {
+            const currentDob = currentResident.dob || '';
+            
+            Swal.fire({
+                title: 'Update Date of Birth',
+                html: `
+                    <div class="text-start">
+                        <label class="form-label" style="font-size:0.85rem; font-weight:600;">Date of Birth</label>
+                        <input type="date" id="dobInput" class="form-control" value="${currentDob}" max="${new Date().toISOString().split('T')[0]}">
+                        <small class="text-muted" style="font-size:0.7rem;">Select the resident's date of birth</small>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Update',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#c5a028',
+                cancelButtonColor: '#6b7280',
+                preConfirm: () => {
+                    const dob = document.getElementById('dobInput').value;
+                    return dob;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const dob = result.value;
+                    
+                    $.ajax({
+                        url: routes.updateDob,
+                        type: 'POST',
+                        data: {
+                            resident_id: residentId,
+                            dob: dob,
+                            _token: csrfToken
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                showToast('Date of Birth updated successfully!', 'success');
+                                // Refresh modal content
+                                refreshModalContent(residentId);
+                                // Reload page to update card
+                                setTimeout(() => location.reload(), 1500);
+                            } else {
+                                showToast(response.message || 'Failed to update DOB', 'error');
+                            }
+                        },
+                        error: function(xhr) {
+                            let message = 'Failed to update DOB';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                message = xhr.responseJSON.message;
+                            }
+                            if (xhr.responseJSON && xhr.responseJSON.errors) {
+                                const errors = Object.values(xhr.responseJSON.errors).flat();
+                                message = errors.join(', ');
+                            }
+                            showToast(message, 'error');
+                        }
+                    });
+                }
+            });
+        }
+
+        // ============================================
         // PROFILE IMAGE FUNCTIONS
         // ============================================
 
-        /**
-         * Upload profile image
-         */
         function uploadProfileImage(event, residentId) {
             const file = event.target.files[0];
             if (!file) {
@@ -1158,7 +1337,6 @@
                         showToast('Profile image updated successfully!', 'success');
                         updateModalAvatar(response.data.profile_image);
                         updateResidentCardAvatar(residentId, response.data.profile_image);
-                        // Reload the modal content to show remove button
                         refreshModalContent(residentId);
                     } else {
                         showToast(response.message || 'Failed to update profile image', 'error');
@@ -1183,9 +1361,6 @@
             event.target.value = '';
         }
 
-        /**
-         * Remove profile image
-         */
         function removeProfileImage(residentId) {
             if (!confirm('Are you sure you want to remove this profile image?')) {
                 return;
@@ -1203,7 +1378,6 @@
                         showToast('Profile image removed successfully!', 'success');
                         resetModalAvatar(initials);
                         updateResidentCardAvatar(residentId, null);
-                        // Reload the modal content to hide remove button
                         refreshModalContent(residentId);
                     } else {
                         showToast(response.message || 'Failed to remove image', 'error');
@@ -1215,9 +1389,6 @@
             });
         }
 
-        /**
-         * Update modal avatar with new image
-         */
         function updateModalAvatar(imageUrl) {
             const avatar = document.getElementById('modalProfileAvatar');
             if (avatar) {
@@ -1225,9 +1396,6 @@
             }
         }
 
-        /**
-         * Reset modal avatar to initials
-         */
         function resetModalAvatar(initials) {
             const avatar = document.getElementById('modalProfileAvatar');
             if (avatar) {
@@ -1235,16 +1403,12 @@
             }
         }
 
-        /**
-         * Update resident card avatar in the grid
-         */
         function updateResidentCardAvatar(residentId, imageUrl) {
             const avatarDiv = document.getElementById(`avatar-${residentId}`);
             if (avatarDiv) {
                 if (imageUrl) {
                     avatarDiv.innerHTML = `<img src="${imageUrl}" alt="Profile">`;
                 } else {
-                    // Get resident name from the card
                     const card = $(`.resident-card[data-resident-id="${residentId}"]`);
                     const name = card.find('.name').text() || 'Unknown';
                     const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -1253,11 +1417,7 @@
             }
         }
 
-        /**
-         * Refresh modal content to show updated state
-         */
         function refreshModalContent(residentId) {
-            // Re-fetch resident details to update the modal
             $.ajax({
                 url: routes.details,
                 type: 'POST',

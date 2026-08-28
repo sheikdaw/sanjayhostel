@@ -169,7 +169,7 @@ class GuestHostelController extends Controller
                 return [
                     'month' => date('F', mktime(0, 0, 0, $p->month, 1)) . ' ' . $p->year,
                     'rent' => $p->rent_amount,
-                    'paid' => ($p->cash_paid_amount ?? 0) + ($p->upi_paid_amount ?? 0),
+                    'paid' => ($p->cash_paid_amount ?? 0) + ($p->upi_paid_amount ?? 0) + ($p->card_paid_amount ?? 0) + ($p->bank_paid_amount ?? 0),
                     'balance' => $p->balance_amount,
                     'status' => $p->status,
                     'receipt' => $p->receipt_no,
@@ -185,7 +185,7 @@ class GuestHostelController extends Controller
                 'email' => $resident->email ?? 'Not provided',
                 'room_no' => $resident->room->room_no ?? 'N/A',
                 'bed_no' => $resident->bed->bed_no ?? 'N/A',
-                // NEW: DOB Fields
+                // DOB Fields
                 'dob' => $resident->dob ? $resident->dob->format('Y-m-d') : null,
                 'dob_formatted' => $resident->formatted_dob ?? 'N/A',
                 'age' => $resident->age ?? null,
@@ -211,7 +211,7 @@ class GuestHostelController extends Controller
     }
 
     /**
-     * Manual Payment Entry
+     * Manual Payment Entry with Transaction ID
      */
     public function manualPayment(Request $request)
     {
@@ -220,6 +220,7 @@ class GuestHostelController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|in:cash,upi,card,bank_transfer',
             'reference' => 'required|string|max:50',
+            'transaction_id' => 'nullable|string|max:100', // NEW: Transaction ID for UPI
             'remarks' => 'nullable|string|max:500',
             'hostel_id' => 'required|exists:hostels,id'
         ]);
@@ -237,22 +238,35 @@ class GuestHostelController extends Controller
         $paidAmount = (float) $request->amount;
         $rentAmount = (float) $resident->rent_amount;
 
+        // Check if payment already exists for this month
         $payment = Payment::where('resident_id', $resident->id)
             ->where('month', $currentMonth)
             ->where('year', $currentYear)
             ->first();
 
         if ($payment) {
+            // Update existing payment
             if ($request->payment_method == 'cash') {
                 $payment->cash_paid_amount = ($payment->cash_paid_amount ?? 0) + $paidAmount;
             } elseif ($request->payment_method == 'upi') {
                 $payment->upi_paid_amount = ($payment->upi_paid_amount ?? 0) + $paidAmount;
+                // Store transaction ID for UPI payments
+                if ($request->filled('transaction_id')) {
+                    $payment->transaction_id = $request->transaction_id;
+                }
             } elseif ($request->payment_method == 'card') {
                 $payment->card_paid_amount = ($payment->card_paid_amount ?? 0) + $paidAmount;
+                if ($request->filled('transaction_id')) {
+                    $payment->transaction_id = $request->transaction_id;
+                }
             } elseif ($request->payment_method == 'bank_transfer') {
                 $payment->bank_paid_amount = ($payment->bank_paid_amount ?? 0) + $paidAmount;
+                if ($request->filled('transaction_id')) {
+                    $payment->transaction_id = $request->transaction_id;
+                }
             }
 
+            // Calculate total paid
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
@@ -261,6 +275,7 @@ class GuestHostelController extends Controller
             $payment->total_paid_amount = $totalPaid;
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
+            // Update status
             if ($payment->balance_amount <= 0) {
                 $payment->status = 'PAID';
                 $statusMessage = '✅ Payment completed! Full rent paid.';
@@ -276,7 +291,9 @@ class GuestHostelController extends Controller
             $payment->save();
 
         } else {
+            // Create new payment
             $receiptNo = $request->reference;
+            // Check if receipt exists, if yes generate new
             while (Payment::where('receipt_no', $receiptNo)->exists()) {
                 $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
             }
@@ -297,20 +314,32 @@ class GuestHostelController extends Controller
                 'balance_amount' => $rentAmount,
                 'payment_date' => now(),
                 'status' => 'PENDING',
+                'transaction_id' => null, // Initialize
             ];
 
+            // Add payment method amount
             if ($request->payment_method == 'cash') {
                 $paymentData['cash_paid_amount'] = $paidAmount;
             } elseif ($request->payment_method == 'upi') {
                 $paymentData['upi_paid_amount'] = $paidAmount;
+                if ($request->filled('transaction_id')) {
+                    $paymentData['transaction_id'] = $request->transaction_id;
+                }
             } elseif ($request->payment_method == 'card') {
                 $paymentData['card_paid_amount'] = $paidAmount;
+                if ($request->filled('transaction_id')) {
+                    $paymentData['transaction_id'] = $request->transaction_id;
+                }
             } elseif ($request->payment_method == 'bank_transfer') {
                 $paymentData['bank_paid_amount'] = $paidAmount;
+                if ($request->filled('transaction_id')) {
+                    $paymentData['transaction_id'] = $request->transaction_id;
+                }
             }
 
             $payment = Payment::create($paymentData);
 
+            // Recalculate totals
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
@@ -319,6 +348,7 @@ class GuestHostelController extends Controller
             $payment->total_paid_amount = $totalPaid;
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
+            // Update status
             if ($payment->balance_amount <= 0) {
                 $payment->status = 'PAID';
                 $statusMessage = '✅ Payment completed! Full rent paid.';
@@ -333,6 +363,7 @@ class GuestHostelController extends Controller
             $payment->save();
         }
 
+        // Get updated payment details
         $payment->refresh();
 
         return response()->json([
@@ -348,6 +379,7 @@ class GuestHostelController extends Controller
                 'status' => $payment->status,
                 'status_message' => $statusMessage ?? 'Payment recorded',
                 'payment_method' => $request->payment_method,
+                'transaction_id' => $payment->transaction_id,
                 'is_full_paid' => $payment->status === 'PAID',
                 'is_partial' => $payment->status === 'PARTIAL',
             ]
@@ -372,6 +404,7 @@ class GuestHostelController extends Controller
                     'balance' => $payment->balance_amount,
                     'status' => $payment->status,
                     'receipt_no' => $payment->receipt_no,
+                    'transaction_id' => $payment->transaction_id,
                     'date' => $payment->payment_date ? $payment->payment_date->format('d M Y') : 'N/A',
                 ];
             });
@@ -410,23 +443,15 @@ class GuestHostelController extends Controller
         ]);
     }
 
-    // ============================================
-    // PROFILE IMAGE MANAGEMENT METHODS
-    // ============================================
-
     /**
-     * Update resident profile image
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Update resident Date of Birth
      */
-    public function updateProfileImage(Request $request)
+    public function updateDob(Request $request)
     {
         try {
-            // Validate request
             $validator = Validator::make($request->all(), [
                 'resident_id' => 'required|exists:residents,id',
-                'profile_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // Max 2MB
+                'dob' => 'nullable|date|before:today|after:1900-01-01',
             ]);
 
             if ($validator->fails()) {
@@ -436,10 +461,51 @@ class GuestHostelController extends Controller
                 ], 422);
             }
 
-            // Find resident
+            $resident = Resident::findOrFail($request->resident_id);
+            $resident->dob = $request->dob ? date('Y-m-d', strtotime($request->dob)) : null;
+            $resident->save();
+
+            $resident->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Date of Birth updated successfully!',
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'dob' => $resident->dob ? $resident->dob->format('Y-m-d') : null,
+                    'dob_formatted' => $resident->formatted_dob ?? 'N/A',
+                    'age' => $resident->age ?? null,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update DOB: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update resident profile image
+     */
+    public function updateProfileImage(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'resident_id' => 'required|exists:residents,id',
+                'profile_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
             $resident = Resident::findOrFail($request->resident_id);
 
-            // Delete old profile image if exists
             if ($resident->profile_image) {
                 $oldPath = public_path($resident->profile_image);
                 if (File::exists($oldPath)) {
@@ -447,14 +513,12 @@ class GuestHostelController extends Controller
                 }
             }
 
-            // Upload new image
             $file = $request->file('profile_image');
             $timestamp = time();
             $random = Str::random(8);
             $extension = $file->getClientOriginalExtension();
             $filename = $timestamp . '_' . $random . '.' . $extension;
 
-            // Create directory if not exists
             $directory = 'uploads/residents/profile';
             $path = public_path($directory);
 
@@ -462,11 +526,9 @@ class GuestHostelController extends Controller
                 File::makeDirectory($path, 0755, true);
             }
 
-            // Move file to directory
             $file->move($path, $filename);
             $imagePath = $directory . '/' . $filename;
 
-            // Update resident record
             $resident->profile_image = $imagePath;
             $resident->save();
 
@@ -490,14 +552,10 @@ class GuestHostelController extends Controller
 
     /**
      * Remove resident profile image
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function removeProfileImage(Request $request)
     {
         try {
-            // Validate request
             $validator = Validator::make($request->all(), [
                 'resident_id' => 'required|exists:residents,id',
             ]);
@@ -509,10 +567,8 @@ class GuestHostelController extends Controller
                 ], 422);
             }
 
-            // Find resident
             $resident = Resident::findOrFail($request->resident_id);
 
-            // Delete profile image if exists
             if ($resident->profile_image) {
                 $oldPath = public_path($resident->profile_image);
                 if (File::exists($oldPath)) {

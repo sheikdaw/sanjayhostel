@@ -388,7 +388,6 @@ Route::get('/payment-links', function () {
 
 Route::get('/check-device-service', [BiometricController::class, 'testConnection']);
 
-// Guest Routes
 Route::prefix('guest')->name('guest.')->group(function () {
     // Hostel view
     Route::get('/hostel/{encodedId}', [GuestHostelController::class, 'show'])->name('hostel.show');
@@ -398,7 +397,10 @@ Route::prefix('guest')->name('guest.')->group(function () {
     Route::post('/payment/manual', [GuestHostelController::class, 'manualPayment'])->name('payment.manual');
     Route::get('/payment/history/{residentId}', [GuestHostelController::class, 'getPaymentHistory'])->name('payment.history');
     
-    // Profile Image routes (NEW)
+    // Profile Image routes
     Route::post('/resident/profile-image', [GuestHostelController::class, 'updateProfileImage'])->name('resident.update-profile-image');
     Route::post('/resident/profile-image/remove', [GuestHostelController::class, 'removeProfileImage'])->name('resident.remove-profile-image');
+    
+    // DOB Update route (NEW)
+    Route::post('/resident/update-dob', [GuestHostelController::class, 'updateDob'])->name('resident.update-dob');
 });
