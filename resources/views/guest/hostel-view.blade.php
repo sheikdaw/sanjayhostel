@@ -169,6 +169,27 @@
             white-space: nowrap;
         }
 
+        /* Language Toggle Button */
+        .lang-toggle {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.2rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .lang-toggle:hover {
+            background: rgba(255,255,255,0.35);
+            border-color: rgba(255,255,255,0.5);
+        }
+        .lang-toggle i {
+            margin-right: 4px;
+        }
+
         #residentsContainer {
             flex: 1;
             min-height: 0;
@@ -670,6 +691,16 @@
             50% { opacity: 0.6; }
         }
 
+        /* Tamil font support */
+        .lang-ta {
+            font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
+        }
+
+        .lang-ta .name,
+        .lang-ta .resident-info .name {
+            font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
+        }
+
         @media (max-width: 768px) {
             .search-section { flex-direction: column; align-items: stretch; }
             .search-section .filter-group { justify-content: center; }
@@ -681,6 +712,7 @@
             .profile-image-section .resident-avatar { width: 60px; height: 60px; font-size: 1.2rem; }
             .payment-method-group { grid-template-columns: repeat(2, 1fr); }
             .status-badge { font-size: 0.5rem; padding: 0.1rem 0.3rem; }
+            .lang-toggle { font-size: 0.6rem; padding: 0.15rem 0.6rem; }
         }
 
         @media (max-width: 480px) {
@@ -690,19 +722,20 @@
             .profile-image-section .resident-avatar { width: 50px; height: 50px; font-size: 1rem; }
             .payment-method-group { grid-template-columns: 1fr 1fr; }
             .status-badge { font-size: 0.45rem; padding: 0.05rem 0.25rem; }
+            .lang-toggle { font-size: 0.55rem; padding: 0.1rem 0.5rem; }
         }
         .transaction-id-display {
-    font-size: 0.75rem;
-    font-family: 'Courier New', monospace;
-    background: #f3f4f6;
-    padding: 2px 10px;
-    border-radius: 4px;
-    color: #1f2937;
-    border: 1px solid #e5e7eb;
-    word-break: break-all;
-    display: inline-block;
-    margin-top: 2px;
-}
+            font-size: 0.75rem;
+            font-family: 'Courier New', monospace;
+            background: #f3f4f6;
+            padding: 2px 10px;
+            border-radius: 4px;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+            word-break: break-all;
+            display: inline-block;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -718,16 +751,19 @@
                         <div>
                             <h1>{{ $hostel->hostel_name }}</h1>
                             <span class="hostel-code">{{ $hostel->hostel_code ?? 'HOSTEL' }}</span>
-                            <p class="sub-text">
+                            <p class="sub-text" id="clickHintText">
                                 <i class="bi bi-geo-alt"></i> Click on any resident to pay
                             </p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4 text-md-end">
-                    <span class="badge bg-warning text-dark">
-                        <i class="bi bi-shield-lock"></i> Secure
+                    <span class="badge bg-warning text-dark me-2">
+                        <i class="bi bi-shield-lock"></i> <span id="secureText">Secure</span>
                     </span>
+                    <button class="lang-toggle" onclick="toggleLanguage()" id="langToggleBtn">
+                        <i class="bi bi-translate"></i> <span id="langToggleText">தமிழ்</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -739,22 +775,22 @@
             <div class="stat-card">
                 <span class="icon">👨‍👩‍👧‍👦</span>
                 <div class="number" id="totalCount">{{ $stats['total_residents'] }}</div>
-                <div class="label">Total</div>
+                <div class="label" id="totalLabel">Total</div>
             </div>
             <div class="stat-card" style="border-left: 3px solid var(--status-paid);">
                 <span class="icon">✅</span>
                 <div class="number" style="color:var(--success);" id="paidCount">0</div>
-                <div class="label">Paid</div>
+                <div class="label" id="paidLabel">Paid</div>
             </div>
             <div class="stat-card" style="border-left: 3px solid var(--status-partial);">
                 <span class="icon">⚠️</span>
                 <div class="number" style="color:var(--warning);" id="partialCount">0</div>
-                <div class="label">Partial</div>
+                <div class="label" id="partialLabel">Partial</div>
             </div>
             <div class="stat-card" style="border-left: 3px solid var(--status-pending);">
                 <span class="icon">❌</span>
                 <div class="number" style="color:var(--danger);" id="pendingCount">0</div>
-                <div class="label">Pending</div>
+                <div class="label" id="pendingLabel">Pending</div>
             </div>
         </div>
 
@@ -765,14 +801,14 @@
             </div>
             <div class="filter-group">
                 <select id="statusFilter" onchange="filterResidents()">
-                    <option value="">All Status</option>
+                    <option value="" id="statusAll">All Status</option>
                     <option value="PAID" style="color: var(--status-paid);">✅ Paid</option>
                     <option value="PARTIAL" style="color: var(--status-partial);">⚠️ Partial</option>
                     <option value="PENDING" style="color: var(--status-pending);">❌ Pending</option>
                     <option value="NOT_PAID" style="color: var(--status-pending);">🔴 Not Paid</option>
                 </select>
                 <select id="roomFilter" onchange="filterResidents()">
-                    <option value="">All Rooms</option>
+                    <option value="" id="roomAll">All Rooms</option>
                     @foreach($occupiedRooms as $room)
                         <option value="{{ $room->id }}">#{{ $room->room_no }}</option>
                     @endforeach
@@ -847,23 +883,23 @@
             @else
                 <div class="empty-state">
                     <i class="bi bi-people"></i>
-                    <h5>No residents found</h5>
-                    <p class="text-muted">No active residents in this hostel.</p>
+                    <h5 id="noResidentsTitle">No residents found</h5>
+                    <p class="text-muted" id="noResidentsDesc">No active residents in this hostel.</p>
                 </div>
             @endif
         </div>
 
         <div class="no-results" id="noResults" style="display:none;">
             <i class="bi bi-search"></i>
-            <h5>No matching residents</h5>
-            <p class="text-muted">Try adjusting your search or filters</p>
+            <h5 id="noMatchTitle">No matching residents</h5>
+            <p class="text-muted" id="noMatchDesc">Try adjusting your search or filters</p>
             <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
-                <i class="bi bi-arrow-counterclockwise"></i> Clear
+                <i class="bi bi-arrow-counterclockwise"></i> <span id="clearBtnText">Clear</span>
             </button>
         </div>
 
         <div class="text-center mt-3 mb-4">
-            <small class="text-muted">
+            <small class="text-muted" id="footerHint">
                 <i class="bi bi-shield-check"></i> Click on any resident to record payment
             </small>
         </div>
@@ -873,13 +909,13 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-credit-card"></i> Pay Rent</h5>
+                    <h5 class="modal-title" id="modalPayTitle"><i class="bi bi-credit-card"></i> Pay Rent</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="paymentModalBody">
                     <div class="text-center py-4">
                         <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2 text-muted">Loading payment details...</p>
+                        <p class="mt-2 text-muted" id="loadingText">Loading payment details...</p>
                     </div>
                 </div>
             </div>
@@ -903,6 +939,296 @@
             updateDob: '{{ route("guest.resident.update-dob") }}'
         };
 
+        // ============================================
+        // TRANSLATION SYSTEM
+        // ============================================
+        let currentLang = 'en'; // 'en' or 'ta'
+
+        const translations = {
+            en: {
+                // Header
+                clickHint: 'Click on any resident to pay',
+                secure: 'Secure',
+                langToggle: 'தமிழ்',
+                
+                // Stats
+                total: 'Total',
+                paid: 'Paid',
+                partial: 'Partial',
+                pending: 'Pending',
+                
+                // Search
+                searchPlaceholder: 'Search by name, room, phone...',
+                allStatus: 'All Status',
+                allRooms: 'All Rooms',
+                
+                // No results
+                noResidentsTitle: 'No residents found',
+                noResidentsDesc: 'No active residents in this hostel.',
+                noMatchTitle: 'No matching residents',
+                noMatchDesc: 'Try adjusting your search or filters',
+                clearBtn: 'Clear',
+                footerHint: 'Click on any resident to record payment',
+                
+                // Modal
+                payRent: 'Pay Rent',
+                loading: 'Loading payment details...',
+                phone: 'Phone',
+                email: 'Email',
+                monthlyRent: 'Monthly Rent',
+                discount: 'Discount',
+                lateFee: 'Late Fee',
+                totalToPay: 'Total to Pay',
+                allPaid: '✅ All Paid',
+                enterPaymentDetails: 'Enter Payment Details',
+                amount: 'Amount (₹)',
+                paymentMethod: 'Payment Method',
+                cash: 'Cash',
+                upi: 'UPI',
+                card: 'Card',
+                bank: 'Bank',
+                transactionId: 'Transaction ID',
+                transactionIdRequired: 'Required for UPI, Card, and Bank Transfer payments',
+                receiptNo: 'Receipt No',
+                remarks: 'Remarks',
+                recordPayment: 'Record Payment',
+                close: 'Close',
+                paymentHistory: 'Payment History',
+                month: 'Month',
+                rent: 'Rent',
+                paidAmt: 'Paid',
+                balance: 'Balance',
+                status: 'Status',
+                done: 'Done',
+                transactionIds: 'Transaction IDs',
+                
+                // Toast messages
+                validAmount: 'Please enter a valid amount',
+                validReference: 'Please enter a reference number',
+                transactionRequired: 'Please enter transaction ID for {method} payment',
+                recording: 'Recording...',
+                failedPayment: 'Failed to record payment',
+                
+                // DOB
+                updateDob: 'Update Date of Birth',
+                dateOfBirth: 'Date of Birth',
+                selectDob: 'Select the resident\'s date of birth',
+                update: 'Update',
+                cancel: 'Cancel',
+                dobUpdated: 'Date of Birth updated successfully!',
+                noDob: 'No DOB set',
+                addDob: 'Add DOB',
+                editDob: 'Edit DOB',
+                
+                // Profile image
+                changePhoto: 'Change Photo',
+                removePhoto: 'Remove Photo',
+                clickCamera: 'Click camera icon to change photo',
+                imageUpdated: 'Profile image updated successfully!',
+                imageRemoved: 'Profile image removed successfully!',
+                selectImage: 'Please select an image file',
+                validImage: 'Please upload a valid image (JPEG, PNG, JPG, GIF)',
+                imageSize: 'Image size should be less than 2MB',
+                failedImage: 'Failed to update profile image',
+                removeConfirm: 'Are you sure you want to remove this profile image?',
+                
+                // Payment status
+                paidStatus: 'PAID',
+                notPaid: 'Not Paid',
+                partialStatus: 'PARTIAL',
+                pendingStatus: 'PENDING',
+                remainingBalance: 'Remaining Balance',
+                pendingCount: 'pending payment(s) from previous months',
+                
+                // Filter options
+                filterPaid: '✅ Paid',
+                filterPartial: '⚠️ Partial',
+                filterPending: '❌ Pending',
+                filterNotPaid: '🔴 Not Paid',
+            },
+            ta: {
+                // Header
+                clickHint: 'குடியிருப்பாளரைக் கிளிக் செய்து கட்டணம் செலுத்தவும்',
+                secure: 'பாதுகாப்பானது',
+                langToggle: 'English',
+                
+                // Stats
+                total: 'மொத்தம்',
+                paid: 'செலுத்தப்பட்டது',
+                partial: 'பகுதி',
+                pending: 'நிலுவையில்',
+                
+                // Search
+                searchPlaceholder: 'பெயர், அறை, தொலைபேசி மூலம் தேடுக...',
+                allStatus: 'அனைத்து நிலைகள்',
+                allRooms: 'அனைத்து அறைகள்',
+                
+                // No results
+                noResidentsTitle: 'குடியிருப்பாளர்கள் எதுவும் இல்லை',
+                noResidentsDesc: 'இந்த விடுதியில் செயலில் உள்ள குடியிருப்பாளர்கள் இல்லை.',
+                noMatchTitle: 'பொருந்தும் குடியிருப்பாளர்கள் இல்லை',
+                noMatchDesc: 'உங்கள் தேடல் அல்லது வடிகட்டிகளை மாற்றி முயற்சிக்கவும்',
+                clearBtn: 'அழி',
+                footerHint: 'கட்டணம் பதிவு செய்ய எந்த குடியிருப்பாளரையும் கிளிக் செய்க',
+                
+                // Modal
+                payRent: 'வாடகை செலுத்துக',
+                loading: 'கட்டண விவரங்களை ஏற்றுகிறது...',
+                phone: 'தொலைபேசி',
+                email: 'மின்னஞ்சல்',
+                monthlyRent: 'மாத வாடகை',
+                discount: 'தள்ளுபடி',
+                lateFee: 'தாமதக் கட்டணம்',
+                totalToPay: 'செலுத்த வேண்டிய மொத்தம்',
+                allPaid: '✅ அனைத்தும் செலுத்தப்பட்டது',
+                enterPaymentDetails: 'கட்டண விவரங்களை உள்ளிடுக',
+                amount: 'தொகை (₹)',
+                paymentMethod: 'கட்டண முறை',
+                cash: 'பணம்',
+                upi: 'யுபிஐ',
+                card: 'அட்டை',
+                bank: 'வங்கி',
+                transactionId: 'பரிவர்த்தனை ஐடி',
+                transactionIdRequired: 'UPI, அட்டை மற்றும் வங்கி பரிவர்த்தனைகளுக்கு தேவை',
+                receiptNo: 'ரசீது எண்',
+                remarks: 'குறிப்புகள்',
+                recordPayment: 'கட்டணம் பதிவு செய்க',
+                close: 'மூடு',
+                paymentHistory: 'கட்டண வரலாறு',
+                month: 'மாதம்',
+                rent: 'வாடகை',
+                paidAmt: 'செலுத்தப்பட்டது',
+                balance: 'இருப்பு',
+                status: 'நிலை',
+                done: 'முடிந்தது',
+                transactionIds: 'பரிவர்த்தனை ஐடிகள்',
+                
+                // Toast messages
+                validAmount: 'சரியான தொகையை உள்ளிடவும்',
+                validReference: 'ரசீது எண்ணை உள்ளிடவும்',
+                transactionRequired: '{method} கட்டணத்திற்கு பரிவர்த்தனை ஐடி உள்ளிடவும்',
+                recording: 'பதிவு செய்கிறது...',
+                failedPayment: 'கட்டணம் பதிவு செய்யத் தவறியது',
+                
+                // DOB
+                updateDob: 'பிறந்த தேதியை புதுப்பிக்கவும்',
+                dateOfBirth: 'பிறந்த தேதி',
+                selectDob: 'குடியிருப்பாளரின் பிறந்த தேதியைத் தேர்ந்தெடுக்கவும்',
+                update: 'புதுப்பி',
+                cancel: 'ரத்து செய்',
+                dobUpdated: 'பிறந்த தேதி வெற்றிகரமாக புதுப்பிக்கப்பட்டது!',
+                noDob: 'பிறந்த தேதி இல்லை',
+                addDob: 'பிறந்த தேதி சேர்',
+                editDob: 'பிறந்த தேதி திருத்து',
+                
+                // Profile image
+                changePhoto: 'புகைப்படம் மாற்று',
+                removePhoto: 'புகைப்படம் அகற்று',
+                clickCamera: 'புகைப்படம் மாற்ற கேமரா ஐகானை கிளிக் செய்க',
+                imageUpdated: 'சுயவிவர புகைப்படம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது!',
+                imageRemoved: 'சுயவிவர புகைப்படம் வெற்றிகரமாக அகற்றப்பட்டது!',
+                selectImage: 'படக் கோப்பைத் தேர்ந்தெடுக்கவும்',
+                validImage: 'சரியான படத்தைப் பதிவேற்றவும் (JPEG, PNG, JPG, GIF)',
+                imageSize: 'படத்தின் அளவு 2MBக்கும் குறைவாக இருக்க வேண்டும்',
+                failedImage: 'சுயவிவர புகைப்படத்தை புதுப்பிக்க தவறியது',
+                removeConfirm: 'இந்த சுயவிவர புகைப்படத்தை அகற்ற விரும்புகிறீர்களா?',
+                
+                // Payment status
+                paidStatus: 'செலுத்தப்பட்டது',
+                notPaid: 'செலுத்தப்படவில்லை',
+                partialStatus: 'பகுதி செலுத்தப்பட்டது',
+                pendingStatus: 'நிலுவையில்',
+                remainingBalance: 'மீதமுள்ள இருப்பு',
+                pendingCount: 'முந்தைய மாதங்களில் நிலுவையில் உள்ள கட்டணம்(கள்)',
+                
+                // Filter options
+                filterPaid: '✅ செலுத்தப்பட்டது',
+                filterPartial: '⚠️ பகுதி செலுத்தப்பட்டது',
+                filterPending: '❌ நிலுவையில்',
+                filterNotPaid: '🔴 செலுத்தப்படவில்லை',
+            }
+        };
+
+        function t(key, params = {}) {
+            let text = translations[currentLang]?.[key] || translations.en[key] || key;
+            // Replace placeholders like {method}
+            Object.keys(params).forEach(k => {
+                text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), params[k]);
+            });
+            return text;
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'ta' : 'en';
+            updateAllTexts();
+            document.getElementById('langToggleText').textContent = t('langToggle');
+            // Also update any dynamic content that might have been rendered
+            if (currentResident) {
+                refreshModalContent(currentResident.id);
+            }
+            // Refresh filter dropdown text
+            updateFilterOptions();
+        }
+
+        function updateFilterOptions() {
+            const statusFilter = document.getElementById('statusFilter');
+            const options = statusFilter.options;
+            if (options.length >= 5) {
+                options[0].text = t('allStatus');
+                options[1].text = t('filterPaid');
+                options[2].text = t('filterPartial');
+                options[3].text = t('filterPending');
+                options[4].text = t('filterNotPaid');
+            }
+            document.getElementById('roomAll').textContent = t('allRooms');
+        }
+
+        function updateAllTexts() {
+            // Header
+            document.getElementById('clickHintText').innerHTML = `<i class="bi bi-geo-alt"></i> ${t('clickHint')}`;
+            document.getElementById('secureText').textContent = t('secure');
+            
+            // Stats
+            document.getElementById('totalLabel').textContent = t('total');
+            document.getElementById('paidLabel').textContent = t('paid');
+            document.getElementById('partialLabel').textContent = t('partial');
+            document.getElementById('pendingLabel').textContent = t('pending');
+            
+            // Search
+            document.getElementById('searchInput').placeholder = t('searchPlaceholder');
+            updateFilterOptions();
+            
+            // No results
+            document.getElementById('noResidentsTitle')?.textContent && (document.getElementById('noResidentsTitle').textContent = t('noResidentsTitle'));
+            document.getElementById('noResidentsDesc')?.textContent && (document.getElementById('noResidentsDesc').textContent = t('noResidentsDesc'));
+            document.getElementById('noMatchTitle')?.textContent && (document.getElementById('noMatchTitle').textContent = t('noMatchTitle'));
+            document.getElementById('noMatchDesc')?.textContent && (document.getElementById('noMatchDesc').textContent = t('noMatchDesc'));
+            document.getElementById('clearBtnText')?.textContent && (document.getElementById('clearBtnText').textContent = t('clearBtn'));
+            
+            // Footer
+            document.getElementById('footerHint').innerHTML = `<i class="bi bi-shield-check"></i> ${t('footerHint')}`;
+            
+            // Modal
+            document.getElementById('modalPayTitle').innerHTML = `<i class="bi bi-credit-card"></i> ${t('payRent')}`;
+            document.getElementById('loadingText').textContent = t('loading');
+            
+            // Update document direction
+            document.documentElement.lang = currentLang === 'ta' ? 'ta' : 'en';
+            
+            // Add Tamil font class if needed
+            if (currentLang === 'ta') {
+                document.body.classList.add('lang-ta');
+            } else {
+                document.body.classList.remove('lang-ta');
+            }
+        }
+
+        // Override the renderPaymentModal function to use translations
+        const originalRenderPaymentModal = window.renderPaymentModal || function() {};
+
+        // We'll override the renderPaymentModal after the original is defined
+        // But we need to make sure translations are applied to dynamic content
+
         let paymentModal;
         let currentResident = null;
         let selectedMethod = 'cash';
@@ -911,6 +1237,7 @@
             paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
             updateStats();
             fitResidentGrid();
+            updateAllTexts();
 
             $('#searchInput').on('keyup', function(e) {
                 if (e.key === 'Enter') filterResidents();
@@ -924,7 +1251,7 @@
         });
 
         // ============================================
-        // FIT-TO-SCREEN GRID (no scrolling, sized to fit all visible residents)
+        // FIT-TO-SCREEN GRID
         // ============================================
         function fitResidentGrid() {
             const container = document.getElementById('residentsContainer');
@@ -940,9 +1267,7 @@
             const availHeight = container.clientHeight;
             if (availWidth <= 0 || availHeight <= 0) return;
 
-            // Find the column count that lets cards be as large as possible
-            // while still fitting every card within availWidth x availHeight.
-            const cardAspect = 0.82; // target width/height ratio of a card
+            const cardAspect = 0.82;
             let bestCols = 1;
             let bestScale = -Infinity;
             for (let cols = 1; cols <= count; cols++) {
@@ -1065,14 +1390,13 @@
         }
 
         // ============================================
-        // PAYMENT MODAL FUNCTIONS - FIXED
+        // PAYMENT MODAL FUNCTIONS
         // ============================================
 
         function openPaymentModal(event, residentId) {
             event.preventDefault();
             event.stopPropagation();
             
-            // IMPORTANT: Store resident ID correctly
             currentResident = { 
                 id: residentId,
                 resident_id: residentId
@@ -1081,7 +1405,7 @@
             document.getElementById('paymentModalBody').innerHTML = `
                 <div class="text-center py-4">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Loading payment details...</p>
+                    <p class="mt-2 text-muted" id="loadingText">${t('loading')}</p>
                 </div>
             `;
 
@@ -1097,7 +1421,6 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        // Merge the response data with resident ID
                         currentResident = {
                             ...response.data,
                             id: residentId,
@@ -1114,211 +1437,244 @@
             });
         }
 
-       function renderPaymentModal(data) {
-    const amount = parseFloat(data.amount_to_pay || 0);
-    const rent = parseFloat(data.rent_amount || 0);
-    const isPaid = data.is_paid || false;
-    const balance = parseFloat(data.balance || 0);
+        function renderPaymentModal(data) {
+            const amount = parseFloat(data.amount_to_pay || 0);
+            const rent = parseFloat(data.rent_amount || 0);
+            const isPaid = data.is_paid || false;
+            const balance = parseFloat(data.balance || 0);
 
-    const hasProfileImage = data.profile_image || data.profile_image_thumb;
-    const profileImageUrl = data.profile_image || data.profile_image_thumb || '';
-    const initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
+            const hasProfileImage = data.profile_image || data.profile_image_thumb;
+            const profileImageUrl = data.profile_image || data.profile_image_thumb || '';
+            const initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
 
-    const hasDob = data.dob_formatted && data.dob_formatted !== 'N/A';
-    const dobDisplay = hasDob ? data.dob_formatted : '';
-    const ageDisplay = data.age ? `(${data.age} years)` : '';
+            const hasDob = data.dob_formatted && data.dob_formatted !== 'N/A';
+            const dobDisplay = hasDob ? data.dob_formatted : '';
+            const ageDisplay = data.age ? `(${data.age} years)` : '';
 
-    const status = data.current_month_status || 'PENDING';
-    const statusLower = status.toLowerCase();
-    const statusLabel = status === 'NOT_PAID' ? 'Not Paid' : status;
-    const isFullPaid = status === 'PAID' && amount <= 0;
+            const status = data.current_month_status || 'PENDING';
+            const statusLower = status.toLowerCase();
+            const statusLabel = status === 'NOT_PAID' ? t('notPaid') : 
+                               status === 'PAID' ? t('paidStatus') : 
+                               status === 'PARTIAL' ? t('partialStatus') : t('pendingStatus');
+            const isFullPaid = status === 'PAID' && amount <= 0;
 
-    let statusBadgeClass = statusLower;
-    if (status === 'NOT_PAID') statusBadgeClass = 'pending';
+            let statusBadgeClass = statusLower;
+            if (status === 'NOT_PAID') statusBadgeClass = 'pending';
 
-    let balanceDisplay = '';
-    if (status === 'PARTIAL' && balance > 0) {
-        balanceDisplay = `<div class="payment-detail" style="color:#92400e; border-bottom: 2px solid var(--status-partial);">
-            <span class="label"><i class="bi bi-currency-rupee"></i> Remaining Balance</span>
-            <span class="value" style="color:var(--warning); font-weight:700;">₹${balance.toFixed(2)}</span>
-        </div>`;
-    }
+            let balanceDisplay = '';
+            if (status === 'PARTIAL' && balance > 0) {
+                balanceDisplay = `<div class="payment-detail" style="color:#92400e; border-bottom: 2px solid var(--status-partial);">
+                    <span class="label"><i class="bi bi-currency-rupee"></i> ${t('remainingBalance')}</span>
+                    <span class="value" style="color:var(--warning); font-weight:700;">₹${balance.toFixed(2)}</span>
+                </div>`;
+            }
 
-    let html = `
-        <div class="mb-3">
-            <div class="profile-image-section mb-3 text-center">
-                <div class="position-relative d-inline-block">
-                    <div class="resident-avatar" id="modalProfileAvatar">
-                        ${hasProfileImage ? 
-                            `<img id="modalProfileImage" src="${profileImageUrl}" alt="${data.name}">` :
-                            `<span id="modalProfileInitials" style="font-weight:700; font-size:1.8rem;">${initials}</span>`
-                        }
-                    </div>
-                    
-                    <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
-                            style="width:30px; height:30px; padding:0; font-size:14px; border:2px solid white;" 
-                            onclick="document.getElementById('profileImageInput').click()" 
-                            title="Change Photo">
-                        <i class="bi bi-camera"></i>
-                    </button>
-                    
-                    ${hasProfileImage ? 
-                        `<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle" 
-                                style="width:24px; height:24px; padding:0; font-size:10px; border:2px solid white;" 
-                                onclick="removeProfileImage(${data.resident_id})" 
-                                title="Remove Photo">
-                            <i class="bi bi-x"></i>
-                        </button>` : ''
-                    }
-                    
-                    <input type="file" id="profileImageInput" accept="image/*" style="display:none" 
-                           onchange="uploadProfileImage(event, ${data.resident_id})">
-                </div>
-                <div style="font-size:0.65rem; color:#6b7280; margin-top:0.25rem;">
-                    <i class="bi bi-info-circle"></i> Click camera icon to change photo
-                </div>
-            </div>
-
-            <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
-                <div>
-                    <h5 class="mb-0">${data.name}</h5>
-                    <div class="text-muted" style="font-size:0.8rem;">
-                        <i class="bi bi-door-open"></i> Room #${data.room_no} • 
-                        <i class="bi bi-bed"></i> Bed #${data.bed_no}
-                    </div>
-                    ${hasDob ? `
-                        <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
-                            <i class="bi bi-calendar-heart" style="color:#ec4899;"></i> 
-                            ${dobDisplay} ${ageDisplay}
-                            <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
-                                    onclick="editDob(${data.resident_id})" title="Edit DOB">
-                                <i class="bi bi-pencil"></i>
+            let html = `
+                <div class="mb-3">
+                    <div class="profile-image-section mb-3 text-center">
+                        <div class="position-relative d-inline-block">
+                            <div class="resident-avatar" id="modalProfileAvatar">
+                                ${hasProfileImage ? 
+                                    `<img id="modalProfileImage" src="${profileImageUrl}" alt="${data.name}">` :
+                                    `<span id="modalProfileInitials" style="font-weight:700; font-size:1.8rem;">${initials}</span>`
+                                }
+                            </div>
+                            
+                            <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
+                                    style="width:30px; height:30px; padding:0; font-size:14px; border:2px solid white;" 
+                                    onclick="document.getElementById('profileImageInput').click()" 
+                                    title="${t('changePhoto')}">
+                                <i class="bi bi-camera"></i>
                             </button>
+                            
+                            ${hasProfileImage ? 
+                                `<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle" 
+                                        style="width:24px; height:24px; padding:0; font-size:10px; border:2px solid white;" 
+                                        onclick="removeProfileImage(${data.resident_id})" 
+                                        title="${t('removePhoto')}">
+                                    <i class="bi bi-x"></i>
+                                </button>` : ''
+                            }
+                            
+                            <input type="file" id="profileImageInput" accept="image/*" style="display:none" 
+                                   onchange="uploadProfileImage(event, ${data.resident_id})">
                         </div>
-                    ` : `
-                        <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
-                            <span style="color:#9ca3af;">No DOB set</span>
-                            <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
-                                    onclick="editDob(${data.resident_id})" title="Add DOB">
-                                <i class="bi bi-plus-circle"></i>
-                            </button>
+                        <div style="font-size:0.65rem; color:#6b7280; margin-top:0.25rem;">
+                            <i class="bi bi-info-circle"></i> ${t('clickCamera')}
                         </div>
-                    `}
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
+                        <div>
+                            <h5 class="mb-0">${data.name}</h5>
+                            <div class="text-muted" style="font-size:0.8rem;">
+                                <i class="bi bi-door-open"></i> Room #${data.room_no} • 
+                                <i class="bi bi-bed"></i> Bed #${data.bed_no}
+                            </div>
+                            ${hasDob ? `
+                                <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
+                                    <i class="bi bi-calendar-heart" style="color:#ec4899;"></i> 
+                                    ${dobDisplay} ${ageDisplay}
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
+                                            onclick="editDob(${data.resident_id})" title="${t('editDob')}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </div>
+                            ` : `
+                                <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
+                                    <span style="color:#9ca3af;">${t('noDob')}</span>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
+                                            onclick="editDob(${data.resident_id})" title="${t('addDob')}">
+                                        <i class="bi bi-plus-circle"></i>
+                                    </button>
+                                </div>
+                            `}
+                        </div>
+                        <div class="status-badge-large ${statusBadgeClass}">
+                            <span class="dot"></span>
+                            ${isFullPaid ? '✅ ' + t('paidStatus') : statusLabel}
+                            ${status === 'PARTIAL' ? ` (₹${balance.toFixed(0)})` : ''}
+                        </div>
+                    </div>
+
+                    <div class="payment-detail"><span class="label"><i class="bi bi-phone"></i> ${t('phone')}</span><span class="value">${data.phone}</span></div>
+                    <div class="payment-detail"><span class="label"><i class="bi bi-envelope"></i> ${t('email')}</span><span class="value">${data.email || 'Not provided'}</span></div>
+                    <div class="payment-detail" style="border-top:2px solid #e5e7eb; padding-top:0.4rem; margin-top:0.4rem;">
+                        <span class="label"><i class="bi bi-currency-rupee"></i> ${t('monthlyRent')}</span>
+                        <span class="value">₹${rent.toFixed(2)}</span>
+                    </div>
+                    ${data.discount > 0 ? `<div class="payment-detail" style="color:#065f46;"><span class="label"><i class="bi bi-tag"></i> ${t('discount')}</span><span class="value" style="color:#065f46;">- ₹${data.discount.toFixed(2)}</span></div>` : ''}
+                    ${data.fine_amount > 0 ? `<div class="payment-detail" style="color:#991b1b;"><span class="label"><i class="bi bi-clock"></i> ${t('lateFee')}</span><span class="value" style="color:#991b1b;">+ ₹${data.fine_amount.toFixed(2)}</span></div>` : ''}
+                    ${balanceDisplay}
+                    <div class="payment-detail" style="border-top:2px solid var(--gold); padding-top:0.4rem; margin-top:0.4rem;">
+                        <span class="label"><strong>${t('totalToPay')}</strong></span>
+                        <span class="value ${amount > 0 ? 'due' : 'clear'}" style="font-size:1.1rem;">
+                            ${amount > 0 ? '₹' + amount.toFixed(2) : '✅ ' + t('allPaid')}
+                        </span>
+                    </div>
+                    ${data.discount_message ? `<div class="alert alert-info mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-info-circle"></i> ${data.discount_message}</div>` : ''}
+                    ${data.fine_message ? `<div class="alert alert-danger mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-circle"></i> ${data.fine_message}</div>` : ''}
+                    ${data.has_pending ? `<div class="alert alert-warning mt-2" style="font-size:0.75rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-triangle-fill"></i> ${data.pending_count} ${t('pendingCount')}</div>` : ''}
                 </div>
-                <div class="status-badge-large ${statusBadgeClass}">
-                    <span class="dot"></span>
-                    ${isFullPaid ? '✅ PAID' : statusLabel}
-                    ${status === 'PARTIAL' ? ` (₹${balance.toFixed(0)})` : ''}
+            `;
+
+            if (!isPaid && amount > 0) {
+                // Get translated payment method names
+                const methodCash = t('cash');
+                const methodUpi = t('upi');
+                const methodCard = t('card');
+                const methodBank = t('bank');
+                
+                html += `
+                <hr>
+                <h6 class="mb-2"><i class="bi bi-pencil-square"></i> ${t('enterPaymentDetails')}</h6>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">${t('amount')}</label>
+                        <input type="number" id="paymentAmount" class="form-control" 
+                               value="${amount.toFixed(2)}" step="0.01" min="0.01" max="${amount}"
+                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.85rem;">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">${t('paymentMethod')}</label>
+                        <div class="payment-method-group">
+                            <div class="payment-method-option selected" data-method="cash" onclick="selectMethod(this)"><i class="bi bi-cash"></i> ${methodCash}</div>
+                            <div class="payment-method-option" data-method="upi" onclick="selectMethod(this)"><i class="bi bi-phone"></i> ${methodUpi}</div>
+                            <div class="payment-method-option" data-method="card" onclick="selectMethod(this)"><i class="bi bi-credit-card"></i> ${methodCard}</div>
+                            <div class="payment-method-option" data-method="bank_transfer" onclick="selectMethod(this)"><i class="bi bi-bank"></i> ${methodBank}</div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <div class="payment-detail"><span class="label"><i class="bi bi-phone"></i> Phone</span><span class="value">${data.phone}</span></div>
-            <div class="payment-detail"><span class="label"><i class="bi bi-envelope"></i> Email</span><span class="value">${data.email || 'Not provided'}</span></div>
-            <div class="payment-detail" style="border-top:2px solid #e5e7eb; padding-top:0.4rem; margin-top:0.4rem;">
-                <span class="label"><i class="bi bi-currency-rupee"></i> Monthly Rent</span>
-                <span class="value">₹${rent.toFixed(2)}</span>
-            </div>
-            ${data.discount > 0 ? `<div class="payment-detail" style="color:#065f46;"><span class="label"><i class="bi bi-tag"></i> Discount</span><span class="value" style="color:#065f46;">- ₹${data.discount.toFixed(2)}</span></div>` : ''}
-            ${data.fine_amount > 0 ? `<div class="payment-detail" style="color:#991b1b;"><span class="label"><i class="bi bi-clock"></i> Late Fee</span><span class="value" style="color:#991b1b;">+ ₹${data.fine_amount.toFixed(2)}</span></div>` : ''}
-            ${balanceDisplay}
-            <div class="payment-detail" style="border-top:2px solid var(--gold); padding-top:0.4rem; margin-top:0.4rem;">
-                <span class="label"><strong>Total to Pay</strong></span>
-                <span class="value ${amount > 0 ? 'due' : 'clear'}" style="font-size:1.1rem;">
-                    ${amount > 0 ? '₹' + amount.toFixed(2) : '✅ All Paid'}
-                </span>
-            </div>
-            ${data.discount_message ? `<div class="alert alert-info mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-info-circle"></i> ${data.discount_message}</div>` : ''}
-            ${data.fine_message ? `<div class="alert alert-danger mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-circle"></i> ${data.fine_message}</div>` : ''}
-            ${data.has_pending ? `<div class="alert alert-warning mt-2" style="font-size:0.75rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-triangle-fill"></i> ${data.pending_count} pending payment(s) from previous months</div>` : ''}
-        </div>
-    `;
-
-    if (!isPaid && amount > 0) {
-        html += `
-        <hr>
-        <h6 class="mb-2"><i class="bi bi-pencil-square"></i> Enter Payment Details</h6>
-        <div class="row g-2">
-            <div class="col-md-6">
-                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Amount (₹)</label>
-                <input type="number" id="paymentAmount" class="form-control" 
-                       value="${amount.toFixed(2)}" step="0.01" min="0.01" max="${amount}"
-                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.85rem;">
-            </div>
-            <div class="col-md-6">
-                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Payment Method</label>
-                <div class="payment-method-group">
-                    <div class="payment-method-option selected" data-method="cash" onclick="selectMethod(this)"><i class="bi bi-cash"></i> Cash</div>
-                    <div class="payment-method-option" data-method="upi" onclick="selectMethod(this)"><i class="bi bi-phone"></i> UPI</div>
-                    <div class="payment-method-option" data-method="card" onclick="selectMethod(this)"><i class="bi bi-credit-card"></i> Card</div>
-                    <div class="payment-method-option" data-method="bank_transfer" onclick="selectMethod(this)"><i class="bi bi-bank"></i> Bank</div>
+                
+                <div class="row g-2 mt-1" id="transactionIdRow" style="display:none;">
+                    <div class="col-12">
+                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">
+                            <i class="bi bi-receipt"></i> ${t('transactionId')} <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" id="transactionId" class="form-control" 
+                               placeholder="${t('transactionIdRequired')}" 
+                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
+                        <small class="text-muted" style="font-size:0.6rem;">
+                            <i class="bi bi-info-circle"></i> ${t('transactionIdRequired')}
+                        </small>
+                    </div>
                 </div>
-            </div>
-        </div>
-        
-        <div class="row g-2 mt-1" id="transactionIdRow" style="display:none;">
-            <div class="col-12">
-                <label class="form-label" style="font-size:0.75rem; font-weight:600;">
-                    <i class="bi bi-receipt"></i> Transaction ID <span class="text-danger">*</span>
-                </label>
-                <input type="text" id="transactionId" class="form-control" 
-                       placeholder="Enter UPI/Card/Bank transaction ID" 
-                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
-                <small class="text-muted" style="font-size:0.6rem;">
-                    <i class="bi bi-info-circle"></i> Required for UPI, Card, and Bank Transfer payments
-                </small>
-            </div>
-        </div>
-        
-        <div class="row g-2 mt-1">
-            <div class="col-md-6">
-                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Receipt No</label>
-                <input type="text" id="paymentReference" class="form-control" 
-                       value="${data.reference || 'PAY-' + Date.now()}" 
-                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
-            </div>
-            <div class="col-md-6">
-                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Remarks</label>
-                <input type="text" id="paymentRemarks" class="form-control" placeholder="Notes..." 
-                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
-            </div>
-        </div>
-        <button class="btn-submit-payment mt-3" id="submitPaymentBtn" onclick="submitPayment()">
-            <i class="bi bi-check-circle"></i> Record Payment
-        </button>
-        `;
-    } else {
-        html += `
-        <div class="text-center py-2">
-            <div style="font-size:2rem;">✅</div>
-            <h5>This month's rent is fully paid!</h5>
-            <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
-        </div>
-        `;
-    }
+                
+                <div class="row g-2 mt-1">
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">${t('receiptNo')}</label>
+                        <input type="text" id="paymentReference" class="form-control" 
+                               value="${data.reference || 'PAY-' + Date.now()}" 
+                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">${t('remarks')}</label>
+                        <input type="text" id="paymentRemarks" class="form-control" placeholder="${t('remarks')}..." 
+                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
+                    </div>
+                </div>
+                <button class="btn-submit-payment mt-3" id="submitPaymentBtn" onclick="submitPayment()">
+                    <i class="bi bi-check-circle"></i> ${t('recordPayment')}
+                </button>
+                `;
+            } else {
+                html += `
+                <div class="text-center py-2">
+                    <div style="font-size:2rem;">✅</div>
+                    <h5>${t('allPaid')}</h5>
+                    <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">${t('close')}</button>
+                </div>
+                `;
+            }
 
-    if (data.payment_history && data.payment_history.length > 0) {
-        html += `
-        <hr>
-        <h6 class="mb-2"><i class="bi bi-clock-history"></i> Payment History</h6>
-        <div class="table-responsive">
-            <table class="table table-sm payment-history-table">
-                <thead><tr><th>Month</th><th>Rent</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
-                <tbody>
-                    ${data.payment_history.map(p => `
-                    <tr>
-                        <td>${p.month}</td>
-                        <td>₹${p.rent}</td>
-                        <td>₹${p.paid}</td>
-                        <td>₹${p.balance}</td>
-                        <td><span class="badge-status ${p.status.toLowerCase()}">${p.status}</span></td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        </div>`;
-    }
+            if (data.payment_history && data.payment_history.length > 0) {
+                html += `
+                <hr>
+                <h6 class="mb-2"><i class="bi bi-clock-history"></i> ${t('paymentHistory')}</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm payment-history-table">
+                        <thead><tr><th>${t('month')}</th><th>${t('rent')}</th><th>${t('paidAmt')}</th><th>${t('balance')}</th><th>${t('status')}</th></tr></thead>
+                        <tbody>
+                            ${data.payment_history.map(p => `
+                            <tr>
+                                <td>${p.month}</td>
+                                <td>₹${p.rent}</td>
+                                <td>₹${p.paid}</td>
+                                <td>₹${p.balance}</td>
+                                <td><span class="badge-status ${p.status.toLowerCase()}">${p.status}</span></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+            }
 
-    document.getElementById('paymentModalBody').innerHTML = html;
-}
+            document.getElementById('paymentModalBody').innerHTML = html;
+            
+            // Update any translated text in the modal that was just rendered
+            updateModalTranslations();
+        }
+
+        function updateModalTranslations() {
+            // This will update any dynamic text that might have been rendered
+            // We need to re-translate any text nodes that were created
+            const modalBody = document.getElementById('paymentModalBody');
+            if (!modalBody) return;
+            
+            // Update transaction placeholder if it exists
+            const txnInput = document.getElementById('transactionId');
+            if (txnInput) {
+                const methodMap = {
+                    'cash': t('cash'),
+                    'upi': t('upi'),
+                    'card': t('card'),
+                    'bank_transfer': t('bank')
+                };
+                const method = selectedMethod || 'cash';
+                const methodName = methodMap[method] || method;
+                txnInput.placeholder = t('transactionIdRequired');
+            }
+        }
+
         function selectMethod(el) {
             document.querySelectorAll('.payment-method-option').forEach(opt => opt.classList.remove('selected'));
             el.classList.add('selected');
@@ -1330,9 +1686,13 @@
             if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
                 transactionRow.style.display = 'block';
                 transactionInput.required = true;
-                transactionInput.placeholder = selectedMethod === 'upi' ? 'Enter UPI transaction ID' : 
-                                                selectedMethod === 'card' ? 'Enter card transaction ID' : 
-                                                'Enter bank transaction ID';
+                const methodMap = {
+                    'upi': t('upi'),
+                    'card': t('card'),
+                    'bank_transfer': t('bank')
+                };
+                const methodName = methodMap[selectedMethod] || selectedMethod;
+                transactionInput.placeholder = t('transactionIdRequired');
             } else {
                 transactionRow.style.display = 'none';
                 transactionInput.required = false;
@@ -1341,115 +1701,120 @@
         }
 
         // ============================================
-        // SUBMIT PAYMENT - FIXED
+        // SUBMIT PAYMENT
         // ============================================
 
-       function submitPayment() {
-    const amount = parseFloat(document.getElementById('paymentAmount').value);
-    const reference = document.getElementById('paymentReference').value.trim();
-    const remarks = document.getElementById('paymentRemarks').value.trim();
-    const transactionId = document.getElementById('transactionId').value.trim();
+        function submitPayment() {
+            const amount = parseFloat(document.getElementById('paymentAmount').value);
+            const reference = document.getElementById('paymentReference').value.trim();
+            const remarks = document.getElementById('paymentRemarks').value.trim();
+            const transactionId = document.getElementById('transactionId').value.trim();
 
-    if (!amount || amount <= 0) {
-        showToast('Please enter a valid amount', 'error');
-        return;
-    }
-    if (!reference) {
-        showToast('Please enter a reference number', 'error');
-        return;
-    }
+            if (!amount || amount <= 0) {
+                showToast(t('validAmount'), 'error');
+                return;
+            }
+            if (!reference) {
+                showToast(t('validReference'), 'error');
+                return;
+            }
 
-    if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
-        if (!transactionId) {
-            showToast('Please enter transaction ID for ' + selectedMethod.toUpperCase() + ' payment', 'error');
-            return;
-        }
-    }
+            if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
+                if (!transactionId) {
+                    const methodMap = {
+                        'upi': t('upi'),
+                        'card': t('card'),
+                        'bank_transfer': t('bank')
+                    };
+                    const methodName = methodMap[selectedMethod] || selectedMethod;
+                    showToast(t('transactionRequired', { method: methodName.toUpperCase() }), 'error');
+                    return;
+                }
+            }
 
-    const btn = document.getElementById('submitPaymentBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Recording...';
+            const btn = document.getElementById('submitPaymentBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> ${t('recording')}`;
 
-    const residentId = currentResident.id || currentResident.resident_id;
+            const residentId = currentResident.id || currentResident.resident_id;
 
-    $.ajax({
-        url: routes.manual,
-        type: 'POST',
-        data: {
-            resident_id: residentId,
-            amount: amount,
-            payment_method: selectedMethod,
-            reference: reference,
-            transaction_id: transactionId,
-            remarks: remarks,
-            hostel_id: hostelId,
-            _token: csrfToken
-        },
-        success: function(response) {
-            if (response.success) {
-                showToast(response.message, 'success');
-                const data = response.data;
-                const statusIcon = data.is_full_paid ? '✅' : (data.is_partial ? '⚠️' : '❌');
+            $.ajax({
+                url: routes.manual,
+                type: 'POST',
+                data: {
+                    resident_id: residentId,
+                    amount: amount,
+                    payment_method: selectedMethod,
+                    reference: reference,
+                    transaction_id: transactionId,
+                    remarks: remarks,
+                    hostel_id: hostelId,
+                    _token: csrfToken
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showToast(response.message, 'success');
+                        const data = response.data;
+                        const statusIcon = data.is_full_paid ? '✅' : (data.is_partial ? '⚠️' : '❌');
 
-                let transactionHtml = '';
-                if (data.transaction_id) {
-                    // Check if multiple transaction IDs exist
-                    const txnIds = data.transaction_id.split(' / ');
-                    if (txnIds.length > 1) {
-                        transactionHtml = `
-                            <div><span class="label">Transaction IDs</span><br>
-                                ${txnIds.map(id => `<span class="transaction-id-display" style="display:block; margin-top:2px;">${id}</span>`).join('')}
+                        let transactionHtml = '';
+                        if (data.transaction_id) {
+                            const txnIds = data.transaction_id.split(' / ');
+                            if (txnIds.length > 1) {
+                                transactionHtml = `
+                                    <div><span class="label">${t('transactionIds')}</span><br>
+                                        ${txnIds.map(id => `<span class="transaction-id-display" style="display:block; margin-top:2px;">${id}</span>`).join('')}
+                                    </div>
+                                `;
+                            } else {
+                                transactionHtml = `
+                                    <div><span class="label">${t('transactionId')}</span><br><span class="transaction-id-display">${data.transaction_id}</span></div>
+                                `;
+                            }
+                        }
+
+                        const statusClass = data.status.toLowerCase();
+
+                        document.getElementById('paymentModalBody').innerHTML = `
+                            <div class="text-center py-4">
+                                <div style="font-size:2.5rem;">${statusIcon}</div>
+                                <h5>${data.status_message}</h5>
+                                <div class="payment-detail" style="justify-content:center; gap:1.5rem; flex-wrap:wrap; border:none;">
+                                    <div><span class="label">${t('receiptNo')}</span><br><span class="value">${data.receipt_no}</span></div>
+                                    <div><span class="label">${t('paidAmt')}</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
+                                    <div><span class="label">${t('balance')}</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
+                                    ${transactionHtml}
+                                </div>
+                                <div class="mt-2">
+                                    <span class="status-badge-large ${statusClass}">
+                                        <span class="dot"></span>
+                                        ${data.status}
+                                    </span>
+                                </div>
+                                <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
+                                    <i class="bi bi-check-circle"></i> ${t('done')}
+                                </button>
                             </div>
                         `;
                     } else {
-                        transactionHtml = `
-                            <div><span class="label">Transaction ID</span><br><span class="transaction-id-display">${data.transaction_id}</span></div>
-                        `;
+                        showToast(response.message || t('failedPayment'), 'error');
+                        btn.disabled = false;
+                        btn.innerHTML = `<i class="bi bi-check-circle"></i> ${t('recordPayment')}`;
                     }
+                },
+                error: function(xhr) {
+                    let message = t('failedPayment');
+                    if (xhr.responseJSON && xhr.responseJSON.message) message = xhr.responseJSON.message;
+                    if (xhr.responseJSON && xhr.responseJSON.errors) {
+                        const errors = Object.values(xhr.responseJSON.errors).flat();
+                        message = errors.join(', ');
+                    }
+                    showToast('❌ ' + message, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = `<i class="bi bi-check-circle"></i> ${t('recordPayment')}`;
                 }
-
-                const statusClass = data.status.toLowerCase();
-
-                document.getElementById('paymentModalBody').innerHTML = `
-                    <div class="text-center py-4">
-                        <div style="font-size:2.5rem;">${statusIcon}</div>
-                        <h5>${data.status_message}</h5>
-                        <div class="payment-detail" style="justify-content:center; gap:1.5rem; flex-wrap:wrap; border:none;">
-                            <div><span class="label">Receipt</span><br><span class="value">${data.receipt_no}</span></div>
-                            <div><span class="label">Amount Paid</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
-                            <div><span class="label">Balance</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
-                            ${transactionHtml}
-                        </div>
-                        <div class="mt-2">
-                            <span class="status-badge-large ${statusClass}">
-                                <span class="dot"></span>
-                                ${data.status}
-                            </span>
-                        </div>
-                        <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
-                            <i class="bi bi-check-circle"></i> Done
-                        </button>
-                    </div>
-                `;
-            } else {
-                showToast(response.message || 'Failed to record payment', 'error');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
-            }
-        },
-        error: function(xhr) {
-            let message = 'Failed to record payment';
-            if (xhr.responseJSON && xhr.responseJSON.message) message = xhr.responseJSON.message;
-            if (xhr.responseJSON && xhr.responseJSON.errors) {
-                const errors = Object.values(xhr.responseJSON.errors).flat();
-                message = errors.join(', ');
-            }
-            showToast('❌ ' + message, 'error');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
+            });
         }
-    });
-}
 
         // ============================================
         // DOB EDIT FUNCTION
@@ -1459,17 +1824,17 @@
             const currentDob = currentResident.dob || '';
             
             Swal.fire({
-                title: 'Update Date of Birth',
+                title: t('updateDob'),
                 html: `
                     <div class="text-start">
-                        <label class="form-label" style="font-size:0.85rem; font-weight:600;">Date of Birth</label>
+                        <label class="form-label" style="font-size:0.85rem; font-weight:600;">${t('dateOfBirth')}</label>
                         <input type="date" id="dobInput" class="form-control" value="${currentDob}" max="${new Date().toISOString().split('T')[0]}">
-                        <small class="text-muted" style="font-size:0.7rem;">Select the resident's date of birth</small>
+                        <small class="text-muted" style="font-size:0.7rem;">${t('selectDob')}</small>
                     </div>
                 `,
                 showCancelButton: true,
-                confirmButtonText: 'Update',
-                cancelButtonText: 'Cancel',
+                confirmButtonText: t('update'),
+                cancelButtonText: t('cancel'),
                 confirmButtonColor: '#c5a028',
                 cancelButtonColor: '#6b7280',
                 preConfirm: () => {
@@ -1490,7 +1855,7 @@
                         },
                         success: function(response) {
                             if (response.success) {
-                                showToast('Date of Birth updated successfully!', 'success');
+                                showToast(t('dobUpdated'), 'success');
                                 refreshModalContent(residentId);
                                 setTimeout(() => location.reload(), 1500);
                             } else {
@@ -1520,19 +1885,19 @@
         function uploadProfileImage(event, residentId) {
             const file = event.target.files[0];
             if (!file) {
-                showToast('Please select an image file', 'error');
+                showToast(t('selectImage'), 'error');
                 return;
             }
 
             const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
             if (!allowedTypes.includes(file.type)) {
-                showToast('Please upload a valid image (JPEG, PNG, JPG, GIF)', 'error');
+                showToast(t('validImage'), 'error');
                 event.target.value = '';
                 return;
             }
 
             if (file.size > 2 * 1024 * 1024) {
-                showToast('Image size should be less than 2MB', 'error');
+                showToast(t('imageSize'), 'error');
                 event.target.value = '';
                 return;
             }
@@ -1555,17 +1920,17 @@
                 contentType: false,
                 success: function(response) {
                     if (response.success) {
-                        showToast('Profile image updated successfully!', 'success');
+                        showToast(t('imageUpdated'), 'success');
                         updateModalAvatar(response.data.profile_image);
                         updateResidentCardAvatar(residentId, response.data.profile_image);
                         refreshModalContent(residentId);
                     } else {
-                        showToast(response.message || 'Failed to update profile image', 'error');
+                        showToast(response.message || t('failedImage'), 'error');
                         resetModalAvatar(initials);
                     }
                 },
                 error: function(xhr) {
-                    let message = 'Failed to update profile image';
+                    let message = t('failedImage');
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         message = xhr.responseJSON.message;
                     }
@@ -1582,7 +1947,7 @@
         }
 
         function removeProfileImage(residentId) {
-            if (!confirm('Are you sure you want to remove this profile image?')) {
+            if (!confirm(t('removeConfirm'))) {
                 return;
             }
 
@@ -1595,7 +1960,7 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        showToast('Profile image removed successfully!', 'success');
+                        showToast(t('imageRemoved'), 'success');
                         resetModalAvatar(initials);
                         updateResidentCardAvatar(residentId, null);
                         refreshModalContent(residentId);
@@ -1676,7 +2041,7 @@
                 <div class="text-center py-4 text-danger">
                     <i class="bi bi-exclamation-triangle" style="font-size:2rem;"></i>
                     <p class="mt-2">${message}</p>
-                    <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
+                    <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">${t('close')}</button>
                 </div>
             `;
         }
@@ -1702,7 +2067,15 @@
                 }
             }, 6000);
         }
+
+        // Initialize translations after page load
+        $(document).ready(function() {
+            updateAllTexts();
+        });
     </script>
+
+    <!-- Add Tamil font for better rendering -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700&display=swap" rel="stylesheet">
 
 </body>
 </html>
