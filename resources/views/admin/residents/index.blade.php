@@ -474,26 +474,27 @@
             background: #dcfce7;
             color: #166534;
         }
-/* Add to your styles */
-.rv-input-box .bi-calendar-heart {
-    color: #ec4899;
-}
 
-.dob-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    background: #fce7f3;
-    color: #831843;
-}
+        .rv-input-box .bi-calendar-heart {
+            color: #ec4899;
+        }
 
-.dob-badge i {
-    color: #ec4899;
-}
+        .dob-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            background: #fce7f3;
+            color: #831843;
+        }
+
+        .dob-badge i {
+            color: #ec4899;
+        }
+
         /* ============================================
            BUTTONS
         ============================================ */
@@ -1417,16 +1418,16 @@
                                 <div class="invalid-feedback" id="aadhaar_no_error"></div>
                             </div>
                             <div class="col-md-6">
-    <label class="form-label">Date of Birth</label>
-    <div class="rv-input-box">
-        <i class="bi bi-calendar-heart rv-input-icon"></i>
-        <input type="date" name="dob" id="dob" class="rv-input" placeholder="Select Date of Birth" max="{{ date('Y-m-d') }}">
-    </div>
-    <div class="invalid-feedback" id="dob_error"></div>
-    <small class="text-muted" style="font-size:0.65rem;">
-        <i class="bi bi-info-circle"></i> Resident's date of birth
-    </small>
-</div>
+                                <label class="form-label">Date of Birth</label>
+                                <div class="rv-input-box">
+                                    <i class="bi bi-calendar-heart rv-input-icon"></i>
+                                    <input type="date" name="dob" id="dob" class="rv-input" placeholder="Select Date of Birth" max="{{ date('Y-m-d') }}">
+                                </div>
+                                <div class="invalid-feedback" id="dob_error"></div>
+                                <small class="text-muted" style="font-size:0.65rem;">
+                                    <i class="bi bi-info-circle"></i> Resident's date of birth
+                                </small>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label">Address</label>
                                 <div class="rv-input-box">
@@ -1800,28 +1801,7 @@ $(document).ready(function() {
     $('#room_id').on('change', function() {
         let roomId = $(this).val();
         if (roomId) {
-            $.ajax({
-                url: '/admin/residents/room/' + roomId + '/beds',
-                type: 'GET',
-                success: function(response) {
-                    let select = $('#bed_id');
-                    select.empty().append('<option value="">Select Bed</option>');
-                    if (response.success && response.data.length > 0) {
-                        $.each(response.data, function(key, bed) {
-                            let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
-                            let disabled = bed.status === 'OCCUPIED' ? 'disabled' : '';
-                            select.append('<option value="' + bed.id + '" ' + disabled + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
-                        });
-                    } else {
-                        select.append('<option value="">No vacant beds</option>');
-                    }
-                },
-                error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    }
-                }
-            });
+            loadBedsForRoom(roomId, null);
         } else {
             $('#bed_id').empty().append('<option value="">Select Bed</option>');
         }
@@ -1849,6 +1829,38 @@ $(document).ready(function() {
     // Run initial filter
     applyFilters();
 });
+
+// ============================================
+// LOAD BEDS FOR ROOM (Helper Function)
+// ============================================
+function loadBedsForRoom(roomId, selectedBedId) {
+    if (roomId) {
+        $.ajax({
+            url: '/admin/residents/room/' + roomId + '/beds',
+            type: 'GET',
+            success: function(response) {
+                let select = $('#bed_id');
+                select.empty().append('<option value="">Select Bed</option>');
+                
+                if (response.success && response.data.length > 0) {
+                    $.each(response.data, function(key, bed) {
+                        let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
+                        let disabled = bed.status === 'OCCUPIED' ? 'disabled' : '';
+                        let selected = (selectedBedId && bed.id == selectedBedId) ? 'selected' : '';
+                        select.append('<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
+                    });
+                } else {
+                    select.append('<option value="">No vacant beds</option>');
+                }
+            },
+            error: function(xhr) {
+                if (xhr.status === 403) {
+                    showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                }
+            }
+        });
+    }
+}
 
 // ============================================
 // APPLY FILTERS
@@ -2178,7 +2190,33 @@ function renderDetails(data) {
                             ${data.address ? `<div class="detail-item"><span class="label">Address</span><span class="value" style="text-align:left;">${data.address}</span></div>` : ''}
                         </div>
                     </div>
-                    <!-- Rest of the detail cards -->
+                    <div class="col-md-6">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-building"></i> Accommodation</div>
+                            <div class="detail-item"><span class="label">Hostel</span><span class="value">${data.hostel.name}</span></div>
+                            <div class="detail-item"><span class="label">Room</span><span class="value">#${data.room.room_no} (${data.room.room_type})</span></div>
+                            <div class="detail-item"><span class="label">Bed</span><span class="value">#${data.bed.bed_no} (${data.bed.bed_type})</span></div>
+                            <div class="detail-item"><span class="label">Joined</span><span class="value">${data.joining_date_formatted}</span></div>
+                            ${data.vacate_date ? `<div class="detail-item"><span class="label">Vacated</span><span class="value">${data.vacate_date_formatted}</span></div>` : ''}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-currency-rupee"></i> Financial</div>
+                            <div class="detail-item"><span class="label">Monthly Rent</span><span class="value">${data.financial.rent_formatted}</span></div>
+                            <div class="detail-item"><span class="label">Deposit</span><span class="value">${data.financial.deposit_formatted}</span></div>
+                            <div class="detail-item"><span class="label">Food Status</span><span class="value">${data.financial.food_status_icon} ${data.financial.food_status_label}</span></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-card">
+                            <div class="card-title"><i class="bi bi-files"></i> Documents</div>
+                            ${data.documents.profile_image ? `<div class="detail-item"><span class="label">Profile</span><span class="value"><a href="${data.documents.profile_image}" target="_blank">View</a></span></div>` : ''}
+                            ${data.documents.aadhar_document ? `<div class="detail-item"><span class="label">Aadhar</span><span class="value"><a href="${data.documents.aadhar_document}" target="_blank">View</a></span></div>` : ''}
+                            ${data.documents.application_document ? `<div class="detail-item"><span class="label">Application</span><span class="value"><a href="${data.documents.application_document}" target="_blank">View</a></span></div>` : ''}
+                            ${!data.documents.profile_image && !data.documents.aadhar_document && !data.documents.application_document ? '<p class="text-muted small mb-0">No documents uploaded</p>' : ''}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2320,6 +2358,9 @@ function bulkDelete() {
     });
 }
 
+// ============================================
+// MODAL FUNCTIONS
+// ============================================
 function openAddModal() {
     resetForm();
     document.getElementById('modalTitle').textContent = 'Add Resident';
@@ -2335,6 +2376,7 @@ function openAddModal() {
     $('[id$="_existing"]').hide();
     residentModal.show();
 }
+
 function resetForm() {
     const form = document.getElementById('residentForm');
     form.reset();
@@ -2355,66 +2397,9 @@ function resetForm() {
 }
 
 // ============================================
-// FORM SUBMISSION
+// EDIT RESIDENT - FIXED VERSION
 // ============================================
-function submitForm() {
-    let id = document.getElementById('editId').value;
-    let url = "{{ route('admin.residents.store') }}";
-    let formData = new FormData(document.getElementById('residentForm'));
-
-    if (id) {
-        url = "{{ url('admin/residents') }}/" + id;
-        formData.append('_method', 'PUT');
-    }
-
-    $.ajax({
-        url: url,
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        beforeSend: function() {
-            $('#saveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
-            $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid');
-        },
-        success: function(response) {
-            if (response.success) {
-                residentModal.hide();
-                showToast(response.message, 'success');
-                setTimeout(() => location.reload(), 1500);
-            }
-        },
-        error: function(xhr) {
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            } else if (xhr.status === 422) {
-                let errors = xhr.responseJSON.errors;
-                if (xhr.responseJSON.message) {
-                    showToast(xhr.responseJSON.message, 'error');
-                } else {
-                    $.each(errors, function(field, messages) {
-                        $('#' + field).closest('.rv-input-box').addClass('is-invalid');
-                        $('#' + field + '_error').text(messages[0]);
-                    });
-                    showToast('Please fix validation errors', 'error');
-                }
-            } else {
-                showToast(xhr.responseJSON?.message || 'Something went wrong!', 'error');
-            }
-        },
-        complete: function() {
-            let id = document.getElementById('editId').value;
-            let text = id ? 'Update' : 'Save';
-            $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text + '</span>');
-        }
-    });
-}
-
-// ============================================
-// CRUD OPERATIONS
-// ============================================
-editResident(id) {
+function editResident(id) {
     $.ajax({
         url: "{{ url('admin/residents') }}/" + id + "/edit",
         type: 'GET',
@@ -2507,7 +2492,7 @@ editResident(id) {
                 // Handle existing documents preview
                 if (data.profile_image) {
                     $('#profile_image_existing').data('has-file', true).show();
-                    $('#profile_image_existing img').attr('src', data.profile_image);
+                    $('#profile_existing_img').attr('src', data.profile_image);
                 } else {
                     $('#profile_image_existing').hide();
                 }
@@ -2546,35 +2531,68 @@ editResident(id) {
             }
         }
     });
-}function loadBedsForRoom(roomId, selectedBedId) {
-    if (roomId) {
-        $.ajax({
-            url: '/admin/residents/room/' + roomId + '/beds',
-            type: 'GET',
-            success: function(response) {
-                let select = $('#bed_id');
-                select.empty().append('<option value="">Select Bed</option>');
-                
-                if (response.success && response.data.length > 0) {
-                    $.each(response.data, function(key, bed) {
-                        let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
-                        let disabled = bed.status === 'OCCUPIED' ? 'disabled' : '';
-                        let selected = bed.id == selectedBedId ? 'selected' : '';
-                        select.append('<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
-                    });
-                } else {
-                    select.append('<option value="">No vacant beds</option>');
-                }
-            },
-            error: function(xhr) {
-                if (xhr.status === 403) {
-                    showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                }
-            }
-        });
-    }
 }
 
+// ============================================
+// FORM SUBMISSION
+// ============================================
+function submitForm() {
+    let id = document.getElementById('editId').value;
+    let url = "{{ route('admin.residents.store') }}";
+    let formData = new FormData(document.getElementById('residentForm'));
+
+    if (id) {
+        url = "{{ url('admin/residents') }}/" + id;
+        formData.append('_method', 'PUT');
+    }
+
+    $.ajax({
+        url: url,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        beforeSend: function() {
+            $('#saveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
+            $('.invalid-feedback').text('');
+            $('.rv-input-box').removeClass('is-invalid');
+        },
+        success: function(response) {
+            if (response.success) {
+                residentModal.hide();
+                showToast(response.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 403) {
+                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+            } else if (xhr.status === 422) {
+                let errors = xhr.responseJSON.errors;
+                if (xhr.responseJSON.message) {
+                    showToast(xhr.responseJSON.message, 'error');
+                } else {
+                    $.each(errors, function(field, messages) {
+                        $('#' + field).closest('.rv-input-box').addClass('is-invalid');
+                        $('#' + field + '_error').text(messages[0]);
+                    });
+                    showToast('Please fix validation errors', 'error');
+                }
+            } else {
+                showToast(xhr.responseJSON?.message || 'Something went wrong!', 'error');
+            }
+        },
+        complete: function() {
+            let id = document.getElementById('editId').value;
+            let text = id ? 'Update' : 'Save';
+            $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text + '</span>');
+        }
+    });
+}
+
+// ============================================
+// CRUD OPERATIONS
+// ============================================
 function deleteResident(id) {
     Swal.fire({
         title: 'Are you sure?',
