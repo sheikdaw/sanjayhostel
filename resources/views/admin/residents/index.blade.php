@@ -1844,35 +1844,68 @@ function loadBedsForRoom(roomId, selectedBedId) {
                 
                 if (response.success && response.data.length > 0) {
                     let foundBed = false;
+                    let bedOptions = '';
+                    
                     $.each(response.data, function(key, bed) {
                         let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
-                        let disabled = bed.status === 'OCCUPIED' ? 'disabled' : '';
+                        let disabled = bed.status === 'OCCUPIED' && bed.id != selectedBedId ? 'disabled' : '';
                         let selected = (selectedBedId && bed.id == selectedBedId) ? 'selected' : '';
+                        
                         if (selectedBedId && bed.id == selectedBedId) {
                             foundBed = true;
                         }
-                        select.append('<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
+                        
+                        bedOptions += '<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>';
                     });
+                    
+                    select.append(bedOptions);
                     
                     // If the bed wasn't found in the list, add it manually (for editing)
                     if (!foundBed && selectedBedId) {
                         // Try to get bed info from the global data or add a placeholder
-                        select.append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
+                        select.prepend('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
                     }
+                    
+                    // IMPORTANT: Force set the selected value
+                    if (selectedBedId) {
+                        select.val(selectedBedId);
+                        console.log('✅ Bed set to:', selectedBedId);
+                    }
+                    
                 } else {
-                    select.append('<option value="">No vacant beds</option>');
+                    // If no beds from API, but we have a selected bed ID, add it manually
+                    if (selectedBedId) {
+                        select.append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
+                    } else {
+                        select.append('<option value="">No vacant beds</option>');
+                    }
+                }
+                
+                // Double-check that the bed value is set
+                if (selectedBedId && select.val() != selectedBedId) {
+                    select.val(selectedBedId);
+                    console.log('🔄 Bed value forced to:', selectedBedId);
                 }
             },
             error: function(xhr) {
                 console.log('🔴 Error loading beds:', xhr);
+                // Fallback: create a bed option from the selected bed ID
+                if (selectedBedId) {
+                    let select = $('#bed_id');
+                    select.empty().append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
+                } else {
+                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
+                }
                 if (xhr.status === 403) {
                     showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                 }
             }
         });
+    } else {
+        // If no room ID, clear the bed dropdown
+        $('#bed_id').empty().append('<option value="">Select Bed</option>');
     }
 }
-
 // ============================================
 // APPLY FILTERS
 // ============================================
@@ -2406,9 +2439,8 @@ function resetForm() {
     $('[id$="_existing"]').hide();
     $('[id$="_existing"]').data('has-file', false);
 }
-
 // ============================================
-// EDIT RESIDENT - FIXED VERSION WITH PROPER ROOM LOADING
+// EDIT RESIDENT - FIXED VERSION WITH PROPER ROOM & BED LOADING
 // ============================================
 function editResident(id) {
     console.log('🟢 Edit Resident called with ID:', id);
@@ -2530,9 +2562,12 @@ function editResident(id) {
                                 console.log('✅ Room set to:', data.room_id);
                             }
                             
-                            // Load beds for the selected room
+                            // IMPORTANT: Load beds for the selected room
                             if (data.room_id) {
                                 loadBedsForRoom(data.room_id, data.bed_id);
+                            } else {
+                                // If no room_id, show empty bed dropdown
+                                $('#bed_id').empty().append('<option value="">Select Bed</option>');
                             }
                         },
                         error: function(xhr) {
@@ -2541,9 +2576,13 @@ function editResident(id) {
                             if (data.room) {
                                 let roomSelect = $('#room_id');
                                 roomSelect.empty().append('<option value="' + data.room.id + '" selected>Room #' + data.room.room_no + ' - ' + (data.room.room_type?.room_type_name || 'Unknown') + '</option>');
+                                
+                                // Also load beds from the response data
                                 if (data.bed) {
                                     let bedSelect = $('#bed_id');
                                     bedSelect.empty().append('<option value="' + data.bed.id + '" selected>Bed #' + data.bed.bed_no + ' (' + data.bed.bed_type + ')</option>');
+                                } else {
+                                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
                                 }
                             }
                             if (xhr.status === 403) {
@@ -2551,6 +2590,10 @@ function editResident(id) {
                             }
                         }
                     });
+                } else {
+                    // If no hostel, clear room and bed dropdowns
+                    $('#room_id').empty().append('<option value="">Select Room</option>');
+                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
                 }
                 
                 // Handle existing documents preview
@@ -2610,6 +2653,14 @@ function submitForm() {
     let url = "{{ route('admin.residents.store') }}";
     let formData = new FormData(document.getElementById('residentForm'));
 
+    // Log the form data for debugging
+    console.log('📤 Submitting form with:');
+    console.log('Name:', document.getElementById('name').value);
+    console.log('Phone:', document.getElementById('phone').value);
+    console.log('Hostel:', document.getElementById('hostel_id').value);
+    console.log('Room:', document.getElementById('room_id').value);
+    console.log('Bed:', document.getElementById('bed_id').value);
+
     if (id) {
         url = "{{ url('admin/residents') }}/" + id;
         formData.append('_method', 'PUT');
@@ -2634,6 +2685,7 @@ function submitForm() {
             }
         },
         error: function(xhr) {
+            console.log('🔴 Submit error:', xhr);
             if (xhr.status === 403) {
                 showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
             } else if (xhr.status === 422) {
@@ -2642,9 +2694,17 @@ function submitForm() {
                     showToast(xhr.responseJSON.message, 'error');
                 } else {
                     $.each(errors, function(field, messages) {
-                        $('#' + field).closest('.rv-input-box').addClass('is-invalid');
-                        $('#' + field + '_error').text(messages[0]);
+                        // Find the field and show error
+                        let fieldElement = $('#' + field);
+                        if (fieldElement.length) {
+                            fieldElement.closest('.rv-input-box').addClass('is-invalid');
+                            $('#' + field + '_error').text(messages[0]);
+                        } else {
+                            // If field not found, show general error
+                            showToast(messages[0], 'error');
+                        }
                     });
+                    // Show a general toast for validation errors
                     showToast('Please fix validation errors', 'error');
                 }
             } else {
@@ -2658,7 +2718,6 @@ function submitForm() {
         }
     });
 }
-
 // ============================================
 // CRUD OPERATIONS
 // ============================================
