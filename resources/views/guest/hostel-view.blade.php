@@ -471,8 +471,8 @@
 
         .profile-image-section .resident-avatar {
             transition: all 0.3s ease;
-            width: 80px;
-            height: 80px;
+            width: 300px;
+            height: 300px;
             font-size: 1.5rem;
             border: 3px solid var(--gold);
             margin: 0 auto;
