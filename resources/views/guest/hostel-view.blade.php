@@ -238,8 +238,8 @@
         }
 
         .resident-avatar {
-            width: 64px;
-            height: 64px;
+            width: 300px;
+            height: 300px;
             border-radius: 50%;
             background: rgba(255,255,255,0.95);
             color: #1f2937;
