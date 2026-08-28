@@ -205,6 +205,8 @@ class GuestHostelController extends Controller
                 'is_paid' => $isCurrentMonthPaid && $totalDue == 0,
                 'current_month_status' => $currentPayment ? $currentPayment->status : 'PENDING',
                 'payment_history' => $paymentHistory,
+                // Add balance for current month if partial
+                'balance' => $currentPayment ? $currentPayment->balance_amount : $rentAmount,
             ]
         ]);
     }
@@ -219,7 +221,7 @@ class GuestHostelController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|in:cash,upi,card,bank_transfer',
             'reference' => 'required|string|max:50',
-            'transaction_id' => 'nullable|string|max:255', // Transaction ID for UPI
+            'transaction_id' => 'nullable|string|max:255',
             'remarks' => 'nullable|string|max:500',
             'hostel_id' => 'required|exists:hostels,id'
         ]);
@@ -249,7 +251,6 @@ class GuestHostelController extends Controller
                 $payment->cash_paid_amount = ($payment->cash_paid_amount ?? 0) + $paidAmount;
             } elseif ($request->payment_method == 'upi') {
                 $payment->upi_paid_amount = ($payment->upi_paid_amount ?? 0) + $paidAmount;
-                // Store transaction ID for UPI payments
                 if ($request->filled('transaction_id')) {
                     $payment->transaction_id = $request->transaction_id;
                 }
@@ -265,7 +266,6 @@ class GuestHostelController extends Controller
                 }
             }
 
-            // Calculate total paid
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
@@ -274,7 +274,6 @@ class GuestHostelController extends Controller
             $payment->total_paid_amount = $totalPaid;
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
-            // Update status
             if ($payment->balance_amount <= 0) {
                 $payment->status = 'PAID';
                 $statusMessage = '✅ Payment completed! Full rent paid.';
@@ -292,7 +291,6 @@ class GuestHostelController extends Controller
         } else {
             // Create new payment
             $receiptNo = $request->reference;
-            // Check if receipt exists, if yes generate new
             while (Payment::where('receipt_no', $receiptNo)->exists()) {
                 $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
             }
@@ -316,7 +314,6 @@ class GuestHostelController extends Controller
                 'transaction_id' => null,
             ];
 
-            // Add payment method amount and transaction ID
             if ($request->payment_method == 'cash') {
                 $paymentData['cash_paid_amount'] = $paidAmount;
             } elseif ($request->payment_method == 'upi') {
@@ -338,7 +335,6 @@ class GuestHostelController extends Controller
 
             $payment = Payment::create($paymentData);
 
-            // Recalculate totals
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
@@ -347,7 +343,6 @@ class GuestHostelController extends Controller
             $payment->total_paid_amount = $totalPaid;
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
-            // Update status
             if ($payment->balance_amount <= 0) {
                 $payment->status = 'PAID';
                 $statusMessage = '✅ Payment completed! Full rent paid.';
@@ -362,7 +357,6 @@ class GuestHostelController extends Controller
             $payment->save();
         }
 
-        // Get updated payment details
         $payment->refresh();
 
         return response()->json([

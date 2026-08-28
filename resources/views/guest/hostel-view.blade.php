@@ -992,243 +992,257 @@
             $('#pendingCount').text(pending);
         }
 
-        // ============================================
-        // PAYMENT MODAL FUNCTIONS
-        // ============================================
+       function openPaymentModal(event, residentId) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Store resident ID correctly
+    currentResident = { 
+        id: residentId,
+        resident_id: residentId  // Add both for safety
+    };
 
-        function openPaymentModal(event, residentId) {
-            event.preventDefault();
-            event.stopPropagation();
-            currentResident = { id: residentId };
+    document.getElementById('paymentModalBody').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Loading payment details...</p>
+        </div>
+    `;
 
-            document.getElementById('paymentModalBody').innerHTML = `
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Loading payment details...</p>
-                </div>
-            `;
+    paymentModal.show();
 
-            paymentModal.show();
-
-            $.ajax({
-                url: routes.details,
-                type: 'POST',
-                data: {
-                    resident_id: residentId,
-                    hostel_id: hostelId,
-                    _token: csrfToken
-                },
-                success: function(response) {
-                    if (response.success) {
-                        currentResident = response.data;
-                        renderPaymentModal(currentResident);
-                    } else {
-                        showError('Failed to load payment details');
-                    }
-                },
-                error: function() {
-                    showError('Failed to load payment details');
-                }
-            });
-        }
-
-        function renderPaymentModal(data) {
-            const amount = parseFloat(data.amount_to_pay || 0);
-            const rent = parseFloat(data.rent_amount || 0);
-            const isPaid = data.is_paid || false;
-
-            const hasProfileImage = data.profile_image || data.profile_image_thumb;
-            const profileImageUrl = data.profile_image || data.profile_image_thumb || '';
-            const initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
-
-            const hasDob = data.dob_formatted && data.dob_formatted !== 'N/A';
-            const dobDisplay = hasDob ? data.dob_formatted : '';
-            const ageDisplay = data.age ? `(${data.age} years)` : '';
-
-            const status = data.current_month_status || 'PENDING';
-            const statusLower = status.toLowerCase();
-            const statusLabel = status === 'NOT_PAID' ? 'Not Paid' : status;
-            const isFullPaid = status === 'PAID' && amount <= 0;
-
-            let statusBadgeClass = statusLower;
-            if (status === 'NOT_PAID') statusBadgeClass = 'pending';
-
-            let html = `
-                <div class="mb-3">
-                    <!-- ===== PROFILE IMAGE SECTION ===== -->
-                    <div class="profile-image-section mb-3 text-center">
-                        <div class="position-relative d-inline-block">
-                            <div class="resident-avatar" id="modalProfileAvatar">
-                                ${hasProfileImage ? 
-                                    `<img id="modalProfileImage" src="${profileImageUrl}" alt="${data.name}">` :
-                                    `<span id="modalProfileInitials" style="font-weight:700; font-size:1.8rem;">${initials}</span>`
-                                }
-                            </div>
-                            
-                            <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
-                                    style="width:30px; height:30px; padding:0; font-size:14px; border:2px solid white;" 
-                                    onclick="document.getElementById('profileImageInput').click()" 
-                                    title="Change Photo">
-                                <i class="bi bi-camera"></i>
-                            </button>
-                            
-                            ${hasProfileImage ? 
-                                `<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle" 
-                                        style="width:24px; height:24px; padding:0; font-size:10px; border:2px solid white;" 
-                                        onclick="removeProfileImage(${data.resident_id})" 
-                                        title="Remove Photo">
-                                    <i class="bi bi-x"></i>
-                                </button>` : ''
-                            }
-                            
-                            <input type="file" id="profileImageInput" accept="image/*" style="display:none" 
-                                   onchange="uploadProfileImage(event, ${data.resident_id})">
-                        </div>
-                        <div style="font-size:0.65rem; color:#6b7280; margin-top:0.25rem;">
-                            <i class="bi bi-info-circle"></i> Click camera icon to change photo
-                        </div>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
-                        <div>
-                            <h5 class="mb-0">${data.name}</h5>
-                            <div class="text-muted" style="font-size:0.8rem;">
-                                <i class="bi bi-door-open"></i> Room #${data.room_no} • 
-                                <i class="bi bi-bed"></i> Bed #${data.bed_no}
-                            </div>
-                            ${hasDob ? `
-                                <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
-                                    <i class="bi bi-calendar-heart" style="color:#ec4899;"></i> 
-                                    ${dobDisplay} ${ageDisplay}
-                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
-                                            onclick="editDob(${data.resident_id})" title="Edit DOB">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                </div>
-                            ` : `
-                                <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
-                                    <span style="color:#9ca3af;">No DOB set</span>
-                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
-                                            onclick="editDob(${data.resident_id})" title="Add DOB">
-                                        <i class="bi bi-plus-circle"></i>
-                                    </button>
-                                </div>
-                            `}
-                        </div>
-                        <div class="status-badge-large ${statusBadgeClass}">
-                            <span class="dot"></span>
-                            ${isFullPaid ? '✅ PAID' : statusLabel}
-                            ${status === 'PARTIAL' ? ` (₹${data.balance || 0})` : ''}
-                        </div>
-                    </div>
-
-                    <div class="payment-detail"><span class="label"><i class="bi bi-phone"></i> Phone</span><span class="value">${data.phone}</span></div>
-                    <div class="payment-detail"><span class="label"><i class="bi bi-envelope"></i> Email</span><span class="value">${data.email || 'Not provided'}</span></div>
-                    <div class="payment-detail" style="border-top:2px solid #e5e7eb; padding-top:0.4rem; margin-top:0.4rem;">
-                        <span class="label"><i class="bi bi-currency-rupee"></i> Monthly Rent</span>
-                        <span class="value">₹${rent.toFixed(2)}</span>
-                    </div>
-                    ${data.discount > 0 ? `<div class="payment-detail" style="color:#065f46;"><span class="label"><i class="bi bi-tag"></i> Discount</span><span class="value" style="color:#065f46;">- ₹${data.discount.toFixed(2)}</span></div>` : ''}
-                    ${data.fine_amount > 0 ? `<div class="payment-detail" style="color:#991b1b;"><span class="label"><i class="bi bi-clock"></i> Late Fee</span><span class="value" style="color:#991b1b;">+ ₹${data.fine_amount.toFixed(2)}</span></div>` : ''}
-                    <div class="payment-detail" style="border-top:2px solid var(--gold); padding-top:0.4rem; margin-top:0.4rem;">
-                        <span class="label"><strong>Total to Pay</strong></span>
-                        <span class="value ${amount > 0 ? 'due' : 'clear'}" style="font-size:1.1rem;">
-                            ${amount > 0 ? '₹' + amount.toFixed(2) : '✅ All Paid'}
-                        </span>
-                    </div>
-                    ${data.discount_message ? `<div class="alert alert-info mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-info-circle"></i> ${data.discount_message}</div>` : ''}
-                    ${data.fine_message ? `<div class="alert alert-danger mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-circle"></i> ${data.fine_message}</div>` : ''}
-                    ${data.has_pending ? `<div class="alert alert-warning mt-2" style="font-size:0.75rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-triangle-fill"></i> ${data.pending_count} pending payment(s) from previous months</div>` : ''}
-                </div>
-            `;
-
-            if (!isPaid && amount > 0) {
-                html += `
-                <hr>
-                <h6 class="mb-2"><i class="bi bi-pencil-square"></i> Enter Payment Details</h6>
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">Amount (₹)</label>
-                        <input type="number" id="paymentAmount" class="form-control" 
-                               value="${amount.toFixed(2)}" step="0.01" min="0.01" max="${amount}"
-                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.85rem;">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">Payment Method</label>
-                        <div class="payment-method-group">
-                            <div class="payment-method-option selected" data-method="cash" onclick="selectMethod(this)"><i class="bi bi-cash"></i> Cash</div>
-                            <div class="payment-method-option" data-method="upi" onclick="selectMethod(this)"><i class="bi bi-phone"></i> UPI</div>
-                            <div class="payment-method-option" data-method="card" onclick="selectMethod(this)"><i class="bi bi-credit-card"></i> Card</div>
-                            <div class="payment-method-option" data-method="bank_transfer" onclick="selectMethod(this)"><i class="bi bi-bank"></i> Bank</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- ===== TRANSACTION ID FIELD ===== -->
-                <div class="row g-2 mt-1" id="transactionIdRow" style="display:none;">
-                    <div class="col-12">
-                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">
-                            <i class="bi bi-receipt"></i> Transaction ID <span class="text-danger">*</span>
-                        </label>
-                        <input type="text" id="transactionId" class="form-control" 
-                               placeholder="Enter UPI/Card/Bank transaction ID" 
-                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
-                        <small class="text-muted" style="font-size:0.6rem;">
-                            <i class="bi bi-info-circle"></i> Required for UPI, Card, and Bank Transfer payments
-                        </small>
-                    </div>
-                </div>
-                
-                <div class="row g-2 mt-1">
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">Receipt No</label>
-                        <input type="text" id="paymentReference" class="form-control" 
-                               value="${data.reference || 'PAY-' + Date.now()}" 
-                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" style="font-size:0.75rem; font-weight:600;">Remarks</label>
-                        <input type="text" id="paymentRemarks" class="form-control" placeholder="Notes..." 
-                               style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
-                    </div>
-                </div>
-                <button class="btn-submit-payment mt-3" id="submitPaymentBtn" onclick="submitPayment()">
-                    <i class="bi bi-check-circle"></i> Record Payment
-                </button>
-                `;
+    $.ajax({
+        url: routes.details,
+        type: 'POST',
+        data: {
+            resident_id: residentId,
+            hostel_id: hostelId,
+            _token: csrfToken
+        },
+        success: function(response) {
+            if (response.success) {
+                currentResident = response.data;
+                currentResident.id = residentId; // Ensure ID is set
+                currentResident.resident_id = residentId;
+                renderPaymentModal(currentResident);
             } else {
-                html += `
-                <div class="text-center py-2">
-                    <div style="font-size:2rem;">✅</div>
-                    <h5>This month's rent is fully paid!</h5>
-                    <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
-                </div>
-                `;
+                showError('Failed to load payment details');
             }
-
-            if (data.payment_history && data.payment_history.length > 0) {
-                html += `
-                <hr>
-                <h6 class="mb-2"><i class="bi bi-clock-history"></i> Payment History</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm payment-history-table">
-                        <thead><tr><th>Month</th><th>Rent</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
-                        <tbody>
-                            ${data.payment_history.map(p => `
-                            <tr>
-                                <td>${p.month}</td>
-                                <td>₹${p.rent}</td>
-                                <td>₹${p.paid}</td>
-                                <td>₹${p.balance}</td>
-                                <td><span class="badge-status ${p.status.toLowerCase()}">${p.status}</span></td>
-                            </tr>`).join('')}
-                        </tbody>
-                    </table>
-                </div>`;
-            }
-
-            document.getElementById('paymentModalBody').innerHTML = html;
+        },
+        error: function() {
+            showError('Failed to load payment details');
         }
+    });
+}
+
+function renderPaymentModal(data) {
+    const amount = parseFloat(data.amount_to_pay || 0);
+    const rent = parseFloat(data.rent_amount || 0);
+    const isPaid = data.is_paid || false;
+    const balance = parseFloat(data.balance || 0);
+
+    const hasProfileImage = data.profile_image || data.profile_image_thumb;
+    const profileImageUrl = data.profile_image || data.profile_image_thumb || '';
+    const initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
+
+    const hasDob = data.dob_formatted && data.dob_formatted !== 'N/A';
+    const dobDisplay = hasDob ? data.dob_formatted : '';
+    const ageDisplay = data.age ? `(${data.age} years)` : '';
+
+    const status = data.current_month_status || 'PENDING';
+    const statusLower = status.toLowerCase();
+    const statusLabel = status === 'NOT_PAID' ? 'Not Paid' : status;
+    const isFullPaid = status === 'PAID' && amount <= 0;
+
+    let statusBadgeClass = statusLower;
+    if (status === 'NOT_PAID') statusBadgeClass = 'pending';
+
+    // Show balance if partial
+    let balanceDisplay = '';
+    if (status === 'PARTIAL' && balance > 0) {
+        balanceDisplay = `<div class="payment-detail" style="color:#92400e; border-bottom: 2px solid var(--status-partial);">
+            <span class="label"><i class="bi bi-currency-rupee"></i> Remaining Balance</span>
+            <span class="value" style="color:var(--warning); font-weight:700;">₹${balance.toFixed(2)}</span>
+        </div>`;
+    }
+
+    let html = `
+        <div class="mb-3">
+            <!-- ===== PROFILE IMAGE SECTION ===== -->
+            <div class="profile-image-section mb-3 text-center">
+                <div class="position-relative d-inline-block">
+                    <div class="resident-avatar" id="modalProfileAvatar">
+                        ${hasProfileImage ? 
+                            `<img id="modalProfileImage" src="${profileImageUrl}" alt="${data.name}">` :
+                            `<span id="modalProfileInitials" style="font-weight:700; font-size:1.8rem;">${initials}</span>`
+                        }
+                    </div>
+                    
+                    <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
+                            style="width:30px; height:30px; padding:0; font-size:14px; border:2px solid white;" 
+                            onclick="document.getElementById('profileImageInput').click()" 
+                            title="Change Photo">
+                        <i class="bi bi-camera"></i>
+                    </button>
+                    
+                    ${hasProfileImage ? 
+                        `<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle" 
+                                style="width:24px; height:24px; padding:0; font-size:10px; border:2px solid white;" 
+                                onclick="removeProfileImage(${data.resident_id})" 
+                                title="Remove Photo">
+                            <i class="bi bi-x"></i>
+                        </button>` : ''
+                    }
+                    
+                    <input type="file" id="profileImageInput" accept="image/*" style="display:none" 
+                           onchange="uploadProfileImage(event, ${data.resident_id})">
+                </div>
+                <div style="font-size:0.65rem; color:#6b7280; margin-top:0.25rem;">
+                    <i class="bi bi-info-circle"></i> Click camera icon to change photo
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
+                <div>
+                    <h5 class="mb-0">${data.name}</h5>
+                    <div class="text-muted" style="font-size:0.8rem;">
+                        <i class="bi bi-door-open"></i> Room #${data.room_no} • 
+                        <i class="bi bi-bed"></i> Bed #${data.bed_no}
+                    </div>
+                    ${hasDob ? `
+                        <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
+                            <i class="bi bi-calendar-heart" style="color:#ec4899;"></i> 
+                            ${dobDisplay} ${ageDisplay}
+                            <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
+                                    onclick="editDob(${data.resident_id})" title="Edit DOB">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </div>
+                    ` : `
+                        <div class="text-muted" style="font-size:0.7rem; margin-top:2px;">
+                            <span style="color:#9ca3af;">No DOB set</span>
+                            <button type="button" class="btn btn-sm btn-link p-0 ms-1" style="font-size:0.65rem; text-decoration:none;" 
+                                    onclick="editDob(${data.resident_id})" title="Add DOB">
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                        </div>
+                    `}
+                </div>
+                <div class="status-badge-large ${statusBadgeClass}">
+                    <span class="dot"></span>
+                    ${isFullPaid ? '✅ PAID' : statusLabel}
+                    ${status === 'PARTIAL' ? ` (₹${balance.toFixed(0)})` : ''}
+                </div>
+            </div>
+
+            <div class="payment-detail"><span class="label"><i class="bi bi-phone"></i> Phone</span><span class="value">${data.phone}</span></div>
+            <div class="payment-detail"><span class="label"><i class="bi bi-envelope"></i> Email</span><span class="value">${data.email || 'Not provided'}</span></div>
+            <div class="payment-detail" style="border-top:2px solid #e5e7eb; padding-top:0.4rem; margin-top:0.4rem;">
+                <span class="label"><i class="bi bi-currency-rupee"></i> Monthly Rent</span>
+                <span class="value">₹${rent.toFixed(2)}</span>
+            </div>
+            ${data.discount > 0 ? `<div class="payment-detail" style="color:#065f46;"><span class="label"><i class="bi bi-tag"></i> Discount</span><span class="value" style="color:#065f46;">- ₹${data.discount.toFixed(2)}</span></div>` : ''}
+            ${data.fine_amount > 0 ? `<div class="payment-detail" style="color:#991b1b;"><span class="label"><i class="bi bi-clock"></i> Late Fee</span><span class="value" style="color:#991b1b;">+ ₹${data.fine_amount.toFixed(2)}</span></div>` : ''}
+            ${balanceDisplay}
+            <div class="payment-detail" style="border-top:2px solid var(--gold); padding-top:0.4rem; margin-top:0.4rem;">
+                <span class="label"><strong>Total to Pay</strong></span>
+                <span class="value ${amount > 0 ? 'due' : 'clear'}" style="font-size:1.1rem;">
+                    ${amount > 0 ? '₹' + amount.toFixed(2) : '✅ All Paid'}
+                </span>
+            </div>
+            ${data.discount_message ? `<div class="alert alert-info mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-info-circle"></i> ${data.discount_message}</div>` : ''}
+            ${data.fine_message ? `<div class="alert alert-danger mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-circle"></i> ${data.fine_message}</div>` : ''}
+            ${data.has_pending ? `<div class="alert alert-warning mt-2" style="font-size:0.75rem; padding:0.3rem 0.6rem;"><i class="bi bi-exclamation-triangle-fill"></i> ${data.pending_count} pending payment(s) from previous months</div>` : ''}
+        </div>
+    `;
+
+    if (!isPaid && amount > 0) {
+        html += `
+        <hr>
+        <h6 class="mb-2"><i class="bi bi-pencil-square"></i> Enter Payment Details</h6>
+        <div class="row g-2">
+            <div class="col-md-6">
+                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Amount (₹)</label>
+                <input type="number" id="paymentAmount" class="form-control" 
+                       value="${amount.toFixed(2)}" step="0.01" min="0.01" max="${amount}"
+                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.85rem;">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Payment Method</label>
+                <div class="payment-method-group">
+                    <div class="payment-method-option selected" data-method="cash" onclick="selectMethod(this)"><i class="bi bi-cash"></i> Cash</div>
+                    <div class="payment-method-option" data-method="upi" onclick="selectMethod(this)"><i class="bi bi-phone"></i> UPI</div>
+                    <div class="payment-method-option" data-method="card" onclick="selectMethod(this)"><i class="bi bi-credit-card"></i> Card</div>
+                    <div class="payment-method-option" data-method="bank_transfer" onclick="selectMethod(this)"><i class="bi bi-bank"></i> Bank</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ===== TRANSACTION ID FIELD ===== -->
+        <div class="row g-2 mt-1" id="transactionIdRow" style="display:none;">
+            <div class="col-12">
+                <label class="form-label" style="font-size:0.75rem; font-weight:600;">
+                    <i class="bi bi-receipt"></i> Transaction ID <span class="text-danger">*</span>
+                </label>
+                <input type="text" id="transactionId" class="form-control" 
+                       placeholder="Enter UPI/Card/Bank transaction ID" 
+                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
+                <small class="text-muted" style="font-size:0.6rem;">
+                    <i class="bi bi-info-circle"></i> Required for UPI, Card, and Bank Transfer payments
+                </small>
+            </div>
+        </div>
+        
+        <div class="row g-2 mt-1">
+            <div class="col-md-6">
+                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Receipt No</label>
+                <input type="text" id="paymentReference" class="form-control" 
+                       value="${data.reference || 'PAY-' + Date.now()}" 
+                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" style="font-size:0.75rem; font-weight:600;">Remarks</label>
+                <input type="text" id="paymentRemarks" class="form-control" placeholder="Notes..." 
+                       style="border-radius:8px; border:1px solid #d1d5db; padding:0.4rem 0.6rem; font-size:0.8rem;">
+            </div>
+        </div>
+        <button class="btn-submit-payment mt-3" id="submitPaymentBtn" onclick="submitPayment()">
+            <i class="bi bi-check-circle"></i> Record Payment
+        </button>
+        `;
+    } else {
+        html += `
+        <div class="text-center py-2">
+            <div style="font-size:2rem;">✅</div>
+            <h5>This month's rent is fully paid!</h5>
+            <button class="btn btn-secondary btn-sm mt-2" data-bs-dismiss="modal">Close</button>
+        </div>
+        `;
+    }
+
+    if (data.payment_history && data.payment_history.length > 0) {
+        html += `
+        <hr>
+        <h6 class="mb-2"><i class="bi bi-clock-history"></i> Payment History</h6>
+        <div class="table-responsive">
+            <table class="table table-sm payment-history-table">
+                <thead><tr><th>Month</th><th>Rent</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+                <tbody>
+                    ${data.payment_history.map(p => `
+                    <tr>
+                        <td>${p.month}</td>
+                        <td>₹${p.rent}</td>
+                        <td>₹${p.paid}</td>
+                        <td>₹${p.balance}</td>
+                        <td><span class="badge-status ${p.status.toLowerCase()}">${p.status}</span></td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+        </div>`;
+    }
+
+    document.getElementById('paymentModalBody').innerHTML = html;
+}
 
         // ============================================
         // PAYMENT METHOD SELECTION WITH TRANSACTION ID
@@ -1259,99 +1273,104 @@
         // SUBMIT PAYMENT WITH TRANSACTION ID
         // ============================================
 
-        function submitPayment() {
-            const amount = parseFloat(document.getElementById('paymentAmount').value);
-            const reference = document.getElementById('paymentReference').value.trim();
-            const remarks = document.getElementById('paymentRemarks').value.trim();
-            const transactionId = document.getElementById('transactionId').value.trim();
+   
+function submitPayment() {
+    const amount = parseFloat(document.getElementById('paymentAmount').value);
+    const reference = document.getElementById('paymentReference').value.trim();
+    const remarks = document.getElementById('paymentRemarks').value.trim();
+    const transactionId = document.getElementById('transactionId').value.trim();
 
-            if (!amount || amount <= 0) {
-                showToast('Please enter a valid amount', 'error');
-                return;
-            }
-            if (!reference) {
-                showToast('Please enter a reference number', 'error');
-                return;
-            }
+    if (!amount || amount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
+    if (!reference) {
+        showToast('Please enter a reference number', 'error');
+        return;
+    }
 
-            if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
-                if (!transactionId) {
-                    showToast('Please enter transaction ID for ' + selectedMethod.toUpperCase() + ' payment', 'error');
-                    return;
-                }
-            }
-
-            const btn = document.getElementById('submitPaymentBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Recording...';
-
-            $.ajax({
-                url: routes.manual,
-                type: 'POST',
-                data: {
-                    resident_id: currentResident.id,
-                    amount: amount,
-                    payment_method: selectedMethod,
-                    reference: reference,
-                    transaction_id: transactionId,
-                    remarks: remarks,
-                    hostel_id: hostelId,
-                    _token: csrfToken
-                },
-                success: function(response) {
-                    if (response.success) {
-                        showToast(response.message, 'success');
-                        const data = response.data;
-                        const statusIcon = data.is_full_paid ? '✅' : (data.is_partial ? '⚠️' : '❌');
-
-                        let transactionHtml = '';
-                        if (data.transaction_id) {
-                            transactionHtml = `
-                                <div><span class="label">Transaction ID</span><br><span class="transaction-id-display">${data.transaction_id}</span></div>
-                            `;
-                        }
-
-                        const statusClass = data.status.toLowerCase();
-
-                        document.getElementById('paymentModalBody').innerHTML = `
-                            <div class="text-center py-4">
-                                <div style="font-size:2.5rem;">${statusIcon}</div>
-                                <h5>${data.status_message}</h5>
-                                <div class="payment-detail" style="justify-content:center; gap:1.5rem; flex-wrap:wrap; border:none;">
-                                    <div><span class="label">Receipt</span><br><span class="value">${data.receipt_no}</span></div>
-                                    <div><span class="label">Amount Paid</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
-                                    <div><span class="label">Balance</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
-                                    ${transactionHtml}
-                                </div>
-                                <div class="mt-2">
-                                    <span class="status-badge-large ${statusClass}">
-                                        <span class="dot"></span>
-                                        ${data.status}
-                                    </span>
-                                </div>
-                                <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
-                                    <i class="bi bi-check-circle"></i> Done
-                                </button>
-                            </div>
-                        `;
-                    } else {
-                        showToast(response.message || 'Failed to record payment', 'error');
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
-                    }
-                },
-                error: function(xhr) {
-                    let message = 'Failed to record payment';
-                    if (xhr.responseJSON && xhr.responseJSON.message) message = xhr.responseJSON.message;
-                    if (xhr.responseJSON && xhr.responseJSON.errors) {
-                        message = Object.values(xhr.responseJSON.errors).flat().join(', ');
-                    }
-                    showToast('❌ ' + message, 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
-                }
-            });
+    if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
+        if (!transactionId) {
+            showToast('Please enter transaction ID for ' + selectedMethod.toUpperCase() + ' payment', 'error');
+            return;
         }
+    }
+
+    const btn = document.getElementById('submitPaymentBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Recording...';
+
+    // Use currentResident.id or currentResident.resident_id
+    const residentId = currentResident.id || currentResident.resident_id;
+
+    $.ajax({
+        url: routes.manual,
+        type: 'POST',
+        data: {
+            resident_id: residentId,
+            amount: amount,
+            payment_method: selectedMethod,
+            reference: reference,
+            transaction_id: transactionId,
+            remarks: remarks,
+            hostel_id: hostelId,
+            _token: csrfToken
+        },
+        success: function(response) {
+            if (response.success) {
+                showToast(response.message, 'success');
+                const data = response.data;
+                const statusIcon = data.is_full_paid ? '✅' : (data.is_partial ? '⚠️' : '❌');
+
+                let transactionHtml = '';
+                if (data.transaction_id) {
+                    transactionHtml = `
+                        <div><span class="label">Transaction ID</span><br><span class="transaction-id-display">${data.transaction_id}</span></div>
+                    `;
+                }
+
+                const statusClass = data.status.toLowerCase();
+
+                document.getElementById('paymentModalBody').innerHTML = `
+                    <div class="text-center py-4">
+                        <div style="font-size:2.5rem;">${statusIcon}</div>
+                        <h5>${data.status_message}</h5>
+                        <div class="payment-detail" style="justify-content:center; gap:1.5rem; flex-wrap:wrap; border:none;">
+                            <div><span class="label">Receipt</span><br><span class="value">${data.receipt_no}</span></div>
+                            <div><span class="label">Amount Paid</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
+                            <div><span class="label">Balance</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
+                            ${transactionHtml}
+                        </div>
+                        <div class="mt-2">
+                            <span class="status-badge-large ${statusClass}">
+                                <span class="dot"></span>
+                                ${data.status}
+                            </span>
+                        </div>
+                        <button class="btn btn-success mt-3" data-bs-dismiss="modal" onclick="location.reload()">
+                            <i class="bi bi-check-circle"></i> Done
+                        </button>
+                    </div>
+                `;
+            } else {
+                showToast(response.message || 'Failed to record payment', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
+            }
+        },
+        error: function(xhr) {
+            let message = 'Failed to record payment';
+            if (xhr.responseJSON && xhr.responseJSON.message) message = xhr.responseJSON.message;
+            if (xhr.responseJSON && xhr.responseJSON.errors) {
+                message = Object.values(xhr.responseJSON.errors).flat().join(', ');
+            }
+            showToast('❌ ' + message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle"></i> Record Payment';
+        }
+    });
+}
+
 
         // ============================================
         // DOB EDIT FUNCTION
@@ -1557,14 +1576,14 @@
             });
         }
 
-        let initials = '?';
+       let initials = '?';
 
-        const originalRender = renderPaymentModal;
-        renderPaymentModal = function(data) {
-            initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
-            originalRender(data);
-        };
-
+// Override renderPaymentModal to store initials
+const originalRender = renderPaymentModal;
+renderPaymentModal = function(data) {
+    initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
+    originalRender(data);
+};
         // ============================================
         // TOAST / ERROR FUNCTIONS
         // ============================================
