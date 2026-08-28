@@ -161,12 +161,15 @@
             background: white;
             border-radius: 10px;
             border: 1px solid #e5e7eb;
-            padding: 0.5rem;
+            padding: 0.75rem 0.5rem;
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 0.5rem;
+            justify-content: center;
+            text-align: center;
+            gap: 0.4rem;
             position: relative;
             border-left: 4px solid #e5e7eb;
         }
@@ -198,8 +201,8 @@
         }
 
         .resident-avatar {
-            width: 40px;
-            height: 40px;
+            width: 64px;
+            height: 64px;
             border-radius: 50%;
             background: var(--gold);
             color: var(--primary);
@@ -207,7 +210,7 @@
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 0.85rem;
+            font-size: 1.1rem;
             flex-shrink: 0;
             overflow: hidden;
             border: 2px solid #e5e7eb;
@@ -231,7 +234,7 @@
         .resident-avatar.color-9 { background: #fcd34d; color: #78350f; }
 
         .resident-info {
-            flex: 1;
+            width: 100%;
             min-width: 0;
         }
 
@@ -242,6 +245,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            text-align: center;
         }
 
         .resident-info .details {
@@ -632,8 +636,8 @@
             .search-section .filter-group { justify-content: center; }
             .resident-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
             .stats-grid { grid-template-columns: repeat(3, 1fr); }
-            .resident-card { padding: 0.4rem; }
-            .resident-avatar { width: 32px; height: 32px; font-size: 0.7rem; }
+            .resident-card { padding: 0.5rem; }
+            .resident-avatar { width: 52px; height: 52px; font-size: 0.9rem; }
             .resident-info .name { font-size: 0.7rem; }
             .profile-image-section .resident-avatar { width: 60px; height: 60px; font-size: 1.2rem; }
             .payment-method-group { grid-template-columns: repeat(2, 1fr); }
@@ -793,31 +797,7 @@
 
                                     <div class="resident-info">
                                         <div class="name">{{ $resident->name }}</div>
-                                        <div class="details">
-                                            <span class="room-badge">#{{ $room->room_no }}-{{ $bed->bed_no }}</span>
-                                            <span class="food-badge {{ $resident->food_status == 'WITH_FOOD' ? 'with-food' : 'without-food' }}">
-                                                {{ $resident->food_status == 'WITH_FOOD' ? '🍽️' : '🍞' }}
-                                            </span>
-                                            <span class="rent-badge">₹{{ number_format($resident->rent_amount, 0) }}</span>
-                                            @if($hasDob)
-                                                <span class="dob-badge" title="DOB: {{ $dobFormatted }}{{ $age ? ' (Age: '.$age.')' : '' }}">
-                                                    <i class="bi bi-calendar-heart"></i>
-                                                    {{ $dobFormatted }}
-                                                    @if($age)
-                                                        ({{ $age }})
-                                                    @endif
-                                                </span>
-                                            @endif
-                                        </div>
                                     </div>
-
-                                    <span class="status-badge {{ $statusClass }}">
-                                        <span class="dot"></span>
-                                        {{ $statusLabel }}
-                                        @if($status == 'PARTIAL')
-                                            (₹{{ number_format($balance, 0) }})
-                                        @endif
-                                    </span>
                                 </div>
                             @endif
                         @endforeach
