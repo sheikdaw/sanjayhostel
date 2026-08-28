@@ -308,6 +308,25 @@
             text-align: center;
         }
 
+        /* Tamil name display */
+        .resident-info .name-tamil {
+            font-weight: 400;
+            font-size: 0.6rem;
+            color: rgba(255,255,255,0.85);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
+            display: none;
+            margin-top: 2px;
+        }
+
+        .resident-info .name-tamil.show {
+            display: block;
+        }
+
         .resident-info .details {
             font-size: 0.6rem;
             color: #6b7280;
@@ -696,9 +715,91 @@
             font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
         }
 
-        .lang-ta .name,
-        .lang-ta .resident-info .name {
+        .lang-ta .name {
             font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
+        }
+
+        .resident-name-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .resident-name-wrapper .name {
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            width: 100%;
+        }
+
+        .resident-name-wrapper .name-tamil {
+            font-weight: 400;
+            font-size: 0.6rem;
+            color: rgba(255,255,255,0.85);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: center;
+            font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
+            width: 100%;
+            margin-top: 2px;
+            display: none;
+        }
+
+        .resident-name-wrapper .name-tamil.show {
+            display: block;
+        }
+
+        /* Modal name with translation */
+        .modal-resident-name {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .modal-resident-name .name-en {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .modal-resident-name .name-ta {
+            font-size: 0.85rem;
+            color: #6b7280;
+            font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
+            display: none;
+        }
+
+        .modal-resident-name .name-ta.show {
+            display: block;
+        }
+
+        .resident-name-with-translation {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .resident-name-with-translation .en-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .resident-name-with-translation .ta-name {
+            font-size: 0.85rem;
+            color: #6b7280;
+            font-family: 'Noto Sans Tamil', 'Segoe UI', Tahoma, sans-serif;
+            display: none;
+        }
+
+        .resident-name-with-translation .ta-name.show {
+            display: block;
         }
 
         @media (max-width: 768px) {
@@ -713,6 +814,7 @@
             .payment-method-group { grid-template-columns: repeat(2, 1fr); }
             .status-badge { font-size: 0.5rem; padding: 0.1rem 0.3rem; }
             .lang-toggle { font-size: 0.6rem; padding: 0.15rem 0.6rem; }
+            .resident-name-wrapper .name-tamil { font-size: 0.5rem; }
         }
 
         @media (max-width: 480px) {
@@ -723,6 +825,7 @@
             .payment-method-group { grid-template-columns: 1fr 1fr; }
             .status-badge { font-size: 0.45rem; padding: 0.05rem 0.25rem; }
             .lang-toggle { font-size: 0.55rem; padding: 0.1rem 0.5rem; }
+            .resident-name-wrapper .name-tamil { font-size: 0.45rem; }
         }
         .transaction-id-display {
             font-size: 0.75rem;
@@ -735,6 +838,12 @@
             word-break: break-all;
             display: inline-block;
             margin-top: 2px;
+        }
+
+        /* Name translation loading indicator */
+        .name-loading {
+            opacity: 0.6;
+            animation: pulse 1.5s infinite;
         }
     </style>
 </head>
@@ -858,7 +967,8 @@
                                 <div class="resident-card card-color-{{ $colorIndex }}" 
                                      data-resident-id="{{ $resident->id }}"
                                      data-room-id="{{ $room->id }}"
-                                     data-name="{{ strtolower($resident->name) }}"
+                                     data-name="{{ $resident->name }}"
+                                     data-name-lower="{{ strtolower($resident->name) }}"
                                      data-status="{{ $status }}"
                                      onclick="openPaymentModal(event, {{ $resident->id }})">
 
@@ -873,7 +983,10 @@
                                     </div>
 
                                     <div class="resident-info">
-                                        <div class="name">{{ $resident->name }}</div>
+                                        <div class="resident-name-wrapper">
+                                            <div class="name" id="name-en-{{ $resident->id }}">{{ $resident->name }}</div>
+                                            <div class="name-tamil" id="name-ta-{{ $resident->id }}" data-resident-id="{{ $resident->id }}"></div>
+                                        </div>
                                     </div>
                                 </div>
                             @endif
@@ -943,6 +1056,7 @@
         // TRANSLATION SYSTEM
         // ============================================
         let currentLang = 'en'; // 'en' or 'ta'
+        let nameTranslations = {}; // Cache for translated names
 
         const translations = {
             en: {
@@ -1151,22 +1265,112 @@
 
         function t(key, params = {}) {
             let text = translations[currentLang]?.[key] || translations.en[key] || key;
-            // Replace placeholders like {method}
             Object.keys(params).forEach(k => {
                 text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), params[k]);
             });
             return text;
         }
 
+        // ============================================
+        // NAME TRANSLATION USING GOOGLE TRANSLATE API
+        // ============================================
+        function translateNameToTamil(name, residentId, callback) {
+            // Check cache first
+            if (nameTranslations[name]) {
+                callback(nameTranslations[name]);
+                return;
+            }
+
+            // Use Google Translate API (free tier)
+            const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ta&dt=t&q=${encodeURIComponent(name)}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    let translated = name;
+                    try {
+                        if (data && data[0]) {
+                            translated = data[0].map(item => item[0]).join('');
+                        }
+                    } catch (e) {
+                        console.warn('Translation error for:', name, e);
+                    }
+                    // Cache the translation
+                    nameTranslations[name] = translated;
+                    callback(translated);
+                })
+                .catch(error => {
+                    console.warn('Translation API error:', error);
+                    // Fallback: use the original name
+                    nameTranslations[name] = name;
+                    callback(name);
+                });
+        }
+
+        // Translate all resident names
+        function translateAllResidentNames() {
+            const nameElements = document.querySelectorAll('.name-tamil');
+            nameElements.forEach(el => {
+                const residentId = el.dataset.residentId;
+                const nameElement = document.getElementById(`name-en-${residentId}`);
+                if (nameElement) {
+                    const name = nameElement.textContent.trim();
+                    translateNameToTamil(name, residentId, (translated) => {
+                        el.textContent = translated;
+                        // Show Tamil name if Tamil language is active
+                        if (currentLang === 'ta') {
+                            el.classList.add('show');
+                        }
+                    });
+                }
+            });
+        }
+
+        // ============================================
+        // TRANSLATE NAME IN MODAL
+        // ============================================
+        function translateModalName(name, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            // Set English name
+            const enNameEl = container.querySelector('.en-name');
+            const taNameEl = container.querySelector('.ta-name');
+            
+            if (enNameEl) {
+                enNameEl.textContent = name;
+            }
+
+            if (taNameEl) {
+                translateNameToTamil(name, 'modal', (translated) => {
+                    taNameEl.textContent = translated;
+                    if (currentLang === 'ta') {
+                        taNameEl.classList.add('show');
+                    }
+                });
+            }
+        }
+
         function toggleLanguage() {
             currentLang = currentLang === 'en' ? 'ta' : 'en';
             updateAllTexts();
             document.getElementById('langToggleText').textContent = t('langToggle');
-            // Also update any dynamic content that might have been rendered
+            
+            // Show/hide Tamil names on resident cards
+            document.querySelectorAll('.name-tamil').forEach(el => {
+                if (currentLang === 'ta') {
+                    el.classList.add('show');
+                } else {
+                    el.classList.remove('show');
+                }
+            });
+
+            // Update modal if open
             if (currentResident) {
                 refreshModalContent(currentResident.id);
             }
-            // Refresh filter dropdown text
+            
+            // Update filter dropdown text
             updateFilterOptions();
         }
 
@@ -1199,18 +1403,25 @@
             updateFilterOptions();
             
             // No results
-            document.getElementById('noResidentsTitle')?.textContent && (document.getElementById('noResidentsTitle').textContent = t('noResidentsTitle'));
-            document.getElementById('noResidentsDesc')?.textContent && (document.getElementById('noResidentsDesc').textContent = t('noResidentsDesc'));
-            document.getElementById('noMatchTitle')?.textContent && (document.getElementById('noMatchTitle').textContent = t('noMatchTitle'));
-            document.getElementById('noMatchDesc')?.textContent && (document.getElementById('noMatchDesc').textContent = t('noMatchDesc'));
-            document.getElementById('clearBtnText')?.textContent && (document.getElementById('clearBtnText').textContent = t('clearBtn'));
+            const noResTitle = document.getElementById('noResidentsTitle');
+            const noResDesc = document.getElementById('noResidentsDesc');
+            const noMatchTitle = document.getElementById('noMatchTitle');
+            const noMatchDesc = document.getElementById('noMatchDesc');
+            const clearBtn = document.getElementById('clearBtnText');
+            
+            if (noResTitle) noResTitle.textContent = t('noResidentsTitle');
+            if (noResDesc) noResDesc.textContent = t('noResidentsDesc');
+            if (noMatchTitle) noMatchTitle.textContent = t('noMatchTitle');
+            if (noMatchDesc) noMatchDesc.textContent = t('noMatchDesc');
+            if (clearBtn) clearBtn.textContent = t('clearBtn');
             
             // Footer
             document.getElementById('footerHint').innerHTML = `<i class="bi bi-shield-check"></i> ${t('footerHint')}`;
             
             // Modal
             document.getElementById('modalPayTitle').innerHTML = `<i class="bi bi-credit-card"></i> ${t('payRent')}`;
-            document.getElementById('loadingText').textContent = t('loading');
+            const loadingText = document.getElementById('loadingText');
+            if (loadingText) loadingText.textContent = t('loading');
             
             // Update document direction
             document.documentElement.lang = currentLang === 'ta' ? 'ta' : 'en';
@@ -1223,12 +1434,6 @@
             }
         }
 
-        // Override the renderPaymentModal function to use translations
-        const originalRenderPaymentModal = window.renderPaymentModal || function() {};
-
-        // We'll override the renderPaymentModal after the original is defined
-        // But we need to make sure translations are applied to dynamic content
-
         let paymentModal;
         let currentResident = null;
         let selectedMethod = 'cash';
@@ -1238,6 +1443,9 @@
             updateStats();
             fitResidentGrid();
             updateAllTexts();
+            
+            // Translate all resident names
+            translateAllResidentNames();
 
             $('#searchInput').on('keyup', function(e) {
                 if (e.key === 'Enter') filterResidents();
@@ -1296,8 +1504,11 @@
 
             cards.forEach(card => {
                 const avatar = card.querySelector('.resident-avatar');
+                const nameWrapper = card.querySelector('.resident-name-wrapper');
                 const name = card.querySelector('.name');
+                const nameTamil = card.querySelector('.name-tamil');
                 const dot = card.querySelector('.status-dot');
+                
                 if (avatar) {
                     avatar.style.width = avatarSize + 'px';
                     avatar.style.height = avatarSize + 'px';
@@ -1305,6 +1516,9 @@
                 }
                 if (name) {
                     name.style.fontSize = fontSize + 'px';
+                }
+                if (nameTamil) {
+                    nameTamil.style.fontSize = (fontSize * 0.75) + 'px';
                 }
                 if (dot) {
                     dot.style.width = dotSize + 'px';
@@ -1328,7 +1542,7 @@
 
             $('.resident-card').each(function() {
                 const $item = $(this);
-                const name = $item.data('name') || '';
+                const name = $item.data('name-lower') || '';
                 const status = $item.data('status') || '';
                 const roomId = String($item.data('room-id') || '');
 
@@ -1469,6 +1683,9 @@
                 </div>`;
             }
 
+            // Get resident name for translation
+            const residentName = data.name || '';
+
             let html = `
                 <div class="mb-3">
                     <div class="profile-image-section mb-3 text-center">
@@ -1506,7 +1723,10 @@
 
                     <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
                         <div>
-                            <h5 class="mb-0">${data.name}</h5>
+                            <div class="resident-name-with-translation">
+                                <div class="en-name" id="modal-en-name">${residentName}</div>
+                                <div class="ta-name" id="modal-ta-name"></div>
+                            </div>
                             <div class="text-muted" style="font-size:0.8rem;">
                                 <i class="bi bi-door-open"></i> Room #${data.room_no} • 
                                 <i class="bi bi-bed"></i> Bed #${data.bed_no}
@@ -1559,7 +1779,6 @@
             `;
 
             if (!isPaid && amount > 0) {
-                // Get translated payment method names
                 const methodCash = t('cash');
                 const methodUpi = t('upi');
                 const methodCard = t('card');
@@ -1649,28 +1868,30 @@
             }
 
             document.getElementById('paymentModalBody').innerHTML = html;
+
+            // Translate the modal name
+            const modalEnName = document.getElementById('modal-en-name');
+            const modalTaName = document.getElementById('modal-ta-name');
+            if (modalEnName && modalTaName) {
+                const name = modalEnName.textContent.trim();
+                translateNameToTamil(name, 'modal', (translated) => {
+                    modalTaName.textContent = translated;
+                    if (currentLang === 'ta') {
+                        modalTaName.classList.add('show');
+                    }
+                });
+            }
             
             // Update any translated text in the modal that was just rendered
             updateModalTranslations();
         }
 
         function updateModalTranslations() {
-            // This will update any dynamic text that might have been rendered
-            // We need to re-translate any text nodes that were created
             const modalBody = document.getElementById('paymentModalBody');
             if (!modalBody) return;
             
-            // Update transaction placeholder if it exists
             const txnInput = document.getElementById('transactionId');
             if (txnInput) {
-                const methodMap = {
-                    'cash': t('cash'),
-                    'upi': t('upi'),
-                    'card': t('card'),
-                    'bank_transfer': t('bank')
-                };
-                const method = selectedMethod || 'cash';
-                const methodName = methodMap[method] || method;
                 txnInput.placeholder = t('transactionIdRequired');
             }
         }
@@ -1686,12 +1907,6 @@
             if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
                 transactionRow.style.display = 'block';
                 transactionInput.required = true;
-                const methodMap = {
-                    'upi': t('upi'),
-                    'card': t('card'),
-                    'bank_transfer': t('bank')
-                };
-                const methodName = methodMap[selectedMethod] || selectedMethod;
                 transactionInput.placeholder = t('transactionIdRequired');
             } else {
                 transactionRow.style.display = 'none';
@@ -2071,6 +2286,9 @@
         // Initialize translations after page load
         $(document).ready(function() {
             updateAllTexts();
+            
+            // Retry translation after page load
+            setTimeout(translateAllResidentNames, 500);
         });
     </script>
 
