@@ -205,7 +205,6 @@ class GuestHostelController extends Controller
                 'is_paid' => $isCurrentMonthPaid && $totalDue == 0,
                 'current_month_status' => $currentPayment ? $currentPayment->status : 'PENDING',
                 'payment_history' => $paymentHistory,
-                // Add balance for current month if partial
                 'balance' => $currentPayment ? $currentPayment->balance_amount : $rentAmount,
             ]
         ]);
@@ -213,6 +212,7 @@ class GuestHostelController extends Controller
 
     /**
      * Manual Payment Entry with Transaction ID
+     * NO total_paid_amount - Database unchanged
      */
     public function manualPayment(Request $request)
     {
@@ -266,14 +266,16 @@ class GuestHostelController extends Controller
                 }
             }
 
+            // Calculate total paid (calculated, NOT stored in DB)
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
                          ($payment->bank_paid_amount ?? 0);
             
-            $payment->total_paid_amount = $totalPaid;
+            // Update balance amount only
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
+            // Update status
             if ($payment->balance_amount <= 0) {
                 $payment->status = 'PAID';
                 $statusMessage = '✅ Payment completed! Full rent paid.';
@@ -307,13 +309,14 @@ class GuestHostelController extends Controller
                 'upi_paid_amount' => 0,
                 'card_paid_amount' => 0,
                 'bank_paid_amount' => 0,
-                'total_paid_amount' => 0,
+                // NO total_paid_amount - calculated on the fly
                 'balance_amount' => $rentAmount,
                 'payment_date' => now(),
                 'status' => 'PENDING',
                 'transaction_id' => null,
             ];
 
+            // Add payment method amount and transaction ID
             if ($request->payment_method == 'cash') {
                 $paymentData['cash_paid_amount'] = $paidAmount;
             } elseif ($request->payment_method == 'upi') {
@@ -335,14 +338,16 @@ class GuestHostelController extends Controller
 
             $payment = Payment::create($paymentData);
 
+            // Calculate total paid (calculated, NOT stored in DB)
             $totalPaid = ($payment->cash_paid_amount ?? 0) + 
                          ($payment->upi_paid_amount ?? 0) + 
                          ($payment->card_paid_amount ?? 0) + 
                          ($payment->bank_paid_amount ?? 0);
             
-            $payment->total_paid_amount = $totalPaid;
+            // Update balance amount only
             $payment->balance_amount = max(0, $rentAmount - $totalPaid);
 
+            // Update status
             if ($payment->balance_amount <= 0) {
                 $payment->status = 'PAID';
                 $statusMessage = '✅ Payment completed! Full rent paid.';
@@ -359,6 +364,12 @@ class GuestHostelController extends Controller
 
         $payment->refresh();
 
+        // Calculate total paid for response (calculated, NOT stored in DB)
+        $totalPaid = ($payment->cash_paid_amount ?? 0) + 
+                     ($payment->upi_paid_amount ?? 0) + 
+                     ($payment->card_paid_amount ?? 0) + 
+                     ($payment->bank_paid_amount ?? 0);
+
         return response()->json([
             'success' => true,
             'message' => 'Payment of ₹' . number_format($paidAmount, 2) . ' recorded successfully!',
@@ -366,7 +377,7 @@ class GuestHostelController extends Controller
                 'payment_id' => $payment->id,
                 'receipt_no' => $payment->receipt_no,
                 'amount_paid' => $paidAmount,
-                'total_paid' => ($payment->cash_paid_amount ?? 0) + ($payment->upi_paid_amount ?? 0) + ($payment->card_paid_amount ?? 0) + ($payment->bank_paid_amount ?? 0),
+                'total_paid' => $totalPaid, // Calculated, not stored
                 'rent_amount' => $rentAmount,
                 'balance' => $payment->balance_amount,
                 'status' => $payment->status,
