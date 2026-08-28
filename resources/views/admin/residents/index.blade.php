@@ -2320,9 +2320,6 @@ function bulkDelete() {
     });
 }
 
-// ============================================
-// MODAL FUNCTIONS
-// ============================================
 function openAddModal() {
     resetForm();
     document.getElementById('modalTitle').textContent = 'Add Resident';
@@ -2331,9 +2328,13 @@ function openAddModal() {
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid');
     document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
+    $('#vacateDateDiv').hide();
+    $('#room_id').empty().append('<option value="">Select Room</option>');
+    $('#bed_id').empty().append('<option value="">Select Bed</option>');
+    $('[id$="_preview"]').hide();
+    $('[id$="_existing"]').hide();
     residentModal.show();
 }
-
 function resetForm() {
     const form = document.getElementById('residentForm');
     form.reset();
@@ -2346,6 +2347,7 @@ function resetForm() {
     document.getElementById('editId').value = '';
     document.getElementById('modalTitle').textContent = 'Add Resident';
     document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('dob').value = '';
 
     $('[id$="_preview"]').hide();
     $('[id$="_existing"]').hide();
@@ -2412,23 +2414,28 @@ function submitForm() {
 // ============================================
 // CRUD OPERATIONS
 // ============================================
-function editResident(id) {
+editResident(id) {
     $.ajax({
         url: "{{ url('admin/residents') }}/" + id + "/edit",
         type: 'GET',
         success: function(response) {
             if (response.success) {
                 let data = response.data;
+                
+                // Set modal title and edit ID
                 document.getElementById('modalTitle').textContent = 'Edit Resident';
                 document.getElementById('editId').value = data.id;
-                document.getElementById('name').value = data.name;
-                document.getElementById('phone').value = data.phone;
+                document.getElementById('saveBtnText').textContent = 'Update';
+                
+                // Personal Information
+                document.getElementById('name').value = data.name || '';
+                document.getElementById('phone').value = data.phone || '';
                 document.getElementById('parentsphone').value = data.parentsphone || '';
                 document.getElementById('email').value = data.email || '';
                 document.getElementById('aadhaar_no').value = data.aadhaar_no || '';
                 document.getElementById('address').value = data.address || '';
                 
-                // NEW: Set DOB
+                // DOB
                 if (data.dob) {
                     const dob = new Date(data.dob);
                     document.getElementById('dob').value = dob.toISOString().split('T')[0];
@@ -2436,17 +2443,138 @@ function editResident(id) {
                     document.getElementById('dob').value = '';
                 }
                 
-                document.getElementById('hostel_id').value = data.hostel_id;
+                // Food & Rent
                 document.getElementById('food_status').value = data.food_status || '';
                 document.getElementById('rent_amount').value = data.rent_amount || 0;
                 document.getElementById('deposit_amount').value = data.deposit_amount || 0;
-                document.getElementById('status').value = data.status;
-
-                // ... rest of the edit function
+                
+                // Status
+                document.getElementById('status').value = data.status || 'ACTIVE';
+                
+                // Joining Date
+                if (data.joining_date) {
+                    const joinDate = new Date(data.joining_date);
+                    document.getElementById('joining_date').value = joinDate.toISOString().split('T')[0];
+                }
+                
+                // Vacate Date (if vacated)
+                if (data.status === 'VACATED' && data.vacate_date) {
+                    const vacateDate = new Date(data.vacate_date);
+                    document.getElementById('vacate_date').value = vacateDate.toISOString().split('T')[0];
+                    $('#vacateDateDiv').show();
+                } else {
+                    $('#vacateDateDiv').hide();
+                }
+                
+                // Set Hostel and trigger room loading
+                let hostelId = data.hostel_id;
+                if (hostelId) {
+                    $('#hostel_id').val(hostelId);
+                    
+                    // Load rooms for this hostel
+                    $.ajax({
+                        url: "{{ route('admin.residents.get-rooms') }}",
+                        type: 'POST',
+                        data: { hostel_id: hostelId, _token: '{{ csrf_token() }}' },
+                        success: function(roomResponse) {
+                            let roomSelect = $('#room_id');
+                            roomSelect.empty().append('<option value="">Select Room</option>');
+                            
+                            if (roomResponse.success && roomResponse.data.length > 0) {
+                                $.each(roomResponse.data, function(key, room) {
+                                    let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
+                                    let selected = room.id == data.room_id ? 'selected' : '';
+                                    roomSelect.append('<option value="' + room.id + '" data-beds="' + room.available_beds + '" ' + selected + '>Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
+                                });
+                            } else {
+                                roomSelect.append('<option value="">No rooms available</option>');
+                            }
+                            
+                            // Load beds for the selected room
+                            if (data.room_id) {
+                                $('#room_id').val(data.room_id);
+                                loadBedsForRoom(data.room_id, data.bed_id);
+                            }
+                        },
+                        error: function(xhr) {
+                            if (xhr.status === 403) {
+                                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                            }
+                        }
+                    });
+                }
+                
+                // Handle existing documents preview
+                if (data.profile_image) {
+                    $('#profile_image_existing').data('has-file', true).show();
+                    $('#profile_image_existing img').attr('src', data.profile_image);
+                } else {
+                    $('#profile_image_existing').hide();
+                }
+                
+                if (data.aadhar_document) {
+                    $('#aadhar_document_existing').data('has-file', true).show();
+                    $('#aadhar_existing_link').attr('href', data.aadhar_document);
+                } else {
+                    $('#aadhar_document_existing').hide();
+                }
+                
+                if (data.application_document) {
+                    $('#application_document_existing').data('has-file', true).show();
+                    $('#application_existing_link').attr('href', data.application_document);
+                } else {
+                    $('#application_document_existing').hide();
+                }
+                
+                // Clear any previous validation errors
+                $('.invalid-feedback').text('');
+                $('.rv-input-box').removeClass('is-invalid');
+                
+                // Show the modal
+                residentModal.show();
+            } else {
+                showToast(response.message || 'Failed to load resident data', 'error');
+            }
+        },
+        error: function(xhr) {
+            if (xhr.status === 403) {
+                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+            } else if (xhr.status === 404) {
+                showToast('Resident not found!', 'error');
+            } else {
+                showToast('Failed to load resident data!', 'error');
             }
         }
     });
+}function loadBedsForRoom(roomId, selectedBedId) {
+    if (roomId) {
+        $.ajax({
+            url: '/admin/residents/room/' + roomId + '/beds',
+            type: 'GET',
+            success: function(response) {
+                let select = $('#bed_id');
+                select.empty().append('<option value="">Select Bed</option>');
+                
+                if (response.success && response.data.length > 0) {
+                    $.each(response.data, function(key, bed) {
+                        let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
+                        let disabled = bed.status === 'OCCUPIED' ? 'disabled' : '';
+                        let selected = bed.id == selectedBedId ? 'selected' : '';
+                        select.append('<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>');
+                    });
+                } else {
+                    select.append('<option value="">No vacant beds</option>');
+                }
+            },
+            error: function(xhr) {
+                if (xhr.status === 403) {
+                    showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
+                }
+            }
+        });
+    }
 }
+
 function deleteResident(id) {
     Swal.fire({
         title: 'Are you sure?',
