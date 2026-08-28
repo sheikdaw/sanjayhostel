@@ -401,6 +401,6 @@ Route::prefix('guest')->name('guest.')->group(function () {
     Route::post('/resident/profile-image', [GuestHostelController::class, 'updateProfileImage'])->name('resident.update-profile-image');
     Route::post('/resident/profile-image/remove', [GuestHostelController::class, 'removeProfileImage'])->name('resident.remove-profile-image');
     
-    // DOB Update route (NEW)
+    // DOB Update route
     Route::post('/resident/update-dob', [GuestHostelController::class, 'updateDob'])->name('resident.update-dob');
 });

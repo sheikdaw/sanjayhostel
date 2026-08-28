@@ -177,7 +177,6 @@
             border-left: 4px solid #e5e7eb;
         }
 
-        /* Status color on left border */
         .resident-card.status-paid {
             border-left-color: var(--status-paid);
             background: linear-gradient(to right, rgba(34, 197, 94, 0.05), white);
@@ -204,7 +203,6 @@
             border-color: var(--gold);
         }
 
-        /* Status indicator dot - larger and colored */
         .status-indicator {
             width: 12px;
             height: 12px;
@@ -220,7 +218,6 @@
         .status-indicator.pending { background: var(--status-pending); }
         .status-indicator.not-paid { background: var(--status-pending); }
 
-        /* Avatar - Always shows initials if no photo */
         .resident-avatar {
             width: 40px;
             height: 40px;
@@ -243,7 +240,6 @@
             object-fit: cover;
         }
 
-        /* Different avatar colors based on name */
         .resident-avatar.color-0 { background: #fbbf24; color: #78350f; }
         .resident-avatar.color-1 { background: #60a5fa; color: #1e3a5f; }
         .resident-avatar.color-2 { background: #34d399; color: #064e3b; }
@@ -255,7 +251,6 @@
         .resident-avatar.color-8 { background: #93c5fd; color: #1e3a5f; }
         .resident-avatar.color-9 { background: #fcd34d; color: #78350f; }
 
-        /* Resident Info */
         .resident-info {
             flex: 1;
             min-width: 0;
@@ -289,7 +284,6 @@
         .resident-info .details .food-badge.with-food { background: #dcfce7; color: #166534; }
         .resident-info .details .food-badge.without-food { background: #f3f4f6; color: #4b5563; }
 
-        /* Status Badge - Color coded */
         .status-badge {
             font-size: 0.55rem;
             padding: 0.15rem 0.5rem;
@@ -359,7 +353,6 @@
             white-space: nowrap;
         }
 
-        /* Empty State */
         .empty-state {
             text-align: center;
             padding: 2rem 1rem;
@@ -508,7 +501,6 @@
             justify-content: center;
         }
 
-        /* ===== DOB BADGE ===== */
         .dob-badge {
             display: inline-flex;
             align-items: center;
@@ -551,7 +543,6 @@
             }
         }
 
-        /* Payment method option icon styling */
         .payment-method-option[data-method="upi"] i {
             color: #7c3aed;
         }
@@ -568,7 +559,6 @@
             color: #16a34a;
         }
 
-        /* ===== STATUS COLOR BADGE IN MODAL ===== */
         .status-badge-large {
             display: inline-flex;
             align-items: center;
@@ -611,6 +601,17 @@
         .status-badge-large.partial .dot { background: var(--status-partial); }
         .status-badge-large.pending .dot { background: var(--status-pending); }
 
+        .transaction-id-display {
+            font-size: 0.8rem;
+            font-family: 'Courier New', monospace;
+            background: #f3f4f6;
+            padding: 2px 10px;
+            border-radius: 4px;
+            color: #1f2937;
+            border: 1px solid #e5e7eb;
+            word-break: break-all;
+        }
+
         /* ===== TOAST ===== */
         .toast-container {
             position: fixed;
@@ -651,7 +652,6 @@
             50% { opacity: 0.6; }
         }
 
-        /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
             .search-section { flex-direction: column; align-items: stretch; }
             .search-section .filter-group { justify-content: center; }
@@ -792,7 +792,6 @@
                                     $dobFormatted = $hasDob ? $resident->dob->format('d M Y') : '';
                                     $age = $hasDob ? $resident->dob->age : null;
                                     
-                                    // Status indicator class
                                     $statusCardClass = $statusClass;
                                     if ($status == 'NOT_PAID') $statusCardClass = 'not-paid';
                                 @endphp
@@ -803,7 +802,6 @@
                                      data-status="{{ $status }}"
                                      onclick="openPaymentModal(event, {{ $resident->id }})">
                                     
-                                    <!-- Avatar with image or initials -->
                                     <div class="resident-avatar color-{{ $colorIndex }}" id="avatar-{{ $resident->id }}">
                                         @if($hasProfileImage && $profileImageUrl)
                                             <img src="{{ $profileImageUrl }}" alt="{{ $resident->name }}">
@@ -812,7 +810,6 @@
                                         @endif
                                     </div>
 
-                                    <!-- Info -->
                                     <div class="resident-info">
                                         <div class="name">{{ $resident->name }}</div>
                                         <div class="details">
@@ -833,7 +830,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Status Badge with color -->
                                     <span class="status-badge {{ $statusClass }}">
                                         <span class="dot"></span>
                                         {{ $statusLabel }}
@@ -1041,29 +1037,25 @@
             const rent = parseFloat(data.rent_amount || 0);
             const isPaid = data.is_paid || false;
 
-            // Profile image data
             const hasProfileImage = data.profile_image || data.profile_image_thumb;
             const profileImageUrl = data.profile_image || data.profile_image_thumb || '';
             const initials = data.name ? data.name.charAt(0).toUpperCase() : '?';
 
-            // DOB data
             const hasDob = data.dob_formatted && data.dob_formatted !== 'N/A';
             const dobDisplay = hasDob ? data.dob_formatted : '';
             const ageDisplay = data.age ? `(${data.age} years)` : '';
 
-            // Status color
             const status = data.current_month_status || 'PENDING';
             const statusLower = status.toLowerCase();
             const statusLabel = status === 'NOT_PAID' ? 'Not Paid' : status;
             const isFullPaid = status === 'PAID' && amount <= 0;
 
-            // Status badge class
             let statusBadgeClass = statusLower;
             if (status === 'NOT_PAID') statusBadgeClass = 'pending';
 
             let html = `
                 <div class="mb-3">
-                    <!-- ===== PROFILE IMAGE SECTION WITH UPLOAD ===== -->
+                    <!-- ===== PROFILE IMAGE SECTION ===== -->
                     <div class="profile-image-section mb-3 text-center">
                         <div class="position-relative d-inline-block">
                             <div class="resident-avatar" id="modalProfileAvatar">
@@ -1073,7 +1065,6 @@
                                 }
                             </div>
                             
-                            <!-- Upload Button -->
                             <button type="button" class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
                                     style="width:30px; height:30px; padding:0; font-size:14px; border:2px solid white;" 
                                     onclick="document.getElementById('profileImageInput').click()" 
@@ -1081,7 +1072,6 @@
                                 <i class="bi bi-camera"></i>
                             </button>
                             
-                            <!-- Remove Button (only if image exists) -->
                             ${hasProfileImage ? 
                                 `<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 rounded-circle" 
                                         style="width:24px; height:24px; padding:0; font-size:10px; border:2px solid white;" 
@@ -1091,7 +1081,6 @@
                                 </button>` : ''
                             }
                             
-                            <!-- Hidden File Input -->
                             <input type="file" id="profileImageInput" accept="image/*" style="display:none" 
                                    onchange="uploadProfileImage(event, ${data.resident_id})">
                         </div>
@@ -1126,7 +1115,6 @@
                                 </div>
                             `}
                         </div>
-                        <!-- Status Badge in Modal -->
                         <div class="status-badge-large ${statusBadgeClass}">
                             <span class="dot"></span>
                             ${isFullPaid ? '✅ PAID' : statusLabel}
@@ -1251,7 +1239,6 @@
             el.classList.add('selected');
             selectedMethod = el.dataset.method;
             
-            // Show transaction ID field for UPI, Card, Bank Transfer
             const transactionRow = document.getElementById('transactionIdRow');
             const transactionInput = document.getElementById('transactionId');
             
@@ -1287,7 +1274,6 @@
                 return;
             }
 
-            // Validate transaction ID for UPI, Card, Bank Transfer
             if (selectedMethod === 'upi' || selectedMethod === 'card' || selectedMethod === 'bank_transfer') {
                 if (!transactionId) {
                     showToast('Please enter transaction ID for ' + selectedMethod.toUpperCase() + ' payment', 'error');
@@ -1321,11 +1307,10 @@
                         let transactionHtml = '';
                         if (data.transaction_id) {
                             transactionHtml = `
-                                <div><span class="label">Transaction ID</span><br><span class="value" style="font-size:0.8rem; font-family:monospace;">${data.transaction_id}</span></div>
+                                <div><span class="label">Transaction ID</span><br><span class="transaction-id-display">${data.transaction_id}</span></div>
                             `;
                         }
 
-                        // Status color in confirmation
                         const statusClass = data.status.toLowerCase();
 
                         document.getElementById('paymentModalBody').innerHTML = `

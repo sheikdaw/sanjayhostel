@@ -173,6 +173,7 @@ class GuestHostelController extends Controller
                     'balance' => $p->balance_amount,
                     'status' => $p->status,
                     'receipt' => $p->receipt_no,
+                    'transaction_id' => $p->transaction_id,
                 ];
             });
 
@@ -185,11 +186,9 @@ class GuestHostelController extends Controller
                 'email' => $resident->email ?? 'Not provided',
                 'room_no' => $resident->room->room_no ?? 'N/A',
                 'bed_no' => $resident->bed->bed_no ?? 'N/A',
-                // DOB Fields
                 'dob' => $resident->dob ? $resident->dob->format('Y-m-d') : null,
                 'dob_formatted' => $resident->formatted_dob ?? 'N/A',
                 'age' => $resident->age ?? null,
-                // Profile Image
                 'profile_image' => $resident->profile_image_url,
                 'profile_image_thumb' => $resident->profile_image_thumb,
                 'rent_amount' => $rentAmount,
@@ -220,7 +219,7 @@ class GuestHostelController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|in:cash,upi,card,bank_transfer',
             'reference' => 'required|string|max:50',
-            'transaction_id' => 'nullable|string|max:100', // NEW: Transaction ID for UPI
+            'transaction_id' => 'nullable|string|max:255', // Transaction ID for UPI
             'remarks' => 'nullable|string|max:500',
             'hostel_id' => 'required|exists:hostels,id'
         ]);
@@ -314,10 +313,10 @@ class GuestHostelController extends Controller
                 'balance_amount' => $rentAmount,
                 'payment_date' => now(),
                 'status' => 'PENDING',
-                'transaction_id' => null, // Initialize
+                'transaction_id' => null,
             ];
 
-            // Add payment method amount
+            // Add payment method amount and transaction ID
             if ($request->payment_method == 'cash') {
                 $paymentData['cash_paid_amount'] = $paidAmount;
             } elseif ($request->payment_method == 'upi') {
