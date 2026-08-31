@@ -398,6 +398,9 @@ class ResidentController extends Controller
         }
     }
 
+    /**
+     * Store a newly created resident
+     */
     public function store(Request $request)
     {
         $user = auth()->user();
@@ -446,20 +449,17 @@ class ResidentController extends Controller
             // Check if bed is available
             $bed = Bed::find($request->bed_id);
 
-            // Check if bed is truly vacant (status VACANT AND no resident using this bed)
-            $existingResident = Resident::where('bed_id', $request->bed_id)->first();
+            // Check if bed is truly vacant - ONLY ACTIVE residents occupy beds
+            $activeResident = Resident::where('bed_id', $request->bed_id)
+                ->where('status', 'ACTIVE')
+                ->first();
 
-            if ($bed->status !== 'VACANT' || $existingResident) {
-                // If bed is OCCUPIED but no resident found, fix it
-                if ($bed->status === 'OCCUPIED' && !$existingResident) {
-                    $bed->update(['status' => 'VACANT']);
-                } else {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Selected bed is not vacant!'
-                    ], 400);
-                }
+            if ($bed->status !== 'VACANT' || $activeResident) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected bed is not vacant!'
+                ], 400);
             }
 
             // Check if room belongs to hostel
@@ -528,8 +528,16 @@ class ResidentController extends Controller
             $resident->last_sync_at = now();
             $resident->save();
 
-            // Update bed status to OCCUPIED (no resident_id column needed)
-            $bed->update(['status' => 'OCCUPIED']);
+            // ============================================
+            // CRITICAL: Update bed status based on resident status
+            // Resident.ACTIVE → Bed.OCCUPIED
+            // Resident.VACATED → Bed.VACANT
+            // ============================================
+            if ($resident->status === 'ACTIVE') {
+                $bed->update(['status' => 'OCCUPIED']);
+            } else {
+                $bed->update(['status' => 'VACANT']);
+            }
 
             // Update room status
             $this->updateRoomStatus($room);
@@ -549,6 +557,7 @@ class ResidentController extends Controller
             ], 500);
         }
     }
+
     /**
      * Update the specified resident
      */
@@ -603,34 +612,33 @@ class ResidentController extends Controller
             $oldRoom = null;
             $bedChanged = false;
 
-            // Handle bed change
+            // ============================================
+            // 1. HANDLE BED CHANGE
+            // ============================================
             if ($resident->bed_id != $request->bed_id) {
                 $bedChanged = true;
 
-                // Free old bed
+                // Free old bed - VACATED resident or no resident = VACANT
                 $oldBed = Bed::find($resident->bed_id);
                 if ($oldBed) {
                     $oldBed->update(['status' => 'VACANT']);
                 }
 
-                // Check new bed availability
+                // Check new bed availability - ONLY ACTIVE residents occupy beds
                 $newBed = Bed::find($request->bed_id);
 
                 // Check if new bed is truly vacant
-                $existingResident = Resident::where('bed_id', $request->bed_id)
+                $activeResident = Resident::where('bed_id', $request->bed_id)
+                    ->where('status', 'ACTIVE')
                     ->where('id', '!=', $id)
                     ->first();
 
-                if ($newBed->status !== 'VACANT' || $existingResident) {
-                    if ($newBed->status === 'OCCUPIED' && !$existingResident) {
-                        $newBed->update(['status' => 'VACANT']);
-                    } else {
-                        DB::rollBack();
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Selected bed is not vacant!'
-                        ], 400);
-                    }
+                if ($newBed->status !== 'VACANT' || $activeResident) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Selected bed is not vacant!'
+                    ], 400);
                 }
 
                 // Check if bed belongs to room
@@ -642,13 +650,19 @@ class ResidentController extends Controller
                     ], 400);
                 }
 
-                // Occupy new bed
-                $newBed->update(['status' => 'OCCUPIED']);
+                // Occupy new bed ONLY if resident is ACTIVE
+                if ($request->status === 'ACTIVE') {
+                    $newBed->update(['status' => 'OCCUPIED']);
+                } else {
+                    $newBed->update(['status' => 'VACANT']);
+                }
 
                 $oldRoom = Room::find($resident->room_id);
             }
 
-            // Handle file uploads
+            // ============================================
+            // 2. HANDLE FILE UPLOADS
+            // ============================================
             $residentData = $request->except(['profile_image', 'aadhar_document', 'application_document']);
 
             if ($request->hasFile('profile_image')) {
@@ -682,14 +696,16 @@ class ResidentController extends Controller
             }
 
             // ============================================
-            // CRITICAL FIX: Handle status change to VACATED
+            // 3. HANDLE STATUS CHANGE - CRITICAL FIX
+            // Resident.ACTIVE → Bed.OCCUPIED
+            // Resident.VACATED → Bed.VACANT
             // ============================================
             $oldStatus = $resident->status;
             $newStatus = $request->status;
 
             // If status is changing to VACATED, free the bed
             if ($newStatus == 'VACATED' && $oldStatus != 'VACATED') {
-                // Free the bed
+                // Free the bed - VACATED resident = VACANT bed
                 $bed = Bed::find($resident->bed_id);
                 if ($bed) {
                     $bed->update(['status' => 'VACANT']);
@@ -706,13 +722,13 @@ class ResidentController extends Controller
                 // Check if bed is vacant
                 $bed = Bed::find($resident->bed_id);
                 if ($bed) {
-                    // Check if another resident is using this bed
-                    $otherResident = Resident::where('bed_id', $resident->bed_id)
+                    // Check if another ACTIVE resident is using this bed
+                    $otherActiveResident = Resident::where('bed_id', $resident->bed_id)
                         ->where('id', '!=', $resident->id)
                         ->where('status', 'ACTIVE')
                         ->first();
 
-                    if ($otherResident) {
+                    if ($otherActiveResident) {
                         DB::rollBack();
                         return response()->json([
                             'success' => false,
@@ -720,12 +736,7 @@ class ResidentController extends Controller
                         ], 400);
                     }
 
-                    // If bed is OCCUPIED but no other resident, fix it
-                    if ($bed->status === 'OCCUPIED' && !$otherResident) {
-                        $bed->update(['status' => 'VACANT']);
-                    }
-
-                    // Occupy the bed
+                    // Occupy the bed if it's vacant
                     if ($bed->status === 'VACANT') {
                         $bed->update(['status' => 'OCCUPIED']);
                     }
@@ -735,17 +746,16 @@ class ResidentController extends Controller
                 $residentData['vacate_date'] = null;
             }
 
-            // If bed was not changed and status is VACATED, we already freed the bed above
-            // If bed was changed, the old bed was freed and new bed occupied
-
+            // Update resident
             $resident->update($residentData);
 
-            // Update old room status if bed changed
+            // ============================================
+            // 4. UPDATE ROOM STATUSES
+            // ============================================
             if ($oldRoom) {
                 $this->updateRoomStatus($oldRoom);
             }
 
-            // Update new room status
             $newRoom = Room::find($request->room_id);
             $this->updateRoomStatus($newRoom);
 
@@ -852,7 +862,7 @@ class ResidentController extends Controller
 
             if ($newStatus === 'VACATED') {
                 // ============================================
-                // CRITICAL: Free the bed when vacating
+                // VACATED resident → Bed.VACANT
                 // ============================================
                 $resident->vacate_date = now()->toDateString();
 
@@ -866,28 +876,25 @@ class ResidentController extends Controller
                     $this->updateRoomStatus($room);
                 }
             } else {
-                // Reactivating from VACATED to ACTIVE
+                // ============================================
+                // ACTIVE resident → Bed.OCCUPIED
+                // ============================================
                 $resident->vacate_date = null;
 
                 $bed = Bed::find($resident->bed_id);
                 if ($bed) {
-                    // Check if another resident is using this bed
-                    $otherResident = Resident::where('bed_id', $resident->bed_id)
+                    // Check if another ACTIVE resident is using this bed
+                    $otherActiveResident = Resident::where('bed_id', $resident->bed_id)
                         ->where('id', '!=', $resident->id)
                         ->where('status', 'ACTIVE')
                         ->first();
 
-                    if ($otherResident) {
+                    if ($otherActiveResident) {
                         DB::rollBack();
                         return response()->json([
                             'success' => false,
                             'message' => 'Cannot reactivate resident. Bed is occupied by another active resident!'
                         ], 400);
-                    }
-
-                    // If bed is OCCUPIED but no other resident, fix it
-                    if ($bed->status === 'OCCUPIED' && !$otherResident) {
-                        $bed->update(['status' => 'VACANT']);
                     }
 
                     // Occupy the bed if it's vacant
@@ -918,6 +925,7 @@ class ResidentController extends Controller
             ], 500);
         }
     }
+
     /**
      * Toggle biometric access for a resident
      */
@@ -1128,8 +1136,7 @@ class ResidentController extends Controller
     }
 
     /**
-     * Fix orphaned occupied beds (beds marked OCCUPIED but with no resident)
-     * This checks by looking for residents assigned to the bed
+     * Fix orphaned occupied beds - ONLY ACTIVE residents should occupy beds
      */
     public function fixOrphanedBeds()
     {
@@ -1146,21 +1153,31 @@ class ResidentController extends Controller
             DB::beginTransaction();
 
             try {
-                // Get all beds that are OCCUPIED
-                $occupiedBeds = Bed::where('status', 'OCCUPIED')->get();
-
+                // Get all beds
+                $allBeds = Bed::all();
                 $fixed = 0;
                 $bedIds = [];
 
-                foreach ($occupiedBeds as $bed) {
-                    // Check if there's a resident using this bed
-                    $resident = Resident::where('bed_id', $bed->id)->first();
+                foreach ($allBeds as $bed) {
+                    // Check if there's an ACTIVE resident using this bed
+                    $activeResident = Resident::where('bed_id', $bed->id)
+                        ->where('status', 'ACTIVE')
+                        ->first();
 
-                    if (!$resident) {
-                        // No resident found - this is an orphaned bed
-                        $bedIds[] = $bed->id;
-                        $bed->update(['status' => 'VACANT']);
-                        $fixed++;
+                    if ($activeResident) {
+                        // ACTIVE resident → Bed should be OCCUPIED
+                        if ($bed->status !== 'OCCUPIED') {
+                            $bed->update(['status' => 'OCCUPIED']);
+                            $fixed++;
+                            $bedIds[] = $bed->id;
+                        }
+                    } else {
+                        // No ACTIVE resident → Bed should be VACANT
+                        if ($bed->status === 'OCCUPIED' && $bed->status !== 'BLOCKED') {
+                            $bed->update(['status' => 'VACANT']);
+                            $fixed++;
+                            $bedIds[] = $bed->id;
+                        }
                     }
                 }
 
@@ -1174,7 +1191,7 @@ class ResidentController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => "Fixed {$fixed} orphaned beds",
+                    'message' => "Fixed {$fixed} beds",
                     'fixed' => $fixed,
                     'bed_ids' => $bedIds
                 ]);
@@ -1182,7 +1199,7 @@ class ResidentController extends Controller
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to fix orphaned beds: ' . $e->getMessage()
+                    'message' => 'Failed to fix beds: ' . $e->getMessage()
                 ], 500);
             }
         } catch (\Exception $e) {
@@ -1210,13 +1227,15 @@ class ResidentController extends Controller
 
             $issues = [];
 
-            // Check 1: Beds marked OCCUPIED but no resident
+            // Check: Beds marked OCCUPIED but no ACTIVE resident
             $occupiedBeds = Bed::where('status', 'OCCUPIED')->get();
             $orphanedBeds = [];
 
             foreach ($occupiedBeds as $bed) {
-                $resident = Resident::where('bed_id', $bed->id)->first();
-                if (!$resident) {
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+                if (!$activeResident) {
                     $orphanedBeds[] = $bed;
                 }
             }
@@ -1225,7 +1244,7 @@ class ResidentController extends Controller
                 $issues[] = [
                     'type' => 'orphaned_beds',
                     'count' => count($orphanedBeds),
-                    'description' => 'Beds marked OCCUPIED but have no resident assigned',
+                    'description' => 'Beds marked OCCUPIED but have no ACTIVE resident assigned',
                     'beds' => array_map(function ($bed) {
                         return [
                             'id' => $bed->id,
@@ -1237,7 +1256,7 @@ class ResidentController extends Controller
                 ];
             }
 
-            // Check 2: Residents with no bed
+            // Check: Residents with no bed
             $residentsWithNoBed = Resident::whereNull('bed_id')->get();
             if ($residentsWithNoBed->count() > 0) {
                 $issues[] = [
@@ -1248,41 +1267,44 @@ class ResidentController extends Controller
                         return [
                             'id' => $r->id,
                             'name' => $r->name,
-                            'resident_code' => $r->resident_code
+                            'resident_code' => $r->resident_code,
+                            'status' => $r->status
                         ];
                     })
                 ];
             }
 
-            // Check 3: Beds VACANT but residents assigned
-            $vacantBedsWithResidents = Bed::where('status', 'VACANT')
-                ->whereHas('resident')  // This assumes a relationship exists
-                ->get();
+            // Check: Beds VACANT but ACTIVE residents assigned
+            $vacantBeds = Bed::where('status', 'VACANT')->get();
+            $mismatchedBeds = [];
 
-            // If relationship doesn't exist, use manual check
-            if ($vacantBedsWithResidents->isEmpty()) {
-                $vacantBeds = Bed::where('status', 'VACANT')->get();
-                $mismatchedBeds = [];
-                foreach ($vacantBeds as $bed) {
-                    $resident = Resident::where('bed_id', $bed->id)->first();
-                    if ($resident) {
-                        $mismatchedBeds[] = $bed;
-                    }
-                }
-                if (count($mismatchedBeds) > 0) {
-                    $issues[] = [
-                        'type' => 'mismatched_beds',
-                        'count' => count($mismatchedBeds),
-                        'description' => 'Beds marked VACANT but have residents assigned',
-                        'beds' => array_map(function ($bed) {
-                            return [
-                                'id' => $bed->id,
-                                'bed_no' => $bed->bed_no,
-                                'status' => $bed->status
-                            ];
-                        }, $mismatchedBeds)
+            foreach ($vacantBeds as $bed) {
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+                if ($activeResident) {
+                    $mismatchedBeds[] = [
+                        'bed' => $bed,
+                        'resident' => $activeResident
                     ];
                 }
+            }
+
+            if (count($mismatchedBeds) > 0) {
+                $issues[] = [
+                    'type' => 'mismatched_beds',
+                    'count' => count($mismatchedBeds),
+                    'description' => 'Beds marked VACANT but have ACTIVE residents assigned',
+                    'beds' => array_map(function ($item) {
+                        return [
+                            'id' => $item['bed']->id,
+                            'bed_no' => $item['bed']->bed_no,
+                            'status' => $item['bed']->status,
+                            'resident_name' => $item['resident']->name,
+                            'resident_status' => $item['resident']->status
+                        ];
+                    }, $mismatchedBeds)
+                ];
             }
 
             return response()->json([
@@ -1345,7 +1367,7 @@ class ResidentController extends Controller
 
     /**
      * Update room status based on bed occupancy
-     * Uses Resident::where('bed_id') to check occupancy instead of resident_id column
+     * ONLY ACTIVE residents count as occupied
      */
     private function updateRoomStatus($room)
     {
@@ -1364,19 +1386,27 @@ class ResidentController extends Controller
             if ($bed->status === 'BLOCKED') {
                 $maintenanceBeds++;
             } else if ($bed->status === 'OCCUPIED') {
-                // Check if there's actually a resident using this bed
-                $resident = Resident::where('bed_id', $bed->id)->first();
-                if ($resident) {
+                // ============================================
+                // CRITICAL FIX: Only ACTIVE residents occupy beds
+                // ============================================
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+
+                if ($activeResident) {
                     $occupiedBeds++;
                 } else {
-                    // Orphaned bed - fix it
+                    // No ACTIVE resident - bed should be VACANT
                     $bed->update(['status' => 'VACANT']);
                     $vacantBeds++;
                 }
             } else if ($bed->status === 'VACANT') {
-                // Check if there's a resident using this bed (inconsistent state)
-                $resident = Resident::where('bed_id', $bed->id)->first();
-                if ($resident) {
+                // Check if there's an ACTIVE resident using this bed (inconsistent state)
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+
+                if ($activeResident) {
                     // Fix: bed should be OCCUPIED
                     $bed->update(['status' => 'OCCUPIED']);
                     $occupiedBeds++;
@@ -1386,32 +1416,35 @@ class ResidentController extends Controller
             }
         }
 
-        // Recalculate if we fixed anything
-        if ($vacantBeds > 0 || $occupiedBeds > 0) {
-            // Recalculate from database to be safe
-            $totalBeds = $room->beds()->count();
-            $occupiedBeds = 0;
-            $maintenanceBeds = $room->beds()->where('status', 'BLOCKED')->count();
-            $vacantBeds = 0;
+        // Recalculate to be safe
+        $totalBeds = $room->beds()->count();
+        $occupiedBeds = 0;
+        $maintenanceBeds = $room->beds()->where('status', 'BLOCKED')->count();
+        $vacantBeds = 0;
 
-            $allBeds = $room->beds()->get();
-            foreach ($allBeds as $bed) {
-                if ($bed->status === 'OCCUPIED') {
-                    $resident = Resident::where('bed_id', $bed->id)->first();
-                    if ($resident) {
-                        $occupiedBeds++;
-                    } else {
-                        $bed->update(['status' => 'VACANT']);
-                        $vacantBeds++;
-                    }
-                } else if ($bed->status === 'VACANT') {
-                    $resident = Resident::where('bed_id', $bed->id)->first();
-                    if ($resident) {
-                        $bed->update(['status' => 'OCCUPIED']);
-                        $occupiedBeds++;
-                    } else {
-                        $vacantBeds++;
-                    }
+        $allBeds = $room->beds()->get();
+        foreach ($allBeds as $bed) {
+            if ($bed->status === 'BLOCKED') {
+                $maintenanceBeds++;
+            } else if ($bed->status === 'OCCUPIED') {
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+                if ($activeResident) {
+                    $occupiedBeds++;
+                } else {
+                    $bed->update(['status' => 'VACANT']);
+                    $vacantBeds++;
+                }
+            } else if ($bed->status === 'VACANT') {
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+                if ($activeResident) {
+                    $bed->update(['status' => 'OCCUPIED']);
+                    $occupiedBeds++;
+                } else {
+                    $vacantBeds++;
                 }
             }
         }
@@ -1455,13 +1488,18 @@ class ResidentController extends Controller
             ->get();
 
         foreach ($rooms as $room) {
-            // Count truly vacant beds (status VACANT AND no resident assigned)
+            // ============================================
+            // CRITICAL FIX: Count ONLY ACTIVE residents as occupied
+            // ============================================
             $beds = $room->beds()->where('status', 'VACANT')->get();
             $availableBeds = 0;
 
             foreach ($beds as $bed) {
-                $resident = Resident::where('bed_id', $bed->id)->first();
-                if (!$resident) {
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+
+                if (!$activeResident) {
                     $availableBeds++;
                 }
             }
@@ -1495,17 +1533,25 @@ class ResidentController extends Controller
 
         $beds = Bed::where('room_id', $roomId)->get();
 
-        // Clean up any orphaned beds before returning
+        // ============================================
+        // CRITICAL FIX: Clean up based on ACTIVE residents only
+        // ============================================
         foreach ($beds as $bed) {
-            if ($bed->status === 'OCCUPIED') {
-                $resident = Resident::where('bed_id', $bed->id)->first();
-                if (!$resident) {
-                    $bed->update(['status' => 'VACANT']);
-                }
-            } else if ($bed->status === 'VACANT') {
-                $resident = Resident::where('bed_id', $bed->id)->first();
-                if ($resident) {
+            // Only ACTIVE resident means occupied
+            $activeResident = Resident::where('bed_id', $bed->id)
+                ->where('status', 'ACTIVE')
+                ->first();
+
+            if ($activeResident) {
+                if ($bed->status !== 'OCCUPIED') {
                     $bed->update(['status' => 'OCCUPIED']);
+                }
+            } else {
+                // VACATED resident or no resident = vacant
+                if ($bed->status !== 'BLOCKED') {
+                    if ($bed->status !== 'VACANT') {
+                        $bed->update(['status' => 'VACANT']);
+                    }
                 }
             }
         }
@@ -1543,12 +1589,18 @@ class ResidentController extends Controller
             ->get();
 
         foreach ($rooms as $room) {
+            // ============================================
+            // CRITICAL FIX: Count ONLY ACTIVE residents as occupied
+            // ============================================
             $beds = $room->beds()->where('status', 'VACANT')->get();
             $availableBeds = 0;
 
             foreach ($beds as $bed) {
-                $resident = Resident::where('bed_id', $bed->id)->first();
-                if (!$resident) {
+                $activeResident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+
+                if (!$activeResident) {
                     $availableBeds++;
                 }
             }
@@ -1746,12 +1798,13 @@ class ResidentController extends Controller
                     $resident->vacate_date = null;
                     $bed = Bed::find($resident->bed_id);
                     if ($bed && $bed->status == 'VACANT') {
-                        // Check if another resident is using this bed
-                        $otherResident = Resident::where('bed_id', $resident->bed_id)
+                        // Check if another ACTIVE resident is using this bed
+                        $otherActiveResident = Resident::where('bed_id', $resident->bed_id)
                             ->where('id', '!=', $resident->id)
+                            ->where('status', 'ACTIVE')
                             ->first();
 
-                        if (!$otherResident) {
+                        if (!$otherActiveResident) {
                             $bed->update(['status' => 'OCCUPIED']);
                             $roomsToUpdate[] = $resident->room_id;
                         }
