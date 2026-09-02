@@ -15,7 +15,8 @@ class EbioServerService
 
     public function __construct()
     {
-        $this->baseUrl = config('ebioserver.url', 'http://ebioservernew.esslsecurity.com:99/webservice.asmx');
+        // Changed to eTimeTrackLite URL
+        $this->baseUrl = config('ebioserver.url', 'http://etime.esslsecurity.com:3366/WebAPIService.asmx');
         $this->username = config('ebioserver.username', 'essl');
         $this->password = config('ebioserver.password', 'essl');
         $this->locationCode = config('ebioserver.location_code', 'HOSTEL_MAIN');
@@ -40,7 +41,8 @@ class EbioServerService
     public function setHostelConfig($hostel): void
     {
         if ($hostel->biometric_ip_address && $hostel->biometric_port) {
-            $this->setBaseUrl("http://{$hostel->biometric_ip_address}:{$hostel->biometric_port}/webservice.asmx");
+            // Changed to use WebAPIService.asmx for eTimeTrackLite
+            $this->setBaseUrl("http://{$hostel->biometric_ip_address}:{$hostel->biometric_port}/WebAPIService.asmx");
         }
         
         if ($hostel->biometric_location_code) {
@@ -85,13 +87,13 @@ class EbioServerService
             ]);
 
             if ($response->failed()) {
-                Log::error('eBioServer connection failed', [
+                Log::error('eTimeTrackLite connection failed', [
                     'status' => $response->status(),
                     'body' => $response->body()
                 ]);
                 return [
                     'success' => false,
-                    'message' => 'Failed to connect to eBioServer',
+                    'message' => 'Failed to connect to eTimeTrackLite',
                     'error' => $response->body()
                 ];
             }
@@ -112,7 +114,7 @@ class EbioServerService
                 
                 return [
                     'success' => false,
-                    'message' => 'Invalid response from eBioServer',
+                    'message' => 'Invalid response from eTimeTrackLite',
                     'raw' => $responseBody
                 ];
             }
@@ -145,7 +147,7 @@ class EbioServerService
             ];
 
         } catch (Exception $e) {
-            Log::error('eBioServer API Error: ' . $e->getMessage(), [
+            Log::error('eTimeTrackLite API Error: ' . $e->getMessage(), [
                 'method' => $method,
                 'params' => $params
             ]);
@@ -160,40 +162,136 @@ class EbioServerService
     // EMPLOYEE MANAGEMENT
     // ============================================
 
+    /**
+     * Add Employee - Maps to AddEmployee in eTimeTrackLite
+     */
     public function updateEmployee(array $data): array
     {
         $params = [
             'EmployeeCode' => $data['employee_code'],
             'EmployeeName' => $data['employee_name'],
-            'EmployeeLocation' => $data['location'] ?? $this->locationCode,
+            'Location' => $data['employee_location'] ?? $this->locationCode,  // Fixed: use employee_location
             'EmployeeRole' => $data['employee_role'] ?? 'Normal Users',
             'EmployeeVerificationType' => $data['verification_type'] ?? '17',
             'EmployeeCardNumber' => $data['card_number'] ?? '',
         ];
 
-        return $this->sendRequest('UpdateEmployee', $params);
+        // eTimeTrackLite uses AddEmployee instead of UpdateEmployee
+        return $this->sendRequest('AddEmployee', $params);
     }
 
+    /**
+     * Add Multiple Employees - New method for eTimeTrackLite
+     */
+    public function addMultipleEmployees(array $employees): array
+    {
+        // Convert to XML string for multiple employees
+        $employeesXml = $this->generateMultipleEmployeesXml($employees);
+        
+        return $this->sendRequest('AddMultipleEmployees', [
+            'EmployeesXML' => $employeesXml
+        ]);
+    }
+
+   protected function generateMultipleEmployeesXml(array $employees): string
+{
+    $xml = '<?xml version="1.0" encoding="utf-8"?>';
+    $xml .= '<Employees>';
+
+    foreach ($employees as $emp) {
+
+        $employeeCode = htmlspecialchars(
+            (string) ($emp['employee_code'] ?? ''),
+            ENT_XML1,
+            'UTF-8'
+        );
+
+        $employeeName = htmlspecialchars(
+            (string) ($emp['employee_name'] ?? ''),
+            ENT_XML1,
+            'UTF-8'
+        );
+
+        $location = $emp['employee_location']
+            ?? $emp['location']
+            ?? $this->locationCode;
+
+        $location = htmlspecialchars(
+            (string) $location,
+            ENT_XML1,
+            'UTF-8'
+        );
+
+        $employeeRole = htmlspecialchars(
+            (string) ($emp['employee_role'] ?? 'Normal Users'),
+            ENT_XML1,
+            'UTF-8'
+        );
+
+        $verificationType = htmlspecialchars(
+            (string) ($emp['verification_type'] ?? '17'),
+            ENT_XML1,
+            'UTF-8'
+        );
+
+        $cardNumber = htmlspecialchars(
+            (string) ($emp['card_number'] ?? ''),
+            ENT_XML1,
+            'UTF-8'
+        );
+
+        $xml .= '<Employee>';
+        $xml .= '<EmployeeCode>' . $employeeCode . '</EmployeeCode>';
+        $xml .= '<EmployeeName>' . $employeeName . '</EmployeeName>';
+        $xml .= '<Location>' . $location . '</Location>';
+        $xml .= '<EmployeeRole>' . $employeeRole . '</EmployeeRole>';
+        $xml .= '<EmployeeVerificationType>' . $verificationType . '</EmployeeVerificationType>';
+        $xml .= '<EmployeeCardNumber>' . $cardNumber . '</EmployeeCardNumber>';
+        $xml .= '</Employee>';
+    }
+
+    $xml .= '</Employees>';
+
+    return $xml;
+}
     public function updateEmployeeWithExpiry(array $data): array
     {
+        // eTimeTrackLite might not support expiry dates directly
+        // Use AddEmployee or update as needed
         $params = [
             'EmployeeCode' => $data['employee_code'],
             'EmployeeName' => $data['employee_name'],
-            'EmployeeLocation' => $data['location'] ?? $this->locationCode,
+            'Location' => $data['employee_location'] ?? $this->locationCode,  // Fixed: use employee_location
             'EmployeeRole' => $data['employee_role'] ?? 'Normal Users',
             'EmployeeVerificationType' => $data['verification_type'] ?? '17',
-            'EmployeeExpiryFrom' => $data['expiry_from'] ?? date('Y-m-d'),
-            'EmployeeExpiryTo' => $data['expiry_to'] ?? date('Y-m-d', strtotime('+1 year')),
             'EmployeeCardNumber' => $data['card_number'] ?? '',
         ];
 
-        return $this->sendRequest('UpdateEmployeewithExpiryDates', $params);
+        return $this->sendRequest('AddEmployee', $params);
     }
 
+    /**
+     * Delete User - Maps to DeleteUser in eTimeTrackLite
+     */
     public function deleteEmployee(string $employeeCode): array
     {
-        return $this->sendRequest('DeleteEmployee', [
+        return $this->sendRequest('DeleteUser', [
             'EmployeeCode' => $employeeCode,
+        ]);
+    }
+
+    /**
+     * Delete Multiple Employees - New method for eTimeTrackLite
+     */
+    public function deleteMultipleEmployees(array $employeeCodes): array
+    {
+        $codesXml = '';
+        foreach ($employeeCodes as $code) {
+            $codesXml .= "<EmployeeCode>{$code}</EmployeeCode>";
+        }
+        
+        return $this->sendRequest('DeleteMultipleEmployees', [
+            'EmployeesXML' => "<Employees>{$codesXml}</Employees>"
         ]);
     }
 
@@ -246,9 +344,12 @@ class EbioServerService
         ]);
     }
 
+    /**
+     * Get Transactions Log - Maps to GetTransactionsLog in eTimeTrackLite
+     */
     public function getDeviceLogs(string $date, ?string $location = null): array
     {
-        return $this->sendRequest('GetDeviceLogs', [
+        return $this->sendRequest('GetTransactionsLog', [
             'Location' => $location ?? $this->locationCode,
             'LogDate' => $date,
         ]);
@@ -272,6 +373,18 @@ class EbioServerService
     // ============================================
     // DEVICE COMMANDS
     // ============================================
+
+    /**
+     * Block/Unblock User - Maps to BlockUnblockUser in eTimeTrackLite
+     */
+    public function blockUnblockUser(string $deviceSerialNumber, string $employeeCode, bool $block = true): array
+    {
+        return $this->sendRequest('BlockUnblockUser', [
+            'DeviceSerialNumber' => $deviceSerialNumber,
+            'EmployeeCode' => $employeeCode,
+            'Block' => $block ? '1' : '0',
+        ]);
+    }
 
     public function rebootDevice(string $deviceSerialNumber): array
     {
@@ -301,29 +414,26 @@ class EbioServerService
         ]);
     }
 
+    /**
+     * Enroll User Fingerprint - Maps to EnrollUserFP in eTimeTrackLite
+     */
     public function enrollFingerprint(string $deviceSerialNumber, string $employeeCode, string $fingerIndex = '1'): array
     {
-        return $this->sendRequest('DeviceCommand_EnrollFP', [
+        return $this->sendRequest('EnrollUserFP', [
             'DeviceSerialNumber' => $deviceSerialNumber,
             'EmployeeCode' => $employeeCode,
             'FingerIndex' => $fingerIndex,
         ]);
     }
 
+    /**
+     * Enroll User Face - Maps to EnrollUserFace in eTimeTrackLite
+     */
     public function enrollFace(string $deviceSerialNumber, string $employeeCode): array
     {
-        return $this->sendRequest('DeviceCommand_EnrollFace', [
+        return $this->sendRequest('EnrollUserFace', [
             'DeviceSerialNumber' => $deviceSerialNumber,
             'EmployeeCode' => $employeeCode,
-        ]);
-    }
-
-    public function blockUnblockUser(string $deviceSerialNumber, string $employeeCode, bool $block = true): array
-    {
-        return $this->sendRequest('DeviceCommand_BlockUnBlockUser', [
-            'DeviceSerialNumber' => $deviceSerialNumber,
-            'EmployeeCode' => $employeeCode,
-            'Block' => $block ? '1' : '0',
         ]);
     }
 
@@ -350,9 +460,12 @@ class EbioServerService
         ]);
     }
 
+    /**
+     * Get Command Status - Maps to GetCommandStatus in eTimeTrackLite
+     */
     public function getDeviceCommandLogs(string $deviceSerialNumber): array
     {
-        return $this->sendRequest('DeviceCommand_GetDeviceLogs', [
+        return $this->sendRequest('GetCommandStatus', [
             'DeviceSerialNumber' => $deviceSerialNumber,
         ]);
     }
@@ -425,7 +538,7 @@ class EbioServerService
             $result = $this->getDeviceList();
             return [
                 'success' => $result['success'] ?? false,
-                'message' => $result['success'] ? 'Connected successfully' : 'Connection failed',
+                'message' => $result['success'] ? 'Connected to eTimeTrackLite successfully' : 'Connection failed',
                 'details' => $result
             ];
         } catch (Exception $e) {

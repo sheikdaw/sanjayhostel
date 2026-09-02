@@ -14,7 +14,7 @@ class BiometricController extends Controller
 {
     protected $ebioService;
     protected $mockService;
-    protected $useMock = true; // Set to false to use real eBioServer
+    protected $useMock = false; // Set to false to use real eBioServer
 
     public function __construct(EbioServerService $ebioService, MockEbioServerService $mockService)
     {

@@ -3,11 +3,11 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | eBioServer Configuration
+    | eTimeTrackLite Configuration
     |--------------------------------------------------------------------------
     */
     
-    'url' => env('EBIOSERVER_URL', 'http://ebioservernew.esslsecurity.com:99/webservice.asmx'),
+    'url' => env('EBIOSERVER_URL', 'http://etime.esslsecurity.com:3366/WebAPIService.asmx'),
     'username' => env('EBIOSERVER_USERNAME', 'essl'),
     'password' => env('EBIOSERVER_PASSWORD', 'essl'),
     'location_code' => env('EBIOSERVER_LOCATION_CODE', 'HOSTEL_MAIN'),
