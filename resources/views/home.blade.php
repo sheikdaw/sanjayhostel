@@ -14,16 +14,17 @@
 @section('og_description', 'Safe, affordable boys & girls PG accommodation in Alandur, St. Thomas Mount, and Perungalathur. AC/Non-AC rooms, food, WiFi, CCTV. Near metro & railway.')
 @section('og_url', 'https://www.sanjayandharinihostels.com/')
 @section('og_type', 'website')
-@section('og_image', 'https://www.sanjayandharinihostels.com/images/og-image.jpg') {{-- Replace with your actual image URL --}}
+@section('og_image', 'https://www.sanjayandharinihostels.com/images/og-image.jpg')
 
 {{-- TASK 11: Twitter Card Meta Tags --}}
 @section('twitter_card', 'summary_large_image')
 @section('twitter_title', 'PG in Alandur, Chennai | Sanjay Boys & Harini Girls Hostel')
 @section('twitter_description', 'Premium boys & girls PG accommodation in Alandur, St. Thomas Mount & Perungalathur. AC/Non-AC rooms, food, WiFi, CCTV. Near metro & railway.')
-@section('twitter_image', 'https://www.sanjayandharinihostels.com/images/og-image.jpg') {{-- Replace with actual image URL --}}
+@section('twitter_image', 'https://www.sanjayandharinihostels.com/images/og-image.jpg')
 
-{{-- TASK 14: JSON-LD Structured Data (Organization, LocalBusiness, WebSite, BreadcrumbList) --}}
+{{-- TASK 14: JSON-LD Structured Data --}}
 @section('schema')
+@verbatim
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -100,15 +101,14 @@
     ]
 }
 </script>
+@endverbatim
 @endsection
 
 @section('content')
-    {{-- TASK 4 & 5: H1 & Heading Hierarchy --}}
     {{-- HERO Section --}}
     <section class="hero seam" aria-labelledby="hero-title">
         <div class="hero-bg">
             <div class="side left">
-                {{-- TASK 8 & 9: Image SEO with descriptive alt, width, height, loading=lazy, decoding=async --}}
                 <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?q=80&w=1200"
                      alt="Spacious boys PG room in Alandur, Chennai"
                      width="1200" height="800" loading="eager" decoding="async">
@@ -121,11 +121,9 @@
         </div>
         <div class="hero-content">
             <span class="hero-tag">PG in Alandur · St. Thomas Mount · Perungalathur</span>
-            {{-- TASK 4: H1 optimized for main search intent --}}
             <h1 id="hero-title">Best PG &amp; Hostel in Alandur, Chennai | Sanjay Boys &amp; Harini Girls</h1>
             <p class="sub">Sanjay Boys Hostel &amp; Harini Girls Hostel — premium PG accommodation in Alandur, St. Thomas Mount, and Perungalathur. Choose from AC/Non-AC rooms, enjoy home-style food, high-speed WiFi, 24/7 CCTV security, and easy access to Alandur Metro and St. Thomas Mount Railway Station. Ideal for IT professionals, students, and airport staff.</p>
             <div class="hero-actions">
-                {{-- TASK 7: Internal Linking with descriptive anchor text --}}
                 <a href="{{ route('contact') }}" class="btn btn-primary">Book a Room Now →</a>
                 <a href="{{ route('contact') }}" class="btn btn-ghost">Contact Us</a>
             </div>
@@ -140,7 +138,7 @@
         </div>
     </section>
 
-    {{-- ABOUT Section (TASK 17: Content Quality) --}}
+    {{-- ABOUT Section --}}
     <section class="panel-ivory" id="about" aria-labelledby="about-title">
         <div class="wrap about">
             <div class="about-copy reveal">
@@ -171,7 +169,7 @@
         </div>
     </section>
 
-    {{-- BRANCH HIGHLIGHTS (TASK 5: H2/H3 Structure & TASK 12: Local SEO) --}}
+    {{-- BRANCH HIGHLIGHTS --}}
     <section aria-labelledby="locations-title">
         <div class="wrap">
             <div class="section-head reveal">
@@ -181,7 +179,6 @@
             </div>
 
             <div class="identity-grid reveal">
-                {{-- TASK 5: H3 for Boys PG --}}
                 <div class="identity-card boys">
                     <span class="tag-pill">Sanjay Boys Hostel</span>
                     <h3>Boys PG in Alandur &amp; St. Thomas Mount</h3>
@@ -196,7 +193,6 @@
                     <a href="{{ route('contact') }}" style="display:inline-block;margin-top:8px;font-weight:700;color:var(--amber-deep);text-decoration:underline;" aria-label="Check room availability at Sanjay Boys Hostel">Check availability at Sanjay Boys Hostel →</a>
                 </div>
 
-                {{-- TASK 5: H3 for Girls PG --}}
                 <div class="identity-card girls">
                     <span class="tag-pill">Harini Ladies Hostel</span>
                     <h3>Girls PG in Alandur &amp; St. Thomas Mount</h3>
@@ -212,7 +208,6 @@
                 </div>
             </div>
 
-            {{-- TASK 5: H3 for Perungalathur Boys PG --}}
             <div style="margin-top:32px;text-align:center;background:var(--cream);border:1px solid var(--line);border-radius:var(--radius-lg);padding:32px;">
                 <span class="tag-pill" style="background:var(--rose);color:var(--cream);">Perungalathur — Boys Only</span>
                 <h3 style="margin-top:14px;font-size:1.3rem;">Men's PG Hostel in Perungalathur, Chennai</h3>
@@ -223,7 +218,7 @@
         </div>
     </section>
 
-    {{-- TASK 5: H2 "Why Choose Our PG Hostel in Chennai" --}}
+    {{-- WHY CHOOSE US --}}
     <section class="panel-ivory" aria-labelledby="why-title">
         <div class="wrap">
             <div class="section-head reveal">
@@ -243,7 +238,7 @@
         </div>
     </section>
 
-    {{-- TASK 5: H2 "Frequently Asked Questions" --}}
+    {{-- FAQ Section --}}
     <section aria-labelledby="faq-title">
         <div class="wrap">
             <div class="section-head reveal">
@@ -311,7 +306,7 @@
         </div>
     </section>
 
-    {{-- TESTIMONIALS Section --}}
+    {{-- TESTIMONIALS --}}
     <section class="panel-ivory" aria-labelledby="testimonials-title">
         <div class="wrap">
             <div class="section-head reveal">
@@ -338,7 +333,7 @@
         </div>
     </section>
 
-    {{-- FINAL CTA Section --}}
+    {{-- FINAL CTA --}}
     <section class="final-cta" aria-labelledby="cta-title">
         <div class="wrap">
             <div class="strap">Trusted by 500+ Residents</div>
