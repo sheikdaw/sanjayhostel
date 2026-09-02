@@ -405,3 +405,33 @@ Route::prefix('guest')->name('guest.')->group(function () {
     // DOB Update route
     Route::post('/resident/update-dob', [GuestHostelController::class, 'updateDob'])->name('resident.update-dob');
 });
+
+// Add this to your web.php routes file
+Route::get('/test-device-connection', function () {
+    $ip = '192.168.0.1';
+    $port = '3366';
+    $url = "http://{$ip}:{$port}/WebAPIService.asmx";
+    
+    try {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_NOBODY, true);
+        curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        return response()->json([
+            'success' => $httpCode >= 200 && $httpCode < 400,
+            'status_code' => $httpCode,
+            'url' => $url,
+            'message' => $httpCode >= 200 && $httpCode < 400 ? 'Device is reachable' : 'Device not reachable'
+        ]);
+    } catch (Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage(),
+            'message' => 'Failed to connect to device'
+        ]);
+    }
+});
