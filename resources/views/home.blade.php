@@ -263,23 +263,30 @@
         margin-bottom: 16px;
         font-size: 0.95rem;
     }
-    .category-card ul {
+    .category-card .amenities-list {
         list-style: none;
         padding: 0;
         margin: 0 0 20px 0;
     }
-    .category-card ul li {
-        padding: 6px 0;
+    .category-card .amenities-list li {
+        padding: 8px 0;
         display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 0.92rem;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 0.9rem;
         color: var(--stone);
         border-bottom: 1px solid rgba(0,0,0,0.04);
+        line-height: 1.5;
     }
-    .category-card ul li:last-child { border-bottom: none; }
-    .category-card ul li .check {
+    .category-card .amenities-list li:last-child { border-bottom: none; }
+    .category-card .amenities-list li .check {
         color: var(--gold);
+        font-weight: 700;
+        font-size: 1.1rem;
+        min-width: 20px;
+    }
+    .category-card .amenities-list li .highlight-text {
+        color: var(--gold-dark);
         font-weight: 700;
     }
     .category-card .price {
@@ -292,6 +299,11 @@
         font-size: 0.9rem;
         font-weight: 400;
         color: var(--stone);
+    }
+    .category-card .price-note {
+        font-size: 0.8rem;
+        color: var(--stone);
+        margin-bottom: 16px;
     }
 
     /* ===== GYM SECTION ===== */
@@ -688,18 +700,22 @@
                 <span class="cat-tag">★ Premium Luxury</span>
                 <h3>Luxury PG Accommodation</h3>
                 <p>Experience premium living with top-tier amenities designed for those who want the best.</p>
-                <ul>
-                    <li><span class="check">✓</span> Spacious AC Rooms with Attached Bathroom</li>
-                    <li><span class="check">✓</span> 🏋️ Premium Gym Access (Included)</li>
-                    <li><span class="check">✓</span> King-Size Bed with Premium Mattress</li>
-                    <li><span class="check">✓</span> 43" Smart TV in Common Area</li>
+                <ul class="amenities-list">
+                    <li><span class="check">✓</span> <span class="highlight-text">Luxury Premium Bed</span> (6×2 ft with Premium Mattress)</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Attached Bathroom</span> with Geyser &amp; Modern Fittings</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Induction Stove</span> for Personal Cooking</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Washing Machine</span> (In-Room/Shared)</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Water Heater</span> with RO Purified Water</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">EB Bill Included</span> (Up to 200 Units)</li>
+                    <li><span class="check">✓</span> 🏋️ <span class="highlight-text">Free Gym Access</span> (Premium Equipment)</li>
+                    <li><span class="check">✓</span> AC Room with Smart TV (43")</li>
                     <li><span class="check">✓</span> High-Speed Fiber WiFi (100 Mbps)</li>
                     <li><span class="check">✓</span> 24/7 Concierge &amp; Housekeeping</li>
                     <li><span class="check">✓</span> Gourmet Meals (Veg/Non-Veg)</li>
-                    <li><span class="check">✓</span> Study Desk &amp; Wardrobe</li>
-                    <li><span class="check">✓</span> Power Backup &amp; RO Water</li>
+                    <li><span class="check">✓</span> Study Desk, Wardrobe &amp; Power Backup</li>
                 </ul>
                 <div class="price">₹12,000 <span>/ month</span></div>
+                <div class="price-note">*EB bill included up to 200 units | Extra units charged at ₹8/unit</div>
                 <a href="{{ route('contact') }}" class="btn btn-gold">Enquire About Luxury →</a>
             </div>
 
@@ -709,18 +725,22 @@
                 <span class="cat-tag">● Budget Friendly</span>
                 <h3>Normal PG Accommodation</h3>
                 <p>Comfortable, affordable, and well-maintained PG rooms for students and working professionals.</p>
-                <ul>
-                    <li><span class="check">✓</span> AC &amp; Non-AC Room Options</li>
-                    <li><span class="check">✓</span> 🏋️ Gym Access (Additional)</li>
-                    <li><span class="check">✓</span> Comfortable Beds with Storage</li>
-                    <li><span class="check">✓</span> Shared Bathroom (Maintained)</li>
+                <ul class="amenities-list">
+                    <li><span class="check">✓</span> <span class="highlight-text">Comfortable Bed</span> (6×2 ft with Good Mattress)</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Shared Bathroom</span> (Well-Maintained)</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Induction Stove</span> (Common Kitchen Area)</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Washing Machine</span> (Common Area)</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">Water Heater</span> with RO Purified Water</li>
+                    <li><span class="check">✓</span> <span class="highlight-text">EB Bill Extra</span> (Meter Reading Basis)</li>
+                    <li><span class="check">✓</span> 🏋️ <span class="highlight-text">Gym Access</span> (Additional ₹500/month)</li>
+                    <li><span class="check">✓</span> AC / Non-AC Room Options</li>
                     <li><span class="check">✓</span> High-Speed WiFi</li>
                     <li><span class="check">✓</span> 24/7 CCTV Security</li>
                     <li><span class="check">✓</span> Home-Style Meals (Veg/Non-Veg)</li>
-                    <li><span class="check">✓</span> Daily Housekeeping</li>
-                    <li><span class="check">✓</span> Power Backup &amp; RO Water</li>
+                    <li><span class="check">✓</span> Daily Housekeeping &amp; Power Backup</li>
                 </ul>
                 <div class="price">₹6,500 <span>/ month</span></div>
+                <div class="price-note">*EB bill extra as per usage | Gym access at additional ₹500/month</div>
                 <a href="{{ route('contact') }}" class="btn btn-ghost">Enquire About Normal →</a>
             </div>
         </div>
@@ -742,6 +762,10 @@
                     <div class="gf"><span class="emoji">🧘</span> Yoga &amp; Stretching Zone</div>
                     <div class="gf"><span class="emoji">⏰</span> 6 AM - 10 PM Access</div>
                     <div class="gf"><span class="emoji">👨‍🏫</span> Trainer Available</div>
+                </div>
+                <div style="margin-top: 16px; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
+                    <span style="color: var(--gold); font-weight: 700;">Luxury:</span> Free Gym Access &nbsp;|&nbsp; 
+                    <span style="color: var(--gold); font-weight: 700;">Normal:</span> ₹500/month
                 </div>
                 <a href="{{ route('contact') }}" class="btn btn-gold" style="margin-top: 20px;">💪 Check Gym Availability</a>
             </div>
@@ -835,7 +859,7 @@
         </div>
         <div class="why-grid reveal">
             <div class="why-item"><span class="tick-circ">👑</span><p>Luxury &amp; Normal Options</p></div>
-            <div class="why-item"><span class="tick-circ">🏋️</span><p>Free Gym Access</p></div>
+            <div class="why-item"><span class="tick-circ">🏋️</span><p>Free Gym Access*</p></div>
             <div class="why-item"><span class="tick-circ">📍</span><p>Near Metro &amp; Railway</p></div>
             <div class="why-item"><span class="tick-circ">❄️</span><p>AC / Non-AC Rooms</p></div>
             <div class="why-item"><span class="tick-circ">📶</span><p>High-Speed WiFi</p></div>
@@ -856,24 +880,38 @@
         <div class="faq-list reveal">
             <div class="faq-item">
                 <button class="faq-q" aria-expanded="false">
-                    Do you have luxury PG rooms?
+                    What is included in the Luxury PG?
                     <span class="plus" aria-hidden="true">+</span>
                 </button>
-                <div class="faq-a">Yes! We offer premium luxury PG rooms with AC, attached bathrooms, king-size beds, smart TV, and gym access.</div>
+                <div class="faq-a">Luxury PG includes premium bed (6×2 ft), attached bathroom, induction stove, washing machine, water heater, EB bill up to 200 units, free gym access, AC room with smart TV, high-speed WiFi, and gourmet meals.</div>
             </div>
             <div class="faq-item">
                 <button class="faq-q" aria-expanded="false">
-                    Do you have normal/budget PG rooms?
+                    What is included in the Normal PG?
                     <span class="plus" aria-hidden="true">+</span>
                 </button>
-                <div class="faq-a">Yes, we have comfortable budget-friendly PG rooms with AC/Non-AC options, WiFi, and all essential amenities.</div>
+                <div class="faq-a">Normal PG includes comfortable bed (6×2 ft), shared bathroom, common kitchen with induction stove, common washing machine, water heater with RO water, AC/Non-AC options, WiFi, CCTV, and home-style meals. EB bill and gym access are extra.</div>
             </div>
             <div class="faq-item">
                 <button class="faq-q" aria-expanded="false">
-                    Is there a gym facility at the hostel?
+                    Is the gym free for all residents?
                     <span class="plus" aria-hidden="true">+</span>
                 </button>
-                <div class="faq-a">Yes! All our branches have a fully-equipped gym with cardio and weight training equipment. Gym access is free for luxury residents.</div>
+                <div class="faq-a">Gym access is free for Luxury PG residents. Normal PG residents can access the gym for an additional ₹500 per month.</div>
+            </div>
+            <div class="faq-item">
+                <button class="faq-q" aria-expanded="false">
+                    How does the EB bill work?
+                    <span class="plus" aria-hidden="true">+</span>
+                </button>
+                <div class="faq-a">For Luxury PG, EB bill is included up to 200 units per month. Extra units are charged at ₹8 per unit. For Normal PG, EB bill is charged as per individual meter reading.</div>
+            </div>
+            <div class="faq-item">
+                <button class="faq-q" aria-expanded="false">
+                    Do you provide washing machine and induction stove?
+                    <span class="plus" aria-hidden="true">+</span>
+                </button>
+                <div class="faq-a">Yes! Luxury rooms have in-room washing machine and induction stove. Normal PG has common washing machine and kitchen area with induction stove.</div>
             </div>
             <div class="faq-item">
                 <button class="faq-q" aria-expanded="false">
@@ -888,20 +926,6 @@
                     <span class="plus" aria-hidden="true">+</span>
                 </button>
                 <div class="faq-a">Yes, Harini Girls Hostel provides safe and comfortable girls hostel accommodation in Alandur and St. Thomas Mount with 24/7 security.</div>
-            </div>
-            <div class="faq-item">
-                <button class="faq-q" aria-expanded="false">
-                    Is WiFi available at the hostel?
-                    <span class="plus" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-a">Yes, high-speed WiFi is available throughout all our hostel premises for residents.</div>
-            </div>
-            <div class="faq-item">
-                <button class="faq-q" aria-expanded="false">
-                    Is the hostel near Alandur Metro?
-                    <span class="plus" aria-hidden="true">+</span>
-                </button>
-                <div class="faq-a">Yes, our Alandur branch is located very close to Alandur Metro Station, making it convenient for commuters.</div>
             </div>
             <div class="faq-item">
                 <button class="faq-q" aria-expanded="false">
@@ -924,7 +948,7 @@
         <div class="testi-grid reveal">
             <div class="testi-card">
                 <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
-                <p class="quote">"The luxury PG is amazing! Gym, AC room, and gourmet food — everything is top-notch. Best PG in Alandur!"</p>
+                <p class="quote">"The luxury PG is amazing! Premium bed, attached bathroom, and induction stove made cooking so easy. Best PG in Alandur!"</p>
                 <div class="who">Arun Kumar — Luxury Resident, Alandur</div>
             </div>
             <div class="testi-card">
