@@ -3,15 +3,16 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | eTimeTrackLite Configuration
+    | iClock WebAPI Configuration
     |--------------------------------------------------------------------------
     */
-    
-    'url' => env('EBIOSERVER_URL', 'http://etime.esslsecurity.com:3366/WebAPIService.asmx'),
-    'username' => env('EBIOSERVER_USERNAME', 'essl'),
-    'password' => env('EBIOSERVER_PASSWORD', 'essl'),
+
+    'url' => env('EBIOSERVER_URL', 'http://182.76.161.219:81/iclock/WebAPIService.asmx'),
+    'api_key' => env('EBIOSERVER_API_KEY', ''),
+    'username' => env('EBIOSERVER_USERNAME', ''),
+    'password' => env('EBIOSERVER_PASSWORD', ''),
     'location_code' => env('EBIOSERVER_LOCATION_CODE', 'HOSTEL_MAIN'),
-    
+
     /*
     |--------------------------------------------------------------------------
     | Verification Types

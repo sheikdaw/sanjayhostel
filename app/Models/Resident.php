@@ -416,4 +416,17 @@ class Resident extends Model
 
         return ($hostelId * 10000) + $this->id;
     }
+    private function filterResidentsByMonth($query, $month, $year)
+{
+    $startDate = date('Y-m-01', strtotime("$year-$month-01"));
+    $endDate = date('Y-m-t', strtotime("$year-$month-01"));
+
+    return $query->where(function($q) use ($startDate, $endDate) {
+        $q->where('joining_date', '<=', $endDate)      // Uses 'joining_date' from your model
+          ->where(function($sub) use ($startDate) {
+              $sub->whereNull('vacate_date')            // Uses 'vacate_date' from your model
+                  ->orWhere('vacate_date', '>=', $startDate);
+          });
+    });
+}
 }

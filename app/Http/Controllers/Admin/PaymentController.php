@@ -184,18 +184,18 @@ class PaymentController extends Controller
             ]);
         }
 
-        $totalPaid = ($payment->cash_paid_amount ?? 0) + 
-                     ($payment->upi_paid_amount ?? 0) + 
-                     ($payment->card_paid_amount ?? 0) + 
+        $totalPaid = ($payment->cash_paid_amount ?? 0) +
+                     ($payment->upi_paid_amount ?? 0) +
+                     ($payment->card_paid_amount ?? 0) +
                      ($payment->bank_paid_amount ?? 0);
-        
+
         $totalAmount = $payment->rent_amount - ($payment->discount_amount ?? 0) + ($payment->fine_amount ?? 0);
         $remainingBalance = max(0, $totalAmount - $totalPaid);
 
         // Parse transaction IDs - support multiple formats
         $transactionIds = [];
         $transactionIdDisplay = '';
-        
+
         if ($payment->transaction_id) {
             // Check if it contains separator ( / or , or | )
             if (strpos($payment->transaction_id, ' / ') !== false) {
@@ -372,7 +372,7 @@ class PaymentController extends Controller
         if ($request->filled('transaction_id')) {
             $newTxnId = $request->transaction_id;
             $existingTxnId = $payment->transaction_id;
-            
+
             if ($existingTxnId) {
                 // Check if transaction ID already exists
                 $existingIds = explode(' / ', $existingTxnId);
@@ -871,8 +871,35 @@ class PaymentController extends Controller
     }
 
     // ============================================================
-    // HELPER METHODS FOR EXPORTS
+    // HELPER METHODS
     // ============================================================
+
+    /**
+     * Filter residents who were active during a specific month
+     * This fixes the issue where residents who joined after the export month
+     * were incorrectly showing as "NO PAYMENT" in previous months
+     *
+     * Uses the actual field names from the Resident model:
+     * - joining_date (when resident joined)
+     * - vacate_date (when resident left, null if still active)
+     */
+    private function filterResidentsByMonth($query, $month, $year)
+    {
+        // Get the first and last day of the month
+        $startDate = date('Y-m-01', strtotime("$year-$month-01"));
+        $endDate = date('Y-m-t', strtotime("$year-$month-01"));
+
+        // Only include residents who:
+        // 1. Joined ON or BEFORE the month end (joining_date <= end of month)
+        // 2. AND either have no vacate date OR vacated AFTER the month start
+        return $query->where(function($q) use ($startDate, $endDate) {
+            $q->where('joining_date', '<=', $endDate)
+              ->where(function($sub) use ($startDate) {
+                  $sub->whereNull('vacate_date')
+                      ->orWhere('vacate_date', '>=', $startDate);
+              });
+        });
+    }
 
     private function csvNumber($value): string
     {
@@ -931,6 +958,9 @@ class PaymentController extends Controller
 
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
+
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
@@ -1048,6 +1078,9 @@ class PaymentController extends Controller
 
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
+
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
@@ -1254,6 +1287,9 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
             $residentsQuery->whereIn('hostel_id', $hostelIds);
@@ -1352,6 +1388,9 @@ class PaymentController extends Controller
 
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
+
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
@@ -1638,6 +1677,9 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
             $residentsQuery->whereIn('hostel_id', $hostelIds);
@@ -1680,6 +1722,9 @@ class PaymentController extends Controller
 
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
+
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
@@ -1813,6 +1858,9 @@ class PaymentController extends Controller
 
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
+
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
@@ -2045,6 +2093,9 @@ class PaymentController extends Controller
 
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
+
+        // FIX: Filter residents by month to exclude those who joined after the export month
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
