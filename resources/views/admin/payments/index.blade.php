@@ -1790,6 +1790,7 @@ function calculateBalance() {
     }
 }
 
+// 🔥 NEW: Show previous pending info but DON'T block payment
 function checkPendingPrevious(residentId, month, year) {
     $.ajax({
         url: '/admin/payments/resident/' + residentId + '/check-pending/' + month + '/' + year,
@@ -1799,13 +1800,17 @@ function checkPendingPrevious(residentId, month, year) {
                 $('#pendingWarning').remove();
                 let warning = `
                     <div id="pendingWarning" class="alert alert-warning mt-2" style="font-size:0.8rem; padding:0.5rem 0.75rem;">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <strong>Warning:</strong> Previous months have pending payments.
-                        Please clear them before adding this payment.
+                        <i class="bi bi-info-circle-fill" style="color:#f59e0b;"></i>
+                        <strong>Info:</strong> Previous months have pending payments.
+                        <span style="display:block; margin-top:4px; font-size:0.75rem;">
+                            💡 The payment will automatically clear previous pending first, 
+                            then apply to current month rent.
+                        </span>
                     </div>
                 `;
                 $('#resident_id').closest('.col-md-4').after(warning);
-                $('#saveBtn').prop('disabled', true);
+                // 🔥 DON'T DISABLE THE SAVE BUTTON
+                $('#saveBtn').prop('disabled', false);
             } else {
                 $('#pendingWarning').remove();
                 $('#saveBtn').prop('disabled', false);
@@ -1813,7 +1818,6 @@ function checkPendingPrevious(residentId, month, year) {
         }
     });
 }
-
 function submitForm() {
     let id = document.getElementById('editId').value;
     let partialId = document.getElementById('partialPaymentId').value;
