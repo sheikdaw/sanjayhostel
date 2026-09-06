@@ -91,6 +91,36 @@
     .payment-adjustments .discount { color: #22c55e; }
     .payment-adjustments .fine { color: #ef4444; }
 
+    /* 🔥 NEW: Remark Styles */
+    .remark-box {
+        margin-top: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        background: #f8fafc;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        border-left: 3px solid var(--sanjay-gold);
+    }
+    .remark-box .remark-icon {
+        color: var(--sanjay-gold);
+        margin-right: 4px;
+    }
+    .remark-box .remark-text {
+        color: #374151;
+        word-break: break-word;
+    }
+    .remark-box .remark-text .highlight-pending {
+        color: #ef4444;
+        font-weight: 600;
+    }
+    .remark-box .remark-text .highlight-success {
+        color: #22c55e;
+        font-weight: 600;
+    }
+    .remark-box .remark-text .highlight-warning {
+        color: #f59e0b;
+        font-weight: 600;
+    }
+
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -760,6 +790,14 @@
                                 @endif
                             </div>
 
+                            {{-- 🔥 REMARK DISPLAY --}}
+                            @if($payment->remark)
+                                <div class="remark-box">
+                                    <i class="bi bi-pencil remark-icon"></i>
+                                    <span class="remark-text">{!! nl2br(e($payment->remark)) !!}</span>
+                                </div>
+                            @endif
+
                             <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                                 <span class="status-badge {{ strtolower($payment->status) }}">
                                     <span class="dot"></span>
@@ -930,7 +968,7 @@
                             <div class="invalid-feedback" id="payment_date_error"></div>
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Transaction ID</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-hash rv-input-icon"></i>
@@ -938,7 +976,7 @@
                             </div>
                             <div class="invalid-feedback" id="transaction_id_error"></div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Status <span class="required">*</span></label>
                             <div class="rv-input-box">
                                 <i class="bi bi-toggle-on rv-input-icon"></i>
@@ -950,8 +988,29 @@
                             </div>
                             <div class="invalid-feedback" id="status_error"></div>
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Payment Type <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-credit-card rv-input-icon"></i>
+                                <select name="payment_type" id="payment_type" class="rv-input" required>
+                                    <option value="current">📅 Current Month Only</option>
+                                    <option value="previous">📅 Previous Pending Only</option>
+                                    <option value="all">✅ Clear All Dues</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="payment_type_error"></div>
+                        </div>
                     </div>
-                    
+
+                    {{-- 🔥 REMARK DISPLAY (Auto-generated) --}}
+                    <div id="remarkPreview" style="display:none; margin-top:0.75rem; padding:0.75rem; background:#f0fdf4; border-radius:8px; border-left:4px solid #22c55e;">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <i class="bi bi-pencil" style="color:#22c55e;"></i>
+                            <strong style="color:#166534;">Remark:</strong>
+                            <span id="remarkPreviewText" style="font-size:0.85rem; color:#374151;"></span>
+                        </div>
+                    </div>
+
                     <!-- Partial Payment Details Container -->
                     <div id="partialDetailsContainer"></div>
                 </div>
@@ -1072,6 +1131,12 @@ $(document).ready(function() {
 
     $('#rent_amount, #discount_amount, #fine_amount, #cash_paid_amount, #upi_paid_amount').on('input', function() {
         calculateBalance();
+        generateRemarkPreview();
+    });
+
+    // 🔥 Payment type change - show remark preview
+    $('#payment_type').on('change', function() {
+        generateRemarkPreview();
     });
 
     // Filter event listeners
@@ -1192,6 +1257,7 @@ $(document).ready(function() {
                     if (response.success) {
                         $('#rent_amount').val(response.data.rent_amount);
                         calculateBalance();
+                        generateRemarkPreview();
                     }
                 }
             });
@@ -1214,12 +1280,65 @@ $(document).ready(function() {
         if (residentId && month && year) {
             checkPartialPayment(residentId, month, year);
             checkPendingPrevious(residentId, month, year);
+            generateRemarkPreview();
         }
     });
 
     // Apply initial filters
     applyFilters();
 });
+
+// ============================================================
+// 🔥 GENERATE REMARK PREVIEW
+// ============================================================
+
+function generateRemarkPreview() {
+    let paymentType = $('#payment_type').val();
+    let residentId = $('#resident_id').val();
+    let month = $('#month').val();
+    let year = $('#year').val();
+    let paymentDate = $('#payment_date').val();
+    let cashPaid = parseFloat($('#cash_paid_amount').val()) || 0;
+    let upiPaid = parseFloat($('#upi_paid_amount').val()) || 0;
+    let totalPaid = cashPaid + upiPaid;
+
+    if (!residentId || !month || !year || !paymentDate) {
+        $('#remarkPreview').hide();
+        return;
+    }
+
+    $.ajax({
+        url: '/admin/payments/resident/' + residentId + '/payment-details',
+        type: 'POST',
+        data: {
+            month: month,
+            year: year,
+            payment_date: paymentDate,
+            payment_type: paymentType,
+            _token: '{{ csrf_token() }}'
+        },
+        success: function(response) {
+            if (response.success && response.data) {
+                let data = response.data;
+                let previewRemark = data.preview_remark || '';
+                let suggestedAmount = data.suggested_amount || 0;
+
+                if (previewRemark) {
+                    $('#remarkPreviewText').text(previewRemark);
+                    $('#remarkPreview').show();
+                } else {
+                    $('#remarkPreview').hide();
+                }
+
+                // Auto-fill suggested amount
+                if (suggestedAmount > 0 && totalPaid === 0) {
+                    $('#cash_paid_amount').val(suggestedAmount);
+                    calculateBalance();
+                }
+            }
+        }
+    });
+}
 
 // ========== PARTIAL PAYMENT FUNCTIONS ==========
 
@@ -1610,6 +1729,7 @@ function openAddModal() {
     $('#pendingWarning').remove();
     $('#partialDetailsContainer').empty();
     $('#completionNote').remove();
+    $('#remarkPreview').hide();
     $('#saveBtn').prop('disabled', false);
     var modal = new bootstrap.Modal(document.getElementById('paymentModal'));
     modal.show();
@@ -1636,6 +1756,7 @@ function resetForm() {
     $('#pendingWarning').remove();
     $('#partialDetailsContainer').empty();
     $('#completionNote').remove();
+    $('#remarkPreview').hide();
     $('#saveBtn').prop('disabled', false);
     $('#modal_hostel_id').val('');
     $('#modal_room_id').empty().append('<option value="">Select Hostel First</option>').prop('disabled', true);
@@ -1843,6 +1964,7 @@ function editPayment(id) {
                 document.getElementById('cash_paid_amount').value = data.cash_paid_amount;
                 document.getElementById('upi_paid_amount').value = data.upi_paid_amount;
                 document.getElementById('transaction_id').value = data.transaction_id || '';
+                document.getElementById('payment_type').value = data.payment_type || 'current';
                 if (data.payment_date) {
                     const paymentDate = new Date(data.payment_date);
                     document.getElementById('payment_date').value = paymentDate.toISOString().split('T')[0];
@@ -1854,6 +1976,7 @@ function editPayment(id) {
                 $('#pendingWarning').remove();
                 $('#partialDetailsContainer').empty();
                 $('#completionNote').remove();
+                $('#remarkPreview').hide();
                 $('#saveBtn').prop('disabled', false);
 
                 let hostelId = data.resident ? data.resident.hostel_id : null;
@@ -1886,6 +2009,7 @@ function editPayment(id) {
                                         });
                                     }
                                     residentSelect.val(residentId);
+                                    generateRemarkPreview();
                                 }
                             });
                         }
@@ -2041,6 +2165,11 @@ function buildBillMessage(payment, resident) {
 
     if (payment.transaction_id) {
         lines.push('Txn ID: ' + txnDisplay);
+    }
+
+    // Add remark if exists
+    if (payment.remark) {
+        lines.push('', '📝 ' + payment.remark);
     }
 
     lines.push('', 'Thank you for your payment! 🙏');

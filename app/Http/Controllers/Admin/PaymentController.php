@@ -143,7 +143,7 @@ class PaymentController extends Controller
     }
 
     // ============================================================
-    // 🔥 NEW: HELPER METHODS
+    // 🔥 HELPER METHODS
     // ============================================================
 
     /**
@@ -216,7 +216,6 @@ class PaymentController extends Controller
 
         // Determine what to pay based on payment type
         $suggestedAmount = 0;
-        $status = 'PENDING';
         
         if ($paymentType === 'current') {
             $suggestedAmount = $currentDue;
@@ -244,8 +243,149 @@ class PaymentController extends Controller
         ];
     }
 
+    /**
+     * 🔥 NEW: Generate Remark based on payment type
+     */
+    private function generateRemark($paymentType, $currentDue, $previousPending, $currentPaid, $previousPaid, $totalBalance, $previousMonthsList, $month, $year)
+    {
+        $monthName = date('F', mktime(0, 0, 0, $month, 1));
+        $currentMonthLabel = $monthName . ' ' . $year;
+
+        $remark = '';
+
+        if ($paymentType === 'current') {
+            if ($currentPaid >= $currentDue) {
+                $remark = "✅ {$currentMonthLabel} payment completed: ₹" . number_format($currentPaid, 2);
+            } else {
+                $remark = "🟡 Partial payment for {$currentMonthLabel}: ₹" . number_format($currentPaid, 2) . " paid. Balance: ₹" . number_format($currentDue - $currentPaid, 2);
+            }
+
+            if ($previousPending > 0) {
+                $remark .= " | ⚠️ Previous months pending: ₹" . number_format($previousPending, 2) . " (" . $previousMonthsList . "). Not cleared.";
+            }
+
+        } elseif ($paymentType === 'previous') {
+            if ($previousPaid >= $previousPending) {
+                $remark = "✅ Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousMonthsList . ")";
+            } else {
+                $remark = "🟡 Partial clearing of previous pending: ₹" . number_format($previousPaid, 2) . " paid. Remaining: ₹" . number_format($previousPending - $previousPaid, 2);
+            }
+
+            if ($currentDue > 0) {
+                $remark .= " | 📅 {$currentMonthLabel} due: ₹" . number_format($currentDue, 2) . " (not paid)";
+            }
+
+        } elseif ($paymentType === 'all') {
+            if ($totalBalance <= 0) {
+                $remark = "✅ All dues cleared! {$currentMonthLabel}: ₹" . number_format($currentPaid, 2);
+                if ($previousPaid > 0) {
+                    $remark .= " | Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousMonthsList . ")";
+                }
+            } else {
+                $remark = "🟡 Partial payment. {$currentMonthLabel}: ₹" . number_format($currentPaid, 2) . " paid";
+                if ($previousPaid > 0) {
+                    $remark .= " | Previous pending partially cleared: ₹" . number_format($previousPaid, 2);
+                }
+                $remark .= " | Remaining balance: ₹" . number_format($totalBalance, 2);
+            }
+        }
+
+        return $remark;
+    }
+
+    /**
+     * Build response message
+     */
+    private function buildResponseMessage($paymentType, $currentDue, $previousPending, $totalPaid, $currentPaid, $previousPaid, $totalBalance)
+    {
+        $messages = [];
+        
+        if ($paymentType === 'current') {
+            if ($currentPaid >= $currentDue) {
+                $messages[] = "✅ Current month payment completed!";
+            } else {
+                $messages[] = "🟡 Partial payment for current month. Balance: ₹" . number_format($currentDue - $currentPaid, 2);
+            }
+            
+            if ($previousPending > 0) {
+                $messages[] = "⚠️ IMPORTANT: ₹" . number_format($previousPending, 2) . " is still pending from previous months.";
+                $messages[] = "Please pay this separately using 'Previous Pending' or 'Clear All Dues' option.";
+            }
+            
+        } elseif ($paymentType === 'previous') {
+            if ($previousPaid >= $previousPending) {
+                $messages[] = "✅ Previous pending cleared!";
+            } else {
+                $messages[] = "🟡 Partial payment for previous pending. Remaining: ₹" . number_format($previousPending - $previousPaid, 2);
+            }
+            
+            if ($currentDue > 0) {
+                $messages[] = "📅 Current month due: ₹" . number_format($currentDue, 2);
+                $messages[] = "Please pay current month separately.";
+            }
+            
+        } elseif ($paymentType === 'all') {
+            if ($totalBalance <= 0) {
+                $messages[] = "✅ All dues cleared!";
+            } else {
+                $messages[] = "🟡 Partial payment. Remaining balance: ₹" . number_format($totalBalance, 2);
+            }
+        }
+
+        $messages[] = "Amount paid: ₹" . number_format($totalPaid, 2);
+        $messages[] = "Receipt No: " . ($this->receiptNo ?? 'N/A');
+
+        return implode("\n", $messages);
+    }
+
+    /**
+     * Apply payment to previous pending payments
+     */
+    private function applyToPreviousPending($residentId, $amount, $currentMonth, $currentYear, $paymentDate, $transactionId)
+    {
+        $prevPayments = Payment::where('resident_id', $residentId)
+            ->where(function($q) use ($currentMonth, $currentYear) {
+                $q->where('year', '<', $currentYear)
+                  ->orWhere(function($q2) use ($currentMonth, $currentYear) {
+                      $q2->where('year', $currentYear)
+                         ->where('month', '<', $currentMonth);
+                  });
+            })
+            ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        $remaining = $amount;
+
+        foreach ($prevPayments as $prevPayment) {
+            if ($remaining <= 0) break;
+
+            $prevBalance = $prevPayment->balance_amount;
+            $payAmount = min($remaining, $prevBalance);
+
+            // Update payment
+            $prevPayment->cash_paid_amount += $payAmount;
+            $newBalance = $prevBalance - $payAmount;
+            $prevPayment->balance_amount = max(0, $newBalance);
+            $prevPayment->status = ($newBalance <= 0) ? 'PAID' : 'PARTIAL';
+            
+            // Append transaction ID
+            if ($transactionId && $payAmount > 0) {
+                if ($prevPayment->transaction_id) {
+                    $prevPayment->transaction_id .= ' / ' . $transactionId;
+                } else {
+                    $prevPayment->transaction_id = $transactionId;
+                }
+            }
+            
+            $prevPayment->save();
+            $remaining -= $payAmount;
+        }
+    }
+
     // ============================================================
-    // 🔥 NEW: PAYMENT DETAILS API
+    // 🔥 PAYMENT DETAILS API
     // ============================================================
 
     /**
@@ -262,13 +402,45 @@ class PaymentController extends Controller
                 ]);
             }
 
+            $paymentType = $request->payment_type ?? 'current';
+            $paymentDate = $request->payment_date;
+            
+            // Get discount
+            $discount = $this->calculateDiscount($paymentDate);
+            $currentDue = $resident->rent_amount - $discount;
+            $previousPending = $this->getPreviousPending($resident->id, $request->month, $request->year);
+            $previousMonths = $this->getPreviousMonthsList($resident->id, $request->month, $request->year);
+            $totalDue = $currentDue + $previousPending;
+            
+            // Calculate based on payment type
+            $suggestedAmount = 0;
+            $previewRemark = '';
+            
+            if ($paymentType === 'current') {
+                $suggestedAmount = $currentDue;
+                if ($previousPending > 0) {
+                    $previewRemark = "⚠️ Previous months pending: ₹" . number_format($previousPending, 2) . " (" . $previousMonths . "). Will remain pending.";
+                } else {
+                    $previewRemark = "✅ No previous pending. Just pay current month.";
+                }
+            } elseif ($paymentType === 'previous') {
+                $suggestedAmount = $previousPending;
+                $previewRemark = "📅 Clearing previous pending: ₹" . number_format($previousPending, 2) . " (" . $previousMonths . ")";
+            } elseif ($paymentType === 'all') {
+                $suggestedAmount = $totalDue;
+                $previewRemark = "✅ Clearing all dues: ₹" . number_format($totalDue, 2) . " (Current: ₹" . number_format($currentDue, 2) . " + Previous: ₹" . number_format($previousPending, 2) . ")";
+            }
+
             $details = $this->calculatePaymentDetails(
                 $resident,
                 $request->month,
                 $request->year,
-                $request->payment_date,
-                $request->payment_type ?? 'current'
+                $paymentDate,
+                $paymentType
             );
+            
+            $details['preview_remark'] = $previewRemark;
+            $details['suggested_amount'] = $suggestedAmount;
 
             return response()->json([
                 'success' => true,
@@ -319,7 +491,7 @@ class PaymentController extends Controller
     }
 
     // ============================================================
-    // 🔥 UPDATED: STORE METHOD WITH PAYMENT TYPE SUPPORT
+    // 🔥 UPDATED: STORE METHOD WITH REMARK SUPPORT
     // ============================================================
 
     public function store(Request $request)
@@ -377,6 +549,7 @@ class PaymentController extends Controller
             
             $currentDue = $resident->rent_amount - $discount + $fine;
             $previousPending = $this->getPreviousPending($resident->id, $request->month, $request->year);
+            $previousMonthsList = $this->getPreviousMonthsList($resident->id, $request->month, $request->year);
             
             $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
             
@@ -422,13 +595,26 @@ class PaymentController extends Controller
                 $status = ($totalBalance <= 0) ? 'PAID' : (($totalPaid > 0) ? 'PARTIAL' : 'PENDING');
             }
 
+            // 🔥 GENERATE REMARK
+            $remark = $this->generateRemark(
+                $paymentType,
+                $currentDue,
+                $previousPending,
+                $currentMonthPaid,
+                $previousPaid,
+                $totalBalance,
+                $previousMonthsList,
+                $request->month,
+                $request->year
+            );
+
             // Generate receipt
             $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
             while (Payment::where('receipt_no', $receiptNo)->exists()) {
                 $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
             }
 
-            // 🔥 CREATE PAYMENT FOR CURRENT MONTH
+            // 🔥 CREATE PAYMENT
             $payment = Payment::create([
                 'resident_id' => $resident->id,
                 'receipt_no' => $receiptNo,
@@ -438,14 +624,17 @@ class PaymentController extends Controller
                 'discount_amount' => $discount,
                 'fine_amount' => $fine,
                 'cash_paid_amount' => $currentMonthPaid,
-                'upi_paid_amount' => 0, // Only cash for current
+                'upi_paid_amount' => 0,
                 'balance_amount' => $currentBalance,
                 'payment_date' => $paymentDate,
                 'transaction_id' => $request->transaction_id,
-                'status' => $status
+                'status' => $status,
+                'payment_type' => $paymentType,
+                'previous_pending_cleared' => $previousPaid,
+                'remark' => $remark
             ]);
 
-            // 🔥 IF PAYING PREVIOUS PENDING, UPDATE OR CREATE PAYMENT FOR PREVIOUS MONTHS
+            // 🔥 IF PAYING PREVIOUS PENDING, UPDATE PREVIOUS PAYMENTS
             if ($previousPaid > 0) {
                 $this->applyToPreviousPending($resident->id, $previousPaid, $request->month, $request->year, $paymentDate, $request->transaction_id);
             }
@@ -472,6 +661,7 @@ class PaymentController extends Controller
                     'payment_type' => $paymentType,
                     'discount_applied' => $discount,
                     'fine_applied' => $fine,
+                    'remark' => $remark,
                     'calculation' => [
                         'rent' => $resident->rent_amount,
                         'discount' => $discount,
@@ -491,97 +681,6 @@ class PaymentController extends Controller
                 'message' => 'Failed to create payment: ' . $e->getMessage()
             ], 500);
         }
-    }
-
-    /**
-     * Apply payment to previous pending payments
-     */
-    private function applyToPreviousPending($residentId, $amount, $currentMonth, $currentYear, $paymentDate, $transactionId)
-    {
-        $prevPayments = Payment::where('resident_id', $residentId)
-            ->where(function($q) use ($currentMonth, $currentYear) {
-                $q->where('year', '<', $currentYear)
-                  ->orWhere(function($q2) use ($currentMonth, $currentYear) {
-                      $q2->where('year', $currentYear)
-                         ->where('month', '<', $currentMonth);
-                  });
-            })
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->orderBy('year', 'asc')
-            ->orderBy('month', 'asc')
-            ->get();
-
-        $remaining = $amount;
-
-        foreach ($prevPayments as $prevPayment) {
-            if ($remaining <= 0) break;
-
-            $prevBalance = $prevPayment->balance_amount;
-            $payAmount = min($remaining, $prevBalance);
-
-            // Update payment
-            $prevPayment->cash_paid_amount += $payAmount;
-            $newBalance = $prevBalance - $payAmount;
-            $prevPayment->balance_amount = max(0, $newBalance);
-            $prevPayment->status = ($newBalance <= 0) ? 'PAID' : 'PARTIAL';
-            
-            // Append transaction ID
-            if ($transactionId && $payAmount > 0) {
-                if ($prevPayment->transaction_id) {
-                    $prevPayment->transaction_id .= ' / ' . $transactionId;
-                } else {
-                    $prevPayment->transaction_id = $transactionId;
-                }
-            }
-            
-            $prevPayment->save();
-            $remaining -= $payAmount;
-        }
-    }
-
-    /**
-     * Build response message
-     */
-    private function buildResponseMessage($paymentType, $currentDue, $previousPending, $totalPaid, $currentPaid, $previousPaid, $totalBalance)
-    {
-        $messages = [];
-        
-        if ($paymentType === 'current') {
-            if ($currentPaid >= $currentDue) {
-                $messages[] = "✅ Current month payment completed!";
-            } else {
-                $messages[] = "🟡 Partial payment for current month. Balance: ₹" . number_format($currentDue - $currentPaid, 2);
-            }
-            
-            if ($previousPending > 0) {
-                $messages[] = "⚠️ IMPORTANT: ₹" . number_format($previousPending, 2) . " is still pending from previous months.";
-                $messages[] = "Please pay this separately using 'Previous Pending' or 'Clear All Dues' option.";
-            }
-            
-        } elseif ($paymentType === 'previous') {
-            if ($previousPaid >= $previousPending) {
-                $messages[] = "✅ Previous pending cleared!";
-            } else {
-                $messages[] = "🟡 Partial payment for previous pending. Remaining: ₹" . number_format($previousPending - $previousPaid, 2);
-            }
-            
-            if ($currentDue > 0) {
-                $messages[] = "📅 Current month due: ₹" . number_format($currentDue, 2);
-                $messages[] = "Please pay current month separately.";
-            }
-            
-        } elseif ($paymentType === 'all') {
-            if ($totalBalance <= 0) {
-                $messages[] = "✅ All dues cleared!";
-            } else {
-                $messages[] = "🟡 Partial payment. Remaining balance: ₹" . number_format($totalBalance, 2);
-            }
-        }
-
-        $messages[] = "Amount paid: ₹" . number_format($totalPaid, 2);
-        $messages[] = "Receipt No: " . ($payment->receipt_no ?? 'N/A');
-
-        return implode("\n", $messages);
     }
 
     // ============================================================
@@ -964,7 +1063,9 @@ class PaymentController extends Controller
                 'upi_paid_amount' => 0,
                 'balance_amount' => ($resident->rent_amount ?? 0) - $this->calculateDiscount($request->payment_date),
                 'payment_date' => $request->payment_date,
-                'status' => 'PENDING'
+                'status' => 'PENDING',
+                'payment_type' => 'current',
+                'remark' => "📅 Pending payment for " . date('F', mktime(0,0,0,$request->month,1)) . " " . $request->year
             ]);
 
             $created[] = $payment;
@@ -1209,7 +1310,7 @@ class PaymentController extends Controller
         $csv .= "Total Residents: " . $residents->count() . "\n";
         $csv .= "==================================================\n\n";
 
-        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Payment Status,Receipt No,Paid Amount (₹),Balance (₹)\n";
+        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Payment Status,Receipt No,Paid Amount (₹),Balance (₹),Remark\n";
 
         $serialNo = 1;
         $totalResidents = 0;
@@ -1255,7 +1356,8 @@ class PaymentController extends Controller
                 $csv .= $status . ",";
                 $csv .= $this->csvString($payment->receipt_no ?? '') . ",";
                 $csv .= $this->csvNumber($paidAmount) . ",";
-                $csv .= $this->csvNumber($balance) . "\n";
+                $csv .= $this->csvNumber($balance) . ",";
+                $csv .= $this->csvString($payment->remark ?? '') . "\n";
             } else {
                 $noPaymentCount++;
                 $totalBalance += $resident->rent_amount ?? 0;
@@ -1269,7 +1371,8 @@ class PaymentController extends Controller
                 $csv .= "NO PAYMENT" . ",";
                 $csv .= "" . ",";
                 $csv .= "0.00" . ",";
-                $csv .= $this->csvNumber($resident->rent_amount ?? 0) . "\n";
+                $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
+                $csv .= "No payment recorded" . "\n";
             }
             $serialNo++;
         }
@@ -1327,7 +1430,7 @@ class PaymentController extends Controller
         $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
         $csv .= "==================================================\n\n";
 
-        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Payment Status,Due Amount (₹)\n";
+        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Payment Status,Due Amount (₹),Remark\n";
 
         $serialNo = 1;
         $totalPending = 0;
@@ -1361,7 +1464,8 @@ class PaymentController extends Controller
                 $csv .= $this->csvString($resident->phone ?? '') . ",";
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
                 $csv .= ($payment ? $payment->status : 'NO PAYMENT') . ",";
-                $csv .= $this->csvNumber($dueAmount) . "\n";
+                $csv .= $this->csvNumber($dueAmount) . ",";
+                $csv .= $this->csvString($payment->remark ?? '') . "\n";
                 $serialNo++;
             }
         }
@@ -1401,7 +1505,7 @@ class PaymentController extends Controller
         $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
         $csv .= "Total Records: " . $payments->count() . "\n\n";
 
-        $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Balance (₹),Status,Payment Date,Transaction ID\n";
+        $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Balance (₹),Status,Payment Date,Transaction ID,Payment Type,Remark\n";
 
         if ($payments->count() > 0) {
             foreach ($payments as $payment) {
@@ -1423,7 +1527,9 @@ class PaymentController extends Controller
                 $csv .= $this->csvNumber($payment->balance_amount) . ",";
                 $csv .= $payment->status . ",";
                 $csv .= $payment->payment_date . ",";
-                $csv .= $this->csvString($payment->transaction_id ?? '') . "\n";
+                $csv .= $this->csvString($payment->transaction_id ?? '') . ",";
+                $csv .= $this->csvString($payment->payment_type ?? '') . ",";
+                $csv .= $this->csvString($payment->remark ?? '') . "\n";
             }
         } else {
             $csv .= "No payments found.\n";

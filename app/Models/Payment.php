@@ -22,6 +22,9 @@ class Payment extends Model
         'balance_amount',
         'payment_date',
         'transaction_id',
+        'remark',                    // 🔥 NEW
+        'payment_type',              // 🔥 NEW
+        'previous_pending_cleared',  // 🔥 NEW
         'status'
     ];
 
@@ -32,6 +35,7 @@ class Payment extends Model
         'cash_paid_amount' => 'decimal:2',
         'upi_paid_amount' => 'decimal:2',
         'balance_amount' => 'decimal:2',
+        'previous_pending_cleared' => 'decimal:2',  // 🔥 NEW
         'payment_date' => 'date',
         'month' => 'integer',
         'year' => 'integer'
@@ -109,6 +113,14 @@ class Payment extends Model
         return route('admin.payments.receipt', $this->id);
     }
 
+    public function getRemarkDisplayAttribute()
+    {
+        if (empty($this->remark)) {
+            return 'No remarks';
+        }
+        return $this->remark;
+    }
+
     public function isPastMonth()
     {
         $currentMonth = now()->month;
@@ -156,5 +168,16 @@ class Payment extends Model
                   });
             })
             ->whereIn('status', ['PENDING', 'PARTIAL']);
+    }
+
+    // 🔥 NEW: Get payment type label
+    public function getPaymentTypeLabelAttribute()
+    {
+        $labels = [
+            'current' => 'Current Month',
+            'previous' => 'Previous Pending',
+            'all' => 'Clear All Dues'
+        ];
+        return $labels[$this->payment_type] ?? $this->payment_type;
     }
 }
