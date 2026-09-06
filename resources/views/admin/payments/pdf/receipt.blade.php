@@ -49,6 +49,8 @@
         .text-primary { color: #1a237e; }
         .text-muted { color: #757575; }
         .payment-details { margin: 10px 0; }
+        .remark-box { margin-top: 10px; padding: 8px 12px; background: #f8f9fa; border-left: 3px solid #1a237e; border-radius: 4px; font-size: 9px; }
+        .remark-box .remark-label { font-weight: bold; color: #1a237e; }
     </style>
 </head>
 <body>
@@ -149,6 +151,13 @@
                     @endif
                 </span>
             </div>
+
+            @if($payment->remark)
+            <div class="remark-box">
+                <span class="remark-label">📝 Remark:</span>
+                <span>{{ $payment->remark }}</span>
+            </div>
+            @endif
 
             @if($payment->status == 'PAID')
             <div style="text-align:center; margin-top:10px; padding:6px; background:#e8f5e9; border-radius:4px;">

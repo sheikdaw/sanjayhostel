@@ -11,8 +11,8 @@
         .header p { font-size: 10px; color: #666; margin-top: 3px; }
         .report-info { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 9px; background: #e8f5e9; padding: 6px 10px; border-radius: 4px; flex-wrap: wrap; }
         .report-info .label { font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
-        table th { background: #2e7d32; color: white; padding: 5px 3px; text-align: left; font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+        table { width: 100%; border-collapse: collapse; font-size: 8px; }
+        table th { background: #2e7d32; color: white; padding: 4px 3px; text-align: left; font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
         table td { padding: 3px; border-bottom: 1px solid #e0e0e0; }
         table tr:nth-child(even) { background: #f8f9fa; }
         .badge { padding: 1px 6px; border-radius: 8px; font-size: 7px; font-weight: bold; display: inline-block; background: #c8e6c9; color: #2e7d32; }
@@ -25,6 +25,7 @@
         .summary-item .label { color: #666; }
         .text-success { color: #2e7d32; }
         .text-primary { color: #1a237e; }
+        .remark-cell { max-width: 150px; word-wrap: break-word; font-size: 6.5px; }
     </style>
 </head>
 <body>
@@ -44,7 +45,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Receipt No</th>
+                    <th>Receipt</th>
                     <th>Resident</th>
                     <th>Hostel</th>
                     <th>Room</th>
@@ -58,6 +59,7 @@
                     <th>Paid (₹)</th>
                     <th>Date</th>
                     <th>Txn ID</th>
+                    <th>Remark</th>
                 </tr>
             </thead>
             <tbody>
@@ -81,6 +83,7 @@
                         <td><strong>{{ number_format($totalPaid, 2) }}</strong></td>
                         <td>{{ $payment->payment_date }}</td>
                         <td>{{ $payment->transaction_id ?? '' }}</td>
+                        <td class="remark-cell">{{ $payment->remark ?? 'N/A' }}</td>
                     </tr>
                 @endforeach
             </tbody>

@@ -11,11 +11,11 @@
         .header p { font-size: 10px; color: #666; margin-top: 3px; }
         .report-info { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 9px; background: #f5f5f5; padding: 6px 10px; border-radius: 4px; flex-wrap: wrap; }
         .report-info .label { font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; font-size: 8px; }
-        table th { background: #1a237e; color: white; padding: 4px 3px; text-align: left; font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
+        table { width: 100%; border-collapse: collapse; font-size: 7.5px; }
+        table th { background: #1a237e; color: white; padding: 4px 3px; text-align: left; font-size: 6.5px; text-transform: uppercase; letter-spacing: 0.3px; }
         table td { padding: 3px; border-bottom: 1px solid #e0e0e0; }
         table tr:nth-child(even) { background: #f8f9fa; }
-        .badge { padding: 1px 5px; border-radius: 8px; font-size: 6.5px; font-weight: bold; display: inline-block; }
+        .badge { padding: 1px 5px; border-radius: 8px; font-size: 6px; font-weight: bold; display: inline-block; }
         .badge-paid { background: #c8e6c9; color: #2e7d32; }
         .badge-pending { background: #ffcdd2; color: #c62828; }
         .badge-partial { background: #ffe0b2; color: #e65100; }
@@ -31,6 +31,7 @@
         .text-warning { color: #e65100; }
         .text-primary { color: #1a237e; }
         .text-muted { color: #757575; }
+        .remark-cell { max-width: 150px; word-wrap: break-word; font-size: 6.5px; }
     </style>
 </head>
 <body>
@@ -51,7 +52,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Receipt No</th>
+                    <th>Receipt</th>
                     <th>Resident</th>
                     <th>Hostel</th>
                     <th>Room</th>
@@ -66,6 +67,7 @@
                     <th>Balance (₹)</th>
                     <th>Status</th>
                     <th>Date</th>
+                    <th>Remark</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,6 +93,7 @@
                         <td>{{ number_format($payment->balance_amount, 2) }}</td>
                         <td><span class="badge badge-{{ $statusClass }}">{{ $payment->status }}</span></td>
                         <td>{{ $payment->payment_date }}</td>
+                        <td class="remark-cell">{{ $payment->remark ?? 'N/A' }}</td>
                     </tr>
                 @endforeach
             </tbody>

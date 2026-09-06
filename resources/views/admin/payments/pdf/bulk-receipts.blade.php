@@ -56,6 +56,8 @@
         .summary-item { text-align: center; padding: 6px 12px; background: #f5f5f5; border-radius: 6px; min-width: 80px; }
         .summary-item .number { font-size: 16px; font-weight: bold; }
         .summary-item .label { font-size: 8px; color: #666; }
+        .remark-box { margin-top: 6px; padding: 4px 8px; background: #f8f9fa; border-left: 2px solid #1a237e; font-size: 7px; }
+        .remark-box .remark-label { font-weight: bold; color: #1a237e; }
     </style>
 </head>
 <body>
@@ -179,6 +181,13 @@
             @if($payment->transaction_id)
             <div style="font-size:8px; color:#666; margin-top:4px;">
                 Txn ID: {{ $payment->transaction_id }}
+            </div>
+            @endif
+
+            @if($payment->remark)
+            <div class="remark-box">
+                <span class="remark-label">📝 Remark:</span>
+                <span>{{ $payment->remark }}</span>
             </div>
             @endif
 

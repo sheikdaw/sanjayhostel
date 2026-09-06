@@ -11,8 +11,8 @@
         .header p { font-size: 10px; color: #666; margin-top: 3px; }
         .report-info { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 9px; background: #f5f5f5; padding: 6px 10px; border-radius: 4px; flex-wrap: wrap; }
         .report-info .label { font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
-        table th { background: #1a237e; color: white; padding: 5px 3px; text-align: left; font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+        table { width: 100%; border-collapse: collapse; font-size: 8px; }
+        table th { background: #1a237e; color: white; padding: 4px 3px; text-align: left; font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
         table td { padding: 3px; border-bottom: 1px solid #e0e0e0; }
         table tr:nth-child(even) { background: #f8f9fa; }
         .footer { margin-top: 15px; padding-top: 8px; border-top: 1px solid #e0e0e0; text-align: center; font-size: 8px; color: #999; }

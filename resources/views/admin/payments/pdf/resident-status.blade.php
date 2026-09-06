@@ -11,14 +11,15 @@
         .header p { font-size: 11px; color: #666; margin-top: 5px; }
         .report-info { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10px; }
         .report-info .label { font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; font-size: 9px; }
-        table th { background: #1a237e; color: white; padding: 6px 4px; text-align: left; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        table td { padding: 4px; border-bottom: 1px solid #e0e0e0; }
+        table { width: 100%; border-collapse: collapse; font-size: 8px; }
+        table th { background: #1a237e; color: white; padding: 4px 3px; text-align: left; font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
+        table td { padding: 3px; border-bottom: 1px solid #e0e0e0; }
         table tr:nth-child(even) { background: #f8f9fa; }
-        .status-paid { color: #2e7d32; font-weight: bold; }
-        .status-pending { color: #c62828; font-weight: bold; }
-        .status-partial { color: #e65100; font-weight: bold; }
-        .status-no-payment { color: #757575; font-weight: bold; }
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 7px; font-weight: bold; }
+        .badge-paid { background: #c8e6c9; color: #2e7d32; }
+        .badge-pending { background: #ffcdd2; color: #c62828; }
+        .badge-partial { background: #ffe0b2; color: #e65100; }
+        .badge-no-payment { background: #e0e0e0; color: #757575; }
         .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #e0e0e0; text-align: center; font-size: 9px; color: #999; }
         .summary-box { margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; }
         .summary-box h3 { font-size: 12px; color: #1a237e; margin-bottom: 8px; }
@@ -30,11 +31,7 @@
         .text-danger { color: #c62828; }
         .text-warning { color: #e65100; }
         .text-muted { color: #757575; }
-        .badge { padding: 2px 8px; border-radius: 10px; font-size: 7px; font-weight: bold; }
-        .badge-paid { background: #c8e6c9; color: #2e7d32; }
-        .badge-pending { background: #ffcdd2; color: #c62828; }
-        .badge-partial { background: #ffe0b2; color: #e65100; }
-        .badge-no-payment { background: #e0e0e0; color: #757575; }
+        .remark-cell { max-width: 150px; word-wrap: break-word; font-size: 6.5px; }
     </style>
 </head>
 <body>
@@ -54,15 +51,16 @@
             <tr>
                 <th>S.No</th>
                 <th>Hostel</th>
-                <th>Room No</th>
-                <th>Bed No</th>
-                <th>Resident Name</th>
+                <th>Room</th>
+                <th>Bed</th>
+                <th>Resident</th>
                 <th>Phone</th>
-                <th>Monthly Rent (₹)</th>
-                <th>Payment Status</th>
-                <th>Receipt No</th>
+                <th>Rent (₹)</th>
+                <th>Status</th>
+                <th>Receipt</th>
                 <th>Paid (₹)</th>
                 <th>Balance (₹)</th>
+                <th>Remark</th>
             </tr>
         </thead>
         <tbody>
@@ -73,6 +71,7 @@
                     $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
                     $bedNo = $resident->bed_no ?? 'N/A';
                     $rent = $resident->rent_amount ?? 0;
+                    $remark = $payment ? $payment->remark : 'No payment recorded';
                 @endphp
                 <tr>
                     <td>{{ $serialNo++ }}</td>
@@ -84,29 +83,15 @@
                     <td>{{ number_format($rent, 2) }}</td>
                     <td>
                         @if($payment)
-                            @php
-                                $statusClass = strtolower($payment->status);
-                            @endphp
-                            <span class="badge badge-{{ $statusClass }}">{{ $payment->status }}</span>
+                            <span class="badge badge-{{ strtolower($payment->status) }}">{{ $payment->status }}</span>
                         @else
                             <span class="badge badge-no-payment">NO PAYMENT</span>
                         @endif
                     </td>
                     <td>{{ $payment ? $payment->receipt_no : '' }}</td>
-                    <td>
-                        @if($payment)
-                            {{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) }}
-                        @else
-                            0.00
-                        @endif
-                    </td>
-                    <td>
-                        @if($payment)
-                            {{ number_format($payment->balance_amount, 2) }}
-                        @else
-                            {{ number_format($rent, 2) }}
-                        @endif
-                    </td>
+                    <td>{{ $payment ? number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) : '0.00' }}</td>
+                    <td>{{ $payment ? number_format($payment->balance_amount, 2) : number_format($rent, 2) }}</td>
+                    <td class="remark-cell">{{ $remark }}</td>
                 </tr>
             @endforeach
         </tbody>

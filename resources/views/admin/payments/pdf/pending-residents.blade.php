@@ -11,8 +11,8 @@
         .header p { font-size: 10px; color: #666; margin-top: 3px; }
         .report-info { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 9px; background: #ffebee; padding: 6px 10px; border-radius: 4px; }
         .report-info .label { font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
-        table th { background: #c62828; color: white; padding: 5px 3px; text-align: left; font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.3px; }
+        table { width: 100%; border-collapse: collapse; font-size: 8px; }
+        table th { background: #c62828; color: white; padding: 4px 3px; text-align: left; font-size: 7px; text-transform: uppercase; letter-spacing: 0.3px; }
         table td { padding: 3px; border-bottom: 1px solid #e0e0e0; }
         table tr:nth-child(even) { background: #f8f9fa; }
         .badge { padding: 1px 6px; border-radius: 8px; font-size: 7px; font-weight: bold; display: inline-block; }
@@ -30,6 +30,7 @@
         .text-warning { color: #e65100; }
         .text-muted { color: #757575; }
         .text-primary { color: #1a237e; }
+        .remark-cell { max-width: 150px; word-wrap: break-word; font-size: 6.5px; }
     </style>
 </head>
 <body>
@@ -49,15 +50,16 @@
         <table>
             <thead>
                 <tr>
-                    <th width="30">S.No</th>
-                    <th width="80">Hostel</th>
-                    <th width="45">Room</th>
-                    <th width="40">Bed</th>
-                    <th width="100">Resident Name</th>
-                    <th width="60">Phone</th>
-                    <th width="50">Rent (₹)</th>
-                    <th width="50">Due (₹)</th>
-                    <th width="60">Status</th>
+                    <th width="25">S.No</th>
+                    <th width="70">Hostel</th>
+                    <th width="40">Room</th>
+                    <th width="35">Bed</th>
+                    <th width="90">Resident</th>
+                    <th width="50">Phone</th>
+                    <th width="45">Rent (₹)</th>
+                    <th width="45">Due (₹)</th>
+                    <th width="50">Status</th>
+                    <th width="100">Remark</th>
                 </tr>
             </thead>
             <tbody>
@@ -69,6 +71,7 @@
                         $bedNo = $resident->bed_no ?? 'N/A';
                         $status = $item['status'];
                         $statusClass = strtolower(str_replace(' ', '-', $status));
+                        $remark = $item['payment'] ? $item['payment']->remark : 'No payment recorded';
                     @endphp
                     <tr>
                         <td>{{ $serialNo++ }}</td>
@@ -80,6 +83,7 @@
                         <td>{{ number_format($resident->rent_amount ?? 0, 2) }}</td>
                         <td><strong>₹{{ number_format($item['due_amount'], 2) }}</strong></td>
                         <td><span class="badge badge-{{ $statusClass }}">{{ $status }}</span></td>
+                        <td class="remark-cell">{{ $remark }}</td>
                     </tr>
                 @endforeach
             </tbody>
