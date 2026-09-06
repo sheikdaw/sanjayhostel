@@ -1,6 +1,5 @@
 <?php
 
-
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\Admin\BedController;
 use App\Http\Controllers\Admin\HostelController;
@@ -14,23 +13,23 @@ use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\AdvanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GuestHostelController;
-use App\Http\Controllers\BiometricController; // <-- ADD THIS
+use App\Http\Controllers\BiometricController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\FaceController;
 use App\Http\Controllers\GuestPaymentController;
 use App\Http\Controllers\PhonePeController;
-
 use App\Http\Controllers\ContactController;
-
 use App\Http\Controllers\UPIController;
-
 use Illuminate\Support\Facades\Http;
 
 Route::get('/test', function () {
     return view('biometric.dashboard');
 });
 
+// ============================================================
+// BIOMETRIC API ROUTES
+// ============================================================
 Route::prefix('api/test')->group(function () {
     // Resident Sync
     Route::post('/sync-single', [BiometricController::class, 'syncSingle']);
@@ -65,7 +64,9 @@ Route::prefix('api/test')->group(function () {
     Route::post('/validate-visitor', [BiometricController::class, 'validateVisitor']);
 });
 
-// Frontend Routes
+// ============================================================
+// FRONTEND ROUTES
+// ============================================================
 Route::get('/', function () {
     return view('home');
 })->name('home');
@@ -82,7 +83,6 @@ Route::get('/gallery', function () {
     return view('gallery');
 })->name('gallery');
 
-
 Route::get('/contact', [ContactController::class, 'index'])->name('contact');
 Route::get('/privacy-policy', function () {
     return view('privacy');
@@ -94,8 +94,11 @@ Route::get('/refund-policy', function () {
     return view('refund-policy');
 })->name('refund.policy');
 
-
 Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
+
+// ============================================================
+// AUTH ROUTES
+// ============================================================
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'submitLogin'])->name('login.submit');
@@ -112,7 +115,9 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Admin Routes
+// ============================================================
+// ADMIN ROUTES
+// ============================================================
 Route::middleware(['auth'])->group(function () {
     Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
@@ -123,9 +128,9 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::prefix('admin')->name('admin.')->group(function () {
-// routes/web.php - Add these routes
-
-// Hostel Biometric Management
+        // ============================================================
+        // HOSTEL BIOMETRIC MANAGEMENT
+        // ============================================================
         Route::prefix('hostels')->name('hostels.')->group(function () {
             // Biometric Configuration
             Route::get('/biometric-config', [HostelController::class, 'biometricConfig'])->name('biometric-config');
@@ -142,7 +147,10 @@ Route::middleware(['auth'])->group(function () {
             // Biometric Stats
             Route::get('/biometric-stats', [HostelController::class, 'getBiometricStats'])->name('biometric-stats');
         });
-        // 1. Hostel Management
+
+        // ============================================================
+        // 1. HOSTEL MANAGEMENT
+        // ============================================================
         Route::get('/hostels', [HostelController::class, 'index'])->name('hostels.index');
         Route::post('/hostels', [HostelController::class, 'store'])->name('hostels.store');
         Route::get('/hostels/{id}/edit', [HostelController::class, 'edit'])->name('hostels.edit');
@@ -150,7 +158,9 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/hostels/{id}', [HostelController::class, 'destroy'])->name('hostels.destroy');
         Route::patch('/hostels/{id}/toggle-status', [HostelController::class, 'toggleStatus'])->name('hostels.toggle-status');
 
-        // 2. Room Type Management
+        // ============================================================
+        // 2. ROOM TYPE MANAGEMENT
+        // ============================================================
         Route::prefix('room-types')->name('room-types.')->group(function () {
             Route::get('/', [RoomTypeController::class, 'index'])->name('index');
             Route::post('/', [RoomTypeController::class, 'store'])->name('store');
@@ -165,7 +175,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/export', [RoomTypeController::class, 'export'])->name('export');
         });
 
-        // 3. Room Management
+        // ============================================================
+        // 3. ROOM MANAGEMENT
+        // ============================================================
         Route::prefix('rooms')->name('rooms.')->group(function () {
             Route::get('/', [RoomController::class, 'index'])->name('index');
             Route::post('/', [RoomController::class, 'store'])->name('store');
@@ -181,7 +193,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/export', [RoomController::class, 'export'])->name('export');
         });
 
-        // 4. Bed Management
+        // ============================================================
+        // 4. BED MANAGEMENT
+        // ============================================================
         Route::prefix('beds')->name('beds.')->group(function () {
             Route::get('/', [BedController::class, 'index'])->name('index');
             Route::post('/', [BedController::class, 'store'])->name('store');
@@ -197,6 +211,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/statistics', [BedController::class, 'getStatistics'])->name('statistics');
             Route::get('/export', [BedController::class, 'export'])->name('export');
         });
+
+        // ============================================================
+        // 5. RESIDENT MANAGEMENT
+        // ============================================================
         Route::prefix('residents')->name('residents.')->group(function () {
             Route::get('/', [ResidentController::class, 'index'])->name('index');
             Route::post('/', [ResidentController::class, 'store'])->name('store');
@@ -217,7 +235,7 @@ Route::middleware(['auth'])->group(function () {
 
             // Biometric Routes
             Route::post('/sync-all-biometric', [ResidentController::class, 'syncAllToBiometric'])->name('sync-all-biometric');
-            Route::post('/{id}/sync-to-biometric', [ResidentController::class, 'syncToBiometric'])->name('sync-to-biometric'); // <-- ADD THIS
+            Route::post('/{id}/sync-to-biometric', [ResidentController::class, 'syncToBiometric'])->name('sync-to-biometric');
             Route::post('/{id}/toggle-biometric', [ResidentController::class, 'toggleBiometricAccess'])->name('toggle-biometric');
             Route::get('/biometric-list', [ResidentController::class, 'biometricList'])->name('biometric-list');
             Route::get('/{id}/biometric-status', [ResidentController::class, 'biometricStatus'])->name('biometric-status');
@@ -228,74 +246,98 @@ Route::middleware(['auth'])->group(function () {
             // Details API
             Route::get('/{id}/details', [ResidentController::class, 'getResidentDetails'])->name('details');
         });
+
+        // ============================================================
+        // RESIDENT HELPER ROUTES
+        // ============================================================
         Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
         Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
         Route::post('/residents/{id}/profile-image', [ResidentController::class, 'updateProfileImage'])->name('residents.update-profile-image');
         Route::delete('/residents/{id}/profile-image', [ResidentController::class, 'removeProfileImage'])->name('residents.remove-profile-image');
         Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
-        // 6. Payment Management
-       Route::prefix('payments')->name('payments.')->group(function () {
-            // Main CRUD routes
+
+        // ============================================================
+        // 6. PAYMENT MANAGEMENT - COMPLETE
+        // ============================================================
+        Route::prefix('payments')->name('payments.')->group(function () {
+            // ---------- MAIN CRUD ROUTES ----------
             Route::get('/', [PaymentController::class, 'index'])->name('index');
             Route::post('/', [PaymentController::class, 'store'])->name('store');
             Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('edit');
             Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
             Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
 
-            // Resident-specific routes
+            // ---------- RESIDENT-SPECIFIC ROUTES ----------
             Route::get('/resident/{residentId}', [PaymentController::class, 'getResidentPayments'])->name('resident');
             Route::get('/resident/{residentId}/due', [PaymentController::class, 'getResidentDue'])->name('resident-due');
             Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
             Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
+            Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
 
-            // Helper routes
+            // 🔥 NEW: Payment Details API
+            Route::post('/resident/{residentId}/payment-details', [PaymentController::class, 'getPaymentDetails'])->name('payment-details');
+
+            // 🔥 NEW: Get pending details
+            Route::get('/resident/{residentId}/pending-details/{month}/{year}', [PaymentController::class, 'getPendingDetails'])->name('pending-details');
+
+            // ---------- HELPER ROUTES ----------
             Route::get('/room/{roomId}/residents', [PaymentController::class, 'getResidentsByRoom'])->name('room.residents');
             Route::get('/summary/monthly', [PaymentController::class, 'getMonthlySummary'])->name('monthly-summary');
 
-            // Status update routes
+            // ---------- STATUS UPDATE ROUTES ----------
             Route::post('/{id}/mark-paid', [PaymentController::class, 'markAsPaid'])->name('mark-paid');
 
-            // Bulk operations
+            // ---------- BULK OPERATIONS ----------
             Route::post('/bulk', [PaymentController::class, 'bulkPayment'])->name('bulk');
             Route::post('/bulk-status', [PaymentController::class, 'bulkStatus'])->name('bulk-status');
             Route::post('/bulk-delete', [PaymentController::class, 'bulkDelete'])->name('bulk-delete');
 
-            // ============================================================
-            // PAYMENT EXPORT ROUTES - All export functionality
-            // ============================================================
-
-            // 1. Basic Exports
+            // ---------- CSV EXPORT ROUTES ----------
+            // Basic Exports
             Route::get('/export/all', [PaymentController::class, 'exportAll'])->name('export.all');
             Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
             Route::get('/export/unpaid', [PaymentController::class, 'exportUnpaid'])->name('export.unpaid');
-
-            // 2. Status-Specific Exports
             Route::get('/export/pending-only', [PaymentController::class, 'exportPendingOnly'])->name('export.pending-only');
             Route::get('/export/partial-only', [PaymentController::class, 'exportPartialOnly'])->name('export.partial-only');
 
-            // 3. Monthly Unpaid Report - Shows residents who haven't paid for specific month
+            // 🔥 NEW: Export resident payment status
+            Route::get('/export/resident-status', [PaymentController::class, 'exportResidentPaymentStatus'])->name('export.resident-status');
+
+            // 🔥 NEW: Export pending residents
+            Route::get('/export/pending-residents', [PaymentController::class, 'exportPendingResidents'])->name('export.pending-residents');
+
+            // Monthly Unpaid Report
             Route::get('/export/monthly-unpaid', [PaymentController::class, 'exportMonthlyUnpaid'])->name('export.monthly-unpaid');
 
-            // 4. Hostel-Wise Exports
+            // Hostel-Wise Exports
             Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
             Route::get('/export/hostel-wise-paid', [PaymentController::class, 'exportHostelWisePaid'])->name('export.hostel-wise-paid');
             Route::get('/export/hostel-wise-unpaid', [PaymentController::class, 'exportHostelWiseUnpaid'])->name('export.hostel-wise-unpaid');
 
-            // 5. Summary Reports
+            // Summary Reports
             Route::get('/export/summary', [PaymentController::class, 'exportPaymentSummary'])->name('export.summary');
-               Route::get('pdf/resident-status', [PaymentController::class, 'pdfResidentPaymentStatus'])->name('pdf.resident-status');
-                Route::get('pdf/pending-residents', [PaymentController::class, 'pdfPendingResidents'])->name('pdf.pending-residents');
-                Route::get('pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
-                Route::get('pdf/paid', [PaymentController::class, 'pdfPaidPayments'])->name('pdf.paid');
-                Route::get('pdf/unpaid', [PaymentController::class, 'pdfUnpaidPayments'])->name('pdf.unpaid');
-                Route::get('pdf/hostel-wise', [PaymentController::class, 'pdfHostelWise'])->name('pdf.hostel-wise');
-                Route::get('pdf/summary', [PaymentController::class, 'pdfPaymentSummary'])->name('pdf.summary');
-                Route::get('pdf/monthly-unpaid', [PaymentController::class, 'pdfMonthlyUnpaid'])->name('pdf.monthly-unpaid');
-                Route::get('pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
-                Route::post('pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
+
+            // ---------- PDF EXPORT ROUTES ----------
+            // 🔥 NEW: Resident Status PDF
+            Route::get('pdf/resident-status', [PaymentController::class, 'pdfResidentPaymentStatus'])->name('pdf.resident-status');
+
+            // 🔥 NEW: Pending Residents PDF
+            Route::get('pdf/pending-residents', [PaymentController::class, 'pdfPendingResidents'])->name('pdf.pending-residents');
+
+            // All Payments PDF
+            Route::get('pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
+            Route::get('pdf/paid', [PaymentController::class, 'pdfPaidPayments'])->name('pdf.paid');
+            Route::get('pdf/unpaid', [PaymentController::class, 'pdfUnpaidPayments'])->name('pdf.unpaid');
+            Route::get('pdf/hostel-wise', [PaymentController::class, 'pdfHostelWise'])->name('pdf.hostel-wise');
+            Route::get('pdf/summary', [PaymentController::class, 'pdfPaymentSummary'])->name('pdf.summary');
+            Route::get('pdf/monthly-unpaid', [PaymentController::class, 'pdfMonthlyUnpaid'])->name('pdf.monthly-unpaid');
+            Route::get('pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
+            Route::post('pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
         });
 
-        // 7. User Management
+        // ============================================================
+        // 7. USER MANAGEMENT
+        // ============================================================
         Route::prefix('users')->name('users.')->group(function () {
             Route::get('/', [UserController::class, 'index'])->name('index');
             Route::post('/', [UserController::class, 'store'])->name('store');
@@ -309,59 +351,68 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/assigned-hostels', [UserController::class, 'getAssignedHostels'])->name('assigned-hostels');
             Route::post('/profile/update', [UserController::class, 'updateProfile'])->name('profile.update');
         });
-     Route::prefix('employees')->name('employees.')->group(function() {
-        Route::get('/', [EmployeeController::class, 'index'])->name('index');
-        Route::get('/export', [EmployeeController::class, 'export'])->name('export');
-        Route::post('/bulk-status', [EmployeeController::class, 'bulkStatus'])->name('bulk-status');
-        Route::post('/bulk-delete', [EmployeeController::class, 'bulkDelete'])->name('bulk-delete');
-        Route::post('/store', [EmployeeController::class, 'store'])->name('store');
-        Route::get('/{id}/edit', [EmployeeController::class, 'edit'])->name('edit');
-        Route::get('/{id}', [EmployeeController::class, 'show'])->name('show');
-        Route::put('/{id}', [EmployeeController::class, 'update'])->name('update');
-        Route::delete('/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
-        Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status');
-    });
 
-    // Attendance Routes
-    Route::prefix('attendances')->name('attendances.')->group(function() {
-        Route::get('/', [AttendanceController::class, 'index'])->name('index');
-        Route::get('/create', [AttendanceController::class, 'create'])->name('create');
-        Route::post('/store', [AttendanceController::class, 'store'])->name('store');
-        Route::get('/{id}/edit', [AttendanceController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [AttendanceController::class, 'update'])->name('update');
-        Route::delete('/{id}', [AttendanceController::class, 'destroy'])->name('destroy');
-        Route::post('/bulk-delete', [AttendanceController::class, 'bulkDelete'])->name('bulk-delete');
-        Route::post('/bulk-mark', [AttendanceController::class, 'markBulkAttendance'])->name('bulk-mark');
-        Route::get('/report', [AttendanceController::class, 'report'])->name('report');
-    });
+        // ============================================================
+        // 8. EMPLOYEE MANAGEMENT
+        // ============================================================
+        Route::prefix('employees')->name('employees.')->group(function () {
+            Route::get('/', [EmployeeController::class, 'index'])->name('index');
+            Route::get('/export', [EmployeeController::class, 'export'])->name('export');
+            Route::post('/bulk-status', [EmployeeController::class, 'bulkStatus'])->name('bulk-status');
+            Route::post('/bulk-delete', [EmployeeController::class, 'bulkDelete'])->name('bulk-delete');
+            Route::post('/store', [EmployeeController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [EmployeeController::class, 'edit'])->name('edit');
+            Route::get('/{id}', [EmployeeController::class, 'show'])->name('show');
+            Route::put('/{id}', [EmployeeController::class, 'update'])->name('update');
+            Route::delete('/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
+            Route::patch('/{id}/toggle-status', [EmployeeController::class, 'toggleStatus'])->name('toggle-status');
+        });
 
-    // Advance Routes
-    Route::prefix('advances')->name('advances.')->group(function() {
-        Route::get('/', [AdvanceController::class, 'index'])->name('index');
-        Route::get('/monthly', [AdvanceController::class, 'processMonthly'])->name('monthly');
-        Route::get('/{id}/history', [AdvanceController::class, 'history'])->name('history');
-        Route::post('/take', [AdvanceController::class, 'takeAdvance'])->name('take');
-        Route::post('/deduct', [AdvanceController::class, 'deductAdvance'])->name('deduct');
+        // ============================================================
+        // 9. ATTENDANCE MANAGEMENT
+        // ============================================================
+        Route::prefix('attendances')->name('attendances.')->group(function () {
+            Route::get('/', [AttendanceController::class, 'index'])->name('index');
+            Route::get('/create', [AttendanceController::class, 'create'])->name('create');
+            Route::post('/store', [AttendanceController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [AttendanceController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [AttendanceController::class, 'update'])->name('update');
+            Route::delete('/{id}', [AttendanceController::class, 'destroy'])->name('destroy');
+            Route::post('/bulk-delete', [AttendanceController::class, 'bulkDelete'])->name('bulk-delete');
+            Route::post('/bulk-mark', [AttendanceController::class, 'markBulkAttendance'])->name('bulk-mark');
+            Route::get('/report', [AttendanceController::class, 'report'])->name('report');
+        });
+
+        // ============================================================
+        // 10. ADVANCE MANAGEMENT
+        // ============================================================
+        Route::prefix('advances')->name('advances.')->group(function () {
+            Route::get('/', [AdvanceController::class, 'index'])->name('index');
+            Route::get('/monthly', [AdvanceController::class, 'processMonthly'])->name('monthly');
+            Route::get('/{id}/history', [AdvanceController::class, 'history'])->name('history');
+            Route::post('/take', [AdvanceController::class, 'takeAdvance'])->name('take');
+            Route::post('/deduct', [AdvanceController::class, 'deductAdvance'])->name('deduct');
+        });
     });
-     });
 });
 
-// Home route
+// ============================================================
+// FACE DETECTION ROUTES
+// ============================================================
 Route::get('/web', [FaceController::class, 'index']);
 Route::post('/detect-face', [FaceController::class, 'detect'])->name('face.detect');
 
+// ============================================================
+// CACHE CLEAR ROUTE
+// ============================================================
 Route::get('/clear-cache', function () {
     Artisan::call('optimize:clear');
     return nl2br(Artisan::output()) . "<br><br>✅ All cache cleared successfully.";
 });
 
-// Route::prefix('phonepe')->name('phonepe.')->group(function () {
-//     Route::get('/test', [PhonePeController::class, 'test'])->name('test');
-//     Route::post('/pay', [PhonePeController::class, 'pay'])->name('pay');
-//     Route::get('/status/{merchantOrderId}', [PhonePeController::class, 'status'])->name('status');
-//     Route::post('/refund', [PhonePeController::class, 'refund'])->name('refund');
-//     Route::get('/refund-status/{merchantRefundId}', [PhonePeController::class, 'refundStatus'])->name('refund-status');
-// });
+// ============================================================
+// GUEST PAYMENT ROUTES
+// ============================================================
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
     Route::post('/create-order', [GuestPaymentController::class, 'createOrder'])->name('create-order');
@@ -375,7 +426,10 @@ Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     Route::get('/decode/{encodedId}', [GuestPaymentController::class, 'decodeId'])->name('decode');
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
 });
-// Payment Links Generator (Admin only)
+
+// ============================================================
+// PAYMENT LINKS GENERATOR
+// ============================================================
 Route::get('/payment-links', function () {
     $hostels = \App\Models\Hostel::where('status', 'ACTIVE')->get();
     $encodedLinks = [];
@@ -385,10 +439,14 @@ Route::get('/payment-links', function () {
     return view('admin.payment-links', compact('hostels', 'encodedLinks'));
 })->name('admin.payment-links');
 
-
-
+// ============================================================
+// DEVICE CHECK ROUTE
+// ============================================================
 Route::get('/check-device-service', [BiometricController::class, 'testConnection']);
 
+// ============================================================
+// GUEST HOSTEL ROUTES
+// ============================================================
 Route::prefix('guest')->name('guest.')->group(function () {
     // Hostel view
     Route::get('/hostel/{encodedId}', [GuestHostelController::class, 'show'])->name('hostel.show');
@@ -404,34 +462,4 @@ Route::prefix('guest')->name('guest.')->group(function () {
     
     // DOB Update route
     Route::post('/resident/update-dob', [GuestHostelController::class, 'updateDob'])->name('resident.update-dob');
-});
-
-// Add this to your web.php routes file
-Route::get('/test-device-connection', function () {
-    $ip = '192.168.0.1';
-    $port = '3366';
-    $url = "http://{$ip}:{$port}/WebAPIService.asmx";
-    
-    try {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_NOBODY, true);
-        curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        return response()->json([
-            'success' => $httpCode >= 200 && $httpCode < 400,
-            'status_code' => $httpCode,
-            'url' => $url,
-            'message' => $httpCode >= 200 && $httpCode < 400 ? 'Device is reachable' : 'Device not reachable'
-        ]);
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage(),
-            'message' => 'Failed to connect to device'
-        ]);
-    }
 });

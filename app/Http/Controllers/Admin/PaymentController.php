@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use PDF;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
@@ -141,104 +142,186 @@ class PaymentController extends Controller
         ));
     }
 
+    // ============================================================
+    // 🔥 NEW: HELPER METHODS
+    // ============================================================
+
     /**
-     * Get residents by room for cascading dropdown
+     * Calculate discount based on payment date
      */
-    public function getResidentsByRoom($roomId)
+    private function calculateDiscount($paymentDate)
     {
-        $user = auth()->user();
-
-        $query = Resident::where('room_id', $roomId)
-            ->where('status', 'ACTIVE')
-            ->orderBy('name');
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $query->whereIn('hostel_id', $hostelIds);
+        $day = date('j', strtotime($paymentDate));
+        
+        if ($day <= 5) {
+            return 250;  // ₹250 discount for 1st-5th
+        } elseif ($day <= 10) {
+            return 125;  // ₹125 discount for 6th-10th
+        } else {
+            return 0;    // No discount after 10th
         }
-
-        $residents = $query->get(['id', 'name', 'resident_code', 'hostel_id', 'room_id', 'rent_amount']);
-
-        return response()->json([
-            'success' => true,
-            'data' => $residents
-        ]);
     }
 
     /**
-     * Get partial payment details for a resident for specific month/year
-     * Handles multiple transaction IDs with separator
+     * Get previous pending payments
      */
-    public function getPartialPaymentDetails($residentId, $month, $year)
+    private function getPreviousPending($residentId, $month, $year)
     {
-        $payment = Payment::where('resident_id', $residentId)
-            ->where('month', $month)
-            ->where('year', $year)
-            ->where('status', 'PARTIAL')
-            ->first();
+        return Payment::where('resident_id', $residentId)
+            ->where(function($q) use ($month, $year) {
+                $q->where('year', '<', $year)
+                  ->orWhere(function($q2) use ($month, $year) {
+                      $q2->where('year', $year)
+                         ->where('month', '<', $month);
+                  });
+            })
+            ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->sum('balance_amount');
+    }
 
-        if (!$payment) {
+    /**
+     * Get previous pending months list
+     */
+    private function getPreviousMonthsList($residentId, $month, $year)
+    {
+        return Payment::where('resident_id', $residentId)
+            ->where(function($q) use ($month, $year) {
+                $q->where('year', '<', $year)
+                  ->orWhere(function($q2) use ($month, $year) {
+                      $q2->where('year', $year)
+                         ->where('month', '<', $month);
+                  });
+            })
+            ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get()
+            ->map(function($p) {
+                return date('F Y', mktime(0,0,0,$p->month,1,$p->year));
+            })
+            ->implode(', ');
+    }
+
+    /**
+     * Calculate full payment details
+     */
+    private function calculatePaymentDetails($resident, $month, $year, $paymentDate, $paymentType = 'current')
+    {
+        $rent = $resident->rent_amount ?? 0;
+        $discount = $this->calculateDiscount($paymentDate);
+        $currentDue = $rent - $discount;
+        $previousPending = $this->getPreviousPending($resident->id, $month, $year);
+        $totalDue = $currentDue + $previousPending;
+        $previousMonths = $this->getPreviousMonthsList($resident->id, $month, $year);
+
+        // Determine what to pay based on payment type
+        $suggestedAmount = 0;
+        $status = 'PENDING';
+        
+        if ($paymentType === 'current') {
+            $suggestedAmount = $currentDue;
+        } elseif ($paymentType === 'previous') {
+            $suggestedAmount = $previousPending;
+        } elseif ($paymentType === 'all') {
+            $suggestedAmount = $totalDue;
+        }
+
+        return [
+            'rent' => $rent,
+            'discount' => $discount,
+            'current_due' => $currentDue,
+            'previous_pending' => $previousPending,
+            'previous_months' => $previousMonths ?: 'No previous pending',
+            'total_due' => $totalDue,
+            'suggested_amount' => $suggestedAmount,
+            'payment_type' => $paymentType,
+            'day' => date('j', strtotime($paymentDate)),
+            'payment_date' => $paymentDate,
+            'month' => $month,
+            'year' => $year,
+            'resident_name' => $resident->name,
+            'resident_code' => $resident->resident_code
+        ];
+    }
+
+    // ============================================================
+    // 🔥 NEW: PAYMENT DETAILS API
+    // ============================================================
+
+    /**
+     * Get payment details for preview
+     */
+    public function getPaymentDetails(Request $request)
+    {
+        try {
+            $resident = Resident::find($request->resident_id);
+            if (!$resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resident not found'
+                ]);
+            }
+
+            $details = $this->calculatePaymentDetails(
+                $resident,
+                $request->month,
+                $request->year,
+                $request->payment_date,
+                $request->payment_type ?? 'current'
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => $details
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'No partial payment found for this period'
+                'message' => $e->getMessage()
             ]);
         }
-
-        $totalPaid = ($payment->cash_paid_amount ?? 0) +
-                     ($payment->upi_paid_amount ?? 0) +
-                     ($payment->card_paid_amount ?? 0) +
-                     ($payment->bank_paid_amount ?? 0);
-
-        $totalAmount = $payment->rent_amount - ($payment->discount_amount ?? 0) + ($payment->fine_amount ?? 0);
-        $remainingBalance = max(0, $totalAmount - $totalPaid);
-
-        // Parse transaction IDs - support multiple formats
-        $transactionIds = [];
-        $transactionIdDisplay = '';
-
-        if ($payment->transaction_id) {
-            // Check if it contains separator ( / or , or | )
-            if (strpos($payment->transaction_id, ' / ') !== false) {
-                $transactionIds = array_map('trim', explode(' / ', $payment->transaction_id));
-                $transactionIdDisplay = implode(' | ', $transactionIds);
-            } elseif (strpos($payment->transaction_id, ',') !== false) {
-                $transactionIds = array_map('trim', explode(',', $payment->transaction_id));
-                $transactionIdDisplay = implode(' | ', $transactionIds);
-            } elseif (strpos($payment->transaction_id, '|') !== false) {
-                $transactionIds = array_map('trim', explode('|', $payment->transaction_id));
-                $transactionIdDisplay = implode(' | ', $transactionIds);
-            } else {
-                $transactionIds = [$payment->transaction_id];
-                $transactionIdDisplay = $payment->transaction_id;
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'payment_id' => $payment->id,
-                'receipt_no' => $payment->receipt_no,
-                'rent_amount' => $payment->rent_amount,
-                'discount_amount' => $payment->discount_amount ?? 0,
-                'fine_amount' => $payment->fine_amount ?? 0,
-                'cash_paid' => $payment->cash_paid_amount ?? 0,
-                'upi_paid' => $payment->upi_paid_amount ?? 0,
-                'card_paid' => $payment->card_paid_amount ?? 0,
-                'bank_paid' => $payment->bank_paid_amount ?? 0,
-                'total_paid' => $totalPaid,
-                'balance_amount' => $remainingBalance,
-                'transaction_ids' => $transactionIds,
-                'transaction_id_display' => $transactionIdDisplay,
-                'transaction_id_raw' => $payment->transaction_id,
-                'payment_date' => $payment->payment_date ? $payment->payment_date->format('Y-m-d') : now()->format('Y-m-d'),
-                'status' => $payment->status
-            ]
-        ]);
     }
 
     /**
-     * Store a newly created payment.
+     * Get previous pending details
      */
+    public function getPendingDetails($residentId, $month, $year)
+    {
+        try {
+            $resident = Resident::find($residentId);
+            if (!$resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resident not found'
+                ]);
+            }
+
+            $previousPending = $this->getPreviousPending($residentId, $month, $year);
+            $previousMonths = $this->getPreviousMonthsList($residentId, $month, $year);
+            $discount = $this->calculateDiscount(now()->toDateString());
+            $currentDue = ($resident->rent_amount ?? 0) - $discount;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'previous_pending' => $previousPending,
+                    'previous_months' => $previousMonths ?: 'No previous pending',
+                    'current_due' => $currentDue,
+                    'total_due' => $currentDue + $previousPending
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    // ============================================================
+    // 🔥 UPDATED: STORE METHOD WITH PAYMENT TYPE SUPPORT
+    // ============================================================
+
     public function store(Request $request)
     {
         $user = auth()->user();
@@ -265,14 +348,13 @@ class PaymentController extends Controller
             'resident_id' => 'required|exists:residents,id',
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:' . (date('Y') + 1),
-            'rent_amount' => 'required|numeric|min:0',
-            'discount_amount' => 'nullable|numeric|min:0',
-            'fine_amount' => 'nullable|numeric|min:0',
             'cash_paid_amount' => 'required|numeric|min:0',
             'upi_paid_amount' => 'required|numeric|min:0',
             'payment_date' => 'required|date',
-            'transaction_id' => 'nullable|string|max:255',
-            'status' => 'required|in:PAID,PARTIAL,PENDING'
+            'transaction_id' => 'nullable|string|max:500',
+            'payment_type' => 'nullable|in:current,previous,all',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'fine_amount' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -282,131 +364,294 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        // Check if we're completing a partial payment
-        $partialPaymentId = $request->partial_payment_id;
-        if ($partialPaymentId) {
-            $partialPayment = Payment::find($partialPaymentId);
-            if ($partialPayment && $partialPayment->status === 'PARTIAL') {
-                // Update the partial payment instead of creating new
-                return $this->updatePartialPayment($request, $partialPayment);
+        DB::beginTransaction();
+
+        try {
+            // Calculate payment details
+            $paymentType = $request->payment_type ?? 'current';
+            $paymentDate = $request->payment_date;
+            
+            // Get discount (auto-calculate or manual override)
+            $discount = $request->discount_amount ?? $this->calculateDiscount($paymentDate);
+            $fine = $request->fine_amount ?? 0;
+            
+            $currentDue = $resident->rent_amount - $discount + $fine;
+            $previousPending = $this->getPreviousPending($resident->id, $request->month, $request->year);
+            
+            $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
+            
+            // Determine what to pay based on payment type
+            $currentMonthPaid = 0;
+            $previousPaid = 0;
+            $remaining = $totalPaid;
+            
+            if ($paymentType === 'current') {
+                // Pay only current month
+                $currentMonthPaid = min($remaining, $currentDue);
+                $remaining -= $currentMonthPaid;
+                $previousPaid = 0;
+            } elseif ($paymentType === 'previous') {
+                // Pay only previous pending
+                $previousPaid = min($remaining, $previousPending);
+                $remaining -= $previousPaid;
+                $currentMonthPaid = 0;
+            } elseif ($paymentType === 'all') {
+                // Pay current first, then previous
+                $currentMonthPaid = min($remaining, $currentDue);
+                $remaining -= $currentMonthPaid;
+                $previousPaid = min($remaining, $previousPending);
+                $remaining -= $previousPaid;
+            } else {
+                // Default: pay current only
+                $currentMonthPaid = min($remaining, $currentDue);
+                $remaining -= $currentMonthPaid;
+                $previousPaid = 0;
+            }
+
+            // Calculate balances
+            $currentBalance = max(0, $currentDue - $currentMonthPaid);
+            $previousBalance = max(0, $previousPending - $previousPaid);
+            $totalBalance = $currentBalance + $previousBalance;
+            
+            // Determine status
+            if ($paymentType === 'current') {
+                $status = ($currentBalance <= 0) ? 'PAID' : (($currentMonthPaid > 0) ? 'PARTIAL' : 'PENDING');
+            } elseif ($paymentType === 'previous') {
+                $status = ($previousBalance <= 0) ? 'PAID' : (($previousPaid > 0) ? 'PARTIAL' : 'PENDING');
+            } else {
+                $status = ($totalBalance <= 0) ? 'PAID' : (($totalPaid > 0) ? 'PARTIAL' : 'PENDING');
+            }
+
+            // Generate receipt
+            $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            while (Payment::where('receipt_no', $receiptNo)->exists()) {
+                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            }
+
+            // 🔥 CREATE PAYMENT FOR CURRENT MONTH
+            $payment = Payment::create([
+                'resident_id' => $resident->id,
+                'receipt_no' => $receiptNo,
+                'month' => $request->month,
+                'year' => $request->year,
+                'rent_amount' => $resident->rent_amount,
+                'discount_amount' => $discount,
+                'fine_amount' => $fine,
+                'cash_paid_amount' => $currentMonthPaid,
+                'upi_paid_amount' => 0, // Only cash for current
+                'balance_amount' => $currentBalance,
+                'payment_date' => $paymentDate,
+                'transaction_id' => $request->transaction_id,
+                'status' => $status
+            ]);
+
+            // 🔥 IF PAYING PREVIOUS PENDING, UPDATE OR CREATE PAYMENT FOR PREVIOUS MONTHS
+            if ($previousPaid > 0) {
+                $this->applyToPreviousPending($resident->id, $previousPaid, $request->month, $request->year, $paymentDate, $request->transaction_id);
+            }
+
+            $payment->load(['resident.hostel', 'resident.room']);
+
+            DB::commit();
+
+            // Build response message
+            $message = $this->buildResponseMessage($paymentType, $currentDue, $previousPending, $totalPaid, $currentMonthPaid, $previousPaid, $totalBalance);
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'data' => [
+                    'payment' => $payment,
+                    'receipt_no' => $receiptNo,
+                    'current_month_paid' => $currentMonthPaid,
+                    'previous_pending_paid' => $previousPaid,
+                    'previous_pending_remaining' => $previousBalance,
+                    'current_month_balance' => $currentBalance,
+                    'total_balance' => $totalBalance,
+                    'status' => $status,
+                    'payment_type' => $paymentType,
+                    'discount_applied' => $discount,
+                    'fine_applied' => $fine,
+                    'calculation' => [
+                        'rent' => $resident->rent_amount,
+                        'discount' => $discount,
+                        'current_due' => $currentDue,
+                        'previous_pending' => $previousPending,
+                        'total_due' => $currentDue + $previousPending,
+                        'total_paid' => $totalPaid,
+                        'payment_day' => date('j', strtotime($paymentDate))
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create payment: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Apply payment to previous pending payments
+     */
+    private function applyToPreviousPending($residentId, $amount, $currentMonth, $currentYear, $paymentDate, $transactionId)
+    {
+        $prevPayments = Payment::where('resident_id', $residentId)
+            ->where(function($q) use ($currentMonth, $currentYear) {
+                $q->where('year', '<', $currentYear)
+                  ->orWhere(function($q2) use ($currentMonth, $currentYear) {
+                      $q2->where('year', $currentYear)
+                         ->where('month', '<', $currentMonth);
+                  });
+            })
+            ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        $remaining = $amount;
+
+        foreach ($prevPayments as $prevPayment) {
+            if ($remaining <= 0) break;
+
+            $prevBalance = $prevPayment->balance_amount;
+            $payAmount = min($remaining, $prevBalance);
+
+            // Update payment
+            $prevPayment->cash_paid_amount += $payAmount;
+            $newBalance = $prevBalance - $payAmount;
+            $prevPayment->balance_amount = max(0, $newBalance);
+            $prevPayment->status = ($newBalance <= 0) ? 'PAID' : 'PARTIAL';
+            
+            // Append transaction ID
+            if ($transactionId && $payAmount > 0) {
+                if ($prevPayment->transaction_id) {
+                    $prevPayment->transaction_id .= ' / ' . $transactionId;
+                } else {
+                    $prevPayment->transaction_id = $transactionId;
+                }
+            }
+            
+            $prevPayment->save();
+            $remaining -= $payAmount;
+        }
+    }
+
+    /**
+     * Build response message
+     */
+    private function buildResponseMessage($paymentType, $currentDue, $previousPending, $totalPaid, $currentPaid, $previousPaid, $totalBalance)
+    {
+        $messages = [];
+        
+        if ($paymentType === 'current') {
+            if ($currentPaid >= $currentDue) {
+                $messages[] = "✅ Current month payment completed!";
+            } else {
+                $messages[] = "🟡 Partial payment for current month. Balance: ₹" . number_format($currentDue - $currentPaid, 2);
+            }
+            
+            if ($previousPending > 0) {
+                $messages[] = "⚠️ IMPORTANT: ₹" . number_format($previousPending, 2) . " is still pending from previous months.";
+                $messages[] = "Please pay this separately using 'Previous Pending' or 'Clear All Dues' option.";
+            }
+            
+        } elseif ($paymentType === 'previous') {
+            if ($previousPaid >= $previousPending) {
+                $messages[] = "✅ Previous pending cleared!";
+            } else {
+                $messages[] = "🟡 Partial payment for previous pending. Remaining: ₹" . number_format($previousPending - $previousPaid, 2);
+            }
+            
+            if ($currentDue > 0) {
+                $messages[] = "📅 Current month due: ₹" . number_format($currentDue, 2);
+                $messages[] = "Please pay current month separately.";
+            }
+            
+        } elseif ($paymentType === 'all') {
+            if ($totalBalance <= 0) {
+                $messages[] = "✅ All dues cleared!";
+            } else {
+                $messages[] = "🟡 Partial payment. Remaining balance: ₹" . number_format($totalBalance, 2);
             }
         }
 
-        // Check if previous months have pending payments
-        $hasPendingPrevious = Payment::where('resident_id', $request->resident_id)
-            ->where(function ($q) use ($request) {
-                $q->where('year', '<', $request->year)
-                    ->orWhere(function ($q2) use ($request) {
-                        $q2->where('year', $request->year)
-                            ->where('month', '<', $request->month);
-                    });
-            })
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->exists();
+        $messages[] = "Amount paid: ₹" . number_format($totalPaid, 2);
+        $messages[] = "Receipt No: " . ($payment->receipt_no ?? 'N/A');
 
-        if ($hasPendingPrevious) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot add payment! Previous months have pending payments. Please clear them first.'
-            ], 422);
+        return implode("\n", $messages);
+    }
+
+    // ============================================================
+    // EXISTING METHODS (Keep all your existing methods below)
+    // ============================================================
+
+    /**
+     * Get residents by room for cascading dropdown
+     */
+    public function getResidentsByRoom($roomId)
+    {
+        $user = auth()->user();
+
+        $query = Resident::where('room_id', $roomId)
+            ->where('status', 'ACTIVE')
+            ->orderBy('name');
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $query->whereIn('hostel_id', $hostelIds);
         }
 
-        $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
-        $totalAmount = $request->rent_amount - ($request->discount_amount ?? 0) + ($request->fine_amount ?? 0);
-        $balanceAmount = max(0, $totalAmount - $totalPaid);
-
-        $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-        while (Payment::where('receipt_no', $receiptNo)->exists()) {
-            $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-        }
-
-        $payment = Payment::create([
-            'resident_id' => $request->resident_id,
-            'receipt_no' => $receiptNo,
-            'month' => $request->month,
-            'year' => $request->year,
-            'rent_amount' => $resident->rent_amount,
-            'discount_amount' => $request->discount_amount ?? 0,
-            'fine_amount' => $request->fine_amount ?? 0,
-            'cash_paid_amount' => $request->cash_paid_amount,
-            'upi_paid_amount' => $request->upi_paid_amount,
-            'balance_amount' => $balanceAmount,
-            'payment_date' => $request->payment_date,
-            'transaction_id' => $request->transaction_id,
-            'status' => $request->status
-        ]);
-
-        $payment->load(['resident.hostel', 'resident.room']);
+        $residents = $query->get(['id', 'name', 'resident_code', 'hostel_id', 'room_id', 'rent_amount']);
 
         return response()->json([
             'success' => true,
-            'message' => 'Payment recorded successfully! Receipt: ' . $receiptNo,
-            'data' => $payment
+            'data' => $residents
         ]);
     }
 
     /**
-     * Update a partial payment with additional payment
+     * Get partial payment details for a resident for specific month/year
      */
-    private function updatePartialPayment(Request $request, $payment)
+    public function getPartialPaymentDetails($residentId, $month, $year)
     {
-        $validator = Validator::make($request->all(), [
-            'cash_paid_amount' => 'required|numeric|min:0',
-            'upi_paid_amount' => 'required|numeric|min:0',
-            'transaction_id' => 'nullable|string|max:500',
-            'status' => 'required|in:PAID,PARTIAL,PENDING'
-        ]);
+        $payment = Payment::where('resident_id', $residentId)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->where('status', 'PARTIAL')
+            ->first();
 
-        if ($validator->fails()) {
+        if (!$payment) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+                'message' => 'No partial payment found for this period'
+            ]);
         }
 
-        // Add to existing amounts
-        $payment->cash_paid_amount = ($payment->cash_paid_amount ?? 0) + $request->cash_paid_amount;
-        $payment->upi_paid_amount = ($payment->upi_paid_amount ?? 0) + $request->upi_paid_amount;
+        $totalPaid = ($payment->cash_paid_amount ?? 0) +
+                     ($payment->upi_paid_amount ?? 0);
 
-        // Handle multiple transaction IDs with separator
-        if ($request->filled('transaction_id')) {
-            $newTxnId = $request->transaction_id;
-            $existingTxnId = $payment->transaction_id;
-
-            if ($existingTxnId) {
-                // Check if transaction ID already exists
-                $existingIds = explode(' / ', $existingTxnId);
-                if (!in_array($newTxnId, $existingIds)) {
-                    // Append new transaction ID with separator
-                    $payment->transaction_id = $existingTxnId . ' / ' . $newTxnId;
-                }
-            } else {
-                $payment->transaction_id = $newTxnId;
-            }
-        }
-
-        $totalPaid = ($payment->cash_paid_amount ?? 0) + ($payment->upi_paid_amount ?? 0);
         $totalAmount = $payment->rent_amount - ($payment->discount_amount ?? 0) + ($payment->fine_amount ?? 0);
-        $payment->balance_amount = max(0, $totalAmount - $totalPaid);
-
-        // Update status
-        if ($payment->balance_amount <= 0) {
-            $payment->status = 'PAID';
-        } elseif ($totalPaid > 0) {
-            $payment->status = 'PARTIAL';
-        } else {
-            $payment->status = 'PENDING';
-        }
-
-        $payment->payment_date = now();
-        $payment->save();
-
-        $payment->load(['resident.hostel', 'resident.room']);
+        $remainingBalance = max(0, $totalAmount - $totalPaid);
 
         return response()->json([
             'success' => true,
-            'message' => 'Partial payment completed successfully!',
-            'data' => $payment
+            'data' => [
+                'payment_id' => $payment->id,
+                'receipt_no' => $payment->receipt_no,
+                'rent_amount' => $payment->rent_amount,
+                'discount_amount' => $payment->discount_amount ?? 0,
+                'fine_amount' => $payment->fine_amount ?? 0,
+                'cash_paid' => $payment->cash_paid_amount ?? 0,
+                'upi_paid' => $payment->upi_paid_amount ?? 0,
+                'total_paid' => $totalPaid,
+                'balance_amount' => $remainingBalance,
+                'transaction_id_raw' => $payment->transaction_id,
+                'payment_date' => $payment->payment_date ? $payment->payment_date->format('Y-m-d') : now()->format('Y-m-d'),
+                'status' => $payment->status
+            ]
         ]);
     }
 
@@ -695,19 +940,10 @@ class PaymentController extends Controller
                 continue;
             }
 
-            $hasPendingPrevious = Payment::where('resident_id', $residentId)
-                ->where(function ($q) use ($request) {
-                    $q->where('year', '<', $request->year)
-                        ->orWhere(function ($q2) use ($request) {
-                            $q2->where('year', $request->year)
-                                ->where('month', '<', $request->month);
-                        });
-                })
-                ->whereIn('status', ['PENDING', 'PARTIAL'])
-                ->exists();
-
-            if ($hasPendingPrevious) {
-                $errors[] = "Previous months pending for " . $resident->name;
+            // Check previous pending
+            $previousPending = $this->getPreviousPending($residentId, $request->month, $request->year);
+            if ($previousPending > 0) {
+                $errors[] = "Previous months pending for " . $resident->name . " (₹" . number_format($previousPending, 2) . ")";
                 continue;
             }
 
@@ -722,11 +958,11 @@ class PaymentController extends Controller
                 'month' => $request->month,
                 'year' => $request->year,
                 'rent_amount' => $resident->rent_amount ?? 0,
-                'discount_amount' => 0,
+                'discount_amount' => $this->calculateDiscount($request->payment_date),
                 'fine_amount' => 0,
                 'cash_paid_amount' => 0,
                 'upi_paid_amount' => 0,
-                'balance_amount' => $resident->rent_amount ?? 0,
+                'balance_amount' => ($resident->rent_amount ?? 0) - $this->calculateDiscount($request->payment_date),
                 'payment_date' => $request->payment_date,
                 'status' => 'PENDING'
             ]);
@@ -871,27 +1107,17 @@ class PaymentController extends Controller
     }
 
     // ============================================================
-    // HELPER METHODS
+    // HELPER METHODS FOR EXPORT
     // ============================================================
 
     /**
      * Filter residents who were active during a specific month
-     * This fixes the issue where residents who joined after the export month
-     * were incorrectly showing as "NO PAYMENT" in previous months
-     *
-     * Uses the actual field names from the Resident model:
-     * - joining_date (when resident joined)
-     * - vacate_date (when resident left, null if still active)
      */
     private function filterResidentsByMonth($query, $month, $year)
     {
-        // Get the first and last day of the month
         $startDate = date('Y-m-01', strtotime("$year-$month-01"));
         $endDate = date('Y-m-t', strtotime("$year-$month-01"));
 
-        // Only include residents who:
-        // 1. Joined ON or BEFORE the month end (joining_date <= end of month)
-        // 2. AND either have no vacate date OR vacated AFTER the month start
         return $query->where(function($q) use ($startDate, $endDate) {
             $q->where('joining_date', '<=', $endDate)
               ->where(function($sub) use ($startDate) {
@@ -959,7 +1185,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -1079,7 +1304,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -1287,7 +1511,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -1389,7 +1612,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -1677,7 +1899,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -1723,7 +1944,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -1859,7 +2079,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -2094,7 +2313,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // FIX: Filter residents by month to exclude those who joined after the export month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {

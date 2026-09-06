@@ -639,7 +639,7 @@ class ResidentController extends Controller
                 'current_bed' => $existingResident->bed->bed_no ?? 'N/A'
             ]
         ], 400);
-    }
+    }   
 
             $oldBed = null;
             $oldRoom = null;
