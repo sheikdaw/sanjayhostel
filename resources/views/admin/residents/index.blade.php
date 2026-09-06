@@ -1168,7 +1168,8 @@
                              data-name="{{ strtolower($resident->name) }}"
                              data-code="{{ strtolower($resident->resident_code) }}"
                              data-phone="{{ $resident->phone }}"
-                             data-email="{{ strtolower($resident->email ?? '') }}">
+                             data-email="{{ strtolower($resident->email ?? '') }}"
+                             data-room-no="{{ strtolower($resident->room->room_no ?? '') }}">
 
                             <div class="resident-card">
                                 {{-- Checkbox --}}
@@ -1906,9 +1907,6 @@ function loadBedsForRoom(roomId, selectedBedId) {
         $('#bed_id').empty().append('<option value="">Select Bed</option>');
     }
 }
-// ============================================
-// APPLY FILTERS
-// ============================================
 function applyFilters() {
     var status = $('#filterStatus').val() || '';
     var hostel = $('#filterHostel').val() || '';
@@ -1934,6 +1932,7 @@ function applyFilters() {
         var resPhone = ($item.attr('data-phone') || '').toLowerCase();
         var resEmail = ($item.attr('data-email') || '').toLowerCase();
         var resId = String($item.attr('data-id') || '');
+        var resRoomNo = ($item.attr('data-room-no') || '').toLowerCase(); // ADD THIS
 
         if (status && resStatus !== status) show = false;
         if (hostel && show && resHostel !== String(hostel)) show = false;
@@ -1941,15 +1940,29 @@ function applyFilters() {
         if (food && show && resFood !== food) show = false;
         if (biometric && show && resBiometric !== biometric) show = false;
 
+        // 🔥 IMPROVED SEARCH: Don't search entire HTML
         if (search && show) {
             var searchMatch = false;
+            
+            // 1. Search by Name
             if (resName.includes(search)) searchMatch = true;
-            if (resCode.includes(search)) searchMatch = true;
+            
+            // 2. Search by Phone
             if (resPhone.includes(search)) searchMatch = true;
+            
+            // 3. Search by Email
             if (resEmail.includes(search)) searchMatch = true;
-            if (resId.includes(search)) searchMatch = true;
-            var textContent = $item.text().toLowerCase();
-            if (textContent.includes(search)) searchMatch = true;
+            
+            // 4. Search by Resident Code - EXACT or PREFIX only (not random part)
+            if (resCode === search) searchMatch = true;
+            if (resCode.startsWith(search)) searchMatch = true;
+            
+            // 5. Search by Room Number - EXACT MATCH ONLY
+            if (resRoomNo === search) searchMatch = true;
+            
+            // 6. Search by ID (useful for admin)
+            if (resId === search) searchMatch = true;
+            
             if (!searchMatch) show = false;
         }
 
@@ -1974,7 +1987,6 @@ function applyFilters() {
         $('#noSearchResults').hide();
     }
 }
-
 // ============================================
 // CLEAR FILTERS
 // ============================================

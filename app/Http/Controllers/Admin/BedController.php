@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Bed;
 use App\Models\Room;
+use App\Models\Resident;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -321,6 +322,9 @@ class BedController extends Controller
         ]);
     }
 
+    /**
+     * 🔥 FIXED: Bulk create beds with validation
+     */
     public function bulkCreate(Request $request)
     {
         $user = auth()->user();
@@ -373,22 +377,24 @@ class BedController extends Controller
             ], 422);
         }
 
-        // Create normal beds
+        // 🔥 FIX: Create normal beds with sequential numbering
         for ($i = 1; $i <= $request->normal_count; $i++) {
+            $bedNumber = $existingNormal + $i;
             $bed = Bed::create([
                 'room_id' => $request->room_id,
-                'bed_no' => 'N-' . ($existingNormal + $i),
+                'bed_no' => 'N-' . $bedNumber,
                 'bed_type' => 'NORMAL',
                 'status' => $request->status
             ]);
             $createdBeds[] = $bed;
         }
 
-        // Create bunker beds
+        // 🔥 FIX: Create bunker beds with sequential numbering
         for ($i = 1; $i <= $request->bunker_count; $i++) {
+            $bedNumber = $existingBunker + $i;
             $bed = Bed::create([
                 'room_id' => $request->room_id,
-                'bed_no' => 'B-' . ($existingBunker + $i),
+                'bed_no' => 'B-' . $bedNumber,
                 'bed_type' => 'BUNKER',
                 'status' => $request->status
             ]);
@@ -438,8 +444,13 @@ class BedController extends Controller
                 }
             }
 
-            if ($bed->resident) {
-                $errors[] = "Cannot delete bed {$bed->bed_no} - has active resident";
+            // 🔥 FIX: Check if bed has ACTIVE resident
+            $resident = Resident::where('bed_id', $bed->id)
+                ->where('status', 'ACTIVE')
+                ->first();
+
+            if ($resident) {
+                $errors[] = "Cannot delete bed {$bed->bed_no} - Resident '{$resident->name}' is ACTIVE";
                 continue;
             }
 
@@ -492,6 +503,28 @@ class BedController extends Controller
                 $hostelIds = $user->hostel_ids ?? [];
                 if (!in_array($bed->room->hostel_id, $hostelIds)) {
                     continue;
+                }
+            }
+
+            // 🔥 FIX: When setting to VACANT, check if ACTIVE resident exists
+            if ($request->status == 'VACANT') {
+                $resident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+
+                if ($resident) {
+                    continue; // Skip - can't make occupied bed vacant
+                }
+            }
+
+            // 🔥 FIX: When setting to OCCUPIED, check if bed already has ACTIVE resident
+            if ($request->status == 'OCCUPIED') {
+                $resident = Resident::where('bed_id', $bed->id)
+                    ->where('status', 'ACTIVE')
+                    ->first();
+
+                if (!$resident) {
+                    continue; // Skip - can't make bed occupied without resident
                 }
             }
 
@@ -571,17 +604,48 @@ class BedController extends Controller
             ->header('Content-Disposition', 'attachment; filename="beds-' . date('Y-m-d') . '.csv"');
     }
 
-    // Helper function to update room status based on bed occupancy
+    /**
+     * 🔥 FIXED: Update room status based on bed occupancy
+     * ONLY ACTIVE residents count as occupied
+     */
     private function updateRoomStatus($room)
     {
         if (!$room) return;
 
         $totalBeds = $room->beds()->count();
-        $occupiedBeds = $room->beds()->where('status', 'OCCUPIED')->count();
-        $maintenanceBeds = $room->beds()->where('status', 'BLOCKED')->count();
-        $vacantBeds = $totalBeds - $occupiedBeds - $maintenanceBeds;
+        $occupiedBeds = 0;
+        $maintenanceBeds = 0;
+        $vacantBeds = 0;
 
-        // Update room status
+        $allBeds = $room->beds()->get();
+
+        foreach ($allBeds as $bed) {
+            if ($bed->status === 'BLOCKED') {
+                $maintenanceBeds++;
+                continue;
+            }
+
+            // 🔥 FIX: ONLY ACTIVE residents make a bed OCCUPIED
+            $activeResident = Resident::where('bed_id', $bed->id)
+                ->where('status', 'ACTIVE')
+                ->first();
+
+            if ($activeResident) {
+                // Ensure bed status matches reality
+                if ($bed->status !== 'OCCUPIED') {
+                    $bed->update(['status' => 'OCCUPIED']);
+                }
+                $occupiedBeds++;
+            } else {
+                // No ACTIVE resident - bed should be VACANT
+                if ($bed->status === 'OCCUPIED') {
+                    $bed->update(['status' => 'VACANT']);
+                }
+                $vacantBeds++;
+            }
+        }
+
+        // Determine room status
         if ($totalBeds == 0) {
             $room->status = 'VACANT';
         } elseif ($maintenanceBeds == $totalBeds) {

@@ -446,24 +446,23 @@ class ResidentController extends Controller
         DB::beginTransaction();
 
         try {
-            // 🔥 FIX: Check if resident is already ACTIVE in another bed
-            $existingResident = Resident::where('name', $request->name)
-                ->where('phone', $request->phone)
-                ->where('status', 'ACTIVE')
-                ->first();
+             $existingResident = Resident::where('name', $request->name)
+        ->where('phone', $request->phone)
+        ->where('status', 'ACTIVE')
+        ->first();
 
-            if ($existingResident) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => "Resident '{$existingResident->name}' is already ACTIVE in Room #{$existingResident->room->room_no}, Bed #{$existingResident->bed->bed_no}!",
-                    'data' => [
-                        'resident' => $existingResident,
-                        'current_room' => $existingResident->room->room_no ?? 'N/A',
-                        'current_bed' => $existingResident->bed->bed_no ?? 'N/A'
-                    ]
-                ], 400);
-            }
+    if ($existingResident) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => "Resident '{$existingResident->name}' is already ACTIVE in Room #{$existingResident->room->room_no}, Bed #{$existingResident->bed->bed_no}!",
+            'data' => [
+                'resident' => $existingResident,
+                'current_room' => $existingResident->room->room_no ?? 'N/A',
+                'current_bed' => $existingResident->bed->bed_no ?? 'N/A'
+            ]
+        ], 400);
+    }
 
             // Check if bed is available
             $bed = Bed::find($request->bed_id);
@@ -623,25 +622,24 @@ class ResidentController extends Controller
         DB::beginTransaction();
 
         try {
-            // 🔥 FIX: Check if resident is already ACTIVE in another bed (excluding self)
-            $existingResident = Resident::where('name', $request->name)
-                ->where('phone', $request->phone)
-                ->where('status', 'ACTIVE')
-                ->where('id', '!=', $id)
-                ->first();
+           $existingResident = Resident::where('name', $request->name)
+        ->where('phone', $request->phone)
+        ->where('status', 'ACTIVE')
+        ->where('id', '!=', $id)
+        ->first();
 
-            if ($existingResident) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => "Resident '{$existingResident->name}' is already ACTIVE in Room #{$existingResident->room->room_no}, Bed #{$existingResident->bed->bed_no}!",
-                    'data' => [
-                        'resident' => $existingResident,
-                        'current_room' => $existingResident->room->room_no ?? 'N/A',
-                        'current_bed' => $existingResident->bed->bed_no ?? 'N/A'
-                    ]
-                ], 400);
-            }
+    if ($existingResident) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => "Resident '{$existingResident->name}' is already ACTIVE in Room #{$existingResident->room->room_no}, Bed #{$existingResident->bed->bed_no}!",
+            'data' => [
+                'resident' => $existingResident,
+                'current_room' => $existingResident->room->room_no ?? 'N/A',
+                'current_bed' => $existingResident->bed->bed_no ?? 'N/A'
+            ]
+        ], 400);
+    }
 
             $oldBed = null;
             $oldRoom = null;

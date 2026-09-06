@@ -163,99 +163,203 @@ class RoomController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $user = auth()->user();
-        $room = Room::findOrFail($id);
+{
+    $user = auth()->user();
+    $room = Room::findOrFail($id);
 
-        // Check if user has access to this hostel
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            if (!in_array($room->hostel_id, $hostelIds)) {
+    // Check if user has access to this hostel
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        if (!in_array($room->hostel_id, $hostelIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to update this room!'
+            ], 403);
+        }
+    }
+
+    $validator = Validator::make($request->all(), [
+        'hostel_id' => 'required|exists:hostels,id',
+        'room_type_id' => 'required|exists:room_types,id',
+        'room_no' => 'required|string|max:50|unique:rooms,room_no,' . $id . ',id,hostel_id,' . $request->hostel_id,
+        'normol_cot_count' => 'required|integer|min:0|max:20',
+        'bunker_cot_count' => 'required|integer|min:0|max:20',
+        'status' => 'required|in:VACANT,PARTIAL,FULL,MAINTENANCE'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    // Check if at least one cot is added
+    if ($request->normol_cot_count == 0 && $request->bunker_cot_count == 0) {
+        return response()->json([
+            'success' => false,
+            'message' => 'At least one cot (normal or bunker) must be added!'
+        ], 422);
+    }
+
+    // Handle cot count changes
+    $currentNormalCount = $room->beds()->where('bed_type', 'NORMAL')->count();
+    $currentBunkerCount = $room->beds()->where('bed_type', 'BUNKER')->count();
+
+    // ============================================
+    // 🔥 FIX 1: VALIDATE BEFORE CHANGING NORMAL BEDS
+    // ============================================
+    if ($request->normol_cot_count < $currentNormalCount) {
+        // Check if occupied beds exceed new capacity
+        $occupiedNormalBeds = $room->beds()
+            ->where('bed_type', 'NORMAL')
+            ->where('status', 'OCCUPIED')
+            ->count();
+
+        if ($occupiedNormalBeds > $request->normol_cot_count) {
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot reduce normal bed capacity from {$currentNormalCount} to {$request->normol_cot_count}. " .
+                             "{$occupiedNormalBeds} normal beds are currently OCCUPIED. " .
+                             "Please vacate " . ($occupiedNormalBeds - $request->normol_cot_count) . " bed(s) first."
+            ], 422);
+        }
+
+        // Check if we have enough VACANT beds to remove
+        $vacantNormalBeds = $room->beds()
+            ->where('bed_type', 'NORMAL')
+            ->where('status', 'VACANT')
+            ->count();
+
+        $bedsToRemove = $currentNormalCount - $request->normol_cot_count;
+        if ($vacantNormalBeds < $bedsToRemove) {
+            return response()->json([
+                'success' => false,
+                'message' => "Not enough vacant normal beds to remove. " .
+                             "Need to remove {$bedsToRemove} beds but only {$vacantNormalBeds} are vacant."
+            ], 422);
+        }
+    }
+
+    // ============================================
+    // 🔥 FIX 2: VALIDATE BEFORE CHANGING BUNKER BEDS
+    // ============================================
+    if ($request->bunker_cot_count < $currentBunkerCount) {
+        $occupiedBunkerBeds = $room->beds()
+            ->where('bed_type', 'BUNKER')
+            ->where('status', 'OCCUPIED')
+            ->count();
+
+        if ($occupiedBunkerBeds > $request->bunker_cot_count) {
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot reduce bunker bed capacity from {$currentBunkerCount} to {$request->bunker_cot_count}. " .
+                             "{$occupiedBunkerBeds} bunker beds are currently OCCUPIED. " .
+                             "Please vacate " . ($occupiedBunkerBeds - $request->bunker_cot_count) . " bed(s) first."
+            ], 422);
+        }
+
+        $vacantBunkerBeds = $room->beds()
+            ->where('bed_type', 'BUNKER')
+            ->where('status', 'VACANT')
+            ->count();
+
+        $bedsToRemove = $currentBunkerCount - $request->bunker_cot_count;
+        if ($vacantBunkerBeds < $bedsToRemove) {
+            return response()->json([
+                'success' => false,
+                'message' => "Not enough vacant bunker beds to remove. " .
+                             "Need to remove {$bedsToRemove} beds but only {$vacantBunkerBeds} are vacant."
+            ], 422);
+        }
+    }
+
+    // ============================================
+    // 🔥 FIX 3: UPDATE NORMAL BEDS (Remove HIGHEST numbers first)
+    // ============================================
+    if ($request->normol_cot_count > $currentNormalCount) {
+        // ADD beds
+        for ($i = $currentNormalCount + 1; $i <= $request->normol_cot_count; $i++) {
+            $room->beds()->create([
+                'bed_no' => 'N-' . $i,
+                'bed_type' => 'NORMAL',
+                'status' => 'VACANT'
+            ]);
+        }
+    } elseif ($request->normol_cot_count < $currentNormalCount) {
+        // 🔥 REMOVE from HIGHEST bed numbers first
+        $bedsToRemove = $currentNormalCount - $request->normol_cot_count;
+        
+        $extraNormalCots = $room->beds()
+            ->where('bed_type', 'NORMAL')
+            ->where('status', 'VACANT')
+            ->orderBy('id', 'desc')  // Remove highest numbers first
+            ->take($bedsToRemove)
+            ->get();
+
+        foreach ($extraNormalCots as $cot) {
+            // 🔥 Safety check: No ACTIVE resident
+            $resident = Resident::where('bed_id', $cot->id)
+                ->where('status', 'ACTIVE')
+                ->first();
+            
+            if ($resident) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to update this room!'
-                ], 403);
+                    'message' => "Cannot delete bed #{$cot->bed_no} - Resident '{$resident->name}' is still assigned!"
+                ], 422);
             }
+            
+            $cot->delete();
         }
-
-        $validator = Validator::make($request->all(), [
-            'hostel_id' => 'required|exists:hostels,id',
-            'room_type_id' => 'required|exists:room_types,id',
-            'room_no' => 'required|string|max:50|unique:rooms,room_no,' . $id . ',id,hostel_id,' . $request->hostel_id,
-            'normol_cot_count' => 'required|integer|min:0|max:20',
-            'bunker_cot_count' => 'required|integer|min:0|max:20',
-            'status' => 'required|in:VACANT,PARTIAL,FULL,MAINTENANCE'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        // Check if at least one cot is added
-        if ($request->normol_cot_count == 0 && $request->bunker_cot_count == 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'At least one cot (normal or bunker) must be added!'
-            ], 422);
-        }
-
-        // Handle cot count changes
-        $currentNormalCount = $room->beds()->where('bed_type', 'NORMAL')->count();
-        $currentBunkerCount = $room->beds()->where('bed_type', 'BUNKER')->count();
-
-        // Update normal cots
-        if ($request->normol_cot_count > $currentNormalCount) {
-            for ($i = $currentNormalCount + 1; $i <= $request->normol_cot_count; $i++) {
-                $room->beds()->create([
-                    'bed_no' => 'N-' . $i,
-                    'bed_type' => 'NORMAL',
-                    'status' => 'VACANT'
-                ]);
-            }
-        } elseif ($request->normol_cot_count < $currentNormalCount) {
-            $extraNormalCots = $room->beds()
-                ->where('bed_type', 'NORMAL')
-                ->where('status', 'VACANT')
-                ->take($currentNormalCount - $request->normol_cot_count)
-                ->get();
-
-            foreach ($extraNormalCots as $cot) {
-                $cot->delete();
-            }
-        }
-
-        // Update bunker cots
-        if ($request->bunker_cot_count > $currentBunkerCount) {
-            for ($i = $currentBunkerCount + 1; $i <= $request->bunker_cot_count; $i++) {
-                $room->beds()->create([
-                    'bed_no' => 'B-' . $i,
-                    'bed_type' => 'BUNKER',
-                    'status' => 'VACANT'
-                ]);
-            }
-        } elseif ($request->bunker_cot_count < $currentBunkerCount) {
-            $extraBunkerCots = $room->beds()
-                ->where('bed_type', 'BUNKER')
-                ->where('status', 'VACANT')
-                ->take($currentBunkerCount - $request->bunker_cot_count)
-                ->get();
-
-            foreach ($extraBunkerCots as $cot) {
-                $cot->delete();
-            }
-        }
-
-        $room->update($request->all());
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Room updated successfully!',
-            'data' => $room
-        ]);
     }
+
+    // ============================================
+    // 🔥 FIX 4: UPDATE BUNKER BEDS (Remove HIGHEST numbers first)
+    // ============================================
+    if ($request->bunker_cot_count > $currentBunkerCount) {
+        // ADD beds
+        for ($i = $currentBunkerCount + 1; $i <= $request->bunker_cot_count; $i++) {
+            $room->beds()->create([
+                'bed_no' => 'B-' . $i,
+                'bed_type' => 'BUNKER',
+                'status' => 'VACANT'
+            ]);
+        }
+    } elseif ($request->bunker_cot_count < $currentBunkerCount) {
+        $bedsToRemove = $currentBunkerCount - $request->bunker_cot_count;
+        
+        $extraBunkerCots = $room->beds()
+            ->where('bed_type', 'BUNKER')
+            ->where('status', 'VACANT')
+            ->orderBy('id', 'desc')  // Remove highest numbers first
+            ->take($bedsToRemove)
+            ->get();
+
+        foreach ($extraBunkerCots as $cot) {
+            $resident = Resident::where('bed_id', $cot->id)
+                ->where('status', 'ACTIVE')
+                ->first();
+            
+            if ($resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot delete bed #{$cot->bed_no} - Resident '{$resident->name}' is still assigned!"
+                ], 422);
+            }
+            
+            $cot->delete();
+        }
+    }
+
+    $room->update($request->all());
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Room updated successfully!',
+        'data' => $room
+    ]);
+}
 
     public function destroy($id)
     {
