@@ -180,6 +180,25 @@ class PaymentController extends Controller
     }
 
     /**
+     * Get previous pending payments with details
+     */
+    private function getPreviousPendingDetails($residentId, $month, $year)
+    {
+        return Payment::where('resident_id', $residentId)
+            ->where(function($q) use ($month, $year) {
+                $q->where('year', '<', $year)
+                  ->orWhere(function($q2) use ($month, $year) {
+                      $q2->where('year', $year)
+                         ->where('month', '<', $month);
+                  });
+            })
+            ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get();
+    }
+
+    /**
      * Get previous pending months list
      */
     private function getPreviousMonthsList($residentId, $month, $year)
@@ -205,7 +224,7 @@ class PaymentController extends Controller
     /**
      * Calculate full payment details
      */
-    private function calculatePaymentDetails($resident, $month, $year, $paymentDate, $paymentType = 'current')
+    private function calculatePaymentDetails($resident, $month, $year, $paymentDate)
     {
         $rent = $resident->rent_amount ?? 0;
         $discount = $this->calculateDiscount($paymentDate);
@@ -214,17 +233,6 @@ class PaymentController extends Controller
         $totalDue = $currentDue + $previousPending;
         $previousMonths = $this->getPreviousMonthsList($resident->id, $month, $year);
 
-        // Determine what to pay based on payment type
-        $suggestedAmount = 0;
-        
-        if ($paymentType === 'current') {
-            $suggestedAmount = $currentDue;
-        } elseif ($paymentType === 'previous') {
-            $suggestedAmount = $previousPending;
-        } elseif ($paymentType === 'all') {
-            $suggestedAmount = $totalDue;
-        }
-
         return [
             'rent' => $rent,
             'discount' => $discount,
@@ -232,8 +240,6 @@ class PaymentController extends Controller
             'previous_pending' => $previousPending,
             'previous_months' => $previousMonths ?: 'No previous pending',
             'total_due' => $totalDue,
-            'suggested_amount' => $suggestedAmount,
-            'payment_type' => $paymentType,
             'day' => date('j', strtotime($paymentDate)),
             'payment_date' => $paymentDate,
             'month' => $month,
@@ -244,104 +250,326 @@ class PaymentController extends Controller
     }
 
     /**
-     * 🔥 NEW: Generate Remark based on payment type
+     * 🔥 Generate Remark based on payment allocation
      */
-    private function generateRemark($paymentType, $currentDue, $previousPending, $currentPaid, $previousPaid, $totalBalance, $previousMonthsList, $month, $year)
+    private function generateRemark($resident, $month, $year, $paymentDate, $totalPaid, $previousPaid, $currentPaid, $previousBalance, $currentBalance, $totalBalance, $advanceAmount)
     {
         $monthName = date('F', mktime(0, 0, 0, $month, 1));
         $currentMonthLabel = $monthName . ' ' . $year;
+        $previousMonths = $this->getPreviousMonthsList($resident->id, $month, $year);
 
-        $remark = '';
+        $remarkParts = [];
 
-        if ($paymentType === 'current') {
-            if ($currentPaid >= $currentDue) {
-                $remark = "✅ {$currentMonthLabel} payment completed: ₹" . number_format($currentPaid, 2);
+        // 1. Previous pending clearing
+        if ($previousPaid > 0) {
+            if ($previousPaid >= $this->getPreviousPending($resident->id, $month, $year)) {
+                $remarkParts[] = "✅ Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousMonths . ")";
             } else {
-                $remark = "🟡 Partial payment for {$currentMonthLabel}: ₹" . number_format($currentPaid, 2) . " paid. Balance: ₹" . number_format($currentDue - $currentPaid, 2);
+                $remarkParts[] = "🟡 Partial clearing of previous pending: ₹" . number_format($previousPaid, 2) . " paid. Remaining: ₹" . number_format($previousBalance, 2);
             }
-
-            if ($previousPending > 0) {
-                $remark .= " | ⚠️ Previous months pending: ₹" . number_format($previousPending, 2) . " (" . $previousMonthsList . "). Not cleared.";
-            }
-
-        } elseif ($paymentType === 'previous') {
-            if ($previousPaid >= $previousPending) {
-                $remark = "✅ Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousMonthsList . ")";
-            } else {
-                $remark = "🟡 Partial clearing of previous pending: ₹" . number_format($previousPaid, 2) . " paid. Remaining: ₹" . number_format($previousPending - $previousPaid, 2);
-            }
-
-            if ($currentDue > 0) {
-                $remark .= " | 📅 {$currentMonthLabel} due: ₹" . number_format($currentDue, 2) . " (not paid)";
-            }
-
-        } elseif ($paymentType === 'all') {
-            if ($totalBalance <= 0) {
-                $remark = "✅ All dues cleared! {$currentMonthLabel}: ₹" . number_format($currentPaid, 2);
-                if ($previousPaid > 0) {
-                    $remark .= " | Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousMonthsList . ")";
-                }
-            } else {
-                $remark = "🟡 Partial payment. {$currentMonthLabel}: ₹" . number_format($currentPaid, 2) . " paid";
-                if ($previousPaid > 0) {
-                    $remark .= " | Previous pending partially cleared: ₹" . number_format($previousPaid, 2);
-                }
-                $remark .= " | Remaining balance: ₹" . number_format($totalBalance, 2);
+        } else {
+            $prevPending = $this->getPreviousPending($resident->id, $month, $year);
+            if ($prevPending > 0) {
+                $remarkParts[] = "⚠️ Previous months pending: ₹" . number_format($prevPending, 2) . " (" . $previousMonths . "). Not cleared.";
             }
         }
 
-        return $remark;
+        // 2. Current month payment
+        if ($currentPaid > 0) {
+            if ($currentPaid >= ($resident->rent_amount - $this->calculateDiscount($paymentDate))) {
+                $remarkParts[] = "✅ {$currentMonthLabel} payment completed: ₹" . number_format($currentPaid, 2);
+            } else {
+                $remarkParts[] = "🟡 Partial payment for {$currentMonthLabel}: ₹" . number_format($currentPaid, 2) . " paid. Balance: ₹" . number_format($currentBalance, 2);
+            }
+        } else {
+            $remarkParts[] = "⏳ {$currentMonthLabel} not paid";
+        }
+
+        // 3. Advance payment (if any)
+        if ($advanceAmount > 0) {
+            $remarkParts[] = "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)";
+        }
+
+        // 4. Total balance
+        if ($totalBalance > 0) {
+            $remarkParts[] = "📊 Total pending: ₹" . number_format($totalBalance, 2);
+        } else {
+            $remarkParts[] = "✅ All dues cleared!";
+        }
+
+        return implode(" | ", $remarkParts);
     }
 
+    // ============================================================
+    // 🔥 PAYMENT DETAILS API
+    // ============================================================
+
     /**
-     * Build response message
+     * Get payment details for preview
      */
-    private function buildResponseMessage($paymentType, $currentDue, $previousPending, $totalPaid, $currentPaid, $previousPaid, $totalBalance)
+    public function getPaymentDetails(Request $request)
     {
-        $messages = [];
-        
-        if ($paymentType === 'current') {
-            if ($currentPaid >= $currentDue) {
-                $messages[] = "✅ Current month payment completed!";
-            } else {
-                $messages[] = "🟡 Partial payment for current month. Balance: ₹" . number_format($currentDue - $currentPaid, 2);
+        try {
+            $resident = Resident::find($request->resident_id);
+            if (!$resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resident not found'
+                ]);
             }
+
+            $paymentDate = $request->payment_date;
+            $month = $request->month;
+            $year = $request->year;
             
-            if ($previousPending > 0) {
-                $messages[] = "⚠️ IMPORTANT: ₹" . number_format($previousPending, 2) . " is still pending from previous months.";
-                $messages[] = "Please pay this separately using 'Previous Pending' or 'Clear All Dues' option.";
-            }
+            $details = $this->calculatePaymentDetails($resident, $month, $year, $paymentDate);
             
-        } elseif ($paymentType === 'previous') {
-            if ($previousPaid >= $previousPending) {
-                $messages[] = "✅ Previous pending cleared!";
-            } else {
-                $messages[] = "🟡 Partial payment for previous pending. Remaining: ₹" . number_format($previousPending - $previousPaid, 2);
-            }
+            // Calculate what happens with given payment amount
+            $totalPaid = $request->total_paid ?? 0;
             
-            if ($currentDue > 0) {
-                $messages[] = "📅 Current month due: ₹" . number_format($currentDue, 2);
-                $messages[] = "Please pay current month separately.";
-            }
+            $previousPending = $details['previous_pending'];
+            $currentDue = $details['current_due'];
             
-        } elseif ($paymentType === 'all') {
-            if ($totalBalance <= 0) {
-                $messages[] = "✅ All dues cleared!";
-            } else {
-                $messages[] = "🟡 Partial payment. Remaining balance: ₹" . number_format($totalBalance, 2);
+            $remaining = $totalPaid;
+            $previousPaid = min($remaining, $previousPending);
+            $remaining -= $previousPaid;
+            $currentPaid = min($remaining, $currentDue);
+            $remaining -= $currentPaid;
+            $advanceAmount = max(0, $remaining);
+            
+            $previousBalance = max(0, $previousPending - $previousPaid);
+            $currentBalance = max(0, $currentDue - $currentPaid);
+            $totalBalance = $previousBalance + $currentBalance;
+            
+            $details['total_paid'] = $totalPaid;
+            $details['previous_paid'] = $previousPaid;
+            $details['current_paid'] = $currentPaid;
+            $details['advance_amount'] = $advanceAmount;
+            $details['previous_balance'] = $previousBalance;
+            $details['current_balance'] = $currentBalance;
+            $details['total_balance'] = $totalBalance;
+            
+            // Preview remark
+            $details['preview_remark'] = $this->generateRemark(
+                $resident,
+                $month,
+                $year,
+                $paymentDate,
+                $totalPaid,
+                $previousPaid,
+                $currentPaid,
+                $previousBalance,
+                $currentBalance,
+                $totalBalance,
+                $advanceAmount
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => $details
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+    }
+
+    // ============================================================
+    // 🔥 STORE METHOD - FULL AUTOMATIC PAYMENT SYSTEM
+    // ============================================================
+
+    public function store(Request $request)
+    {
+        $user = auth()->user();
+
+        $resident = Resident::find($request->resident_id);
+        if (!$resident) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resident not found!'
+            ], 404);
+        }
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!in_array($resident->hostel_id, $hostelIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to add payments for this resident!'
+                ], 403);
             }
         }
 
-        $messages[] = "Amount paid: ₹" . number_format($totalPaid, 2);
-        $messages[] = "Receipt No: " . ($this->receiptNo ?? 'N/A');
+        $validator = Validator::make($request->all(), [
+            'resident_id' => 'required|exists:residents,id',
+            'month' => 'required|integer|min:1|max:12',
+            'year' => 'required|integer|min:2000|max:' . (date('Y') + 1),
+            'cash_paid_amount' => 'required|numeric|min:0',
+            'upi_paid_amount' => 'required|numeric|min:0',
+            'payment_date' => 'required|date',
+            'transaction_id' => 'nullable|string|max:500',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'fine_amount' => 'nullable|numeric|min:0',
+        ]);
 
-        return implode("\n", $messages);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $paymentDate = $request->payment_date;
+            $month = $request->month;
+            $year = $request->year;
+            
+            // Calculate discount
+            $discount = $request->discount_amount ?? $this->calculateDiscount($paymentDate);
+            $fine = $request->fine_amount ?? 0;
+            
+            $currentDue = $resident->rent_amount - $discount + $fine;
+            $previousPending = $this->getPreviousPending($resident->id, $month, $year);
+            
+            $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
+            
+            // ============================================================
+            // 🔥 AUTOMATIC ALLOCATION: Previous → Current → Advance
+            // ============================================================
+            $remaining = $totalPaid;
+            
+            // 1. First, clear previous pending
+            $previousPaid = min($remaining, $previousPending);
+            $remaining -= $previousPaid;
+            $previousBalance = max(0, $previousPending - $previousPaid);
+            
+            // 2. Then, pay current month
+            $currentPaid = min($remaining, $currentDue);
+            $remaining -= $currentPaid;
+            $currentBalance = max(0, $currentDue - $currentPaid);
+            
+            // 3. Remaining goes to advance payment (next month)
+            $advanceAmount = max(0, $remaining);
+            
+            $totalBalance = $previousBalance + $currentBalance;
+            
+            // Determine status
+            $status = 'PENDING';
+            if ($totalBalance <= 0) {
+                $status = 'PAID';
+            } elseif ($totalPaid > 0) {
+                $status = 'PARTIAL';
+            }
+            
+            // Generate receipt
+            $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            while (Payment::where('receipt_no', $receiptNo)->exists()) {
+                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            }
+
+            // ============================================================
+            // 🔥 CREATE PAYMENT FOR CURRENT MONTH
+            // ============================================================
+            $payment = Payment::create([
+                'resident_id' => $resident->id,
+                'receipt_no' => $receiptNo,
+                'month' => $month,
+                'year' => $year,
+                'rent_amount' => $resident->rent_amount,
+                'discount_amount' => $discount,
+                'fine_amount' => $fine,
+                'cash_paid_amount' => $currentPaid,
+                'upi_paid_amount' => 0,
+                'balance_amount' => $currentBalance,
+                'payment_date' => $paymentDate,
+                'transaction_id' => $request->transaction_id,
+                'status' => $status,
+                'payment_type' => 'all',  // Automatic system
+                'previous_pending_cleared' => $previousPaid,
+            ]);
+
+            // ============================================================
+            // 🔥 CLEAR PREVIOUS PENDING PAYMENTS
+            // ============================================================
+            if ($previousPaid > 0) {
+                $this->clearPreviousPending($resident->id, $previousPaid, $month, $year, $paymentDate, $request->transaction_id);
+            }
+
+            // ============================================================
+            // 🔥 GENERATE REMARK
+            // ============================================================
+            $remark = $this->generateRemark(
+                $resident,
+                $month,
+                $year,
+                $paymentDate,
+                $totalPaid,
+                $previousPaid,
+                $currentPaid,
+                $previousBalance,
+                $currentBalance,
+                $totalBalance,
+                $advanceAmount
+            );
+            
+            $payment->remark = $remark;
+            $payment->save();
+
+            $payment->load(['resident.hostel', 'resident.room']);
+
+            DB::commit();
+
+            // ============================================================
+            // 🔥 BUILD RESPONSE MESSAGE
+            // ============================================================
+            $message = $this->buildResponseMessage($totalPaid, $previousPaid, $currentPaid, $advanceAmount, $previousBalance, $currentBalance, $totalBalance, $receiptNo);
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'data' => [
+                    'payment' => $payment,
+                    'receipt_no' => $receiptNo,
+                    'total_paid' => $totalPaid,
+                    'previous_pending_cleared' => $previousPaid,
+                    'current_month_paid' => $currentPaid,
+                    'advance_payment' => $advanceAmount,
+                    'previous_pending_remaining' => $previousBalance,
+                    'current_month_balance' => $currentBalance,
+                    'total_balance' => $totalBalance,
+                    'status' => $status,
+                    'discount_applied' => $discount,
+                    'fine_applied' => $fine,
+                    'remark' => $remark,
+                    'calculation' => [
+                        'rent' => $resident->rent_amount,
+                        'discount' => $discount,
+                        'previous_pending' => $previousPending,
+                        'current_due' => $currentDue,
+                        'total_due' => $currentDue + $previousPending,
+                        'total_paid' => $totalPaid,
+                        'payment_day' => date('j', strtotime($paymentDate))
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create payment: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
-     * Apply payment to previous pending payments
+     * 🔥 Clear previous pending payments
      */
-    private function applyToPreviousPending($residentId, $amount, $currentMonth, $currentYear, $paymentDate, $transactionId)
+    private function clearPreviousPending($residentId, $amount, $currentMonth, $currentYear, $paymentDate, $transactionId)
     {
         $prevPayments = Payment::where('resident_id', $residentId)
             ->where(function($q) use ($currentMonth, $currentYear) {
@@ -379,308 +607,58 @@ class PaymentController extends Controller
                 }
             }
             
+            // Update remark
+            $prevPayment->remark = ($newBalance <= 0) 
+                ? "✅ Cleared by payment on " . date('d M Y', strtotime($paymentDate)) . " (Receipt: " . ($this->receiptNo ?? 'N/A') . ")"
+                : "🟡 Partially cleared: ₹" . number_format($payAmount, 2) . " on " . date('d M Y', strtotime($paymentDate));
+            
             $prevPayment->save();
             $remaining -= $payAmount;
         }
     }
 
-    // ============================================================
-    // 🔥 PAYMENT DETAILS API
-    // ============================================================
-
     /**
-     * Get payment details for preview
+     * 🔥 Build response message
      */
-    public function getPaymentDetails(Request $request)
+    private function buildResponseMessage($totalPaid, $previousPaid, $currentPaid, $advanceAmount, $previousBalance, $currentBalance, $totalBalance, $receiptNo)
     {
-        try {
-            $resident = Resident::find($request->resident_id);
-            if (!$resident) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Resident not found'
-                ]);
+        $messages = [];
+        $messages[] = "✅ Payment recorded successfully!";
+        $messages[] = "📋 Receipt: " . $receiptNo;
+        $messages[] = "💰 Total paid: ₹" . number_format($totalPaid, 2);
+        $messages[] = "─────────────────────";
+        
+        if ($previousPaid > 0) {
+            $messages[] = "📅 Previous pending cleared: ₹" . number_format($previousPaid, 2);
+            if ($previousBalance > 0) {
+                $messages[] = "⚠️ Remaining previous pending: ₹" . number_format($previousBalance, 2);
             }
-
-            $paymentType = $request->payment_type ?? 'current';
-            $paymentDate = $request->payment_date;
-            
-            // Get discount
-            $discount = $this->calculateDiscount($paymentDate);
-            $currentDue = $resident->rent_amount - $discount;
-            $previousPending = $this->getPreviousPending($resident->id, $request->month, $request->year);
-            $previousMonths = $this->getPreviousMonthsList($resident->id, $request->month, $request->year);
-            $totalDue = $currentDue + $previousPending;
-            
-            // Calculate based on payment type
-            $suggestedAmount = 0;
-            $previewRemark = '';
-            
-            if ($paymentType === 'current') {
-                $suggestedAmount = $currentDue;
-                if ($previousPending > 0) {
-                    $previewRemark = "⚠️ Previous months pending: ₹" . number_format($previousPending, 2) . " (" . $previousMonths . "). Will remain pending.";
-                } else {
-                    $previewRemark = "✅ No previous pending. Just pay current month.";
-                }
-            } elseif ($paymentType === 'previous') {
-                $suggestedAmount = $previousPending;
-                $previewRemark = "📅 Clearing previous pending: ₹" . number_format($previousPending, 2) . " (" . $previousMonths . ")";
-            } elseif ($paymentType === 'all') {
-                $suggestedAmount = $totalDue;
-                $previewRemark = "✅ Clearing all dues: ₹" . number_format($totalDue, 2) . " (Current: ₹" . number_format($currentDue, 2) . " + Previous: ₹" . number_format($previousPending, 2) . ")";
-            }
-
-            $details = $this->calculatePaymentDetails(
-                $resident,
-                $request->month,
-                $request->year,
-                $paymentDate,
-                $paymentType
-            );
-            
-            $details['preview_remark'] = $previewRemark;
-            $details['suggested_amount'] = $suggestedAmount;
-
-            return response()->json([
-                'success' => true,
-                'data' => $details
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Get previous pending details
-     */
-    public function getPendingDetails($residentId, $month, $year)
-    {
-        try {
-            $resident = Resident::find($residentId);
-            if (!$resident) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Resident not found'
-                ]);
-            }
-
-            $previousPending = $this->getPreviousPending($residentId, $month, $year);
-            $previousMonths = $this->getPreviousMonthsList($residentId, $month, $year);
-            $discount = $this->calculateDiscount(now()->toDateString());
-            $currentDue = ($resident->rent_amount ?? 0) - $discount;
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'previous_pending' => $previousPending,
-                    'previous_months' => $previousMonths ?: 'No previous pending',
-                    'current_due' => $currentDue,
-                    'total_due' => $currentDue + $previousPending
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
-        }
-    }
-
-    // ============================================================
-    // 🔥 UPDATED: STORE METHOD WITH REMARK SUPPORT
-    // ============================================================
-
-    public function store(Request $request)
-    {
-        $user = auth()->user();
-
-        $resident = Resident::find($request->resident_id);
-        if (!$resident) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Resident not found!'
-            ], 404);
-        }
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            if (!in_array($resident->hostel_id, $hostelIds)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have permission to add payments for this resident!'
-                ], 403);
+        } else {
+            $prevPending = $this->getPreviousPending(request()->resident_id, request()->month, request()->year);
+            if ($prevPending > 0) {
+                $messages[] = "⚠️ Previous pending: ₹" . number_format($prevPending, 2) . " (not cleared)";
             }
         }
-
-        $validator = Validator::make($request->all(), [
-            'resident_id' => 'required|exists:residents,id',
-            'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2000|max:' . (date('Y') + 1),
-            'cash_paid_amount' => 'required|numeric|min:0',
-            'upi_paid_amount' => 'required|numeric|min:0',
-            'payment_date' => 'required|date',
-            'transaction_id' => 'nullable|string|max:500',
-            'payment_type' => 'nullable|in:current,previous,all',
-            'discount_amount' => 'nullable|numeric|min:0',
-            'fine_amount' => 'nullable|numeric|min:0',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+        
+        if ($currentPaid > 0) {
+            $messages[] = "📅 Current month paid: ₹" . number_format($currentPaid, 2);
+            if ($currentBalance > 0) {
+                $messages[] = "⚠️ Current month remaining: ₹" . number_format($currentBalance, 2);
+            }
+        }
+        
+        if ($advanceAmount > 0) {
+            $messages[] = "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)";
+        }
+        
+        $messages[] = "─────────────────────";
+        if ($totalBalance <= 0) {
+            $messages[] = "✅ All dues cleared!";
+        } else {
+            $messages[] = "⚠️ Total pending: ₹" . number_format($totalBalance, 2);
         }
 
-        DB::beginTransaction();
-
-        try {
-            // Calculate payment details
-            $paymentType = $request->payment_type ?? 'current';
-            $paymentDate = $request->payment_date;
-            
-            // Get discount (auto-calculate or manual override)
-            $discount = $request->discount_amount ?? $this->calculateDiscount($paymentDate);
-            $fine = $request->fine_amount ?? 0;
-            
-            $currentDue = $resident->rent_amount - $discount + $fine;
-            $previousPending = $this->getPreviousPending($resident->id, $request->month, $request->year);
-            $previousMonthsList = $this->getPreviousMonthsList($resident->id, $request->month, $request->year);
-            
-            $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
-            
-            // Determine what to pay based on payment type
-            $currentMonthPaid = 0;
-            $previousPaid = 0;
-            $remaining = $totalPaid;
-            
-            if ($paymentType === 'current') {
-                // Pay only current month
-                $currentMonthPaid = min($remaining, $currentDue);
-                $remaining -= $currentMonthPaid;
-                $previousPaid = 0;
-            } elseif ($paymentType === 'previous') {
-                // Pay only previous pending
-                $previousPaid = min($remaining, $previousPending);
-                $remaining -= $previousPaid;
-                $currentMonthPaid = 0;
-            } elseif ($paymentType === 'all') {
-                // Pay current first, then previous
-                $currentMonthPaid = min($remaining, $currentDue);
-                $remaining -= $currentMonthPaid;
-                $previousPaid = min($remaining, $previousPending);
-                $remaining -= $previousPaid;
-            } else {
-                // Default: pay current only
-                $currentMonthPaid = min($remaining, $currentDue);
-                $remaining -= $currentMonthPaid;
-                $previousPaid = 0;
-            }
-
-            // Calculate balances
-            $currentBalance = max(0, $currentDue - $currentMonthPaid);
-            $previousBalance = max(0, $previousPending - $previousPaid);
-            $totalBalance = $currentBalance + $previousBalance;
-            
-            // Determine status
-            if ($paymentType === 'current') {
-                $status = ($currentBalance <= 0) ? 'PAID' : (($currentMonthPaid > 0) ? 'PARTIAL' : 'PENDING');
-            } elseif ($paymentType === 'previous') {
-                $status = ($previousBalance <= 0) ? 'PAID' : (($previousPaid > 0) ? 'PARTIAL' : 'PENDING');
-            } else {
-                $status = ($totalBalance <= 0) ? 'PAID' : (($totalPaid > 0) ? 'PARTIAL' : 'PENDING');
-            }
-
-            // 🔥 GENERATE REMARK
-            $remark = $this->generateRemark(
-                $paymentType,
-                $currentDue,
-                $previousPending,
-                $currentMonthPaid,
-                $previousPaid,
-                $totalBalance,
-                $previousMonthsList,
-                $request->month,
-                $request->year
-            );
-
-            // Generate receipt
-            $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-            while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-            }
-
-            // 🔥 CREATE PAYMENT
-            $payment = Payment::create([
-                'resident_id' => $resident->id,
-                'receipt_no' => $receiptNo,
-                'month' => $request->month,
-                'year' => $request->year,
-                'rent_amount' => $resident->rent_amount,
-                'discount_amount' => $discount,
-                'fine_amount' => $fine,
-                'cash_paid_amount' => $currentMonthPaid,
-                'upi_paid_amount' => 0,
-                'balance_amount' => $currentBalance,
-                'payment_date' => $paymentDate,
-                'transaction_id' => $request->transaction_id,
-                'status' => $status,
-                'payment_type' => $paymentType,
-                'previous_pending_cleared' => $previousPaid,
-                'remark' => $remark
-            ]);
-
-            // 🔥 IF PAYING PREVIOUS PENDING, UPDATE PREVIOUS PAYMENTS
-            if ($previousPaid > 0) {
-                $this->applyToPreviousPending($resident->id, $previousPaid, $request->month, $request->year, $paymentDate, $request->transaction_id);
-            }
-
-            $payment->load(['resident.hostel', 'resident.room']);
-
-            DB::commit();
-
-            // Build response message
-            $message = $this->buildResponseMessage($paymentType, $currentDue, $previousPending, $totalPaid, $currentMonthPaid, $previousPaid, $totalBalance);
-
-            return response()->json([
-                'success' => true,
-                'message' => $message,
-                'data' => [
-                    'payment' => $payment,
-                    'receipt_no' => $receiptNo,
-                    'current_month_paid' => $currentMonthPaid,
-                    'previous_pending_paid' => $previousPaid,
-                    'previous_pending_remaining' => $previousBalance,
-                    'current_month_balance' => $currentBalance,
-                    'total_balance' => $totalBalance,
-                    'status' => $status,
-                    'payment_type' => $paymentType,
-                    'discount_applied' => $discount,
-                    'fine_applied' => $fine,
-                    'remark' => $remark,
-                    'calculation' => [
-                        'rent' => $resident->rent_amount,
-                        'discount' => $discount,
-                        'current_due' => $currentDue,
-                        'previous_pending' => $previousPending,
-                        'total_due' => $currentDue + $previousPending,
-                        'total_paid' => $totalPaid,
-                        'payment_day' => date('j', strtotime($paymentDate))
-                    ]
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create payment: ' . $e->getMessage()
-            ], 500);
-        }
+        return implode("\n", $messages);
     }
 
     // ============================================================
@@ -749,7 +727,8 @@ class PaymentController extends Controller
                 'balance_amount' => $remainingBalance,
                 'transaction_id_raw' => $payment->transaction_id,
                 'payment_date' => $payment->payment_date ? $payment->payment_date->format('Y-m-d') : now()->format('Y-m-d'),
-                'status' => $payment->status
+                'status' => $payment->status,
+                'remark' => $payment->remark
             ]
         ]);
     }
@@ -1051,20 +1030,23 @@ class PaymentController extends Controller
                 $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
             }
 
+            $discount = $this->calculateDiscount($request->payment_date);
+            $currentDue = ($resident->rent_amount ?? 0) - $discount;
+
             $payment = Payment::create([
                 'resident_id' => $residentId,
                 'receipt_no' => $receiptNo,
                 'month' => $request->month,
                 'year' => $request->year,
                 'rent_amount' => $resident->rent_amount ?? 0,
-                'discount_amount' => $this->calculateDiscount($request->payment_date),
+                'discount_amount' => $discount,
                 'fine_amount' => 0,
                 'cash_paid_amount' => 0,
                 'upi_paid_amount' => 0,
-                'balance_amount' => ($resident->rent_amount ?? 0) - $this->calculateDiscount($request->payment_date),
+                'balance_amount' => $currentDue,
                 'payment_date' => $request->payment_date,
                 'status' => 'PENDING',
-                'payment_type' => 'current',
+                'payment_type' => 'all',
                 'remark' => "📅 Pending payment for " . date('F', mktime(0,0,0,$request->month,1)) . " " . $request->year
             ]);
 
@@ -1564,7 +1546,7 @@ class PaymentController extends Controller
         $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
         $csv .= "Total Paid Records: " . $payments->count() . "\n\n";
 
-        $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Payment Date,Transaction ID\n";
+        $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Payment Date,Transaction ID,Remark\n";
 
         if ($payments->count() > 0) {
             $totalRent = 0;
@@ -1589,7 +1571,8 @@ class PaymentController extends Controller
                 $csv .= $this->csvNumber($payment->upi_paid_amount) . ",";
                 $csv .= $this->csvNumber($totalPaid) . ",";
                 $csv .= $payment->payment_date . ",";
-                $csv .= $this->csvString($payment->transaction_id ?? '') . "\n";
+                $csv .= $this->csvString($payment->transaction_id ?? '') . ",";
+                $csv .= $this->csvString($payment->remark ?? '') . "\n";
             }
 
             $csv .= "\n\nSUMMARY\n";
@@ -1639,7 +1622,7 @@ class PaymentController extends Controller
         $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
         $csv .= "==================================================\n\n";
 
-        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Status,Due Amount (₹),Paid Amount (₹)\n";
+        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Status,Due Amount (₹),Paid Amount (₹),Remark\n";
 
         $serialNo = 1;
         $totalUnpaid = 0;
@@ -1675,7 +1658,8 @@ class PaymentController extends Controller
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
                 $csv .= $status . ",";
                 $csv .= $this->csvNumber($dueAmount) . ",";
-                $csv .= $this->csvNumber($paidAmount) . "\n";
+                $csv .= $this->csvNumber($paidAmount) . ",";
+                $csv .= $this->csvString($payment->remark ?? '') . "\n";
                 $serialNo++;
             }
         }
