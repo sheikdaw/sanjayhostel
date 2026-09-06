@@ -54,9 +54,8 @@
                     <th width="20">S.No</th>
                     <th width="70">Hostel</th>
                     <th width="40">Room</th>
-                    <th width="35">Bed</th>
+                 
                     <th width="90">Resident</th>
-                    <th width="50">Phone</th>
                     <th width="45">Rent (₹)</th>
                     <th width="45">Paid (₹)</th>
                     <th width="45">Due (₹)</th>
@@ -80,9 +79,8 @@
                         <td>{{ $serialNo++ }}</td>
                         <td>{{ $resident->hostel->hostel_name ?? 'N/A' }}</td>
                         <td>#{{ $roomNo }}</td>
-                        <td>{{ $bedNo }}</td>
+                       
                         <td>{{ $resident->name }}</td>
-                        <td>{{ $resident->phone ?? '' }}</td>
                         <td>{{ number_format($resident->rent_amount ?? 0, 2) }}</td>
                         <td>{{ number_format($paid, 2) }}</td>
                         <td><strong>₹{{ number_format($item['due_amount'], 2) }}</strong></td>
