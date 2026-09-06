@@ -413,7 +413,12 @@ Route::get('/clear-cache', function () {
 // ============================================================
 // GUEST PAYMENT ROUTES
 // ============================================================
+// Guest Payment Routes
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
+    // Main page
+    Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
+    
+    // API endpoints
     Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
     Route::post('/create-order', [GuestPaymentController::class, 'createOrder'])->name('create-order');
     Route::post('/verify', [GuestPaymentController::class, 'verifyPayment'])->name('verify');
@@ -421,10 +426,13 @@ Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     Route::get('/cancel', [GuestPaymentController::class, 'cancel'])->name('cancel');
     Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
     Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
+    
+    // Utility endpoints
     Route::get('/generate-link/{hostelId}', [GuestPaymentController::class, 'generateLink'])->name('generate-link');
     Route::get('/encode/{hostelId}', [GuestPaymentController::class, 'encodeId'])->name('encode');
     Route::get('/decode/{encodedId}', [GuestPaymentController::class, 'decodeId'])->name('decode');
-    Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
+    Route::get('/history/{residentId}', [GuestPaymentController::class, 'getPaymentHistory'])->name('history');
+    Route::get('/resident-due', [GuestPaymentController::class, 'getResidentDue'])->name('resident-due');
 });
 
 // ============================================================

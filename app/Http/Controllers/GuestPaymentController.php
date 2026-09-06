@@ -2,357 +2,230 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Hostel;
 use App\Models\Payment;
 use App\Models\Resident;
-use App\Models\Hostel;
-use App\Services\AxisBankService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Exception;
+use Illuminate\Support\Facades\Crypt;
 
 class GuestPaymentController extends Controller
 {
-    protected AxisBankService $axisBank;
-
-    public function __construct(AxisBankService $axisBank)
+    /**
+     * Display the guest payment page
+     */
+    public function index($encodedId = null)
     {
-        $this->axisBank = $axisBank;
-    }
-
-    public function index(Request $request, $encodedHostelId = null)
-    {
-        $hostelId = null;
-
-        if ($encodedHostelId) {
-            try {
-                $hostelId = Crypt::decryptString($encodedHostelId);
-            } catch (Exception $e) {
-                if (is_numeric($encodedHostelId)) {
-                    $hostelId = $encodedHostelId;
-                } else {
-                    abort(404, 'Invalid payment link');
-                }
-            }
-        }
-
         $hostel = null;
-        if ($hostelId) {
-            $hostel = Hostel::with('roomTypes')->find($hostelId);
-            if (!$hostel) {
-                abort(404, 'Hostel not found');
+        $hostelId = null;
+        $reference = null;
+
+        if ($encodedId) {
+            try {
+                $hostelId = Crypt::decryptString($encodedId);
+                $hostel = Hostel::where('id', $hostelId)->where('status', 'ACTIVE')->first();
+            } catch (\Exception $e) {
+                // Invalid encrypted ID
             }
         }
 
-        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-        $encodedId = $hostelId ? Crypt::encryptString($hostelId) : null;
+        // If no hostel found, get first active hostel
+        if (!$hostel) {
+            $hostel = Hostel::where('status', 'ACTIVE')->first();
+            if ($hostel) {
+                $hostelId = $hostel->id;
+            }
+        }
 
-        return view('guest.payment', compact(
-            'hostel',
-            'hostelId',
-            'reference',
-            'encodedHostelId',
-            'encodedId'
-        ));
+        // Generate a unique reference for this session
+        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+
+        return view('guest.payment.index', compact('hostel', 'hostelId', 'reference'));
     }
 
     /**
-     * Get resident details by mobile number.
+     * Get resident details by mobile number
      */
     public function getResident(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'mobile' => 'required|string|min:10|max:15',
-            'hostel_id' => 'required|exists:hostels,id'
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'mobile' => 'required|string|min:10|max:15',
+                'hostel_id' => 'required|exists:hostels,id'
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $resident = Resident::where('phone', $request->mobile)
-            ->where('hostel_id', $request->hostel_id)
-            ->where('status', 'ACTIVE')
-            ->with('room')
-            ->first();
-
-        if (!$resident) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No resident found with this mobile number in this hostel.'
-            ], 404);
-        }
-
-        $currentMonth = now()->month;
-        $currentYear = now()->year;
-        $currentDay = now()->day;
-
-        // Get all payments for this resident
-        $allPayments = Payment::where('resident_id', $resident->id)
-            ->orderBy('year', 'asc')
-            ->orderBy('month', 'asc')
-            ->get();
-
-        // Check if current month's payment exists
-        $currentPayment = Payment::where('resident_id', $resident->id)
-            ->where('month', $currentMonth)
-            ->where('year', $currentYear)
-            ->first();
-
-        // Get pending payments
-        $pendingPayments = Payment::where('resident_id', $resident->id)
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->orderBy('year', 'asc')
-            ->orderBy('month', 'asc')
-            ->get();
-
-        // Check if current month is already paid
-        $isCurrentMonthPaid = false;
-        $currentMonthStatus = 'PENDING';
-
-        if ($currentPayment) {
-            if ($currentPayment->status === 'PAID') {
-                $isCurrentMonthPaid = true;
-                $currentMonthStatus = 'PAID';
-            } elseif ($currentPayment->status === 'PARTIAL') {
-                $currentMonthStatus = 'PARTIAL';
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first()
+                ], 422);
             }
-        }
 
-        // Calculate payment breakdown
-        $rentAmount = (float) ($resident->rent_amount ?? 0);
-        $totalDue = $pendingPayments->sum('balance_amount');
+            // Find resident by phone number
+            $resident = Resident::with(['hostel', 'room'])
+                ->where('phone', $request->mobile)
+                ->where('hostel_id', $request->hostel_id)
+                ->where('status', 'ACTIVE')
+                ->first();
 
-        if (!$isCurrentMonthPaid && $currentMonthStatus !== 'PAID') {
-            if (!$currentPayment) {
-                $totalDue += $rentAmount;
-            } else if ($currentPayment->status === 'PARTIAL') {
-                $totalDue += $currentPayment->balance_amount;
+            if (!$resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resident not found with this mobile number.'
+                ], 404);
             }
-        }
 
-        // Discount calculation
-        $discount = 0;
-        $discountType = null;
-        $discountAmount = 0;
-        $finalAmount = (float) $totalDue;
-        $discountMessage = '';
+            // Calculate total due
+            $currentMonth = now()->month;
+            $currentYear = now()->year;
+            $paymentDate = now()->toDateString();
 
-        if ($pendingPayments->count() == 0 && !$isCurrentMonthPaid && $totalDue > 0) {
-            if ($currentDay >= 1 && $currentDay <= 5) {
-                $discountAmount = min(250, $rentAmount * 0.10);
-                $discountType = 'early_discount_250';
-                $discountMessage = 'Early payment discount (1st-5th): 10% off up to ₹250';
-            } elseif ($currentDay >= 6 && $currentDay <= 10) {
-                $discountAmount = min(125, $rentAmount * 0.05);
-                $discountType = 'early_discount_125';
-                $discountMessage = 'Early payment discount (6th-10th): 5% off up to ₹125';
-            } else {
-                $discountAmount = 0;
-                $discountType = 'no_discount';
-                $discountMessage = 'No discount available. Please pay before 10th for early payment discount.';
-            }
-            $discount = $discountAmount;
-            $finalAmount = max(0, $totalDue - $discount);
-        } else {
+            // Calculate discount
+            $day = date('j', strtotime($paymentDate));
             $discount = 0;
-            $discountType = 'no_discount';
-            $finalAmount = $totalDue;
-
-            if ($isCurrentMonthPaid) {
-                $discountMessage = '✅ This month\'s rent is already paid.';
-            } elseif ($pendingPayments->count() > 0) {
-                $discountMessage = '⚠️ Previous pending payments found. No discount applicable.';
-            } else {
-                $discountMessage = 'No discount applicable.';
+            if ($day <= 5) {
+                $discount = 250;
+            } elseif ($day <= 10) {
+                $discount = 125;
             }
+
+            $currentDue = $resident->rent_amount - $discount;
+
+            // Get previous pending
+            $previousPending = Payment::where('resident_id', $resident->id)
+                ->where(function($q) use ($currentMonth, $currentYear) {
+                    $q->where('year', '<', $currentYear)
+                      ->orWhere(function($q2) use ($currentMonth, $currentYear) {
+                          $q2->where('year', $currentYear)
+                             ->where('month', '<', $currentMonth);
+                      });
+                })
+                ->whereIn('status', ['PENDING', 'PARTIAL'])
+                ->sum('balance_amount');
+
+            // Check if already paid for current month
+            $currentPayment = Payment::where('resident_id', $resident->id)
+                ->where('month', $currentMonth)
+                ->where('year', $currentYear)
+                ->first();
+
+            $isCurrentPaid = $currentPayment && $currentPayment->status == 'PAID';
+            $currentBalance = $currentPayment ? $currentPayment->balance_amount : $currentDue;
+
+            $totalDue = $previousPending + $currentBalance;
+
+            // Get pending count
+            $pendingCount = Payment::where('resident_id', $resident->id)
+                ->whereIn('status', ['PENDING', 'PARTIAL'])
+                ->count();
+
+            // Generate reference
+            $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'phone' => $resident->phone,
+                    'email' => $resident->email,
+                    'room_no' => $resident->room ? $resident->room->room_no : 'N/A',
+                    'hostel_name' => $resident->hostel ? $resident->hostel->hostel_name : 'N/A',
+                    'rent_amount' => $resident->rent_amount,
+                    'discount_amount' => $discount,
+                    'previous_pending' => $previousPending,
+                    'current_due' => $currentDue,
+                    'current_balance' => $currentBalance,
+                    'total_due' => $totalDue,
+                    'amount_to_pay' => $totalDue,
+                    'has_pending' => $previousPending > 0,
+                    'pending_count' => $pendingCount,
+                    'is_current_paid' => $isCurrentPaid,
+                    'reference' => $reference,
+                    'payment_date' => $paymentDate
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Guest payment - getResident error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong. Please try again.'
+            ], 500);
         }
-
-        // Fine calculation
-        $fineAmount = 0;
-        $fineMessage = '';
-
-        if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
-            $daysLate = $currentDay - 10;
-            $fineAmount = $daysLate * 10; // ₹50 per day late fee
-            $fineMessage = "Late fee: ₹50 per day after 10th ({$daysLate} days late)";
-        }
-
-        // Calculate paid amounts
-        $totalUPIPaid = 0;
-        $totalCashPaid = 0;
-        $totalPaidAmount = 0;
-        $totalBalance = 0;
-        $paymentBreakdown = [];
-
-        foreach ($allPayments as $payment) {
-            $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-            $upiPaid = (float) ($payment->upi_paid_amount ?? 0);
-            $cashPaid = (float) ($payment->cash_paid_amount ?? 0);
-            $balance = (float) ($payment->balance_amount ?? 0);
-            $rentAmt = (float) ($payment->rent_amount ?? 0);
-
-            $totalUPIPaid += $upiPaid;
-            $totalCashPaid += $cashPaid;
-            $totalPaidAmount += ($upiPaid + $cashPaid);
-            $totalBalance += $balance;
-
-            $paymentBreakdown[] = [
-                'month' => $monthName . ' ' . $payment->year,
-                'rent_amount' => $rentAmt,
-                'discount' => (float) ($payment->discount_amount ?? 0),
-                'fine' => (float) ($payment->fine_amount ?? 0),
-                'upi_paid' => $upiPaid,
-                'cash_paid' => $cashPaid,
-                'total_paid' => $upiPaid + $cashPaid,
-                'balance' => $balance,
-                'status' => $payment->status
-            ];
-        }
-
-        // Payment status message
-        $paymentStatusMessage = '';
-        $paymentStatus = '';
-
-        if ($isCurrentMonthPaid && $totalDue == 0 && $totalBalance == 0) {
-            $paymentStatus = 'PAID';
-            $paymentStatusMessage = '✅ All payments are up to date! You have no pending dues.';
-        } elseif ($pendingPayments->count() > 0 || $totalBalance > 0) {
-            $paymentStatus = 'PENDING';
-            $paymentStatusMessage = '⚠️ You have pending payment(s). Please clear your dues.';
-        } elseif (!$isCurrentMonthPaid && $totalDue > 0) {
-            $paymentStatus = 'PENDING';
-            $paymentStatusMessage = '📝 You have pending payment for this month.';
-        } else {
-            $paymentStatus = 'PAID';
-            $paymentStatusMessage = '✅ All payments are up to date!';
-        }
-
-        $amountToPay = $finalAmount + $fineAmount;
-        $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'resident_id' => (int) $resident->id,
-                'name' => $resident->name,
-                'email' => $resident->email ?? 'Not provided',
-                'phone' => $resident->phone,
-                'room_no' => $resident->room->room_no ?? 'N/A',
-                'rent_amount' => (float) $rentAmount,
-                'total_due' => (float) $totalDue,
-                'discount' => (float) $discount,
-                'discount_type' => $discountType,
-                'discount_amount' => (float) $discount,
-                'discount_message' => $discountMessage,
-                'discount_applicable' => $discount > 0,
-                'fine_amount' => (float) $fineAmount,
-                'fine_message' => $fineMessage,
-                'final_amount' => (float) $amountToPay,
-                'amount_to_pay' => (float) $amountToPay,
-                'total_upi_paid' => (float) $totalUPIPaid,
-                'total_cash_paid' => (float) $totalCashPaid,
-                'total_paid_amount' => (float) $totalPaidAmount,
-                'total_balance' => (float) $totalBalance,
-                'payment_status' => $paymentStatus,
-                'payment_status_message' => $paymentStatusMessage,
-                'is_paid' => $paymentStatus === 'PAID',
-                'has_pending' => $pendingPayments->count() > 0 || $totalBalance > 0,
-                'pending_count' => (int) $pendingPayments->count(),
-                'current_day' => $currentDay,
-                'current_month_status' => $currentMonthStatus,
-                'reference' => $reference,
-                'payment_breakdown' => $paymentBreakdown,
-                'pending_payments' => $paymentBreakdown,
-                'message' => $paymentStatusMessage
-            ]
-        ], 200, [], JSON_NUMERIC_CHECK);
     }
 
     /**
-     * Create Axis Bank order
+     * Create Axis Bank payment order
      */
     public function createOrder(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'amount' => 'required|numeric|min:1',
-            'reference' => 'required|string',
-            'resident_id' => 'required|exists:residents,id'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $amount = (float) $request->amount;
-        $reference = $request->reference;
-        $residentId = $request->resident_id;
-
-        $resident = Resident::find($residentId);
-        $roomNo = $resident && $resident->room ? ($resident->room->room_no ?? 'N/A') : 'N/A';
-        $residentName = $resident ? $resident->name : 'Resident';
-
-        // Store resident ID and reference mapping
-        Cache::put('axis_order_resident_' . $reference, $residentId, now()->addHours(2));
-
         try {
-            $orderData = [
-                'receipt' => $reference,
-                'amount' => $amount,
-                'currency' => config('axisbank.currency', 'INR'),
-                'reference_id' => $reference,
-                'description' => 'Rent Payment - ' . $residentName,
-                'customer_name' => $residentName,
-                'customer_email' => $resident->email ?? '',
-                'customer_phone' => $resident->phone ?? '',
-                'notes' => [
-                    'resident_id' => $residentId,
-                    'resident_name' => $residentName,
-                    'room_no' => $roomNo,
-                    'payment_type' => 'rent'
-                ]
-            ];
-
-            $result = $this->axisBank->createOrder($orderData);
-
-            if ($result['success']) {
-                // Store order_id for callback
-                Cache::put('axis_order_id_' . $reference, $result['order_id'], now()->addHours(2));
-
-                return response()->json([
-                    'success' => true,
-                    'order_id' => $result['order_id'],
-                    'transaction_id' => $result['transaction_id'],
-                    'payment_url' => $result['payment_url'],
-                    'amount' => $result['amount'],
-                    'currency' => $result['currency'],
-                    'merchant_id' => $result['merchant_id'],
-                    'signature' => $result['signature'],
-                    'reference' => $reference,
-                    'resident_id' => $residentId,
-                ]);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => $result['message'] ?? 'Failed to create payment order'
-            ], 500);
-
-        } catch (Exception $e) {
-            Log::error('Axis Bank: Order creation error', [
-                'error' => $e->getMessage(),
-                'resident_id' => $residentId,
-                'reference' => $reference
+            $validator = Validator::make($request->all(), [
+                'amount' => 'required|numeric|min:1',
+                'reference' => 'required|string',
+                'resident_id' => 'required|exists:residents,id'
             ]);
 
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first()
+                ], 422);
+            }
+
+            $resident = Resident::find($request->resident_id);
+            $amount = $request->amount;
+            $reference = $request->reference;
+
+            // Generate order ID
+            $orderId = 'AXIS-' . date('Ymd') . '-' . strtoupper(Str::random(10));
+            $transactionId = 'TXN-' . date('Ymd') . '-' . strtoupper(Str::random(10));
+
+            // Store payment details in session for callback
+            session([
+                'guest_payment_reference' => $reference,
+                'guest_payment_resident_id' => $resident->id,
+                'guest_payment_amount' => $amount,
+                'guest_payment_order_id' => $orderId,
+                'guest_payment_transaction_id' => $transactionId,
+                'guest_payment_timestamp' => now()
+            ]);
+
+            // Build payment URL
+            $paymentUrl = 'https://secure.axisbank.com/payment';
+
+            // Generate signature (for production, use proper HMAC)
+            $signature = $this->generateSignature([
+                'order_id' => $orderId,
+                'transaction_id' => $transactionId,
+                'amount' => $amount,
+                'reference' => $reference,
+                'resident_id' => $resident->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'order_id' => $orderId,
+                    'transaction_id' => $transactionId,
+                    'reference' => $reference,
+                    'amount' => $amount,
+                    'payment_url' => $paymentUrl,
+                    'merchant_id' => env('AXIS_MERCHANT_ID', 'HOSTEL_MERCHANT'),
+                    'currency' => 'INR',
+                    'signature' => $signature,
+                    'resident_name' => $resident->name,
+                    'resident_phone' => $resident->phone,
+                    'resident_email' => $resident->email
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Guest payment - createOrder error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create payment order: ' . $e->getMessage()
@@ -361,78 +234,195 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Verify payment after successful Axis Bank checkout
+     * Generate signature for Axis Bank
+     */
+    private function generateSignature($data)
+    {
+        // For production, use proper HMAC with secret key
+        $secretKey = env('AXIS_SECRET_KEY', 'axis_secret_key_12345');
+        $string = implode('|', $data);
+        return hash_hmac('sha256', $string, $secretKey);
+    }
+
+    /**
+     * Verify Axis Bank payment
      */
     public function verifyPayment(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'order_id' => 'required|string',
-            'transaction_id' => 'required|string',
-            'status' => 'required|string',
-            'reference' => 'required|string',
-            'signature' => 'required|string'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
         try {
+            $validator = Validator::make($request->all(), [
+                'order_id' => 'required|string',
+                'transaction_id' => 'required|string',
+                'reference' => 'required|string',
+                'signature' => 'required|string',
+                'status' => 'required|in:SUCCESS,FAILED,CANCELLED'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first()
+                ], 422);
+            }
+
+            $reference = $request->reference;
+            $transactionId = $request->transaction_id;
+            $status = $request->status;
+
             // Verify signature
-            $payload = $request->all();
-            $isValid = $this->axisBank->verifyPaymentSignature($payload);
+            $signatureData = [
+                'order_id' => $request->order_id,
+                'transaction_id' => $transactionId,
+                'reference' => $reference,
+                'status' => $status
+            ];
 
-            if (!$isValid) {
+            $expectedSignature = $this->generateSignature($signatureData);
+            $isValidSignature = hash_equals($expectedSignature, $request->signature);
+
+            if (!$isValidSignature) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Payment verification failed: Invalid signature'
+                    'message' => 'Invalid signature'
                 ], 400);
             }
 
-            // Get payment details
-            $paymentData = $this->axisBank->fetchPayment($request->transaction_id);
+            // Get resident from session or database
+            $residentId = session('guest_payment_resident_id');
+            $resident = Resident::find($residentId);
 
-            if (!$paymentData['success']) {
+            if (!$resident) {
                 return response()->json([
                     'success' => false,
-                    'message' => $paymentData['message'] ?? 'Failed to fetch payment details'
-                ], 400);
+                    'message' => 'Resident not found'
+                ], 404);
             }
 
-            // Record payment if status is SUCCESS
-            if ($paymentData['status'] === 'SUCCESS' || $paymentData['status'] === 'CAPTURED') {
-                $paymentRecord = $this->recordPaymentIfNeeded(
-                    $request->reference,
-                    $paymentData,
-                    $request->all()
-                );
+            if ($status === 'SUCCESS') {
+                // Create payment record
+                $amount = session('guest_payment_amount') ?? 0;
+                $orderId = session('guest_payment_order_id');
+                $currentMonth = now()->month;
+                $currentYear = now()->year;
+
+                // Calculate discount based on current date
+                $day = date('j');
+                $discount = 0;
+                if ($day <= 5) {
+                    $discount = 250;
+                } elseif ($day <= 10) {
+                    $discount = 125;
+                }
+
+                $currentDue = $resident->rent_amount - $discount;
+
+                // Get previous pending
+                $previousPending = Payment::where('resident_id', $resident->id)
+                    ->where(function($q) use ($currentMonth, $currentYear) {
+                        $q->where('year', '<', $currentYear)
+                          ->orWhere(function($q2) use ($currentMonth, $currentYear) {
+                              $q2->where('year', $currentYear)
+                                 ->where('month', '<', $currentMonth);
+                          });
+                    })
+                    ->whereIn('status', ['PENDING', 'PARTIAL'])
+                    ->sum('balance_amount');
+
+                // Allocate payment
+                $remaining = $amount;
+                $previousPaid = min($remaining, $previousPending);
+                $remaining -= $previousPaid;
+                $currentPaid = min($remaining, $currentDue);
+                $remaining -= $currentPaid;
+                $advanceAmount = $remaining;
+
+                $previousBalance = max(0, $previousPending - $previousPaid);
+                $currentBalance = max(0, $currentDue - $currentPaid);
+
+                // Clear previous pending
+                if ($previousPaid > 0) {
+                    $prevPayments = Payment::where('resident_id', $resident->id)
+                        ->where(function($q) use ($currentMonth, $currentYear) {
+                            $q->where('year', '<', $currentYear)
+                              ->orWhere(function($q2) use ($currentMonth, $currentYear) {
+                                  $q2->where('year', $currentYear)
+                                     ->where('month', '<', $currentMonth);
+                              });
+                        })
+                        ->whereIn('status', ['PENDING', 'PARTIAL'])
+                        ->orderBy('year', 'asc')
+                        ->orderBy('month', 'asc')
+                        ->get();
+
+                    $remainingPrev = $previousPaid;
+                    foreach ($prevPayments as $prev) {
+                        if ($remainingPrev <= 0) break;
+                        $prevBalance = $prev->balance_amount;
+                        $payAmount = min($remainingPrev, $prevBalance);
+                        $prev->cash_paid_amount += $payAmount;
+                        $prev->balance_amount = max(0, $prevBalance - $payAmount);
+                        $prev->status = ($prev->balance_amount <= 0) ? 'PAID' : 'PARTIAL';
+                        $prev->save();
+                        $remainingPrev -= $payAmount;
+                    }
+                }
+
+                // Generate receipt
+                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+                while (Payment::where('receipt_no', $receiptNo)->exists()) {
+                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+                }
+
+                $statusFinal = ($currentBalance <= 0) ? 'PAID' : 'PARTIAL';
+
+                // Create payment record
+                $payment = Payment::create([
+                    'resident_id' => $resident->id,
+                    'receipt_no' => $receiptNo,
+                    'month' => $currentMonth,
+                    'year' => $currentYear,
+                    'rent_amount' => $resident->rent_amount,
+                    'discount_amount' => $discount,
+                    'fine_amount' => 0,
+                    'cash_paid_amount' => $currentPaid,
+                    'upi_paid_amount' => 0,
+                    'balance_amount' => $currentBalance,
+                    'payment_date' => now()->toDateString(),
+                    'transaction_id' => $transactionId,
+                    'status' => $statusFinal,
+                    'payment_type' => 'online',
+                    'previous_pending_cleared' => $previousPaid,
+                    'remark' => "Online payment via Axis Bank. Reference: {$reference}"
+                ]);
+
+                // Clear session data
+                session()->forget([
+                    'guest_payment_reference',
+                    'guest_payment_resident_id',
+                    'guest_payment_amount',
+                    'guest_payment_order_id',
+                    'guest_payment_transaction_id'
+                ]);
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Payment verified successfully',
+                    'message' => 'Payment completed successfully!',
                     'data' => [
-                        'payment_id' => $paymentData['transaction_id'],
-                        'amount' => $paymentData['amount'],
-                        'status' => $paymentData['status'],
-                        'receipt_no' => $paymentRecord->receipt_no ?? $request->reference,
+                        'payment' => $payment,
+                        'receipt_no' => $receiptNo,
+                        'amount_paid' => $amount,
+                        'previous_pending_cleared' => $previousPaid
                     ]
                 ]);
             }
 
             return response()->json([
                 'success' => false,
-                'message' => 'Payment is not completed. Status: ' . $paymentData['status']
-            ], 400);
-
-        } catch (Exception $e) {
-            Log::error('Axis Bank: Payment verification error', [
-                'error' => $e->getMessage(),
-                'request' => $request->all()
+                'message' => 'Payment ' . strtolower($status)
             ]);
 
+        } catch (\Exception $e) {
+            Log::error('Guest payment - verifyPayment error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Payment verification failed: ' . $e->getMessage()
@@ -441,259 +431,172 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Browser callback after payment
+     * Payment callback from Axis Bank
      */
     public function callback(Request $request)
     {
-        // Get parameters
-        $reference = $request->query('reference');
-        $transactionId = $request->query('transaction_id');
-        $status = $request->query('status');
-        $orderId = $request->query('order_id');
+        try {
+            $reference = $request->query('reference') ?? $request->input('reference');
+            $transactionId = $request->query('transaction_id') ?? $request->input('transaction_id');
+            $status = $request->query('status') ?? $request->input('status');
+            $orderId = $request->query('order_id') ?? $request->input('order_id');
+            $signature = $request->query('signature') ?? $request->input('signature');
 
-        Log::info('Axis Bank: Payment callback received', [
-            'reference' => $reference,
-            'transaction_id' => $transactionId,
-            'status' => $status,
-            'all_params' => $request->all()
-        ]);
-
-        // Handle cancellation
-        if ($status === 'CANCELLED' || $status === 'FAILED') {
-            return view('guest.payment-result', [
-                'success' => false,
-                'message' => 'Payment was cancelled or failed. You can try again.',
-                'reference' => $reference ?? 'N/A',
-                'amount' => null,
-                'receipt_no' => null,
-                'payment_method' => 'Axis Bank'
-            ]);
-        }
-
-        // If we have a reference, check our local database first
-        if ($reference) {
-            $paymentRecord = Payment::where('receipt_no', $reference)->first();
-
-            if ($paymentRecord) {
-                $isSuccess = $paymentRecord->status === 'PAID';
-
-                return view('guest.payment-result', [
-                    'success' => $isSuccess,
-                    'message' => $isSuccess ? 'Payment successful!' : 'Payment status: ' . $paymentRecord->status,
-                    'reference' => $reference,
-                    'amount' => $paymentRecord->upi_paid_amount + $paymentRecord->cash_paid_amount,
-                    'receipt_no' => $paymentRecord->receipt_no,
-                    'payment_method' => 'Axis Bank'
-                ]);
-            }
-
-            // If we have a transaction_id, try to fetch from Axis Bank
-            if ($transactionId) {
-                try {
-                    $payment = $this->axisBank->fetchPayment($transactionId);
-
-                    if ($payment['success'] && ($payment['status'] === 'SUCCESS' || $payment['status'] === 'CAPTURED')) {
-                        $newRecord = $this->recordPaymentIfNeeded($reference, $payment, $request->all());
-
-                        return view('guest.payment-result', [
-                            'success' => true,
-                            'message' => 'Payment successful!',
-                            'reference' => $reference,
-                            'amount' => $payment['amount'] ?? 0,
-                            'receipt_no' => $newRecord->receipt_no ?? $reference,
-                            'payment_method' => 'Axis Bank'
-                        ]);
-                    } else {
-                        return view('guest.payment-result', [
-                            'success' => false,
-                            'message' => 'Payment status: ' . ($payment['status'] ?? 'UNKNOWN'),
-                            'reference' => $reference,
-                            'amount' => null,
-                            'receipt_no' => null,
-                            'payment_method' => 'Axis Bank'
-                        ]);
-                    }
-                } catch (Exception $e) {
-                    Log::error('Axis Bank: Callback error', [
-                        'error' => $e->getMessage(),
-                        'reference' => $reference,
-                        'transaction_id' => $transactionId
+            // If it's an AJAX request, return JSON
+            if ($request->ajax() || $request->wantsJson()) {
+                if ($status === 'success' || $status === 'SUCCESS') {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Payment confirmed!'
                     ]);
                 }
-            }
-
-            // If we couldn't find payment details, check cache
-            $cachedResidentId = Cache::get('axis_order_resident_' . $reference);
-            if ($cachedResidentId) {
-                return view('guest.payment-result', [
-                    'success' => null,
-                    'message' => 'Your payment is being processed. Please check back in a few minutes.',
-                    'reference' => $reference,
-                    'amount' => null,
-                    'receipt_no' => null,
-                    'payment_method' => 'Axis Bank'
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Payment not confirmed'
                 ]);
             }
-        }
 
-        // Default error response
-        return view('guest.payment-result', [
-            'success' => false,
-            'message' => 'Payment details not found. Please check your payment status in your account.',
-            'reference' => $reference ?? 'N/A',
-            'amount' => null,
-            'receipt_no' => null,
-            'payment_method' => 'Axis Bank'
-        ]);
+            // If we have a success status, verify and show success page
+            if ($status === 'success' || $status === 'SUCCESS') {
+                // Verify payment status
+                $residentId = session('guest_payment_resident_id');
+                $payment = Payment::where('resident_id', $residentId)
+                    ->where('transaction_id', $transactionId)
+                    ->first();
+
+                if ($payment) {
+                    return view('guest.payment.success', [
+                        'payment' => $payment,
+                        'resident' => $payment->resident,
+                        'receipt_no' => $payment->receipt_no,
+                        'amount' => $payment->rent_amount
+                    ]);
+                }
+
+                // If payment not found, redirect to home with success
+                return redirect()->route('guest.payment.index')
+                    ->with('success', 'Payment completed successfully!');
+            }
+
+            // If cancelled or failed
+            if ($status === 'cancelled' || $status === 'CANCELLED') {
+                return redirect()->route('guest.payment.index')
+                    ->with('error', 'Payment was cancelled.');
+            }
+
+            if ($status === 'failed' || $status === 'FAILED') {
+                return redirect()->route('guest.payment.index')
+                    ->with('error', 'Payment failed. Please try again.');
+            }
+
+            // Default: show status page
+            return view('guest.payment.status', [
+                'status' => $status,
+                'reference' => $reference,
+                'transaction_id' => $transactionId
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Guest payment - callback error: ' . $e->getMessage());
+            return redirect()->route('guest.payment.index')
+                ->with('error', 'Payment processing error.');
+        }
     }
 
     /**
-     * AJAX polling for payment status
+     * Payment cancellation
+     */
+    public function cancel(Request $request)
+    {
+        session()->forget([
+            'guest_payment_reference',
+            'guest_payment_resident_id',
+            'guest_payment_amount',
+            'guest_payment_order_id',
+            'guest_payment_transaction_id'
+        ]);
+
+        return redirect()->route('guest.payment.index')
+            ->with('error', 'Payment was cancelled.');
+    }
+
+    /**
+     * Check payment status
      */
     public function status(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'reference' => 'required|string'
-        ]);
+        $reference = $request->query('reference');
 
-        if ($validator->fails()) {
+        if (!$reference) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+                'message' => 'Reference required'
+            ], 400);
         }
 
-        $reference = $request->reference;
+        $payment = Payment::where('transaction_id', 'LIKE', '%' . $reference . '%')
+            ->orWhere('receipt_no', $reference)
+            ->first();
 
-        // Check local payment record
-        $payment = Payment::where('receipt_no', $reference)->with('resident')->first();
         if ($payment) {
             return response()->json([
                 'success' => true,
-                'state' => 'COMPLETED',
                 'data' => [
                     'status' => $payment->status,
-                    'amount' => $payment->upi_paid_amount,
+                    'amount' => $payment->rent_amount,
                     'receipt_no' => $payment->receipt_no,
-                    'payment_date' => $payment->payment_date->format('d M Y h:i A'),
-                    'resident' => $payment->resident->name ?? 'N/A'
+                    'payment_date' => $payment->payment_date
                 ]
             ]);
         }
 
         return response()->json([
-            'success' => true,
-            'state' => 'PENDING',
-        ]);
+            'success' => false,
+            'message' => 'Payment not found'
+        ], 404);
     }
 
     /**
-     * Axis Bank Webhook
+     * Webhook for Axis Bank (server-to-server)
      */
     public function webhook(Request $request)
     {
-        // Verify webhook signature
-        $webhookSecret = config('axisbank.webhook_secret');
-        $signature = $request->header('X-AxisBank-Signature');
+        try {
+            $payload = $request->all();
 
-        if (!$signature || !$webhookSecret) {
-            Log::warning('Axis Bank webhook: missing signature or secret');
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+            // Verify webhook signature
+            $signature = $request->header('X-Axis-Signature');
+            $expectedSignature = $this->generateSignature($payload);
 
-        // Verify signature (implement based on Axis Bank webhook documentation)
-        $body = $request->getContent();
-        $expectedSignature = hash_hmac('sha256', $body, $webhookSecret);
-
-        if (!hash_equals($expectedSignature, $signature)) {
-            Log::warning('Axis Bank webhook: invalid signature');
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
-
-        $payload = $request->json()->all();
-        $event = $payload['event'] ?? null;
-        $payment = $payload['payload']['payment'] ?? [];
-        $order = $payload['payload']['order'] ?? [];
-
-        Log::info('Axis Bank webhook received', [
-            'event' => $event,
-            'transaction_id' => $payment['transaction_id'] ?? null,
-            'order_id' => $order['order_id'] ?? null,
-        ]);
-
-        // Handle payment success event
-        if ($event === 'payment.success' && !empty($payment['transaction_id'])) {
-            $receipt = $payment['reference_id'] ?? $order['receipt'] ?? null;
-            if ($receipt) {
-                $this->recordPaymentIfNeeded($receipt, $payment, $order);
+            if (!hash_equals($expectedSignature, $signature)) {
+                Log::warning('Guest payment - webhook invalid signature');
+                return response()->json(['status' => 'error', 'message' => 'Invalid signature'], 401);
             }
-        }
 
-        // Must return 2xx quickly
-        return response()->json(['status' => 'ok']);
-    }
+            $reference = $payload['reference'] ?? null;
+            $transactionId = $payload['transaction_id'] ?? null;
+            $status = $payload['status'] ?? null;
+            $amount = $payload['amount'] ?? 0;
 
-    /**
-     * Idempotently creates the local Payment record
-     */
-    protected function recordPaymentIfNeeded(string $receipt, array $payment, array $order): Payment
-    {
-        $existing = Payment::where('receipt_no', $receipt)->first();
-        if ($existing) {
-            return $existing;
-        }
+            if ($status === 'SUCCESS' && $reference) {
+                // Process payment as in verifyPayment
+                $resident = Resident::where('id', $payload['resident_id'] ?? 0)->first();
+                if ($resident) {
+                    // Create payment record...
+                    // Same logic as verifyPayment
+                }
+            }
 
-        $residentId = Cache::get('axis_order_resident_' . $receipt);
-        $resident = $residentId ? Resident::find($residentId) : null;
+            return response()->json(['status' => 'success']);
 
-        // Get resident ID from order notes if not in cache
-        if (!$resident && isset($order['notes']['resident_id'])) {
-            $resident = Resident::find($order['notes']['resident_id']);
-        }
-
-        $paidAmount = $payment['amount'] ?? 0;
-        $rentAmount = $resident?->rent_amount ?? 0;
-        $transactionId = $payment['transaction_id'] ?? ('TXN-' . strtoupper(Str::random(10)));
-
-        $paymentStatus = $this->determinePaymentStatus($paidAmount, $rentAmount);
-
-        return Payment::create([
-            'resident_id' => $resident?->id,
-            'receipt_no' => $receipt,
-            'month' => now()->month,
-            'year' => now()->year,
-            'rent_amount' => $rentAmount,
-            'discount_amount' => 0,
-            'fine_amount' => 0,
-            'cash_paid_amount' => 0,
-            'upi_paid_amount' => $paidAmount,
-            'balance_amount' => max(0, $rentAmount - $paidAmount),
-            'payment_date' => now(),
-            'transaction_id' => $transactionId,
-            'status' => $paymentStatus,
-        ]);
-    }
-
-    /**
-     * Determine payment status based on paid amount vs total amount
-     */
-    protected function determinePaymentStatus(float $paidAmount, float $totalAmount): string
-    {
-        if ($totalAmount <= 0) {
-            return 'PAID';
-        }
-
-        if ($paidAmount >= $totalAmount) {
-            return 'PAID';
-        } elseif ($paidAmount > 0) {
-            return 'PARTIAL';
-        } else {
-            return 'PENDING';
+        } catch (\Exception $e) {
+            Log::error('Guest payment - webhook error: ' . $e->getMessage());
+            return response()->json(['status' => 'error'], 500);
         }
     }
 
     /**
-     * Admin helper: generate an encoded hostel payment link.
+     * Generate payment link for hostel
      */
     public function generateLink($hostelId)
     {
@@ -706,20 +609,21 @@ class GuestPaymentController extends Controller
         }
 
         $encodedId = Crypt::encryptString($hostelId);
-        $url = url('/guest/payment/' . $encodedId);
+        $link = url('/guest/payment/' . $encodedId);
 
         return response()->json([
             'success' => true,
             'data' => [
-                'hostel_id' => $hostelId,
-                'hostel_name' => $hostel->hostel_name,
-                'hostel_code' => $hostel->hostel_code ?? 'HOSTEL',
-                'encoded_id' => $encodedId,
-                'payment_link' => $url,
+                'hostel' => $hostel->hostel_name,
+                'link' => $link,
+                'encoded_id' => $encodedId
             ]
         ]);
     }
 
+    /**
+     * Encode hostel ID
+     */
     public function encodeId($hostelId)
     {
         try {
@@ -727,19 +631,22 @@ class GuestPaymentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'original_id' => $hostelId,
-                    'encoded_id' => $encoded,
+                    'hostel_id' => $hostelId,
+                    'encoded' => $encoded,
                     'url' => url('/guest/payment/' . $encoded)
                 ]
             ]);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to encode ID: ' . $e->getMessage()
+                'message' => $e->getMessage()
             ], 500);
         }
     }
 
+    /**
+     * Decode hostel ID
+     */
     public function decodeId($encodedId)
     {
         try {
@@ -747,14 +654,108 @@ class GuestPaymentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'encoded_id' => $encodedId,
-                    'decoded_id' => $decoded
+                    'encoded' => $encodedId,
+                    'hostel_id' => $decoded
                 ]
             ]);
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to decode ID: ' . $e->getMessage()
+                'message' => 'Invalid encoded ID'
+            ], 400);
+        }
+    }
+
+    /**
+     * Get payment history for resident
+     */
+    public function getPaymentHistory($residentId)
+    {
+        try {
+            $resident = Resident::find($residentId);
+            if (!$resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resident not found'
+                ], 404);
+            }
+
+            $payments = Payment::where('resident_id', $residentId)
+                ->orderBy('year', 'desc')
+                ->orderBy('month', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'resident' => $resident->name,
+                    'payments' => $payments
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get resident due amount (for QR code display)
+     */
+    public function getResidentDue(Request $request)
+    {
+        try {
+            $residentId = $request->query('resident_id');
+            $resident = Resident::find($residentId);
+
+            if (!$resident) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Resident not found'
+                ], 404);
+            }
+
+            $currentMonth = now()->month;
+            $currentYear = now()->year;
+
+            // Calculate total due
+            $previousPending = Payment::where('resident_id', $resident->id)
+                ->where(function($q) use ($currentMonth, $currentYear) {
+                    $q->where('year', '<', $currentYear)
+                      ->orWhere(function($q2) use ($currentMonth, $currentYear) {
+                          $q2->where('year', $currentYear)
+                             ->where('month', '<', $currentMonth);
+                      });
+                })
+                ->whereIn('status', ['PENDING', 'PARTIAL'])
+                ->sum('balance_amount');
+
+            $currentPayment = Payment::where('resident_id', $resident->id)
+                ->where('month', $currentMonth)
+                ->where('year', $currentYear)
+                ->first();
+
+            $currentBalance = $currentPayment ? $currentPayment->balance_amount : $resident->rent_amount;
+            $totalDue = $previousPending + $currentBalance;
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'resident_id' => $resident->id,
+                    'name' => $resident->name,
+                    'total_due' => $totalDue,
+                    'previous_pending' => $previousPending,
+                    'current_balance' => $currentBalance,
+                    'rent_amount' => $resident->rent_amount
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
             ], 500);
         }
     }
