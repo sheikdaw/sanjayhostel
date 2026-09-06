@@ -2248,7 +2248,7 @@ class PaymentController extends Controller
         return $pdf->download('paid-payments-' . date('Y-m-d') . '.pdf');
     }
 
-    public function pdfUnpaidPayments(Request $request)
+    public function pdfUnpaidPayment(Request $request)
     {
         $user = auth()->user();
 
@@ -2312,7 +2312,68 @@ class PaymentController extends Controller
 
         return $pdf->download('unpaid-payments-' . date('Y-m-d') . '.pdf');
     }
+public function pdfUnpaidPayments(Request $request)
+{
+    $user = auth()->user();
 
+    $month = $request->filled('month') ? $request->month : date('n');
+    $year = $request->filled('year') ? $request->year : date('Y');
+    $hostelId = $request->filled('hostel_id') ? $request->hostel_id : null;
+
+    $residentsQuery = Resident::with(['hostel', 'room'])
+        ->where('status', 'ACTIVE');
+
+    $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $residentsQuery->whereIn('hostel_id', $hostelIds);
+    }
+
+    if ($hostelId) {
+        $residentsQuery->where('hostel_id', $hostelId);
+    }
+
+    $residents = $residentsQuery->get();
+    $payments = Payment::where('month', $month)->where('year', $year)->get()->keyBy('resident_id');
+
+    $unpaidResidents = [];
+    $totalDue = 0;
+    $totalUnpaid = 0;
+
+    foreach ($residents as $resident) {
+        $payment = $payments->get($resident->id);
+        if (!$payment || $payment->status !== 'PAID') {
+            $unpaidResidents[] = [
+                'resident' => $resident,
+                'payment' => $payment,
+                'due_amount' => $payment ? $payment->balance_amount : ($resident->rent_amount ?? 0),
+                'status' => $payment ? $payment->status : 'NO PAYMENT',
+                'remark' => $payment ? $payment->remark : 'No payment recorded'
+            ];
+            $totalDue += $payment ? $payment->balance_amount : ($resident->rent_amount ?? 0);
+            $totalUnpaid++;
+        }
+    }
+
+    $monthName = date('F', mktime(0, 0, 0, $month, 1));
+    $hostelName = $hostelId ? Hostel::find($hostelId)->hostel_name ?? 'All Hostels' : 'All Hostels';
+
+    $data = [
+        'title' => 'Unpaid Payments Report',
+        'month' => $monthName,
+        'year' => $year,
+        'hostel' => $hostelName,
+        'unpaidResidents' => $unpaidResidents,
+        'totalUnpaid' => $totalUnpaid,
+        'totalDue' => $totalDue,
+        'generated_at' => now()->format('d M Y h:i A'),
+        'user' => $user
+    ];
+
+    // Return as HTML view for sharing
+    return view('admin.payments.images.unpaid-payments', $data);
+}
     public function pdfHostelWise(Request $request)
     {
         $user = auth()->user();
