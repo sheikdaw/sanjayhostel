@@ -482,7 +482,7 @@
     </div>
 @endif
 
-{{-- Statistics --}}
+{{-- Statistics with Filter Context --}}
 <div class="stats-grid" id="statsContainer">
     <div class="stat-card">
         <div class="icon">📊</div>
@@ -509,6 +509,19 @@
         <div class="number" id="statCollected">₹{{ number_format($stats['total_collected'] ?? 0, 0) }}</div>
         <div class="label">Total Collected</div>
     </div>
+</div>
+
+{{-- Filter Info --}}
+<div class="d-flex align-items-center gap-3 mb-3" style="font-size:0.85rem; color:#6b7280; background:#f8fafc; padding:0.5rem 1rem; border-radius:8px; flex-wrap:wrap;">
+    <span><i class="bi bi-funnel"></i> <strong>Filter Applied:</strong></span>
+    <span><i class="bi bi-calendar3"></i> {{ $filterMonthName }} {{ $filterYear }}</span>
+    <span><i class="bi bi-building"></i> {{ $filterHostelName }}</span>
+    @if($filterStatus)
+        <span><i class="bi bi-tag"></i> {{ $filterStatus }}</span>
+    @endif
+    <span class="ms-auto" style="font-size:0.75rem;">
+        <i class="bi bi-info-circle"></i> Statistics shown are for filtered data only
+    </span>
 </div>
 
 {{-- Monthly Summary --}}

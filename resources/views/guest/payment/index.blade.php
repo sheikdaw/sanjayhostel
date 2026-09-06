@@ -196,6 +196,55 @@
             color: #22c55e;
         }
 
+        /* Payment Breakdown Styles */
+        .payment-breakdown {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            margin: 0.75rem 0;
+            border: 1px solid #e5e7eb;
+        }
+
+        .payment-breakdown .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.3rem 0;
+            font-size: 0.85rem;
+        }
+
+        .payment-breakdown .breakdown-row .label {
+            color: #6b7280;
+        }
+
+        .payment-breakdown .breakdown-row .amount {
+            font-weight: 600;
+        }
+
+        .payment-breakdown .breakdown-row.total {
+            border-top: 2px solid var(--gold-color);
+            padding-top: 0.6rem;
+            margin-top: 0.3rem;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .payment-breakdown .breakdown-row.total .amount {
+            color: #dc2626;
+            font-size: 1.1rem;
+        }
+
+        .payment-breakdown .breakdown-row.total .amount.clear {
+            color: #22c55e;
+        }
+
+        .breakdown-label-discount {
+            color: #065f46;
+        }
+
+        .breakdown-label-pending {
+            color: #92400e;
+        }
+
         #pendingInfo {
             display: none;
             background: #fef3c7;
@@ -218,6 +267,15 @@
         .badge-fine {
             background: #fee2e2;
             color: #991b1b;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .badge-pending {
+            background: #fef3c7;
+            color: #92400e;
             font-size: 0.75rem;
             padding: 0.25rem 0.75rem;
             border-radius: 12px;
@@ -363,6 +421,10 @@
             .payment-methods {
                 gap: 0.5rem;
             }
+            .payment-breakdown .breakdown-row {
+                flex-direction: column;
+                gap: 0.1rem;
+            }
         }
 
         /* Axis Bank Loading Overlay */
@@ -476,6 +538,28 @@
                             off</span></span>
                     <span class="badge-fine" id="fineBadge" style="display: none;"><i class="bi bi-clock"></i> <span
                             id="fineText">Late fee</span></span>
+                    <span class="badge-pending" id="pendingBadge" style="display: none;"><i class="bi bi-clock-history"></i> <span
+                            id="pendingText">Previous pending</span></span>
+                </div>
+
+                <!-- Payment Breakdown -->
+                <div class="payment-breakdown" id="paymentBreakdown" style="display: none;">
+                    <div class="breakdown-row" id="breakdownPrevious">
+                        <span class="label">Previous Pending</span>
+                        <span class="amount" id="breakdownPreviousAmount">₹0.00</span>
+                    </div>
+                    <div class="breakdown-row" id="breakdownCurrent">
+                        <span class="label">Current Month Rent</span>
+                        <span class="amount" id="breakdownCurrentAmount">₹0.00</span>
+                    </div>
+                    <div class="breakdown-row" id="breakdownDiscount" style="display: none;">
+                        <span class="label breakdown-label-discount">Early Payment Discount</span>
+                        <span class="amount" id="breakdownDiscountAmount" style="color: #065f46;">-₹0.00</span>
+                    </div>
+                    <div class="breakdown-row total">
+                        <span class="label"><strong>Total to Pay</strong></span>
+                        <span class="amount" id="breakdownTotalAmount">₹0.00</span>
+                    </div>
                 </div>
 
                 <div class="info-row"
@@ -554,7 +638,6 @@
                 showToast('Payment failed. Please try again.', 'error');
                 $('#paymentOverlay').removeClass('show');
             } else if (transactionId) {
-                // Check if we have a transaction ID but no status, might be a successful redirect
                 if (reference) {
                     checkPaymentStatus(reference);
                 }
@@ -591,40 +674,66 @@
                         $('#residentEmail').text(response.data.email || 'Not provided');
 
                         const amountToPay = parseFloat(response.data.amount_to_pay || response.data.total_due);
+                        const previousPending = parseFloat(response.data.previous_pending || 0);
+                        const currentBalance = parseFloat(response.data.current_balance || 0);
+                        const discountAmount = parseFloat(response.data.discount_amount || 0);
+                        const rentAmount = parseFloat(response.data.rent_amount || 0);
+
+                        // Update total due
                         $('#totalDue').text('₹' + amountToPay.toFixed(2));
 
-                        const discount = parseFloat(response.data.discount_amount || 0);
-                        const fine = parseFloat(response.data.fine_amount || 0);
+                        // Show payment breakdown
+                        $('#paymentBreakdown').show();
 
-                        if (discount > 0 || fine > 0) {
+                        // Previous pending
+                        if (previousPending > 0) {
+                            $('#breakdownPrevious').show();
+                            $('#breakdownPreviousAmount').text('₹' + previousPending.toFixed(2));
+                        } else {
+                            $('#breakdownPrevious').hide();
+                        }
+
+                        // Current month (with discount applied)
+                        const currentDue = rentAmount - discountAmount;
+                        $('#breakdownCurrentAmount').text('₹' + currentDue.toFixed(2));
+
+                        // Discount
+                        if (discountAmount > 0) {
+                            $('#breakdownDiscount').show();
+                            $('#breakdownDiscountAmount').text('-₹' + discountAmount.toFixed(2));
+                        } else {
+                            $('#breakdownDiscount').hide();
+                        }
+
+                        // Total
+                        $('#breakdownTotalAmount').text('₹' + amountToPay.toFixed(2));
+
+                        if (amountToPay > 0) {
+                            $('#breakdownTotalAmount').removeClass('clear');
+                            $('#totalDue').removeClass('clear').addClass('due-amount');
+                        } else {
+                            $('#breakdownTotalAmount').addClass('clear');
+                            $('#totalDue').removeClass('due-amount').addClass('clear');
+                        }
+
+                        // Update discount badge
+                        if (discountAmount > 0) {
                             $('#discountDisplay').show();
-                            if (discount > 0) {
-                                $('#discountText').text('₹' + discount.toFixed(2) + ' off');
-                                $('#discountBadge').show();
-                            } else {
-                                $('#discountBadge').hide();
-                            }
-                            if (fine > 0) {
-                                $('#fineText').text('₹' + fine.toFixed(2) + ' late fee');
-                                $('#fineBadge').show();
-                            } else {
-                                $('#fineBadge').hide();
-                            }
+                            $('#discountText').text('₹' + discountAmount.toFixed(2) + ' off (Early Payment)');
+                            $('#discountBadge').show();
                         } else {
                             $('#discountDisplay').hide();
                         }
 
-                        if (amountToPay > 0) {
-                            $('#totalDue').removeClass('clear').addClass('due-amount');
-                        } else {
-                            $('#totalDue').removeClass('due-amount').addClass('clear');
-                        }
-
+                        // Update pending info
                         if (response.data.has_pending) {
                             $('#pendingInfo').show();
                             $('#pendingCount').text(response.data.pending_count);
+                            $('#pendingBadge').show();
+                            $('#pendingText').text(previousPending.toFixed(2) + ' pending from previous months');
                         } else {
                             $('#pendingInfo').hide();
+                            $('#pendingBadge').hide();
                         }
 
                         $('#residentInfo').addClass('show');
@@ -701,19 +810,15 @@
         }
 
         function redirectToAxisBank(data) {
-            // Store the reference in session for callback
             sessionStorage.setItem('axis_payment_reference', data.reference);
             sessionStorage.setItem('axis_order_id', data.order_id);
 
-            // Build the Axis Bank payment URL with all parameters
             const paymentUrl = data.payment_url || 'https://secure.axisbank.com/payment';
 
-            // Create a form to submit to Axis Bank
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = paymentUrl;
 
-            // Add all required parameters
             const params = {
                 merchant_id: data.merchant_id,
                 order_id: data.order_id,
@@ -729,11 +834,9 @@
                 customer_phone: currentResident.phone,
             };
 
-            // Add resident_id and reference in notes
             params.notes_resident_id = currentResident.resident_id;
             params.notes_reference = data.reference;
 
-            // Create hidden inputs
             for (let key in params) {
                 if (params[key] !== null && params[key] !== undefined) {
                     const input = document.createElement('input');
@@ -745,11 +848,8 @@
             }
 
             document.body.appendChild(form);
-
-            // Submit the form to redirect to Axis Bank
             form.submit();
 
-            // Fallback: if form submission doesn't work, redirect directly
             setTimeout(function() {
                 if (document.body.contains(form)) {
                     document.body.removeChild(form);
@@ -842,7 +942,6 @@
             }, 8000);
         }
 
-        // Handle browser back/forward for payment flow
         window.addEventListener('popstate', function(e) {
             const urlParams = new URLSearchParams(window.location.search);
             const status = urlParams.get('status');

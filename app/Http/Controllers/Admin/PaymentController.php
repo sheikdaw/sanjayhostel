@@ -17,7 +17,7 @@ class PaymentController extends Controller
     /**
      * Display a listing of payments.
      */
-    public function index()
+  public function index()
     {
         $user = auth()->user();
 
@@ -46,14 +46,30 @@ class PaymentController extends Controller
                 ->get();
         }
 
-        // 🔥 DEFAULT: Filter by current month
-        $currentMonth = now()->month;
-        $currentYear = now()->year;
+        // 🔥 Get filter values from request
+        $filterMonth = request()->month ?? now()->month;
+        $filterYear = request()->year ?? now()->year;
+        $filterHostelId = request()->hostel_id ?? null;
+        $filterStatus = request()->status ?? null;
 
+        // 🔥 BUILD MAIN QUERY WITH FILTERS
         $query = Payment::with(['resident', 'resident.hostel', 'resident.room'])
-            ->where('month', $currentMonth)
-            ->where('year', $currentYear);
+            ->where('month', $filterMonth)
+            ->where('year', $filterYear);
 
+        // Apply hostel filter
+        if ($filterHostelId) {
+            $query->whereHas('resident', function ($q) use ($filterHostelId) {
+                $q->where('hostel_id', $filterHostelId);
+            });
+        }
+
+        // Apply status filter
+        if ($filterStatus) {
+            $query->where('status', $filterStatus);
+        }
+
+        // Apply user role restriction
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
             $query->whereHas('resident', function ($q) use ($hostelIds) {
@@ -61,19 +77,9 @@ class PaymentController extends Controller
             });
         }
 
-        // Apply additional filters from request
-        if (request()->status) {
-            $query->where('status', request()->status);
-        }
-        if (request()->hostel_id) {
-            $query->whereHas('resident', function ($q) {
-                $q->where('hostel_id', request()->hostel_id);
-            });
-        }
-
         $payments = $query->orderBy('created_at', 'desc')->get();
 
-        // Get statistics for current month only
+        // 🔥 CALCULATE STATISTICS BASED ON FILTERED PAYMENTS ONLY
         $stats = [
             'total' => $payments->count(),
             'pending' => $payments->where('status', 'PENDING')->count(),
@@ -88,27 +94,64 @@ class PaymentController extends Controller
             'total_collected' => $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount')
         ];
 
-        // Get current month pending payments (same as above)
+        // 🔥 Get current month pending payments (filtered)
         $pendingPayments = $payments->where('status', 'PENDING');
 
-        // Get monthly summary for current month only
+        // 🔥 Get monthly summary (filtered)
         $monthlySummary = Payment::selectRaw('month, year, COUNT(*) as count, SUM(rent_amount) as total_rent, SUM(balance_amount) as total_balance, SUM(cash_paid_amount + upi_paid_amount) as total_collected')
-            ->where('month', $currentMonth)
-            ->where('year', $currentYear)
-            ->groupBy('year', 'month')
+            ->where('month', $filterMonth)
+            ->where('year', $filterYear);
+
+        if ($filterHostelId) {
+            $monthlySummary->whereHas('resident', function ($q) use ($filterHostelId) {
+                $q->where('hostel_id', $filterHostelId);
+            });
+        }
+
+        if ($filterStatus) {
+            $monthlySummary->where('status', $filterStatus);
+        }
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $monthlySummary->whereHas('resident', function ($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            });
+        }
+
+        $monthlySummary = $monthlySummary->groupBy('year', 'month')
             ->orderBy('year', 'desc')
             ->orderBy('month', 'desc')
             ->get();
 
-        // Get hostel-wise summary for current month only
-        $hostelSummary = Payment::with('resident.hostel')
-            ->where('month', $currentMonth)
-            ->where('year', $currentYear)
-            ->get()
+        // 🔥 Get hostel-wise summary (filtered)
+        $hostelSummaryQuery = Payment::with('resident.hostel')
+            ->where('month', $filterMonth)
+            ->where('year', $filterYear);
+
+        if ($filterHostelId) {
+            $hostelSummaryQuery->whereHas('resident', function ($q) use ($filterHostelId) {
+                $q->where('hostel_id', $filterHostelId);
+            });
+        }
+
+        if ($filterStatus) {
+            $hostelSummaryQuery->where('status', $filterStatus);
+        }
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $hostelSummaryQuery->whereHas('resident', function ($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            });
+        }
+
+        $hostelSummary = $hostelSummaryQuery->get()
             ->groupBy('resident.hostel_id')
             ->map(function ($group) {
+                $first = $group->first();
                 return [
-                    'hostel_name' => $group->first()->resident->hostel->hostel_name ?? 'N/A',
+                    'hostel_name' => $first->resident->hostel->hostel_name ?? 'N/A',
                     'total_count' => $group->count(),
                     'total_rent' => $group->sum('rent_amount'),
                     'total_collected' => $group->sum('cash_paid_amount') + $group->sum('upi_paid_amount'),
@@ -119,9 +162,9 @@ class PaymentController extends Controller
                 ];
             });
 
-        // Pass current month/year to view
-        $filterMonth = $currentMonth;
-        $filterYear = $currentYear;
+        // 🔥 Get filter labels for display
+        $filterMonthName = date('F', mktime(0, 0, 0, $filterMonth, 1));
+        $filterHostelName = $filterHostelId ? Hostel::find($filterHostelId)->hostel_name ?? 'All Hostels' : 'All Hostels';
 
         return view('admin.payments.index', compact(
             'payments',
@@ -133,7 +176,11 @@ class PaymentController extends Controller
             'hostelSummary',
             'user',
             'filterMonth',
-            'filterYear'
+            'filterYear',
+            'filterMonthName',
+            'filterHostelName',
+            'filterHostelId',
+            'filterStatus'
         ));
     }
 
