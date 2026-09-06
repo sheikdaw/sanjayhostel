@@ -1354,7 +1354,7 @@ class PaymentController extends Controller
         ];
     }
 
-   /**
+/**
  * Get complete unpaid details including previous pending and partial payments
  */
 private function getUnpaidResidentsWithDetails($resident, $month, $year)
@@ -1383,27 +1383,36 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
     $isCurrentPaid = $currentPayment && $currentPayment->status == 'PAID';
 
     // ✅ FIX: Calculate discount based on TODAY'S date for current month
-    // Convert to float to avoid type issues
     $discount = (float) $this->calculateDiscount(now()->toDateString());
     $rentAmount = (float) ($resident->rent_amount ?? 0);
     $currentMonthRent = $rentAmount - $discount;
 
-    // ✅ Get current month balance (if payment exists, use its balance)
-    // If no payment exists, use the calculated current month due with TODAY'S discount
+    // ✅ Get current month balance
+    // If current payment exists, use its balance, else use calculated due with today's discount
     $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : $currentMonthRent;
     $currentStatus = $currentPayment ? $currentPayment->status : 'NO PAYMENT';
 
+    // ✅ FIX: If current payment is PARTIAL and has previous pending,
+    // we need to check if the previous pending was cleared from this payment
+    if ($currentPayment && $currentPayment->status == 'PARTIAL' && $totalPreviousPending > 0) {
+        // Check if previous pending was cleared from this payment
+        $previousCleared = (float) ($currentPayment->previous_pending_cleared ?? 0);
+        if ($previousCleared > 0) {
+            // Previous pending was partially or fully cleared
+            $remainingPreviousPending = $totalPreviousPending - $previousCleared;
+            // Current balance is what remains after clearing previous pending
+            // The current balance already includes the discount if applied
+        }
+    }
+
     // ✅ TOTAL DUE = ALL previous pending + Current month balance (with today's discount)
-    // Ensure we're using float values
     $totalDue = (float) $totalPreviousPending + (float) $currentBalance;
 
     // ✅ Build previous months details with actual balances
     $previousMonthsDetails = [];
     foreach ($previousPayments as $prevPayment) {
         if ($prevPayment->balance_amount > 0) {
-            // ✅ Get the discount that was applied for that month
             $prevDiscount = (float) ($prevPayment->discount_amount ?? 0);
-
             $previousMonthsDetails[] = [
                 'month' => $prevPayment->month,
                 'year' => $prevPayment->year,
@@ -1437,6 +1446,29 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
     $dayOfMonth = $today->day;
     $discountType = $discount > 0 ? ($discount == 250 ? 'Early Bird (1st-5th)' : 'Early Payment (6th-10th)') : 'No discount';
 
+    // ✅ FIX: Calculate the effective balance for current month with discount
+    // This is the key fix - the current balance should already have the discount applied
+    // But if the current payment exists and has a balance, we should check if discount was applied
+    $effectiveCurrentBalance = $currentBalance;
+    if ($currentPayment && $currentPayment->status == 'PARTIAL') {
+        // Check if discount was applied to this payment
+        $discountApplied = (float) ($currentPayment->discount_amount ?? 0);
+        if ($discountApplied > 0 && $currentPayment->payment_date) {
+            // Discount was applied when payment was created
+            // The balance already reflects the discount
+            $effectiveCurrentBalance = $currentBalance;
+        } else {
+            // No discount applied yet, apply today's discount
+            $effectiveCurrentBalance = max(0, $currentBalance - $discount);
+        }
+    } else {
+        // No current payment, apply today's discount
+        $effectiveCurrentBalance = $currentMonthRent;
+    }
+
+    // ✅ Recalculate total due with effective current balance
+    $totalDue = (float) $totalPreviousPending + (float) $effectiveCurrentBalance;
+
     return [
         'resident' => $resident,
         'current_payment' => $currentPayment,
@@ -1446,7 +1478,7 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
         'previous_pending_count' => $previousPendingCount,
         'current_month_rent' => (float) $currentMonthRent,
         'current_month_rent_original' => $rentAmount,
-        'current_balance' => (float) $currentBalance,
+        'current_balance' => (float) $effectiveCurrentBalance,
         'current_status' => $currentStatus,
         'is_current_paid' => $isCurrentPaid,
         'total_due' => (float) $totalDue,
@@ -1463,10 +1495,33 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
             'current_month_due_original' => $rentAmount,
             'current_month_discount' => $discount,
             'current_month_due_after_discount' => (float) $currentMonthRent,
-            'current_month_balance' => (float) $currentBalance,
+            'current_month_balance' => (float) $effectiveCurrentBalance,
             'total_due' => (float) $totalDue
         ]
     ];
+}
+/**
+ * Check if discount was already applied to a payment
+ */
+private function isDiscountApplied($payment)
+{
+    if (!$payment) {
+        return false;
+    }
+
+    // Check if discount_amount exists and is > 0
+    $discountAmount = (float) ($payment->discount_amount ?? 0);
+    if ($discountAmount > 0) {
+        return true;
+    }
+
+    // Check if remark contains discount info
+    $remark = $payment->remark ?? '';
+    if (strpos($remark, 'Early Bird') !== false || strpos($remark, 'Early Payment') !== false) {
+        return true;
+    }
+
+    return false;
 }
   public function exportUnpaidWithDetails(Request $request)
 {
