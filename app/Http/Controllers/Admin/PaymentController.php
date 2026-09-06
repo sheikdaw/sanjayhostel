@@ -367,7 +367,7 @@ class PaymentController extends Controller
         }
     }
 
-    public function store(Request $request)
+ public function store(Request $request)
 {
     $user = auth()->user();
 
@@ -414,21 +414,79 @@ class PaymentController extends Controller
         $paymentDate = $request->payment_date;
         $month = $request->month;
         $year = $request->year;
-        
+
+        // ============================================================
+        // 🔥 CHECK: Already paid for this month?
+        // ============================================================
+        $existingPayment = Payment::where('resident_id', $resident->id)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->first();
+
+        if ($existingPayment) {
+            // Check if it's fully paid
+            if ($existingPayment->status === 'PAID') {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => "⚠️ Payment already completed for " . date('F Y', mktime(0,0,0,$month,1,$year)) . "!\n" .
+                                 "Receipt: {$existingPayment->receipt_no}\n" .
+                                 "Amount: ₹" . number_format($existingPayment->rent_amount, 2) . "\n" .
+                                 "Status: PAID ✅",
+                    'data' => [
+                        'existing_payment' => $existingPayment,
+                        'receipt_no' => $existingPayment->receipt_no,
+                        'amount' => $existingPayment->rent_amount,
+                        'status' => $existingPayment->status
+                    ]
+                ], 422);
+            }
+
+            // If partial payment exists, allow completing it
+            if ($existingPayment->status === 'PARTIAL') {
+                // Let the partial payment completion flow handle it
+                // This will be caught by the partial payment check
+            }
+        }
+
         // Calculate discount
         $discount = $request->discount_amount ?? $this->calculateDiscount($paymentDate);
         $fine = $request->fine_amount ?? 0;
         
         $currentDue = $resident->rent_amount - $discount + $fine;
         
-        // 🔥 GET PREVIOUS PENDING PAYMENTS (WITH DETAILS)
+        // GET PREVIOUS PENDING PAYMENTS (WITH DETAILS)
         $previousPendingList = $this->getPreviousPendingDetails($resident->id, $month, $year);
         $totalPreviousPending = $previousPendingList->sum('balance_amount');
         
         $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
-        
+
         // ============================================================
-        // 🔥 AUTOMATIC ALLOCATION: Previous → Current → Advance
+        // 🔥 CHECK: If no previous pending AND current month already paid
+        // ============================================================
+        if ($totalPreviousPending == 0 && $existingPayment && $existingPayment->status === 'PAID') {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => "⚠️ No pending dues! Resident already paid for " . date('F Y', mktime(0,0,0,$month,1,$year)) . ".\n" .
+                             "Receipt: {$existingPayment->receipt_no}\n" .
+                             "Amount: ₹" . number_format($existingPayment->rent_amount, 2),
+                'data' => [
+                    'existing_payment' => $existingPayment
+                ]
+            ], 422);
+        }
+
+        // ============================================================
+        // 🔥 CHECK: If no previous pending AND paying more than current due
+        // ============================================================
+        if ($totalPreviousPending == 0 && $totalPaid > $currentDue) {
+            $extraAmount = $totalPaid - $currentDue;
+            // Allow but show info (advance payment)
+        }
+
+        // ============================================================
+        // AUTOMATIC ALLOCATION: Previous → Current → Advance
         // ============================================================
         $remaining = $totalPaid;
         
@@ -498,25 +556,39 @@ class PaymentController extends Controller
         $this->receiptNo = $receiptNo;
 
         // ============================================================
-        // 🔥 CREATE PAYMENT FOR CURRENT MONTH
+        // 🔥 CREATE PAYMENT FOR CURRENT MONTH (or Update if exists)
         // ============================================================
-        $payment = Payment::create([
-            'resident_id' => $resident->id,
-            'receipt_no' => $receiptNo,
-            'month' => $month,
-            'year' => $year,
-            'rent_amount' => $resident->rent_amount,
-            'discount_amount' => $discount,
-            'fine_amount' => $fine,
-            'cash_paid_amount' => $currentPaid,
-            'upi_paid_amount' => 0,
-            'balance_amount' => $currentBalance,
-            'payment_date' => $paymentDate,
-            'transaction_id' => $request->transaction_id,
-            'status' => $status,
-            'payment_type' => 'all',
-            'previous_pending_cleared' => $previousPaid,
-        ]);
+        if ($existingPayment) {
+            // Update existing payment (for partial completion)
+            $existingPayment->cash_paid_amount += $currentPaid;
+            $existingPayment->upi_paid_amount += 0;
+            $existingPayment->balance_amount = $currentBalance;
+            $existingPayment->status = $status;
+            $existingPayment->payment_date = $paymentDate;
+            $existingPayment->transaction_id = $request->transaction_id;
+            $existingPayment->save();
+            
+            $payment = $existingPayment;
+        } else {
+            // Create new payment
+            $payment = Payment::create([
+                'resident_id' => $resident->id,
+                'receipt_no' => $receiptNo,
+                'month' => $month,
+                'year' => $year,
+                'rent_amount' => $resident->rent_amount,
+                'discount_amount' => $discount,
+                'fine_amount' => $fine,
+                'cash_paid_amount' => $currentPaid,
+                'upi_paid_amount' => 0,
+                'balance_amount' => $currentBalance,
+                'payment_date' => $paymentDate,
+                'transaction_id' => $request->transaction_id,
+                'status' => $status,
+                'payment_type' => 'all',
+                'previous_pending_cleared' => $previousPaid,
+            ]);
+        }
 
         // ============================================================
         // 🔥 GENERATE COMPREHENSIVE REMARK
@@ -557,7 +629,8 @@ class PaymentController extends Controller
             $totalBalance,
             $totalPreviousPending,
             $previousClearedCount,
-            $receiptNo
+            $receiptNo,
+            $existingPayment ? true : false
         );
 
         return response()->json([
@@ -577,6 +650,7 @@ class PaymentController extends Controller
                 'discount_applied' => $discount,
                 'fine_applied' => $fine,
                 'previous_months_cleared' => $previousClearedCount,
+                'is_existing_payment' => $existingPayment ? true : false,
                 'remark' => $remark,
                 'calculation' => [
                     'rent' => $resident->rent_amount,
@@ -598,6 +672,7 @@ class PaymentController extends Controller
         ], 500);
     }
 }
+
 private function generateDetailedRemark($resident, $month, $year, $paymentDate, $totalPaid, $previousPaid, $currentPaid, $advanceAmount, $previousBalance, $currentBalance, $totalBalance, $previousPendingList, $totalPreviousPending)
 {
     $monthName = date('F', mktime(0, 0, 0, $month, 1));
@@ -664,10 +739,16 @@ private function generateDetailedRemark($resident, $month, $year, $paymentDate, 
     
     return implode(" | ", $remarkParts);
 }
-private function buildDetailedResponseMessage($totalPaid, $previousPaid, $currentPaid, $advanceAmount, $previousBalance, $currentBalance, $totalBalance, $totalPreviousPending, $previousClearedCount, $receiptNo)
+private function buildDetailedResponseMessage($totalPaid, $previousPaid, $currentPaid, $advanceAmount, $previousBalance, $currentBalance, $totalBalance, $totalPreviousPending, $previousClearedCount, $receiptNo, $isExisting = false)
 {
     $messages = [];
-    $messages[] = "✅ Payment recorded successfully!";
+    
+    if ($isExisting) {
+        $messages[] = "✅ Payment updated successfully!";
+    } else {
+        $messages[] = "✅ Payment recorded successfully!";
+    }
+    
     $messages[] = "📋 Receipt: " . $receiptNo;
     $messages[] = "💰 Total paid: ₹" . number_format($totalPaid, 2);
     $messages[] = "─────────────────────";
@@ -680,6 +761,8 @@ private function buildDetailedResponseMessage($totalPaid, $previousPaid, $curren
     } else {
         if ($totalPreviousPending > 0) {
             $messages[] = "⚠️ Previous pending: ₹" . number_format($totalPreviousPending, 2) . " (not cleared)";
+        } else {
+            $messages[] = "✅ No previous pending";
         }
     }
     
@@ -687,6 +770,8 @@ private function buildDetailedResponseMessage($totalPaid, $previousPaid, $curren
         $messages[] = "📅 Current month paid: ₹" . number_format($currentPaid, 2);
         if ($currentBalance > 0) {
             $messages[] = "⚠️ Current month remaining: ₹" . number_format($currentBalance, 2);
+        } else {
+            $messages[] = "✅ Current month fully paid!";
         }
     }
     
@@ -1515,305 +1600,320 @@ private function buildDetailedResponseMessage($totalPaid, $previousPaid, $curren
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    public function exportPendingResidents(Request $request)
-    {
-        $user = auth()->user();
+   public function exportPendingResidents(Request $request)
+{
+    $user = auth()->user();
 
-        $month = $request->filled('month') ? $request->month : date('n');
-        $year = $request->filled('year') ? $request->year : date('Y');
-        $hostelId = $request->filled('hostel_id') ? $request->hostel_id : null;
+    $month = $request->filled('month') ? $request->month : date('n');
+    $year = $request->filled('year') ? $request->year : date('Y');
+    $hostelId = $request->filled('hostel_id') ? $request->hostel_id : null;
 
-        $residentsQuery = Resident::with(['hostel', 'room'])
-            ->where('status', 'ACTIVE');
+    $residentsQuery = Resident::with(['hostel', 'room'])
+        ->where('status', 'ACTIVE');
 
-        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+    $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $residentsQuery->whereIn('hostel_id', $hostelIds);
-        }
-
-        if ($hostelId) {
-            $residentsQuery->where('hostel_id', $hostelId);
-        }
-
-        $residents = $residentsQuery->orderBy('name')->get();
-        $payments = Payment::where('month', $month)->where('year', $year)->get()->keyBy('resident_id');
-
-        $monthName = date('F', mktime(0, 0, 0, $month, 1));
-
-        $csv = "==================================================\n";
-        $csv .= "PENDING RESIDENTS REPORT\n";
-        $csv .= "==================================================\n";
-        $csv .= "Month: {$monthName} {$year}\n";
-        $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
-        $csv .= "==================================================\n\n";
-
-        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Payment Status,Due Amount (₹),Remark\n";
-
-        $serialNo = 1;
-        $totalPending = 0;
-        $totalDue = 0;
-
-        foreach ($residents as $resident) {
-            $payment = $payments->get($resident->id);
-            $isPending = false;
-            $dueAmount = 0;
-
-            if ($payment) {
-                if ($payment->status === 'PENDING' || $payment->status === 'PARTIAL') {
-                    $isPending = true;
-                    $dueAmount = $payment->balance_amount;
-                }
-            } else {
-                $isPending = true;
-                $dueAmount = $resident->rent_amount ?? 0;
-            }
-
-            if ($isPending) {
-                $roomDetails = $this->getRoomDetails($resident);
-                $totalPending++;
-                $totalDue += $dueAmount;
-
-                $csv .= $serialNo . ",";
-                $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
-                $csv .= $roomDetails['room_no'] . ",";
-                $csv .= $roomDetails['bed_no'] . ",";
-                $csv .= $this->csvString($resident->name) . ",";
-                $csv .= $this->csvString($resident->phone ?? '') . ",";
-                $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
-                $csv .= ($payment ? $payment->status : 'NO PAYMENT') . ",";
-                $csv .= $this->csvNumber($dueAmount) . ",";
-                $csv .= $this->csvString($payment->remark ?? '') . "\n";
-                $serialNo++;
-            }
-        }
-
-        $csv .= "\n\n==================================================\n";
-        $csv .= "SUMMARY\n";
-        $csv .= "==================================================\n";
-        $csv .= "Total Pending Residents: " . $totalPending . "\n";
-        $csv .= "Total Due Amount: ₹" . $this->csvNumber($totalDue) . "\n";
-        $csv .= "==================================================\n";
-
-        $filename = 'pending-residents-' . date('Y-m-d') . '.csv';
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $residentsQuery->whereIn('hostel_id', $hostelIds);
     }
+
+    if ($hostelId) {
+        $residentsQuery->where('hostel_id', $hostelId);
+    }
+
+    $residents = $residentsQuery->orderBy('name')->get();
+    $payments = Payment::where('month', $month)->where('year', $year)->get()->keyBy('resident_id');
+
+    $monthName = date('F', mktime(0, 0, 0, $month, 1));
+
+    $csv = "PENDING RESIDENTS REPORT\n";
+    $csv .= "==================================================\n";
+    $csv .= "Month: {$monthName} {$year}\n";
+    $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
+    $csv .= "==================================================\n\n";
+
+    $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Payment Status,Due Amount (₹),Remark\n";
+
+    $serialNo = 1;
+    $totalPending = 0;
+    $totalDue = 0;
+
+    foreach ($residents as $resident) {
+        $payment = $payments->get($resident->id);
+        $isPending = false;
+        $dueAmount = 0;
+        $remark = '';
+
+        if ($payment) {
+            if ($payment->status === 'PENDING' || $payment->status === 'PARTIAL') {
+                $isPending = true;
+                $dueAmount = $payment->balance_amount;
+                $remark = $payment->remark ?? '';
+            }
+        } else {
+            $isPending = true;
+            $dueAmount = $resident->rent_amount ?? 0;
+            $remark = 'No payment recorded';
+        }
+
+        if ($isPending) {
+            $roomDetails = $this->getRoomDetails($resident);
+            $totalPending++;
+            $totalDue += $dueAmount;
+
+            $csv .= $serialNo . ",";
+            $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
+            $csv .= $roomDetails['room_no'] . ",";
+            $csv .= $roomDetails['bed_no'] . ",";
+            $csv .= $this->csvString($resident->name) . ",";
+            $csv .= $this->csvString($resident->phone ?? '') . ",";
+            $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
+            $csv .= ($payment ? $payment->status : 'NO PAYMENT') . ",";
+            $csv .= $this->csvNumber($dueAmount) . ",";
+            $csv .= $this->csvString($remark) . "\n";
+            $serialNo++;
+        }
+    }
+
+    $csv .= "\n\n==================================================\n";
+    $csv .= "SUMMARY\n";
+    $csv .= "==================================================\n";
+    $csv .= "Total Pending Residents: " . $totalPending . "\n";
+    $csv .= "Total Due Amount: ₹" . $this->csvNumber($totalDue) . "\n";
+    $csv .= "==================================================\n";
+
+    $filename = 'pending-residents-' . date('Y-m-d') . '.csv';
+    return response($csv)
+        ->header('Content-Type', 'text/csv; charset=UTF-8')
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+}
+
 
     public function exportAll(Request $request)
-    {
-        $user = auth()->user();
+{
+    $user = auth()->user();
 
-        $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
+    $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
 
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $query->whereHas('resident', function ($q) use ($hostelIds) {
-                $q->whereIn('hostel_id', $hostelIds);
-            });
-        }
-
-        $this->applyExportFilters($query, $request);
-
-        $payments = $query->orderBy('created_at', 'desc')->get();
-
-        $csv = "ALL PAYMENTS REPORT\n";
-        $csv .= "==================================================\n";
-        $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
-        $csv .= "Total Records: " . $payments->count() . "\n\n";
-
-        $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Balance (₹),Status,Payment Date,Transaction ID,Payment Type,Remark\n";
-
-        if ($payments->count() > 0) {
-            foreach ($payments as $payment) {
-                $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-                $totalPaid = $payment->cash_paid_amount + $payment->upi_paid_amount;
-
-                $csv .= $this->csvString($payment->receipt_no) . ",";
-                $csv .= $this->csvString($payment->resident->name ?? 'N/A') . ",";
-                $csv .= $this->csvString($payment->resident->hostel->hostel_name ?? 'N/A') . ",";
-                $csv .= "#" . ($payment->resident->room->room_no ?? 'N/A') . ",";
-                $csv .= $monthName . ",";
-                $csv .= $payment->year . ",";
-                $csv .= $this->csvNumber($payment->rent_amount) . ",";
-                $csv .= $this->csvNumber($payment->discount_amount) . ",";
-                $csv .= $this->csvNumber($payment->fine_amount) . ",";
-                $csv .= $this->csvNumber($payment->cash_paid_amount) . ",";
-                $csv .= $this->csvNumber($payment->upi_paid_amount) . ",";
-                $csv .= $this->csvNumber($totalPaid) . ",";
-                $csv .= $this->csvNumber($payment->balance_amount) . ",";
-                $csv .= $payment->status . ",";
-                $csv .= $payment->payment_date . ",";
-                $csv .= $this->csvString($payment->transaction_id ?? '') . ",";
-                $csv .= $this->csvString($payment->payment_type ?? '') . ",";
-                $csv .= $this->csvString($payment->remark ?? '') . "\n";
-            }
-        } else {
-            $csv .= "No payments found.\n";
-        }
-
-        $filename = 'all-payments-' . date('Y-m-d') . '.csv';
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $query->whereHas('resident', function ($q) use ($hostelIds) {
+            $q->whereIn('hostel_id', $hostelIds);
+        });
     }
 
-    public function exportPaid(Request $request)
-    {
-        $user = auth()->user();
+    $this->applyExportFilters($query, $request);
 
-        $query = Payment::with(['resident', 'resident.hostel', 'resident.room'])
-            ->where('status', 'PAID');
+    $payments = $query->orderBy('created_at', 'desc')->get();
 
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $query->whereHas('resident', function ($q) use ($hostelIds) {
-                $q->whereIn('hostel_id', $hostelIds);
-            });
+    $csv = "ALL PAYMENTS REPORT\n";
+    $csv .= "==================================================\n";
+    $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
+    $csv .= "Total Records: " . $payments->count() . "\n\n";
+
+    $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Balance (₹),Status,Payment Date,Transaction ID,Payment Type,Previous Pending Cleared,Remark\n";
+
+    if ($payments->count() > 0) {
+        foreach ($payments as $payment) {
+            $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
+            $totalPaid = $payment->cash_paid_amount + $payment->upi_paid_amount;
+
+            $csv .= $this->csvString($payment->receipt_no) . ",";
+            $csv .= $this->csvString($payment->resident->name ?? 'N/A') . ",";
+            $csv .= $this->csvString($payment->resident->hostel->hostel_name ?? 'N/A') . ",";
+            $csv .= "#" . ($payment->resident->room->room_no ?? 'N/A') . ",";
+            $csv .= $monthName . ",";
+            $csv .= $payment->year . ",";
+            $csv .= $this->csvNumber($payment->rent_amount) . ",";
+            $csv .= $this->csvNumber($payment->discount_amount) . ",";
+            $csv .= $this->csvNumber($payment->fine_amount) . ",";
+            $csv .= $this->csvNumber($payment->cash_paid_amount) . ",";
+            $csv .= $this->csvNumber($payment->upi_paid_amount) . ",";
+            $csv .= $this->csvNumber($totalPaid) . ",";
+            $csv .= $this->csvNumber($payment->balance_amount) . ",";
+            $csv .= $payment->status . ",";
+            $csv .= $payment->payment_date . ",";
+            $csv .= $this->csvString($payment->transaction_id ?? '') . ",";
+            $csv .= $this->csvString($payment->payment_type ?? '') . ",";
+            $csv .= $this->csvNumber($payment->previous_pending_cleared ?? 0) . ",";
+            $csv .= $this->csvString($payment->remark ?? '') . "\n";
         }
-
-        $this->applyExportFilters($query, $request);
-
-        $payments = $query->orderBy('payment_date', 'desc')->get();
-
-        $csv = "PAID PAYMENTS REPORT\n";
-        $csv .= "==================================================\n";
-        $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
-        $csv .= "Total Paid Records: " . $payments->count() . "\n\n";
-
-        $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Payment Date,Transaction ID,Remark\n";
-
-        if ($payments->count() > 0) {
-            $totalRent = 0;
-            $totalCollected = 0;
-
-            foreach ($payments as $payment) {
-                $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-                $totalPaid = $payment->cash_paid_amount + $payment->upi_paid_amount;
-                $totalRent += $payment->rent_amount;
-                $totalCollected += $totalPaid;
-
-                $csv .= $this->csvString($payment->receipt_no) . ",";
-                $csv .= $this->csvString($payment->resident->name ?? 'N/A') . ",";
-                $csv .= $this->csvString($payment->resident->hostel->hostel_name ?? 'N/A') . ",";
-                $csv .= "#" . ($payment->resident->room->room_no ?? 'N/A') . ",";
-                $csv .= $monthName . ",";
-                $csv .= $payment->year . ",";
-                $csv .= $this->csvNumber($payment->rent_amount) . ",";
-                $csv .= $this->csvNumber($payment->discount_amount) . ",";
-                $csv .= $this->csvNumber($payment->fine_amount) . ",";
-                $csv .= $this->csvNumber($payment->cash_paid_amount) . ",";
-                $csv .= $this->csvNumber($payment->upi_paid_amount) . ",";
-                $csv .= $this->csvNumber($totalPaid) . ",";
-                $csv .= $payment->payment_date . ",";
-                $csv .= $this->csvString($payment->transaction_id ?? '') . ",";
-                $csv .= $this->csvString($payment->remark ?? '') . "\n";
-            }
-
-            $csv .= "\n\nSUMMARY\n";
-            $csv .= "Total Paid Records: " . $payments->count() . "\n";
-            $csv .= "Total Rent Amount: ₹" . $this->csvNumber($totalRent) . "\n";
-            $csv .= "Total Collected: ₹" . $this->csvNumber($totalCollected) . "\n";
-        } else {
-            $csv .= "No paid payments found.\n";
-        }
-
-        $filename = 'paid-payments-' . date('Y-m-d') . '.csv';
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    } else {
+        $csv .= "No payments found.\n";
     }
 
-    public function exportUnpaid(Request $request)
-    {
-        $user = auth()->user();
+    $filename = 'all-payments-' . date('Y-m-d') . '.csv';
+    return response($csv)
+        ->header('Content-Type', 'text/csv; charset=UTF-8')
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+}
 
-        $month = $request->filled('month') ? $request->month : date('n');
-        $year = $request->filled('year') ? $request->year : date('Y');
-        $hostelId = $request->filled('hostel_id') ? $request->hostel_id : null;
+/**
+ * Export Paid Payments with Remarks
+ */
+public function exportPaid(Request $request)
+{
+    $user = auth()->user();
 
-        $residentsQuery = Resident::with(['hostel', 'room'])
-            ->where('status', 'ACTIVE');
+    $query = Payment::with(['resident', 'resident.hostel', 'resident.room'])
+        ->where('status', 'PAID');
 
-        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $residentsQuery->whereIn('hostel_id', $hostelIds);
-        }
-
-        if ($hostelId) {
-            $residentsQuery->where('hostel_id', $hostelId);
-        }
-
-        $residents = $residentsQuery->get();
-        $payments = Payment::where('month', $month)->where('year', $year)->get()->keyBy('resident_id');
-
-        $monthName = date('F', mktime(0, 0, 0, $month, 1));
-
-        $csv = "UNPAID PAYMENTS REPORT\n";
-        $csv .= "==================================================\n";
-        $csv .= "Month: {$monthName} {$year}\n";
-        $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
-        $csv .= "==================================================\n\n";
-
-        $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Status,Due Amount (₹),Paid Amount (₹),Remark\n";
-
-        $serialNo = 1;
-        $totalUnpaid = 0;
-        $totalDue = 0;
-        $totalPaid = 0;
-
-        foreach ($residents as $resident) {
-            $payment = $payments->get($resident->id);
-
-            if (!$payment || $payment->status !== 'PAID') {
-                $roomDetails = $this->getRoomDetails($resident);
-                $totalUnpaid++;
-
-                if ($payment) {
-                    $dueAmount = $payment->balance_amount;
-                    $paidAmount = $payment->cash_paid_amount + $payment->upi_paid_amount;
-                    $status = $payment->status;
-                } else {
-                    $dueAmount = $resident->rent_amount ?? 0;
-                    $paidAmount = 0;
-                    $status = 'NO PAYMENT';
-                }
-
-                $totalDue += $dueAmount;
-                $totalPaid += $paidAmount;
-
-                $csv .= $serialNo . ",";
-                $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
-                $csv .= $roomDetails['room_no'] . ",";
-                $csv .= $roomDetails['bed_no'] . ",";
-                $csv .= $this->csvString($resident->name) . ",";
-                $csv .= $this->csvString($resident->phone ?? '') . ",";
-                $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
-                $csv .= $status . ",";
-                $csv .= $this->csvNumber($dueAmount) . ",";
-                $csv .= $this->csvNumber($paidAmount) . ",";
-                $csv .= $this->csvString($payment->remark ?? '') . "\n";
-                $serialNo++;
-            }
-        }
-
-        $csv .= "\n\n==================================================\n";
-        $csv .= "SUMMARY\n";
-        $csv .= "==================================================\n";
-        $csv .= "Total Unpaid Residents: " . $totalUnpaid . "\n";
-        $csv .= "Total Due Amount: ₹" . $this->csvNumber($totalDue) . "\n";
-        $csv .= "Total Paid Amount (Partial): ₹" . $this->csvNumber($totalPaid) . "\n";
-        $csv .= "==================================================\n";
-
-        $filename = 'unpaid-payments-' . date('Y-m-d') . '.csv';
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $query->whereHas('resident', function ($q) use ($hostelIds) {
+            $q->whereIn('hostel_id', $hostelIds);
+        });
     }
+
+    $this->applyExportFilters($query, $request);
+
+    $payments = $query->orderBy('payment_date', 'desc')->get();
+
+    $csv = "PAID PAYMENTS REPORT\n";
+    $csv .= "==================================================\n";
+    $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
+    $csv .= "Total Paid Records: " . $payments->count() . "\n\n";
+
+    $csv .= "Receipt No,Resident,Hostel,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Payment Date,Transaction ID,Payment Type,Previous Pending Cleared,Remark\n";
+
+    if ($payments->count() > 0) {
+        $totalRent = 0;
+        $totalCollected = 0;
+
+        foreach ($payments as $payment) {
+            $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
+            $totalPaid = $payment->cash_paid_amount + $payment->upi_paid_amount;
+            $totalRent += $payment->rent_amount;
+            $totalCollected += $totalPaid;
+
+            $csv .= $this->csvString($payment->receipt_no) . ",";
+            $csv .= $this->csvString($payment->resident->name ?? 'N/A') . ",";
+            $csv .= $this->csvString($payment->resident->hostel->hostel_name ?? 'N/A') . ",";
+            $csv .= "#" . ($payment->resident->room->room_no ?? 'N/A') . ",";
+            $csv .= $monthName . ",";
+            $csv .= $payment->year . ",";
+            $csv .= $this->csvNumber($payment->rent_amount) . ",";
+            $csv .= $this->csvNumber($payment->discount_amount) . ",";
+            $csv .= $this->csvNumber($payment->fine_amount) . ",";
+            $csv .= $this->csvNumber($payment->cash_paid_amount) . ",";
+            $csv .= $this->csvNumber($payment->upi_paid_amount) . ",";
+            $csv .= $this->csvNumber($totalPaid) . ",";
+            $csv .= $payment->payment_date . ",";
+            $csv .= $this->csvString($payment->transaction_id ?? '') . ",";
+            $csv .= $this->csvString($payment->payment_type ?? '') . ",";
+            $csv .= $this->csvNumber($payment->previous_pending_cleared ?? 0) . ",";
+            $csv .= $this->csvString($payment->remark ?? '') . "\n";
+        }
+
+        $csv .= "\n\nSUMMARY\n";
+        $csv .= "Total Paid Records: " . $payments->count() . "\n";
+        $csv .= "Total Rent Amount: ₹" . $this->csvNumber($totalRent) . "\n";
+        $csv .= "Total Collected: ₹" . $this->csvNumber($totalCollected) . "\n";
+    } else {
+        $csv .= "No paid payments found.\n";
+    }
+
+    $filename = 'paid-payments-' . date('Y-m-d') . '.csv';
+    return response($csv)
+        ->header('Content-Type', 'text/csv; charset=UTF-8')
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+}
+
+/**
+ * Export Unpaid Payments with Remarks
+ */
+public function exportUnpaid(Request $request)
+{
+    $user = auth()->user();
+
+    $month = $request->filled('month') ? $request->month : date('n');
+    $year = $request->filled('year') ? $request->year : date('Y');
+    $hostelId = $request->filled('hostel_id') ? $request->hostel_id : null;
+
+    $residentsQuery = Resident::with(['hostel', 'room'])
+        ->where('status', 'ACTIVE');
+
+    $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $residentsQuery->whereIn('hostel_id', $hostelIds);
+    }
+
+    if ($hostelId) {
+        $residentsQuery->where('hostel_id', $hostelId);
+    }
+
+    $residents = $residentsQuery->get();
+    $payments = Payment::where('month', $month)->where('year', $year)->get()->keyBy('resident_id');
+
+    $monthName = date('F', mktime(0, 0, 0, $month, 1));
+
+    $csv = "UNPAID PAYMENTS REPORT\n";
+    $csv .= "==================================================\n";
+    $csv .= "Month: {$monthName} {$year}\n";
+    $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
+    $csv .= "==================================================\n\n";
+
+    $csv .= "S.No,Hostel,Room No,Bed No,Resident Name,Phone,Monthly Rent (₹),Status,Due Amount (₹),Paid Amount (₹),Remark\n";
+
+    $serialNo = 1;
+    $totalUnpaid = 0;
+    $totalDue = 0;
+    $totalPaid = 0;
+
+    foreach ($residents as $resident) {
+        $payment = $payments->get($resident->id);
+
+        if (!$payment || $payment->status !== 'PAID') {
+            $roomDetails = $this->getRoomDetails($resident);
+            $totalUnpaid++;
+
+            if ($payment) {
+                $dueAmount = $payment->balance_amount;
+                $paidAmount = $payment->cash_paid_amount + $payment->upi_paid_amount;
+                $status = $payment->status;
+                $remark = $payment->remark ?? '';
+            } else {
+                $dueAmount = $resident->rent_amount ?? 0;
+                $paidAmount = 0;
+                $status = 'NO PAYMENT';
+                $remark = 'No payment recorded';
+            }
+
+            $totalDue += $dueAmount;
+            $totalPaid += $paidAmount;
+
+            $csv .= $serialNo . ",";
+            $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
+            $csv .= $roomDetails['room_no'] . ",";
+            $csv .= $roomDetails['bed_no'] . ",";
+            $csv .= $this->csvString($resident->name) . ",";
+            $csv .= $this->csvString($resident->phone ?? '') . ",";
+            $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
+            $csv .= $status . ",";
+            $csv .= $this->csvNumber($dueAmount) . ",";
+            $csv .= $this->csvNumber($paidAmount) . ",";
+            $csv .= $this->csvString($remark) . "\n";
+            $serialNo++;
+        }
+    }
+
+    $csv .= "\n\n==================================================\n";
+    $csv .= "SUMMARY\n";
+    $csv .= "==================================================\n";
+    $csv .= "Total Unpaid Residents: " . $totalUnpaid . "\n";
+    $csv .= "Total Due Amount: ₹" . $this->csvNumber($totalDue) . "\n";
+    $csv .= "Total Paid Amount (Partial): ₹" . $this->csvNumber($totalPaid) . "\n";
+    $csv .= "==================================================\n";
+
+    $filename = 'unpaid-payments-' . date('Y-m-d') . '.csv';
+    return response($csv)
+        ->header('Content-Type', 'text/csv; charset=UTF-8')
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+}
+
 
     public function exportMonthlyUnpaid(Request $request)
     {
@@ -1911,123 +2011,128 @@ private function buildDetailedResponseMessage($totalPaid, $previousPaid, $curren
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    public function exportHostelWise(Request $request)
-    {
-        $user = auth()->user();
+   public function exportHostelWise(Request $request)
+{
+    $user = auth()->user();
 
-        $validator = Validator::make($request->all(), [
-            'hostel_id' => 'required|exists:hostels,id'
-        ]);
+    $validator = Validator::make($request->all(), [
+        'hostel_id' => 'required|exists:hostels,id'
+    ]);
 
-        if ($validator->fails()) {
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        if (!in_array($request->hostel_id, $hostelIds)) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+                'message' => 'You do not have permission to export this hostel\'s data!'
+            ], 403);
         }
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            if (!in_array($request->hostel_id, $hostelIds)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have permission to export this hostel\'s data!'
-                ], 403);
-            }
-        }
-
-        $hostel = Hostel::find($request->hostel_id);
-
-        $residents = Resident::with(['room'])
-            ->where('hostel_id', $request->hostel_id)
-            ->where('status', 'ACTIVE')
-            ->orderBy('name')
-            ->get();
-
-        $query = Payment::with(['resident', 'resident.room'])
-            ->whereHas('resident', function ($q) use ($request) {
-                $q->where('hostel_id', $request->hostel_id);
-            });
-
-        $this->applyExportFilters($query, $request);
-        $payments = $query->get();
-
-        $csv = "==================================================\n";
-        $csv .= "HOSTEL PAYMENT REPORT\n";
-        $csv .= "==================================================\n";
-        $csv .= "Hostel: " . $this->csvString($hostel->hostel_name) . "\n";
-        $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
-        $csv .= "Total Residents: " . $residents->count() . "\n";
-        $csv .= "Total Payments: " . $payments->count() . "\n";
-        $csv .= "==================================================\n\n";
-
-        $csv .= "--- RESIDENT-WISE PAYMENT SUMMARY ---\n";
-        $csv .= "S.No,Resident Name,Room No,Bed No,Rent Amount (₹),Total Paid (₹),Balance (₹),Payment Count,Status\n";
-
-        $serialNo = 1;
-        $groupedPayments = $payments->groupBy('resident_id');
-
-        foreach ($residents as $resident) {
-            $residentPayments = $groupedPayments->get($resident->id) ?? collect();
-            $totalPaid = $residentPayments->sum('cash_paid_amount') + $residentPayments->sum('upi_paid_amount');
-            $totalBalance = $residentPayments->sum('balance_amount');
-
-            $roomDetails = $this->getRoomDetails($resident);
-
-            if ($residentPayments->where('status', 'PENDING')->count() > 0) {
-                $status = 'PENDING';
-            } elseif ($residentPayments->where('status', 'PARTIAL')->count() > 0) {
-                $status = 'PARTIAL';
-            } elseif ($residentPayments->where('status', 'PAID')->count() > 0) {
-                $status = 'PAID';
-            } else {
-                $status = 'NO PAYMENT';
-            }
-
-            $csv .= $serialNo . ",";
-            $csv .= $this->csvString($resident->name) . ",";
-            $csv .= $roomDetails['room_no'] . ",";
-            $csv .= $roomDetails['bed_no'] . ",";
-            $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
-            $csv .= $this->csvNumber($totalPaid) . ",";
-            $csv .= $this->csvNumber($totalBalance) . ",";
-            $csv .= $residentPayments->count() . ",";
-            $csv .= $status . "\n";
-            $serialNo++;
-        }
-
-        $csv .= "\n\n--- DETAILED PAYMENT TRANSACTIONS ---\n";
-        $csv .= "Receipt No,Resident,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Balance (₹),Status,Payment Date\n";
-
-        if ($payments->count() > 0) {
-            foreach ($payments as $payment) {
-                $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
-                $totalPaid = $payment->cash_paid_amount + $payment->upi_paid_amount;
-
-                $csv .= $this->csvString($payment->receipt_no) . ",";
-                $csv .= $this->csvString($payment->resident->name ?? 'N/A') . ",";
-                $csv .= "#" . ($payment->resident->room->room_no ?? 'N/A') . ",";
-                $csv .= $monthName . ",";
-                $csv .= $payment->year . ",";
-                $csv .= $this->csvNumber($payment->rent_amount) . ",";
-                $csv .= $this->csvNumber($payment->discount_amount) . ",";
-                $csv .= $this->csvNumber($payment->fine_amount) . ",";
-                $csv .= $this->csvNumber($payment->cash_paid_amount) . ",";
-                $csv .= $this->csvNumber($payment->upi_paid_amount) . ",";
-                $csv .= $this->csvNumber($totalPaid) . ",";
-                $csv .= $this->csvNumber($payment->balance_amount) . ",";
-                $csv .= $payment->status . ",";
-                $csv .= $payment->payment_date . "\n";
-            }
-        } else {
-            $csv .= "No payment records found.\n";
-        }
-
-        $filename = 'hostel-' . $hostel->hostel_code . '-report-' . date('Y-m-d') . '.csv';
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
+
+    $hostel = Hostel::find($request->hostel_id);
+
+    $residents = Resident::with(['room'])
+        ->where('hostel_id', $request->hostel_id)
+        ->where('status', 'ACTIVE')
+        ->orderBy('name')
+        ->get();
+
+    $query = Payment::with(['resident', 'resident.room'])
+        ->whereHas('resident', function ($q) use ($request) {
+            $q->where('hostel_id', $request->hostel_id);
+        });
+
+    $this->applyExportFilters($query, $request);
+    $payments = $query->get();
+
+    $csv = "==================================================\n";
+    $csv .= "HOSTEL PAYMENT REPORT\n";
+    $csv .= "==================================================\n";
+    $csv .= "Hostel: " . $this->csvString($hostel->hostel_name) . "\n";
+    $csv .= "Generated: " . now()->format('d M Y h:i A') . "\n";
+    $csv .= "Total Residents: " . $residents->count() . "\n";
+    $csv .= "Total Payments: " . $payments->count() . "\n";
+    $csv .= "==================================================\n\n";
+
+    $csv .= "--- RESIDENT-WISE PAYMENT SUMMARY ---\n";
+    $csv .= "S.No,Resident Name,Room No,Bed No,Rent Amount (₹),Total Paid (₹),Balance (₹),Payment Count,Status,Remark\n";
+
+    $serialNo = 1;
+    $groupedPayments = $payments->groupBy('resident_id');
+
+    foreach ($residents as $resident) {
+        $residentPayments = $groupedPayments->get($resident->id) ?? collect();
+        $totalPaid = $residentPayments->sum('cash_paid_amount') + $residentPayments->sum('upi_paid_amount');
+        $totalBalance = $residentPayments->sum('balance_amount');
+
+        $roomDetails = $this->getRoomDetails($resident);
+        $latestRemark = $residentPayments->first() ? $residentPayments->first()->remark : '';
+
+        if ($residentPayments->where('status', 'PENDING')->count() > 0) {
+            $status = 'PENDING';
+        } elseif ($residentPayments->where('status', 'PARTIAL')->count() > 0) {
+            $status = 'PARTIAL';
+        } elseif ($residentPayments->where('status', 'PAID')->count() > 0) {
+            $status = 'PAID';
+        } else {
+            $status = 'NO PAYMENT';
+        }
+
+        $csv .= $serialNo . ",";
+        $csv .= $this->csvString($resident->name) . ",";
+        $csv .= $roomDetails['room_no'] . ",";
+        $csv .= $roomDetails['bed_no'] . ",";
+        $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
+        $csv .= $this->csvNumber($totalPaid) . ",";
+        $csv .= $this->csvNumber($totalBalance) . ",";
+        $csv .= $residentPayments->count() . ",";
+        $csv .= $status . ",";
+        $csv .= $this->csvString($latestRemark) . "\n";
+        $serialNo++;
+    }
+
+    $csv .= "\n\n--- DETAILED PAYMENT TRANSACTIONS ---\n";
+    $csv .= "Receipt No,Resident,Room,Month,Year,Rent (₹),Discount (₹),Fine (₹),Cash (₹),UPI (₹),Total Paid (₹),Balance (₹),Status,Payment Date,Payment Type,Previous Pending Cleared,Remark\n";
+
+    if ($payments->count() > 0) {
+        foreach ($payments as $payment) {
+            $monthName = date('F', mktime(0, 0, 0, $payment->month, 1));
+            $totalPaid = $payment->cash_paid_amount + $payment->upi_paid_amount;
+
+            $csv .= $this->csvString($payment->receipt_no) . ",";
+            $csv .= $this->csvString($payment->resident->name ?? 'N/A') . ",";
+            $csv .= "#" . ($payment->resident->room->room_no ?? 'N/A') . ",";
+            $csv .= $monthName . ",";
+            $csv .= $payment->year . ",";
+            $csv .= $this->csvNumber($payment->rent_amount) . ",";
+            $csv .= $this->csvNumber($payment->discount_amount) . ",";
+            $csv .= $this->csvNumber($payment->fine_amount) . ",";
+            $csv .= $this->csvNumber($payment->cash_paid_amount) . ",";
+            $csv .= $this->csvNumber($payment->upi_paid_amount) . ",";
+            $csv .= $this->csvNumber($totalPaid) . ",";
+            $csv .= $this->csvNumber($payment->balance_amount) . ",";
+            $csv .= $payment->status . ",";
+            $csv .= $payment->payment_date . ",";
+            $csv .= $this->csvString($payment->payment_type ?? '') . ",";
+            $csv .= $this->csvNumber($payment->previous_pending_cleared ?? 0) . ",";
+            $csv .= $this->csvString($payment->remark ?? '') . "\n";
+        }
+    } else {
+        $csv .= "No payment records found.\n";
+    }
+
+    $filename = 'hostel-' . $hostel->hostel_code . '-report-' . date('Y-m-d') . '.csv';
+    return response($csv)
+        ->header('Content-Type', 'text/csv; charset=UTF-8')
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+}
 
     public function exportPaymentSummary(Request $request)
     {

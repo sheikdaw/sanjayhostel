@@ -391,7 +391,17 @@
     }
     .current-month-badge i { font-size: 0.9rem; }
 
-    .payment-card-item.hidden-card { display: none; }
+    .already-paid-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        background: #dcfce7;
+        color: #166534;
+        border-radius: 12px;
+        font-size: 0.6rem;
+        font-weight: 600;
+    }
 </style>
 @endpush
 
@@ -933,6 +943,12 @@
                         </div>
                     </div>
 
+                    {{-- Already Paid Warning --}}
+                    <div id="alreadyPaidWarning" style="display:none;"></div>
+
+                    {{-- Previous Pending Info --}}
+                    <div id="pendingWarning" style="display:none;"></div>
+
                     {{-- Remark Preview --}}
                     <div id="remarkPreview" style="display:none; margin-top:0.75rem; padding:0.75rem; background:#f0fdf4; border-radius:8px; border-left:4px solid #22c55e;">
                         <div style="display:flex; align-items:center; gap:0.5rem;">
@@ -1109,10 +1125,12 @@ $(document).ready(function() {
         roomSelect.empty().append('<option value="">Select Room</option>').prop('disabled', true);
         residentSelect.empty().append('<option value="">Select Room First</option>').prop('disabled', true);
         $('#rent_amount').val('');
-        $('#pendingWarning').remove();
+        $('#pendingWarning').hide();
+        $('#alreadyPaidWarning').hide();
         $('#partialDetailsContainer').empty();
         $('#remarkPreview').hide();
         $('#saveBtn').prop('disabled', false);
+        $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
 
         if (!hostelId) {
             roomSelect.empty().append('<option value="">Select Hostel First</option>');
@@ -1141,10 +1159,12 @@ $(document).ready(function() {
 
         residentSelect.empty().append('<option value="">Select Resident</option>').prop('disabled', true);
         $('#rent_amount').val('');
-        $('#pendingWarning').remove();
+        $('#pendingWarning').hide();
+        $('#alreadyPaidWarning').hide();
         $('#partialDetailsContainer').empty();
         $('#remarkPreview').hide();
         $('#saveBtn').prop('disabled', false);
+        $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
 
         if (!roomId) {
             residentSelect.empty().append('<option value="">Select Room First</option>');
@@ -1167,9 +1187,12 @@ $(document).ready(function() {
         });
     });
 
-    // Resident selection with previous pending check (INFO only, NOT blocking)
+    // Resident selection with checks
     $('#resident_id').on('change', function() {
         let residentId = $(this).val();
+        let month = $('#month').val();
+        let year = $('#year').val();
+
         if (residentId) {
             // Get rent amount
             $.ajax({
@@ -1184,29 +1207,30 @@ $(document).ready(function() {
                 }
             });
 
-            // Check for partial payment
-            let month = $('#month').val();
-            let year = $('#year').val();
+            // Check if already paid for this month
             if (month && year) {
+                checkAlreadyPaid(residentId, month, year);
                 checkPartialPayment(residentId, month, year);
                 checkPendingPrevious(residentId, month, year);
             }
         }
     });
 
-    // Month/Year change with partial payment check
+    // Month/Year change
     $('#month, #year').on('change', function() {
         let residentId = $('#resident_id').val();
         let month = $('#month').val();
         let year = $('#year').val();
+
         if (residentId && month && year) {
+            checkAlreadyPaid(residentId, month, year);
             checkPartialPayment(residentId, month, year);
             checkPendingPrevious(residentId, month, year);
             generateRemarkPreview();
         }
     });
 
-    // Payment date change - recalculate discount and remark
+    // Payment date change
     $('#payment_date').on('change', function() {
         generateRemarkPreview();
         calculateBalance();
@@ -1215,6 +1239,55 @@ $(document).ready(function() {
     // Apply initial filters
     applyFilters();
 });
+
+// ============================================================
+// CHECK IF ALREADY PAID FOR THIS MONTH
+// ============================================================
+
+function checkAlreadyPaid(residentId, month, year) {
+    $.ajax({
+        url: '/admin/payments/resident/' + residentId + '/check-paid/' + month + '/' + year,
+        type: 'GET',
+        success: function(response) {
+            if (response.success && response.is_paid) {
+                let statusIcon = response.status === 'PAID' ? '✅' : '🟡';
+                let statusColor = response.status === 'PAID' ? '#166534' : '#92400e';
+                let bgColor = response.status === 'PAID' ? '#dcfce7' : '#fef3c7';
+                let borderColor = response.status === 'PAID' ? '#86efac' : '#fcd34d';
+
+                let warning = `
+                    <div id="alreadyPaidWarning" class="mt-2" style="padding:0.75rem 1rem; background:${bgColor}; border:1px solid ${borderColor}; border-radius:8px;">
+                        <div style="display:flex; align-items:flex-start; gap:0.5rem;">
+                            <span style="font-size:1.2rem; margin-top:2px;">${statusIcon}</span>
+                            <div>
+                                <strong style="color:${statusColor};">Already Paid for this month!</strong>
+                                <span style="display:block; margin-top:4px; font-size:0.8rem; color:#4b5563;">
+                                    Receipt: ${response.receipt_no} | Amount: ₹${response.amount} | Status: ${response.status}
+                                    ${response.has_pending ? '<br>⚠️ Has previous pending payments' : ''}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                $('#alreadyPaidWarning').html(warning).show();
+
+                // If fully paid and no pending, disable save button
+                if (response.status === 'PAID' && !response.has_pending) {
+                    $('#saveBtn').prop('disabled', true);
+                    $('#saveBtn').html('<i class="bi bi-check-circle"></i> Already Paid');
+                } else {
+                    $('#saveBtn').prop('disabled', false);
+                    $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
+                }
+            } else {
+                $('#alreadyPaidWarning').hide();
+                $('#saveBtn').prop('disabled', false);
+                $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
+            }
+        }
+    });
+}
 
 // ============================================================
 // GENERATE REMARK PREVIEW
@@ -1271,9 +1344,8 @@ function checkPendingPrevious(residentId, month, year) {
         type: 'GET',
         success: function(response) {
             if (response.success && response.has_pending) {
-                $('#pendingWarning').remove();
                 let warning = `
-                    <div id="pendingWarning" class="alert alert-info mt-2" style="font-size:0.85rem; padding:0.75rem 1rem; background:#eff6ff; border:1px solid #93c5fd; border-radius:8px;">
+                    <div id="pendingWarning" class="mt-2" style="padding:0.75rem 1rem; background:#eff6ff; border:1px solid #93c5fd; border-radius:8px;">
                         <div style="display:flex; align-items:flex-start; gap:0.5rem;">
                             <i class="bi bi-info-circle-fill" style="color:#2563eb; font-size:1.2rem; margin-top:2px;"></i>
                             <div>
@@ -1286,11 +1358,11 @@ function checkPendingPrevious(residentId, month, year) {
                         </div>
                     </div>
                 `;
-                $('#resident_id').closest('.col-md-4').after(warning);
-                // 🔥 DON'T DISABLE THE SAVE BUTTON
+
+                $('#pendingWarning').html(warning).show();
                 $('#saveBtn').prop('disabled', false);
             } else {
-                $('#pendingWarning').remove();
+                $('#pendingWarning').hide();
                 $('#saveBtn').prop('disabled', false);
             }
         }
@@ -1327,10 +1399,10 @@ function checkPartialPayment(residentId, month, year) {
 function showPartialPaymentDetails(data) {
     $('#partialDetailsContainer').empty();
     $('#completionNote').remove();
-    
+
     let totalPaid = data.total_paid;
     let remaining = data.balance_amount;
-    
+
     let html = `
         <div class="partial-details-container" data-payment-id="${data.payment_id}">
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
@@ -1340,7 +1412,7 @@ function showPartialPaymentDetails(data) {
                     <span class="dot"></span> PARTIAL
                 </span>
             </div>
-            
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; background: white; border-radius: 8px; padding: 0.75rem;">
                 <div>
                     <span style="color: #6b7280;">Receipt:</span>
@@ -1367,7 +1439,7 @@ function showPartialPaymentDetails(data) {
                     <strong>${data.transaction_id_raw || 'N/A'}</strong>
                 </div>
             </div>
-            
+
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem;">
                 <div style="text-align: center; padding: 0.5rem; background: #dcfce7; border-radius: 8px;">
                     <div style="font-size: 0.6rem; color: #6b7280; text-transform: uppercase;">Total Paid</div>
@@ -1382,7 +1454,7 @@ function showPartialPaymentDetails(data) {
                     <div style="font-weight: 700; color: #1e40af;">₹${Number(data.rent_amount - data.discount_amount + data.fine_amount).toFixed(2)}</div>
                 </div>
             </div>
-            
+
             <div style="margin-top: 0.75rem; padding: 0.75rem; background: #fff3cd; border-radius: 8px; border-left: 4px solid #f59e0b;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                     <div>
@@ -1401,19 +1473,18 @@ function showPartialPaymentDetails(data) {
             </div>
         </div>
     `;
-    
+
     $('#partialDetailsContainer').html(html);
     $('#partialPaymentId').val(data.payment_id);
-    
-    // Auto-fill remaining balance
+
     $('#cash_paid_amount').val(remaining);
     $('#upi_paid_amount').val(0);
     $('#status').val('PAID');
     $('#saveBtn').prop('disabled', false);
-    
+
     let note = `
         <div id="completionNote" style="font-size: 0.8rem; color: #166534; margin-top: 0.25rem; background: #dcfce7; padding: 0.25rem 0.75rem; border-radius: 6px; display: inline-block;">
-            <i class="bi bi-check-circle-fill"></i> 
+            <i class="bi bi-check-circle-fill"></i>
             This will complete the partial payment. Balance will be ₹0.00
         </div>
     `;
@@ -1423,16 +1494,16 @@ function showPartialPaymentDetails(data) {
 function fillRemainingAmount() {
     let remainingText = $('#partialDetailsContainer .text-danger').text();
     let remaining = parseFloat(remainingText.replace(/[₹,]/g, '')) || 0;
-    
+
     $('#cash_paid_amount').val(remaining);
     $('#upi_paid_amount').val(0);
     $('#status').val('PAID');
-    
+
     $('#cash_paid_amount').closest('.rv-input-box').css('border-color', '#22c55e');
     $('#upi_paid_amount').closest('.rv-input-box').css('border-color', '#22c55e');
-    
+
     $('#cash_paid_amount').focus();
-    
+
     showToast('Remaining amount ₹' + remaining.toFixed(2) + ' set for payment', 'success');
 }
 
@@ -1568,7 +1639,7 @@ function bulkStatusUpdate() {
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
-                        updateStats();
+                        location.reload();
                     }
                 },
                 error: function(xhr) { showToast(xhr.responseJSON?.message || 'Failed to update!', 'error'); }
@@ -1618,11 +1689,13 @@ function openAddModal() {
     document.getElementById('partialPaymentId').value = '';
     $('.invalid-feedback').text('');
     $('.rv-input-box').removeClass('is-invalid');
-    $('#pendingWarning').remove();
+    $('#pendingWarning').hide();
+    $('#alreadyPaidWarning').hide();
     $('#partialDetailsContainer').empty();
     $('#completionNote').remove();
     $('#remarkPreview').hide();
     $('#saveBtn').prop('disabled', false);
+    $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
     var modal = new bootstrap.Modal(document.getElementById('paymentModal'));
     modal.show();
 }
@@ -1645,11 +1718,13 @@ function resetForm() {
     document.getElementById('partialPaymentId').value = '';
     document.getElementById('modalTitle').textContent = 'Add Payment';
     $('#payment_date').val(new Date().toISOString().split('T')[0]);
-    $('#pendingWarning').remove();
+    $('#pendingWarning').hide();
+    $('#alreadyPaidWarning').hide();
     $('#partialDetailsContainer').empty();
     $('#completionNote').remove();
     $('#remarkPreview').hide();
     $('#saveBtn').prop('disabled', false);
+    $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
     $('#modal_hostel_id').val('');
     $('#modal_room_id').empty().append('<option value="">Select Hostel First</option>').prop('disabled', true);
     $('#resident_id').empty().append('<option value="">Select Room First</option>').prop('disabled', true);
@@ -1687,7 +1762,7 @@ function submitForm() {
     let partialId = document.getElementById('partialPaymentId').value;
     let url = "{{ route('admin.payments.store') }}";
     let formData = new FormData(document.getElementById('paymentForm'));
-    
+
     if (partialId) {
         url = "{{ url('admin/payments') }}/" + partialId;
         formData.append('_method', 'PUT');
@@ -1696,7 +1771,7 @@ function submitForm() {
         url = "{{ url('admin/payments') }}/" + id;
         formData.append('_method', 'PUT');
     }
-    
+
     let cash = parseFloat($('#cash_paid_amount').val()) || 0;
     let upi = parseFloat($('#upi_paid_amount').val()) || 0;
     let totalPaid = cash + upi;
@@ -1705,11 +1780,11 @@ function submitForm() {
     let fine = parseFloat($('#fine_amount').val()) || 0;
     let totalAmount = rent - discount + fine;
     let balance = totalAmount - totalPaid;
-    
+
     if (partialId && balance <= 0) {
         formData.set('status', 'PAID');
     }
-    
+
     $.ajax({
         url: url,
         type: 'POST',
@@ -1726,11 +1801,10 @@ function submitForm() {
             if (response.success) {
                 var modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
                 if (modal) modal.hide();
-                
+
                 let message = partialId ? 'Partial payment completed successfully!' : response.message;
                 showToast(message, 'success');
-                
-                // Refresh the page content without full reload
+
                 setTimeout(function() {
                     location.reload();
                 }, 1500);
@@ -1836,7 +1910,8 @@ function editPayment(id) {
                 document.getElementById('saveBtnText').textContent = 'Update';
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
-                $('#pendingWarning').remove();
+                $('#pendingWarning').hide();
+                $('#alreadyPaidWarning').hide();
                 $('#partialDetailsContainer').empty();
                 $('#completionNote').remove();
                 $('#remarkPreview').hide();
