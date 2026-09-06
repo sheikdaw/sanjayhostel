@@ -18,124 +18,124 @@ class PaymentController extends Controller
      * Display a listing of payments.
      */
   public function index()
-{
-    $user = auth()->user();
+        {
+            $user = auth()->user();
 
-    // Get hostels based on user role
-    if ($user->role === 'admin') {
-        $hostels = Hostel::where('status', 'ACTIVE')->get();
-    } else {
-        $hostelIds = $user->hostel_ids ?? [];
-        $hostels = Hostel::whereIn('id', $hostelIds)
-            ->where('status', 'ACTIVE')
-            ->get();
-    }
+            // Get hostels based on user role
+            if ($user->role === 'admin') {
+                $hostels = Hostel::where('status', 'ACTIVE')->get();
+            } else {
+                $hostelIds = $user->hostel_ids ?? [];
+                $hostels = Hostel::whereIn('id', $hostelIds)
+                    ->where('status', 'ACTIVE')
+                    ->get();
+            }
 
-    // Get all active residents for dropdown
-    if ($user->role === 'admin') {
-        $residents = Resident::with(['hostel', 'room'])
-            ->where('status', 'ACTIVE')
-            ->orderBy('name')
-            ->get();
-    } else {
-        $hostelIds = $user->hostel_ids ?? [];
-        $residents = Resident::with(['hostel', 'room'])
-            ->whereIn('hostel_id', $hostelIds)
-            ->where('status', 'ACTIVE')
-            ->orderBy('name')
-            ->get();
-    }
+            // Get all active residents for dropdown
+            if ($user->role === 'admin') {
+                $residents = Resident::with(['hostel', 'room'])
+                    ->where('status', 'ACTIVE')
+                    ->orderBy('name')
+                    ->get();
+            } else {
+                $hostelIds = $user->hostel_ids ?? [];
+                $residents = Resident::with(['hostel', 'room'])
+                    ->whereIn('hostel_id', $hostelIds)
+                    ->where('status', 'ACTIVE')
+                    ->orderBy('name')
+                    ->get();
+            }
 
-    // 🔥 DEFAULT: Filter by current month
-    $currentMonth = now()->month;
-    $currentYear = now()->year;
+            // 🔥 DEFAULT: Filter by current month
+            $currentMonth = now()->month;
+            $currentYear = now()->year;
 
-    $query = Payment::with(['resident', 'resident.hostel', 'resident.room'])
-        ->where('month', $currentMonth)
-        ->where('year', $currentYear);
+            $query = Payment::with(['resident', 'resident.hostel', 'resident.room'])
+                ->where('month', $currentMonth)
+                ->where('year', $currentYear);
 
-    if ($user->role !== 'admin') {
-        $hostelIds = $user->hostel_ids ?? [];
-        $query->whereHas('resident', function ($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        });
-    }
+            if ($user->role !== 'admin') {
+                $hostelIds = $user->hostel_ids ?? [];
+                $query->whereHas('resident', function ($q) use ($hostelIds) {
+                    $q->whereIn('hostel_id', $hostelIds);
+                });
+            }
 
-    // Apply additional filters from request
-    if (request()->status) {
-        $query->where('status', request()->status);
-    }
-    if (request()->hostel_id) {
-        $query->whereHas('resident', function ($q) {
-            $q->where('hostel_id', request()->hostel_id);
-        });
-    }
+            // Apply additional filters from request
+            if (request()->status) {
+                $query->where('status', request()->status);
+            }
+            if (request()->hostel_id) {
+                $query->whereHas('resident', function ($q) {
+                    $q->where('hostel_id', request()->hostel_id);
+                });
+            }
 
-    $payments = $query->orderBy('created_at', 'desc')->get();
+            $payments = $query->orderBy('created_at', 'desc')->get();
 
-    // Get statistics for current month only
-    $stats = [
-        'total' => $payments->count(),
-        'pending' => $payments->where('status', 'PENDING')->count(),
-        'paid' => $payments->where('status', 'PAID')->count(),
-        'partial' => $payments->where('status', 'PARTIAL')->count(),
-        'total_rent' => $payments->sum('rent_amount'),
-        'total_discount' => $payments->sum('discount_amount'),
-        'total_fine' => $payments->sum('fine_amount'),
-        'total_cash' => $payments->sum('cash_paid_amount'),
-        'total_upi' => $payments->sum('upi_paid_amount'),
-        'total_balance' => $payments->sum('balance_amount'),
-        'total_collected' => $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount')
-    ];
-
-    // Get current month pending payments (same as above)
-    $pendingPayments = $payments->where('status', 'PENDING');
-
-    // Get monthly summary for current month only
-    $monthlySummary = Payment::selectRaw('month, year, COUNT(*) as count, SUM(rent_amount) as total_rent, SUM(balance_amount) as total_balance, SUM(cash_paid_amount + upi_paid_amount) as total_collected')
-        ->where('month', $currentMonth)
-        ->where('year', $currentYear)
-        ->groupBy('year', 'month')
-        ->orderBy('year', 'desc')
-        ->orderBy('month', 'desc')
-        ->get();
-
-    // Get hostel-wise summary for current month only
-    $hostelSummary = Payment::with('resident.hostel')
-        ->where('month', $currentMonth)
-        ->where('year', $currentYear)
-        ->get()
-        ->groupBy('resident.hostel_id')
-        ->map(function ($group) {
-            return [
-                'hostel_name' => $group->first()->resident->hostel->hostel_name ?? 'N/A',
-                'total_count' => $group->count(),
-                'total_rent' => $group->sum('rent_amount'),
-                'total_collected' => $group->sum('cash_paid_amount') + $group->sum('upi_paid_amount'),
-                'total_balance' => $group->sum('balance_amount'),
-                'paid_count' => $group->where('status', 'PAID')->count(),
-                'pending_count' => $group->where('status', 'PENDING')->count(),
-                'partial_count' => $group->where('status', 'PARTIAL')->count()
+            // Get statistics for current month only
+            $stats = [
+                'total' => $payments->count(),
+                'pending' => $payments->where('status', 'PENDING')->count(),
+                'paid' => $payments->where('status', 'PAID')->count(),
+                'partial' => $payments->where('status', 'PARTIAL')->count(),
+                'total_rent' => $payments->sum('rent_amount'),
+                'total_discount' => $payments->sum('discount_amount'),
+                'total_fine' => $payments->sum('fine_amount'),
+                'total_cash' => $payments->sum('cash_paid_amount'),
+                'total_upi' => $payments->sum('upi_paid_amount'),
+                'total_balance' => $payments->sum('balance_amount'),
+                'total_collected' => $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount')
             ];
-        });
 
-    // Pass current month/year to view
-    $filterMonth = $currentMonth;
-    $filterYear = $currentYear;
+            // Get current month pending payments (same as above)
+            $pendingPayments = $payments->where('status', 'PENDING');
 
-    return view('admin.payments.index', compact(
-        'payments',
-        'hostels',
-        'stats',
-        'pendingPayments',
-        'monthlySummary',
-        'residents',
-        'hostelSummary',
-        'user',
-        'filterMonth',
-        'filterYear'
-    ));
-}
+            // Get monthly summary for current month only
+            $monthlySummary = Payment::selectRaw('month, year, COUNT(*) as count, SUM(rent_amount) as total_rent, SUM(balance_amount) as total_balance, SUM(cash_paid_amount + upi_paid_amount) as total_collected')
+                ->where('month', $currentMonth)
+                ->where('year', $currentYear)
+                ->groupBy('year', 'month')
+                ->orderBy('year', 'desc')
+                ->orderBy('month', 'desc')
+                ->get();
+
+            // Get hostel-wise summary for current month only
+            $hostelSummary = Payment::with('resident.hostel')
+                ->where('month', $currentMonth)
+                ->where('year', $currentYear)
+                ->get()
+                ->groupBy('resident.hostel_id')
+                ->map(function ($group) {
+                    return [
+                        'hostel_name' => $group->first()->resident->hostel->hostel_name ?? 'N/A',
+                        'total_count' => $group->count(),
+                        'total_rent' => $group->sum('rent_amount'),
+                        'total_collected' => $group->sum('cash_paid_amount') + $group->sum('upi_paid_amount'),
+                        'total_balance' => $group->sum('balance_amount'),
+                        'paid_count' => $group->where('status', 'PAID')->count(),
+                        'pending_count' => $group->where('status', 'PENDING')->count(),
+                        'partial_count' => $group->where('status', 'PARTIAL')->count()
+                    ];
+                });
+
+            // Pass current month/year to view
+            $filterMonth = $currentMonth;
+            $filterYear = $currentYear;
+
+            return view('admin.payments.index', compact(
+                'payments',
+                'hostels',
+                'stats',
+                'pendingPayments',
+                'monthlySummary',
+                'residents',
+                'hostelSummary',
+                'user',
+                'filterMonth',
+                'filterYear'
+            ));
+        }
 
     // ============================================================
     // 🔥 HELPER METHODS
