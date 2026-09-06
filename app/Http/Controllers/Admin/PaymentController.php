@@ -1354,14 +1354,10 @@ class PaymentController extends Controller
         ];
     }
 
-    // ============================================================
-    // UNPAID WITH PREVIOUS PENDING DETAILS
-    // ============================================================
-
-    /**
-     * Get complete unpaid details including previous pending and partial payments
-     */
-    private function getUnpaidResidentsWithDetails($resident, $month, $year)
+   /**
+ * Get complete unpaid details including previous pending and partial payments
+ */
+private function getUnpaidResidentsWithDetails($resident, $month, $year)
 {
     // ✅ Get ALL payments for this resident
     $allPayments = Payment::where('resident_id', $resident->id)
@@ -1387,34 +1383,37 @@ class PaymentController extends Controller
     $isCurrentPaid = $currentPayment && $currentPayment->status == 'PAID';
 
     // ✅ FIX: Calculate discount based on TODAY'S date for current month
-    $discount = $this->calculateDiscount(now()->toDateString());
-    $currentMonthRent = ($resident->rent_amount ?? 0) - $discount;
+    // Convert to float to avoid type issues
+    $discount = (float) $this->calculateDiscount(now()->toDateString());
+    $rentAmount = (float) ($resident->rent_amount ?? 0);
+    $currentMonthRent = $rentAmount - $discount;
 
     // ✅ Get current month balance (if payment exists, use its balance)
     // If no payment exists, use the calculated current month due with TODAY'S discount
-    $currentBalance = $currentPayment ? $currentPayment->balance_amount : $currentMonthRent;
+    $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : $currentMonthRent;
     $currentStatus = $currentPayment ? $currentPayment->status : 'NO PAYMENT';
 
     // ✅ TOTAL DUE = ALL previous pending + Current month balance (with today's discount)
-    $totalDue = $totalPreviousPending + $currentBalance;
+    // Ensure we're using float values
+    $totalDue = (float) $totalPreviousPending + (float) $currentBalance;
 
     // ✅ Build previous months details with actual balances
     $previousMonthsDetails = [];
     foreach ($previousPayments as $prevPayment) {
         if ($prevPayment->balance_amount > 0) {
             // ✅ Get the discount that was applied for that month
-            $prevDiscount = $prevPayment->discount_amount ?? 0;
+            $prevDiscount = (float) ($prevPayment->discount_amount ?? 0);
 
             $previousMonthsDetails[] = [
                 'month' => $prevPayment->month,
                 'year' => $prevPayment->year,
                 'month_name' => date('F', mktime(0,0,0,$prevPayment->month,1)),
-                'rent' => $prevPayment->rent_amount,
+                'rent' => (float) $prevPayment->rent_amount,
                 'discount' => $prevDiscount,
-                'paid' => $prevPayment->cash_paid_amount + $prevPayment->upi_paid_amount,
-                'balance' => $prevPayment->balance_amount,
+                'paid' => (float) ($prevPayment->cash_paid_amount + $prevPayment->upi_paid_amount),
+                'balance' => (float) $prevPayment->balance_amount,
                 'status' => $prevPayment->status,
-                'remark' => $prevPayment->remark
+                'remark' => $prevPayment->remark ?? ''
             ];
         }
     }
@@ -1443,170 +1442,190 @@ class PaymentController extends Controller
         'current_payment' => $currentPayment,
         'previous_payments' => $previousPayments,
         'previous_months_details' => $previousMonthsDetails,
-        'total_previous_pending' => $totalPreviousPending,
+        'total_previous_pending' => (float) $totalPreviousPending,
         'previous_pending_count' => $previousPendingCount,
-        'current_month_rent' => $currentMonthRent,
-        'current_month_rent_original' => $resident->rent_amount ?? 0,
-        'current_balance' => $currentBalance,
+        'current_month_rent' => (float) $currentMonthRent,
+        'current_month_rent_original' => $rentAmount,
+        'current_balance' => (float) $currentBalance,
         'current_status' => $currentStatus,
         'is_current_paid' => $isCurrentPaid,
-        'total_due' => $totalDue,  // ✅ Includes ALL pending + current with today's discount
+        'total_due' => (float) $totalDue,
         'overall_status' => $overallStatus,
-        'total_rent' => $resident->rent_amount ?? 0,
+        'total_rent' => $rentAmount,
         'discount_applied' => $discount,
         'discount_type' => $discountType,
         'today_date' => $today->format('d M Y'),
         'day_of_month' => $dayOfMonth,
-        'remark' => $currentPayment ? $currentPayment->remark : 'No payment recorded',
+        'remark' => $currentPayment ? ($currentPayment->remark ?? '') : 'No payment recorded',
         'breakdown' => [
             'previous_months' => $previousMonthsDetails,
-            'total_previous_pending' => $totalPreviousPending,
-            'current_month_due_original' => $resident->rent_amount ?? 0,
+            'total_previous_pending' => (float) $totalPreviousPending,
+            'current_month_due_original' => $rentAmount,
             'current_month_discount' => $discount,
-            'current_month_due_after_discount' => $currentMonthRent,
-            'current_month_balance' => $currentBalance,
-            'total_due' => $totalDue
+            'current_month_due_after_discount' => (float) $currentMonthRent,
+            'current_month_balance' => (float) $currentBalance,
+            'total_due' => (float) $totalDue
         ]
     ];
 }
-   public function exportUnpaidWithDetails(Request $request)
+  public function exportUnpaidWithDetails(Request $request)
 {
     $user = auth()->user();
 
-    $month = $request->filled('month') ? $request->month : date('n');
-    $year = $request->filled('year') ? $request->year : date('Y');
-    $hostelId = $request->filled('hostel_id') ? $request->hostel_id : null;
+    $month = $request->filled('month') ? (int) $request->month : (int) date('n');
+    $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
+    $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
 
-    $residentsQuery = Resident::with(['hostel', 'room'])
-        ->where('status', 'ACTIVE');
+    try {
+        $residentsQuery = Resident::with(['hostel', 'room'])
+            ->where('status', 'ACTIVE');
 
-    $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
-    if ($user->role !== 'admin') {
-        $hostelIds = $user->hostel_ids ?? [];
-        $residentsQuery->whereIn('hostel_id', $hostelIds);
-    }
-
-    if ($hostelId) {
-        $residentsQuery->where('hostel_id', $hostelId);
-    }
-
-    $residents = $residentsQuery->orderBy('name')->get();
-
-    $unpaidResidents = [];
-    $totalPreviousPending = 0;
-    $totalCurrentBalance = 0;
-    $totalDue = 0;
-    $totalUnpaid = 0;
-    $totalPaid = 0;
-    $totalDiscount = 0;
-
-    foreach ($residents as $resident) {
-        $details = $this->getUnpaidResidentsWithDetails($resident, $month, $year);
-
-        if ($details['total_due'] > 0 || $details['overall_status'] != 'PAID') {
-            $unpaidResidents[] = $details;
-            $totalPreviousPending += $details['total_previous_pending'];
-            $totalCurrentBalance += $details['current_balance'];
-            $totalDue += $details['total_due'];
-            $totalDiscount += $details['discount_applied'];
-            $totalUnpaid++;
-
-            if ($details['current_payment']) {
-                $totalPaid += $details['current_payment']->cash_paid_amount + $details['current_payment']->upi_paid_amount;
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!empty($hostelIds)) {
+                $residentsQuery->whereIn('hostel_id', $hostelIds);
             }
         }
-    }
 
-    $monthName = date('F', mktime(0, 0, 0, $month, 1));
-    $hostelName = $hostelId ? Hostel::find($hostelId)->hostel_name ?? 'All Hostels' : 'All Hostels';
-    $today = now()->format('d M Y');
-    $todayDiscount = $this->calculateDiscount(now()->toDateString());
+        if ($hostelId) {
+            $residentsQuery->where('hostel_id', $hostelId);
+        }
 
-    // ✅ Build CSV with TODAY'S DISCOUNT applied to current month
-    $csv = "==================================================\n";
-    $csv .= "UNPAID PAYMENTS REPORT\n";
-    $csv .= "==================================================\n";
-    $csv .= "Report Month: {$monthName} {$year}\n";
-    $csv .= "Report Generated: {$today}\n";
-    $csv .= "Today's Date: {$today}\n";
-    $csv .= "Today's Discount: ₹" . number_format($todayDiscount, 2) . "\n";
-    $csv .= "Hostel: {$hostelName}\n";
-    $csv .= "Total Unpaid Residents: {$totalUnpaid}\n";
-    $csv .= "Total Due (Including Current Month with Today's Discount): ₹" . number_format($totalDue, 2) . "\n";
-    $csv .= "==================================================\n\n";
+        $residents = $residentsQuery->orderBy('name')->get();
 
-    // ✅ SUMMARY TABLE
-    $csv .= "--- SUMMARY ---\n";
-    $csv .= "Total Unpaid Residents,{$totalUnpaid}\n";
-    $csv .= "Total Previous Pending (All Months),₹" . number_format($totalPreviousPending, 2) . "\n";
-    $csv .= "Total Current Month Balance,₹" . number_format($totalCurrentBalance, 2) . "\n";
-    $csv .= "Total Today's Discount Applied,₹" . number_format($totalDiscount, 2) . "\n";
-    $csv .= "Total Due,₹" . number_format($totalDue, 2) . "\n\n";
+        $unpaidResidents = [];
+        $totalPreviousPending = 0;
+        $totalCurrentBalance = 0;
+        $totalDue = 0;
+        $totalUnpaid = 0;
+        $totalPaid = 0;
+        $totalDiscount = 0;
 
-    // ✅ DETAILED REPORT
-    $csv .= "--- RESIDENT-WISE DETAILS ---\n";
-    $csv .= "S.No,Resident,Hostel,Room,Rent (₹),Today's Discount (₹),Current Due (₹),Previous Pending (₹),Total Due (₹),Status,Pending Months Count,Remark\n";
+        foreach ($residents as $resident) {
+            $details = $this->getUnpaidResidentsWithDetails($resident, $month, $year);
 
-    $serialNo = 1;
-    foreach ($unpaidResidents as $item) {
-        $resident = $item['resident'];
-        $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
+            // ✅ Check if total_due exists and is numeric
+            $totalDueAmount = isset($details['total_due']) ? (float) $details['total_due'] : 0;
+            $overallStatus = isset($details['overall_status']) ? $details['overall_status'] : 'PAID';
 
-        $csv .= $serialNo . ",";
-        $csv .= $this->csvString($resident->name) . ",";
-        $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
-        $csv .= $roomNo . ",";
-        $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
-        $csv .= $this->csvNumber($item['discount_applied']) . ",";
-        $csv .= $this->csvNumber($item['current_balance']) . ",";
-        $csv .= $this->csvNumber($item['total_previous_pending']) . ",";
-        $csv .= $this->csvNumber($item['total_due']) . ",";
-        $csv .= $item['overall_status'] . ",";
-        $csv .= $item['previous_pending_count'] . ",";
-        $csv .= $this->csvString($item['remark']) . "\n";
-        $serialNo++;
-    }
+            if ($totalDueAmount > 0 || $overallStatus != 'PAID') {
+                $unpaidResidents[] = $details;
+                $totalPreviousPending += isset($details['total_previous_pending']) ? (float) $details['total_previous_pending'] : 0;
+                $totalCurrentBalance += isset($details['current_balance']) ? (float) $details['current_balance'] : 0;
+                $totalDue += $totalDueAmount;
+                $totalDiscount += isset($details['discount_applied']) ? (float) $details['discount_applied'] : 0;
+                $totalUnpaid++;
 
-    // ✅ Previous Months Details
-    $csv .= "\n\n--- PREVIOUS MONTHS PENDING DETAILS ---\n";
-    $csv .= "Resident,Month,Year,Rent (₹),Discount Applied (₹),Paid (₹),Balance (₹),Status,Remark\n";
-
-    foreach ($unpaidResidents as $item) {
-        $resident = $item['resident'];
-        foreach ($item['previous_months_details'] as $prev) {
-            if ($prev['balance'] > 0) {
-                $csv .= $this->csvString($resident->name) . ",";
-                $csv .= $prev['month_name'] . ",";
-                $csv .= $prev['year'] . ",";
-                $csv .= $this->csvNumber($prev['rent']) . ",";
-                $csv .= $this->csvNumber($prev['discount'] ?? 0) . ",";
-                $csv .= $this->csvNumber($prev['paid']) . ",";
-                $csv .= $this->csvNumber($prev['balance']) . ",";
-                $csv .= $prev['status'] . ",";
-                $csv .= $this->csvString($prev['remark']) . "\n";
+                if (isset($details['current_payment']) && $details['current_payment']) {
+                    $totalPaid += (float) ($details['current_payment']->cash_paid_amount ?? 0) + (float) ($details['current_payment']->upi_paid_amount ?? 0);
+                }
             }
         }
+
+        $monthName = date('F', mktime(0, 0, 0, $month, 1));
+        $hostelName = $hostelId ? (Hostel::find($hostelId)->hostel_name ?? 'All Hostels') : 'All Hostels';
+        $today = now()->format('d M Y');
+        $todayDiscount = $this->calculateDiscount(now()->toDateString());
+
+        // ✅ Build CSV with TODAY'S DISCOUNT applied to current month
+        $csv = "==================================================\n";
+        $csv .= "UNPAID PAYMENTS REPORT\n";
+        $csv .= "==================================================\n";
+        $csv .= "Report Month: {$monthName} {$year}\n";
+        $csv .= "Report Generated: {$today}\n";
+        $csv .= "Today's Date: {$today}\n";
+        $csv .= "Today's Discount: ₹" . number_format((float) $todayDiscount, 2) . "\n";
+        $csv .= "Hostel: {$hostelName}\n";
+        $csv .= "Total Unpaid Residents: {$totalUnpaid}\n";
+        $csv .= "Total Due (Including Current Month with Today's Discount): ₹" . number_format((float) $totalDue, 2) . "\n";
+        $csv .= "==================================================\n\n";
+
+        // ✅ SUMMARY TABLE
+        $csv .= "--- SUMMARY ---\n";
+        $csv .= "Total Unpaid Residents,{$totalUnpaid}\n";
+        $csv .= "Total Previous Pending (All Months),₹" . number_format((float) $totalPreviousPending, 2) . "\n";
+        $csv .= "Total Current Month Balance,₹" . number_format((float) $totalCurrentBalance, 2) . "\n";
+        $csv .= "Total Today's Discount Applied,₹" . number_format((float) $totalDiscount, 2) . "\n";
+        $csv .= "Total Due,₹" . number_format((float) $totalDue, 2) . "\n\n";
+
+        // ✅ DETAILED REPORT
+        $csv .= "--- RESIDENT-WISE DETAILS ---\n";
+        $csv .= "S.No,Resident,Hostel,Room,Rent (₹),Today's Discount (₹),Current Due (₹),Previous Pending (₹),Total Due (₹),Status,Pending Months Count,Remark\n";
+
+        $serialNo = 1;
+        foreach ($unpaidResidents as $item) {
+            $resident = $item['resident'];
+            $roomNo = $resident->room ? $resident->room->room_no : 'N/A';
+
+            $csv .= $serialNo . ",";
+            $csv .= $this->csvString($resident->name ?? 'N/A') . ",";
+            $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
+            $csv .= $roomNo . ",";
+            $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
+            $csv .= $this->csvNumber($item['discount_applied'] ?? 0) . ",";
+            $csv .= $this->csvNumber($item['current_balance'] ?? 0) . ",";
+            $csv .= $this->csvNumber($item['total_previous_pending'] ?? 0) . ",";
+            $csv .= $this->csvNumber($item['total_due'] ?? 0) . ",";
+            $csv .= ($item['overall_status'] ?? 'UNKNOWN') . ",";
+            $csv .= ($item['previous_pending_count'] ?? 0) . ",";
+            $csv .= $this->csvString($item['remark'] ?? '') . "\n";
+            $serialNo++;
+        }
+
+        // ✅ Previous Months Details
+        $csv .= "\n\n--- PREVIOUS MONTHS PENDING DETAILS ---\n";
+        $csv .= "Resident,Month,Year,Rent (₹),Discount Applied (₹),Paid (₹),Balance (₹),Status,Remark\n";
+
+        foreach ($unpaidResidents as $item) {
+            $resident = $item['resident'];
+            if (isset($item['previous_months_details']) && is_array($item['previous_months_details'])) {
+                foreach ($item['previous_months_details'] as $prev) {
+                    if (isset($prev['balance']) && $prev['balance'] > 0) {
+                        $csv .= $this->csvString($resident->name ?? 'N/A') . ",";
+                        $csv .= ($prev['month_name'] ?? '') . ",";
+                        $csv .= ($prev['year'] ?? '') . ",";
+                        $csv .= $this->csvNumber($prev['rent'] ?? 0) . ",";
+                        $csv .= $this->csvNumber($prev['discount'] ?? 0) . ",";
+                        $csv .= $this->csvNumber($prev['paid'] ?? 0) . ",";
+                        $csv .= $this->csvNumber($prev['balance'] ?? 0) . ",";
+                        $csv .= ($prev['status'] ?? '') . ",";
+                        $csv .= $this->csvString($prev['remark'] ?? '') . "\n";
+                    }
+                }
+            }
+        }
+
+        // ✅ Current Month Details with Today's Discount
+        $csv .= "\n\n--- CURRENT MONTH DETAILS (With Today's Discount) ---\n";
+        $csv .= "Resident,Original Rent (₹),Today's Discount (₹),Due After Discount (₹),Payment Status,Remark\n";
+
+        foreach ($unpaidResidents as $item) {
+            $resident = $item['resident'];
+            $csv .= $this->csvString($resident->name ?? 'N/A') . ",";
+            $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
+            $csv .= $this->csvNumber($item['discount_applied'] ?? 0) . ",";
+            $csv .= $this->csvNumber($item['current_month_rent'] ?? 0) . ",";
+            $csv .= ($item['current_status'] ?? '') . ",";
+            $csv .= $this->csvString($item['remark'] ?? '') . "\n";
+        }
+
+        $filename = 'unpaid-payments-' . date('Y-m-d') . '.csv';
+        return response($csv)
+            ->header('Content-Type', 'text/csv; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+
+    } catch (\Exception $e) {
+        // Log the error for debugging
+        \Log::error('Export Unpaid Error: ' . $e->getMessage());
+        \Log::error($e->getTraceAsString());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error exporting unpaid payments: ' . $e->getMessage()
+        ], 500);
     }
-
-    // ✅ Current Month Details with Today's Discount
-    $csv .= "\n\n--- CURRENT MONTH DETAILS (With Today's Discount) ---\n";
-    $csv .= "Resident,Original Rent (₹),Today's Discount (₹),Due After Discount (₹),Payment Status,Remark\n";
-
-    foreach ($unpaidResidents as $item) {
-        $resident = $item['resident'];
-        $csv .= $this->csvString($resident->name) . ",";
-        $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
-        $csv .= $this->csvNumber($item['discount_applied']) . ",";
-        $csv .= $this->csvNumber($item['current_month_rent']) . ",";
-        $csv .= $item['current_status'] . ",";
-        $csv .= $this->csvString($item['remark']) . "\n";
-    }
-
-    $filename = 'unpaid-payments-' . date('Y-m-d') . '.csv';
-    return response($csv)
-        ->header('Content-Type', 'text/csv; charset=UTF-8')
-        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
 }
     /**
      * Export Unpaid Payments as HTML Image for WhatsApp
