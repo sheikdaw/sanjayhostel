@@ -91,7 +91,6 @@
     .payment-adjustments .discount { color: #22c55e; }
     .payment-adjustments .fine { color: #ef4444; }
 
-    /* 🔥 NEW: Remark Styles */
     .remark-box {
         margin-top: 0.5rem;
         padding: 0.5rem 0.75rem;
@@ -100,26 +99,8 @@
         font-size: 0.7rem;
         border-left: 3px solid var(--sanjay-gold);
     }
-    .remark-box .remark-icon {
-        color: var(--sanjay-gold);
-        margin-right: 4px;
-    }
-    .remark-box .remark-text {
-        color: #374151;
-        word-break: break-word;
-    }
-    .remark-box .remark-text .highlight-pending {
-        color: #ef4444;
-        font-weight: 600;
-    }
-    .remark-box .remark-text .highlight-success {
-        color: #22c55e;
-        font-weight: 600;
-    }
-    .remark-box .remark-text .highlight-warning {
-        color: #f59e0b;
-        font-weight: 600;
-    }
+    .remark-box .remark-icon { color: var(--sanjay-gold); margin-right: 4px; }
+    .remark-box .remark-text { color: #374151; word-break: break-word; }
 
     .status-badge {
         display: inline-flex;
@@ -396,6 +377,21 @@
     .partial-details-container .method-box.upi { background: #dbeafe; }
     .partial-details-container .method-box.card { background: #f3e8ff; }
     .partial-details-container .method-box.bank { background: #fef3c7; }
+
+    .current-month-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 14px;
+        background: #dbeafe;
+        color: #1e40af;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .current-month-badge i { font-size: 0.9rem; }
+
+    .payment-card-item.hidden-card { display: none; }
 </style>
 @endpush
 
@@ -405,11 +401,17 @@
     <div>
         <h1 class="ol-page-title">Payment Management</h1>
         <p class="ol-page-sub">Manage monthly rent payments and receipts</p>
-        @if($user->role != 'admin')
-            <p class="ol-page-sub" style="color: var(--sanjay-gold); font-size:0.8rem;">
-                <i class="bi bi-info-circle"></i> You have access to {{ $hostels->count() }} hostel(s)
-            </p>
-        @endif
+        <div class="d-flex align-items-center gap-3 mt-2">
+            <span class="current-month-badge">
+                <i class="bi bi-calendar-check"></i>
+                {{ date('F Y') }} - Current Month
+            </span>
+            @if($user->role != 'admin')
+                <p class="ol-page-sub" style="color: var(--sanjay-gold); font-size:0.8rem; margin:0;">
+                    <i class="bi bi-info-circle"></i> You have access to {{ $hostels->count() }} hostel(s)
+                </p>
+            @endif
+        </div>
     </div>
     <div class="d-flex gap-2">
         <div class="dropdown">
@@ -471,30 +473,30 @@
 @endif
 
 {{-- Statistics --}}
-<div class="stats-grid">
+<div class="stats-grid" id="statsContainer">
     <div class="stat-card">
         <div class="icon">📊</div>
-        <div class="number">{{ $stats['total'] }}</div>
+        <div class="number" id="statTotal">{{ $stats['total'] }}</div>
         <div class="label">Total Transactions</div>
     </div>
     <div class="stat-card">
         <div class="icon">⏳</div>
-        <div class="number" style="color:#ef4444;">{{ $stats['pending'] }}</div>
+        <div class="number" style="color:#ef4444;" id="statPending">{{ $stats['pending'] }}</div>
         <div class="label">Pending</div>
     </div>
     <div class="stat-card">
         <div class="icon">🟡</div>
-        <div class="number" style="color:#f59e0b;">{{ $stats['partial'] }}</div>
+        <div class="number" style="color:#f59e0b;" id="statPartial">{{ $stats['partial'] }}</div>
         <div class="label">Partial</div>
     </div>
     <div class="stat-card">
         <div class="icon">✅</div>
-        <div class="number" style="color:#22c55e;">{{ $stats['paid'] }}</div>
+        <div class="number" style="color:#22c55e;" id="statPaid">{{ $stats['paid'] }}</div>
         <div class="label">Paid</div>
     </div>
     <div class="stat-card">
         <div class="icon">💰</div>
-        <div class="number">₹{{ number_format($stats['total_collected'] ?? 0, 0) }}</div>
+        <div class="number" id="statCollected">₹{{ number_format($stats['total_collected'] ?? 0, 0) }}</div>
         <div class="label">Total Collected</div>
     </div>
 </div>
@@ -502,7 +504,7 @@
 {{-- Monthly Summary --}}
 @if($monthlySummary->count() > 0)
     <div class="summary-card">
-        <h6><i class="bi bi-calendar3"></i> Monthly Summary</h6>
+        <h6><i class="bi bi-calendar3"></i> Monthly Summary - {{ date('F Y') }}</h6>
         <div style="overflow-x:auto;">
             <table>
                 <thead>
@@ -535,7 +537,7 @@
 {{-- Hostel Wise Summary --}}
 @if($hostelSummary->count() > 0)
     <div class="summary-card">
-        <h6><i class="bi bi-building"></i> Hostel Wise Summary</h6>
+        <h6><i class="bi bi-building"></i> Hostel Wise Summary - {{ date('F Y') }}</h6>
         <div style="overflow-x:auto;">
             <table>
                 <thead>
@@ -584,7 +586,7 @@
     <button class="btn-action" onclick="clearSelection()" title="Clear Selection"><i class="bi bi-x"></i> Clear</button>
 </div>
 
-{{-- Enhanced Filter Section --}}
+{{-- Filter Section --}}
 <div class="filter-section">
     <div class="row g-2 w-100">
         <div class="col-md-3">
@@ -631,57 +633,6 @@
                 </button>
                 <button class="btn btn-sm btn-primary" onclick="applyFilters()" title="Apply Filters">
                     <i class="bi bi-funnel"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- Advanced Filter Section --}}
-<div class="filter-section" style="background:#f8fafc; border-color:#d1d5db; margin-top:-0.5rem;">
-    <div class="row g-2 w-100 align-items-end">
-        <div class="col-md-2">
-            <div class="filter-group">
-                <label class="filter-label">Payment Date From</label>
-                <input type="date" id="filterDateFrom" class="form-control form-control-sm">
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="filter-group">
-                <label class="filter-label">Payment Date To</label>
-                <input type="date" id="filterDateTo" class="form-control form-control-sm">
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="filter-group">
-                <label class="filter-label">Min Amount (₹)</label>
-                <input type="number" id="filterMinAmount" class="form-control form-control-sm" placeholder="0" min="0">
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="filter-group">
-                <label class="filter-label">Max Amount (₹)</label>
-                <input type="number" id="filterMaxAmount" class="form-control form-control-sm" placeholder="10000" min="0">
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="filter-group">
-                <label class="filter-label">Payment Mode</label>
-                <select id="filterPaymentMode" class="form-select form-select-sm">
-                    <option value="">All</option>
-                    <option value="cash">Cash Only</option>
-                    <option value="upi">UPI Only</option>
-                    <option value="both">Both</option>
-                </select>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="d-flex gap-1 flex-wrap">
-                <button class="btn btn-sm btn-outline-secondary quick-filter-btn" onclick="filterThisMonth()">
-                    <i class="bi bi-calendar"></i> This Month
-                </button>
-                <button class="btn btn-sm btn-outline-secondary quick-filter-btn" onclick="filterByAmountRange(0, 5000)">
-                    <i class="bi bi-currency-rupee"></i> ≤ ₹5000
                 </button>
             </div>
         </div>
@@ -780,17 +731,9 @@
                                 <i class="bi bi-cash" style="color:var(--sanjay-gold);"></i> Cash: ₹{{ number_format($payment->cash_paid_amount, 0) }}
                                 &nbsp;·&nbsp;
                                 <i class="bi bi-phone" style="color:var(--sanjay-gold);"></i> UPI: ₹{{ number_format($payment->upi_paid_amount, 0) }}
-                                @if($payment->card_paid_amount > 0)
-                                    &nbsp;·&nbsp;
-                                    <i class="bi bi-credit-card" style="color:var(--sanjay-gold);"></i> Card: ₹{{ number_format($payment->card_paid_amount, 0) }}
-                                @endif
-                                @if($payment->bank_paid_amount > 0)
-                                    &nbsp;·&nbsp;
-                                    <i class="bi bi-bank" style="color:var(--sanjay-gold);"></i> Bank: ₹{{ number_format($payment->bank_paid_amount, 0) }}
-                                @endif
                             </div>
 
-                            {{-- 🔥 REMARK DISPLAY --}}
+                            {{-- Remark Display --}}
                             @if($payment->remark)
                                 <div class="remark-box">
                                     <i class="bi bi-pencil remark-icon"></i>
@@ -833,7 +776,7 @@
             <div class="empty-state">
                 <i class="bi bi-credit-card"></i>
                 <h5>No payments found</h5>
-                <p class="text-muted">Record monthly rent payments.</p>
+                <p class="text-muted">No payments recorded for {{ date('F Y') }}</p>
                 <button type="button" class="rv-submit" onclick="openAddModal()" style="width:auto; display:inline-flex; padding:0 1.5rem; height:38px; border-radius:9px; align-items:center; gap:6px; animation:none;">
                     <i class="bi bi-plus-circle"></i>
                     Add Payment
@@ -968,7 +911,7 @@
                             <div class="invalid-feedback" id="payment_date_error"></div>
                         </div>
 
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Transaction ID</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-hash rv-input-icon"></i>
@@ -976,7 +919,7 @@
                             </div>
                             <div class="invalid-feedback" id="transaction_id_error"></div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label class="form-label">Status <span class="required">*</span></label>
                             <div class="rv-input-box">
                                 <i class="bi bi-toggle-on rv-input-icon"></i>
@@ -988,21 +931,9 @@
                             </div>
                             <div class="invalid-feedback" id="status_error"></div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Payment Type <span class="required">*</span></label>
-                            <div class="rv-input-box">
-                                <i class="bi bi-credit-card rv-input-icon"></i>
-                                <select name="payment_type" id="payment_type" class="rv-input" required>
-                                    <option value="current">📅 Current Month Only</option>
-                                    <option value="previous">📅 Previous Pending Only</option>
-                                    <option value="all">✅ Clear All Dues</option>
-                                </select>
-                            </div>
-                            <div class="invalid-feedback" id="payment_type_error"></div>
-                        </div>
                     </div>
 
-                    {{-- 🔥 REMARK DISPLAY (Auto-generated) --}}
+                    {{-- Remark Preview --}}
                     <div id="remarkPreview" style="display:none; margin-top:0.75rem; padding:0.75rem; background:#f0fdf4; border-radius:8px; border-left:4px solid #22c55e;">
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <i class="bi bi-pencil" style="color:#22c55e;"></i>
@@ -1134,28 +1065,17 @@ $(document).ready(function() {
         generateRemarkPreview();
     });
 
-    // 🔥 Payment type change - show remark preview
-    $('#payment_type').on('change', function() {
-        generateRemarkPreview();
-    });
-
     // Filter event listeners
-    $('#filterStatus, #filterHostel, #filterRoom, #filterPaymentMode').on('change', function() {
+    $('#filterStatus, #filterHostel, #filterRoom').on('change', function() {
         applyFilters();
     });
 
-    $('#filterMonthYear, #filterDateFrom, #filterDateTo, #filterMinAmount, #filterMaxAmount').on('change', function() {
+    $('#filterMonthYear').on('change', function() {
         applyFilters();
     });
 
     $('#searchPayment').on('keyup', function() {
         debouncedApplyFilters();
-    });
-
-    $('#searchPayment').on('keypress', function(e) {
-        if (e.which === 13) {
-            applyFilters();
-        }
     });
 
     // Hostel -> Room filter
@@ -1191,6 +1111,7 @@ $(document).ready(function() {
         $('#rent_amount').val('');
         $('#pendingWarning').remove();
         $('#partialDetailsContainer').empty();
+        $('#remarkPreview').hide();
         $('#saveBtn').prop('disabled', false);
 
         if (!hostelId) {
@@ -1222,6 +1143,7 @@ $(document).ready(function() {
         $('#rent_amount').val('');
         $('#pendingWarning').remove();
         $('#partialDetailsContainer').empty();
+        $('#remarkPreview').hide();
         $('#saveBtn').prop('disabled', false);
 
         if (!roomId) {
@@ -1245,7 +1167,7 @@ $(document).ready(function() {
         });
     });
 
-    // Resident selection with partial payment check
+    // Resident selection with previous pending check (INFO only, NOT blocking)
     $('#resident_id').on('change', function() {
         let residentId = $(this).val();
         if (residentId) {
@@ -1284,16 +1206,21 @@ $(document).ready(function() {
         }
     });
 
+    // Payment date change - recalculate discount and remark
+    $('#payment_date').on('change', function() {
+        generateRemarkPreview();
+        calculateBalance();
+    });
+
     // Apply initial filters
     applyFilters();
 });
 
 // ============================================================
-// 🔥 GENERATE REMARK PREVIEW
+// GENERATE REMARK PREVIEW
 // ============================================================
 
 function generateRemarkPreview() {
-    let paymentType = $('#payment_type').val();
     let residentId = $('#resident_id').val();
     let month = $('#month').val();
     let year = $('#year').val();
@@ -1314,7 +1241,7 @@ function generateRemarkPreview() {
             month: month,
             year: year,
             payment_date: paymentDate,
-            payment_type: paymentType,
+            total_paid: totalPaid,
             _token: '{{ csrf_token() }}'
         },
         success: function(response) {
@@ -1329,18 +1256,50 @@ function generateRemarkPreview() {
                 } else {
                     $('#remarkPreview').hide();
                 }
-
-                // Auto-fill suggested amount
-                if (suggestedAmount > 0 && totalPaid === 0) {
-                    $('#cash_paid_amount').val(suggestedAmount);
-                    calculateBalance();
-                }
             }
         }
     });
 }
 
-// ========== PARTIAL PAYMENT FUNCTIONS ==========
+// ============================================================
+// CHECK PREVIOUS PENDING (INFO ONLY - NOT BLOCKING)
+// ============================================================
+
+function checkPendingPrevious(residentId, month, year) {
+    $.ajax({
+        url: '/admin/payments/resident/' + residentId + '/check-pending/' + month + '/' + year,
+        type: 'GET',
+        success: function(response) {
+            if (response.success && response.has_pending) {
+                $('#pendingWarning').remove();
+                let warning = `
+                    <div id="pendingWarning" class="alert alert-info mt-2" style="font-size:0.85rem; padding:0.75rem 1rem; background:#eff6ff; border:1px solid #93c5fd; border-radius:8px;">
+                        <div style="display:flex; align-items:flex-start; gap:0.5rem;">
+                            <i class="bi bi-info-circle-fill" style="color:#2563eb; font-size:1.2rem; margin-top:2px;"></i>
+                            <div>
+                                <strong style="color:#1e40af;">Previous months have pending payments</strong>
+                                <span style="display:block; margin-top:4px; font-size:0.8rem; color:#1e40af;">
+                                    💡 The payment will automatically clear previous pending first, 
+                                    then apply remaining amount to current month rent.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                $('#resident_id').closest('.col-md-4').after(warning);
+                // 🔥 DON'T DISABLE THE SAVE BUTTON
+                $('#saveBtn').prop('disabled', false);
+            } else {
+                $('#pendingWarning').remove();
+                $('#saveBtn').prop('disabled', false);
+            }
+        }
+    });
+}
+
+// ============================================================
+// PARTIAL PAYMENT FUNCTIONS
+// ============================================================
 
 function checkPartialPayment(residentId, month, year) {
     $.ajax({
@@ -1371,34 +1330,6 @@ function showPartialPaymentDetails(data) {
     
     let totalPaid = data.total_paid;
     let remaining = data.balance_amount;
-    
-    // Create transaction IDs display
-    let txnDisplay = '';
-    if (data.transaction_ids && data.transaction_ids.length > 0) {
-        txnDisplay = data.transaction_ids.map((id, index) => {
-            return `<span class="txn-id-badge">#${index + 1}: ${id}</span>`;
-        }).join(' ');
-    } else {
-        txnDisplay = '<span style="color: #6b7280; font-style: italic;">N/A</span>';
-    }
-    
-    // Create payment methods breakdown
-    let methodsHtml = '';
-    let hasCash = data.cash_paid > 0;
-    let hasUpi = data.upi_paid > 0;
-    let hasCard = data.card_paid > 0;
-    let hasBank = data.bank_paid > 0;
-    
-    if (hasCash || hasUpi || hasCard || hasBank) {
-        methodsHtml = `
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.5rem; margin-top: 0.5rem;">
-                ${hasCash ? `<div class="method-box cash"><div style="color:#6b7280; font-size:0.6rem;">Cash</div><div style="font-weight:700; color:#166534;">₹${Number(data.cash_paid).toFixed(2)}</div></div>` : ''}
-                ${hasUpi ? `<div class="method-box upi"><div style="color:#6b7280; font-size:0.6rem;">UPI</div><div style="font-weight:700; color:#1e40af;">₹${Number(data.upi_paid).toFixed(2)}</div></div>` : ''}
-                ${hasCard ? `<div class="method-box card"><div style="color:#6b7280; font-size:0.6rem;">Card</div><div style="font-weight:700; color:#6b21a5;">₹${Number(data.card_paid).toFixed(2)}</div></div>` : ''}
-                ${hasBank ? `<div class="method-box bank"><div style="color:#6b7280; font-size:0.6rem;">Bank</div><div style="font-weight:700; color:#92400e;">₹${Number(data.bank_paid).toFixed(2)}</div></div>` : ''}
-            </div>
-        `;
-    }
     
     let html = `
         <div class="partial-details-container" data-payment-id="${data.payment_id}">
@@ -1432,12 +1363,10 @@ function showPartialPaymentDetails(data) {
                     <strong style="color: #ef4444;">+₹${Number(data.fine_amount).toFixed(2)}</strong>
                 </div>
                 <div>
-                    <span style="color: #6b7280;">Transaction IDs:</span>
-                    <div style="margin-top: 2px;">${txnDisplay}</div>
+                    <span style="color: #6b7280;">Txn ID:</span>
+                    <strong>${data.transaction_id_raw || 'N/A'}</strong>
                 </div>
             </div>
-            
-            ${methodsHtml}
             
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem;">
                 <div style="text-align: center; padding: 0.5rem; background: #dcfce7; border-radius: 8px;">
@@ -1482,7 +1411,6 @@ function showPartialPaymentDetails(data) {
     $('#status').val('PAID');
     $('#saveBtn').prop('disabled', false);
     
-    // Show completion note
     let note = `
         <div id="completionNote" style="font-size: 0.8rem; color: #166534; margin-top: 0.25rem; background: #dcfce7; padding: 0.25rem 0.75rem; border-radius: 6px; display: inline-block;">
             <i class="bi bi-check-circle-fill"></i> 
@@ -1508,7 +1436,9 @@ function fillRemainingAmount() {
     showToast('Remaining amount ₹' + remaining.toFixed(2) + ' set for payment', 'success');
 }
 
-// ========== FILTER FUNCTIONS ==========
+// ============================================================
+// FILTER FUNCTIONS
+// ============================================================
 
 function applyFilters() {
     var status = $('#filterStatus').val();
@@ -1516,11 +1446,6 @@ function applyFilters() {
     var room = $('#filterRoom').val();
     var search = $('#searchPayment').val().toLowerCase().trim();
     var monthYear = $('#filterMonthYear').val();
-    var dateFrom = $('#filterDateFrom').val();
-    var dateTo = $('#filterDateTo').val();
-    var minAmount = parseFloat($('#filterMinAmount').val()) || 0;
-    var maxAmount = parseFloat($('#filterMaxAmount').val()) || Infinity;
-    var paymentMode = $('#filterPaymentMode').val();
 
     var month = null;
     var year = null;
@@ -1544,15 +1469,6 @@ function applyFilters() {
         var paymentYear = $item.data('year');
         var paymentReceipt = $item.data('receipt') || '';
         var paymentResident = $item.data('resident') || '';
-        var paymentDate = $item.data('payment-date');
-        var rent = parseFloat($item.data('rent')) || 0;
-
-        // Get payment mode from card
-        var text = $item.find('.payment-body').text();
-        var cashMatch = text.match(/Cash:\s*₹([\d,]+)/);
-        var upiMatch = text.match(/UPI:\s*₹([\d,]+)/);
-        var cashAmount = cashMatch ? parseFloat(cashMatch[1].replace(/,/g, '')) || 0 : 0;
-        var upiAmount = upiMatch ? parseFloat(upiMatch[1].replace(/,/g, '')) || 0 : 0;
 
         if (status && paymentStatus !== status) show = false;
         if (hostel && paymentHostel != hostel) show = false;
@@ -1565,16 +1481,6 @@ function applyFilters() {
                        paymentResident.includes(search) ||
                        $item.find('.payment-meta:contains("Txn ID:")').text().toLowerCase().includes(search);
             if (!match) show = false;
-        }
-
-        if (paymentDate && dateFrom && paymentDate < dateFrom) show = false;
-        if (paymentDate && dateTo && paymentDate > dateTo) show = false;
-        if (rent < minAmount || rent > maxAmount) show = false;
-
-        if (paymentMode) {
-            if (paymentMode === 'cash' && cashAmount === 0) show = false;
-            if (paymentMode === 'upi' && upiAmount === 0) show = false;
-            if (paymentMode === 'both' && (cashAmount === 0 || upiAmount === 0)) show = false;
         }
 
         if (show) {
@@ -1591,10 +1497,8 @@ function applyFilters() {
 }
 
 function clearFilters() {
-    $('#filterStatus, #filterHostel, #filterRoom, #filterPaymentMode').val('');
+    $('#filterStatus, #filterHostel, #filterRoom').val('');
     $('#searchPayment').val('');
-    $('#filterDateFrom, #filterDateTo').val('');
-    $('#filterMinAmount, #filterMaxAmount').val('');
     $('#filterMonthYear').val('{{ date("Y-m") }}');
     applyFilters();
 }
@@ -1606,22 +1510,6 @@ function filterPending() {
     $('html, body').animate({ scrollTop: $('#paymentsContainer').offset().top - 100 }, 500);
 }
 
-function filterThisMonth() {
-    var now = new Date();
-    var year = now.getFullYear();
-    var month = String(now.getMonth() + 1).padStart(2, '0');
-    $('#filterMonthYear').val(year + '-' + month);
-    $('#filterDateFrom').val('');
-    $('#filterDateTo').val('');
-    applyFilters();
-}
-
-function filterByAmountRange(min, max) {
-    $('#filterMinAmount').val(min || '');
-    $('#filterMaxAmount').val(max || '');
-    applyFilters();
-}
-
 let filterTimeout;
 function debouncedApplyFilters() {
     clearTimeout(filterTimeout);
@@ -1630,7 +1518,9 @@ function debouncedApplyFilters() {
     }, 300);
 }
 
-// ========== BULK ACTIONS ==========
+// ============================================================
+// BULK ACTIONS
+// ============================================================
 
 function updateBulkActions() {
     var checked = $('.payment-checkbox:checked');
@@ -1678,7 +1568,7 @@ function bulkStatusUpdate() {
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
+                        updateStats();
                     }
                 },
                 error: function(xhr) { showToast(xhr.responseJSON?.message || 'Failed to update!', 'error'); }
@@ -1707,7 +1597,7 @@ function bulkDelete() {
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
+                        location.reload();
                     }
                 },
                 error: function(xhr) { showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error'); }
@@ -1716,7 +1606,9 @@ function bulkDelete() {
     });
 }
 
-// ========== MODAL FUNCTIONS ==========
+// ============================================================
+// MODAL FUNCTIONS
+// ============================================================
 
 function openAddModal() {
     resetForm();
@@ -1790,41 +1682,12 @@ function calculateBalance() {
     }
 }
 
-// 🔥 NEW: Show previous pending info but DON'T block payment
-function checkPendingPrevious(residentId, month, year) {
-    $.ajax({
-        url: '/admin/payments/resident/' + residentId + '/check-pending/' + month + '/' + year,
-        type: 'GET',
-        success: function(response) {
-            if (response.success && response.has_pending) {
-                $('#pendingWarning').remove();
-                let warning = `
-                    <div id="pendingWarning" class="alert alert-warning mt-2" style="font-size:0.8rem; padding:0.5rem 0.75rem;">
-                        <i class="bi bi-info-circle-fill" style="color:#f59e0b;"></i>
-                        <strong>Info:</strong> Previous months have pending payments.
-                        <span style="display:block; margin-top:4px; font-size:0.75rem;">
-                            💡 The payment will automatically clear previous pending first, 
-                            then apply to current month rent.
-                        </span>
-                    </div>
-                `;
-                $('#resident_id').closest('.col-md-4').after(warning);
-                // 🔥 DON'T DISABLE THE SAVE BUTTON
-                $('#saveBtn').prop('disabled', false);
-            } else {
-                $('#pendingWarning').remove();
-                $('#saveBtn').prop('disabled', false);
-            }
-        }
-    });
-}
 function submitForm() {
     let id = document.getElementById('editId').value;
     let partialId = document.getElementById('partialPaymentId').value;
     let url = "{{ route('admin.payments.store') }}";
     let formData = new FormData(document.getElementById('paymentForm'));
     
-    // If completing a partial payment, use update route with partial ID
     if (partialId) {
         url = "{{ url('admin/payments') }}/" + partialId;
         formData.append('_method', 'PUT');
@@ -1834,7 +1697,6 @@ function submitForm() {
         formData.append('_method', 'PUT');
     }
     
-    // Calculate totals for balance check
     let cash = parseFloat($('#cash_paid_amount').val()) || 0;
     let upi = parseFloat($('#upi_paid_amount').val()) || 0;
     let totalPaid = cash + upi;
@@ -1844,14 +1706,8 @@ function submitForm() {
     let totalAmount = rent - discount + fine;
     let balance = totalAmount - totalPaid;
     
-    // If completing partial payment and balance is 0, force status to PAID
     if (partialId && balance <= 0) {
         formData.set('status', 'PAID');
-    }
-    
-    if ($('#pendingWarning').length > 0 && !partialId) {
-        showToast('Please clear previous pending payments first!', 'error');
-        return;
     }
     
     $.ajax({
@@ -1873,7 +1729,11 @@ function submitForm() {
                 
                 let message = partialId ? 'Partial payment completed successfully!' : response.message;
                 showToast(message, 'success');
-                setTimeout(() => location.reload(), 1500);
+                
+                // Refresh the page content without full reload
+                setTimeout(function() {
+                    location.reload();
+                }, 1500);
             }
         },
         error: function(xhr) {
@@ -1968,7 +1828,6 @@ function editPayment(id) {
                 document.getElementById('cash_paid_amount').value = data.cash_paid_amount;
                 document.getElementById('upi_paid_amount').value = data.upi_paid_amount;
                 document.getElementById('transaction_id').value = data.transaction_id || '';
-                document.getElementById('payment_type').value = data.payment_type || 'current';
                 if (data.payment_date) {
                     const paymentDate = new Date(data.payment_date);
                     document.getElementById('payment_date').value = paymentDate.toISOString().split('T')[0];
@@ -2051,7 +1910,7 @@ function deletePayment(id) {
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
+                        location.reload();
                     }
                 },
                 error: function(xhr) {
@@ -2084,7 +1943,7 @@ function markAsPaid(id) {
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
+                        location.reload();
                     }
                 },
                 error: function(xhr) {
@@ -2144,9 +2003,6 @@ function buildBillMessage(payment, resident) {
     let roomNo = resident.room ? resident.room.room_no : 'N/A';
     let paymentDate = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN') : '';
 
-    // Parse transaction IDs
-    let txnDisplay = payment.transaction_id || 'N/A';
-
     let lines = [
         '🏠 *' + (hostelName || 'Hostel') + '*',
         '------------------------------',
@@ -2168,10 +2024,9 @@ function buildBillMessage(payment, resident) {
     ];
 
     if (payment.transaction_id) {
-        lines.push('Txn ID: ' + txnDisplay);
+        lines.push('Txn ID: ' + payment.transaction_id);
     }
 
-    // Add remark if exists
     if (payment.remark) {
         lines.push('', '📝 ' + payment.remark);
     }
@@ -2235,11 +2090,6 @@ function getActiveFilters() {
         room_id: $('#filterRoom').val() || '',
         month: month,
         year: year,
-        date_from: $('#filterDateFrom').val() || '',
-        date_to: $('#filterDateTo').val() || '',
-        min_amount: $('#filterMinAmount').val() || '',
-        max_amount: $('#filterMaxAmount').val() || '',
-        payment_mode: $('#filterPaymentMode').val() || '',
         search: $('#searchPayment').val() || ''
     };
 }
