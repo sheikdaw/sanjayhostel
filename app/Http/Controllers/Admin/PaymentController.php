@@ -738,7 +738,7 @@ class PaymentController extends Controller
 
             $totalBalance = $previousBalance + $currentBalance;
 
-            // Determine status
+            // ✅ FIXED: Determine status - PAID if total balance is 0
             $status = 'PENDING';
             if ($totalBalance <= 0) {
                 $status = 'PAID';
@@ -1081,6 +1081,44 @@ class PaymentController extends Controller
         return response()->json([
             'success' => true,
             'has_pending' => $hasPendingPrevious
+        ]);
+    }
+
+    /**
+     * Check if resident already paid for this month
+     */
+    public function checkAlreadyPaid($residentId, $month, $year)
+    {
+        $payment = Payment::where('resident_id', $residentId)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->first();
+
+        if ($payment && $payment->status === 'PAID') {
+            $hasPending = Payment::where('resident_id', $residentId)
+                ->where(function ($q) use ($month, $year) {
+                    $q->where('year', '<', $year)
+                        ->orWhere(function ($q2) use ($month, $year) {
+                            $q2->where('year', $year)
+                                ->where('month', '<', $month);
+                        });
+                })
+                ->whereIn('status', ['PENDING', 'PARTIAL'])
+                ->exists();
+
+            return response()->json([
+                'success' => true,
+                'is_paid' => true,
+                'status' => $payment->status,
+                'receipt_no' => $payment->receipt_no,
+                'amount' => $payment->rent_amount,
+                'has_pending' => $hasPending
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'is_paid' => false
         ]);
     }
 
@@ -1532,16 +1570,31 @@ class PaymentController extends Controller
             }
         }
 
-        // ✅ Determine overall status
+        // ✅ FIXED: Determine overall status correctly
         $overallStatus = 'NO PAYMENT';
-        if ($totalPreviousPending > 0 && $effectiveCurrentBalance > 0) {
+
+        // First check if total due is zero (fully paid)
+        if ($totalDue <= 0 && $isCurrentPaid) {
+            $overallStatus = 'PAID';
+        } elseif ($totalDue <= 0 && !$isCurrentPaid && $currentPayment) {
+            // Payment exists but balance is 0, check if it's marked as PAID
+            if ($currentPayment && $currentPayment->status == 'PAID') {
+                $overallStatus = 'PAID';
+            } else {
+                // This is the case where payment has advance amount but status not updated
+                $overallStatus = 'PAID (Advance)';
+                // Ensure status is set to PAID for such cases
+                if ($currentPayment) {
+                    $currentPayment->status = 'PAID';
+                    $currentPayment->save();
+                }
+            }
+        } elseif ($totalPreviousPending > 0 && $effectiveCurrentBalance > 0) {
             $overallStatus = 'PENDING (Previous + Current)';
         } elseif ($totalPreviousPending > 0 && $effectiveCurrentBalance == 0) {
             $overallStatus = 'PENDING (Previous Only)';
         } elseif ($totalPreviousPending == 0 && $effectiveCurrentBalance > 0) {
             $overallStatus = 'PENDING (Current Only)';
-        } elseif ($totalPreviousPending == 0 && $effectiveCurrentBalance == 0 && $isCurrentPaid) {
-            $overallStatus = 'PAID';
         } elseif ($currentPayment && $currentPayment->status == 'PARTIAL') {
             $overallStatus = 'PARTIAL';
         }
