@@ -665,7 +665,7 @@ class PaymentController extends Controller
             // ✅ FIXED: Check remaining amount for current month
             $amountForCurrentMonth = $totalPaid - $totalPreviousPending;
             $canCoverFullRent = $amountForCurrentMonth >= $fullRent;
-
+return response()->json( $amountForCurrentMonth,$fullRent);
             // ✅ FIXED: Apply discount if clears ALL pending AND pays full rent
             if ($willClearAllPending && $canCoverFullRent) {
                 $discount = $tentativeDiscount;
