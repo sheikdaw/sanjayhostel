@@ -656,7 +656,7 @@ class PaymentController extends Controller
 
             // ✅ Calculate tentative discount based on payment date
             $tentativeDiscount =  (float) $this->calculateDiscount($paymentDate);
-             return response()->json($tentativeDiscount);
+             return response()->json($totalPreviousPending);
             $fine = (float) ($request->fine_amount ?? 0);
 
             // ✅ FIXED: Check if payment clears ALL previous pending
