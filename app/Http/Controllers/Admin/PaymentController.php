@@ -14,24 +14,18 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
-    /**
-     * Calculate discount based on payment date
-     *
-     * @param string $paymentDate
-     * @return int
-     */
     private function calculateDiscount($paymentDate)
-    {
-        $day = date('j', strtotime($paymentDate));
+{
+    $day = date('j', strtotime($paymentDate));
 
-        if ($day <= 5) {
-            return 250;  // ₹250 discount for 1st-5th
-        } elseif ($day <= 10) {
-            return 125;  // ₹125 discount for 6th-10th
-        } else {
-            return 0;    // No discount after 10th
-        }
+    if ($day <= 5) {
+        return 250;  // ₹250 discount for 1st-5th
+    } elseif ($day <= 10) {
+        return 125;  // ₹125 discount for 6th-10th
+    } else {
+        return 0;    // No discount after 10th
     }
+}
 
     /**
      * Check if resident is eligible for discount
@@ -1409,12 +1403,9 @@ class PaymentController extends Controller
         ];
     }
 
-    // ============================================================
-    // UNPAID WITH PREVIOUS PENDING DETAILS - FIXED
-    // ============================================================
 /**
  * Get complete unpaid details including previous pending and partial payments
- * FIXED: Apply today's discount to current month's balance based on current date
+ * FIXED: Apply today's discount to current month's balance for ALL residents
  */
 private function getUnpaidResidentsWithDetails($resident, $month, $year)
 {
@@ -1456,19 +1447,19 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
     $effectiveCurrentBalance = 0;
     $discountApplied = 0;
 
+    // ✅ Check if resident has any previous pending
+    $hasPreviousPending = $totalPreviousPending > 0;
+
     if ($currentPayment) {
         // Payment exists for current month
         $balance = (float) $currentPayment->balance_amount;
 
-        // ✅ FIX: Check if there's previous pending
-        $hasPreviousPending = $totalPreviousPending > 0;
-
-        // ✅ FIX: Check if the payment covers full rent
+        // ✅ Check if the payment covers full rent
         $amountPaid = (float) ($currentPayment->cash_paid_amount + $currentPayment->upi_paid_amount);
         $totalAmount = $amountPaid + $balance; // Total amount for this month (paid + balance)
         $canCoverFullRent = $totalAmount >= $rentAmount;
 
-        // ✅ FIX: Apply discount ONLY if NO previous pending AND can cover full rent
+        // ✅ Apply discount ONLY if NO previous pending AND can cover full rent
         if (!$hasPreviousPending && $canCoverFullRent) {
             // ✅ ELIGIBLE: Apply today's discount
             $discountApplied = $todayDiscount;
@@ -1479,19 +1470,16 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
             $effectiveCurrentBalance = $balance;
         }
     } else {
-        // No payment record for current month
-        $hasPreviousPending = $totalPreviousPending > 0;
-
-        // ✅ CORRECT FIX: Apply discount based on today's date
-        // If no previous pending, they are eligible for discount
+        // ✅ NO PAYMENT RECORD for current month - FIXED
+        // ✅ Apply discount based on today's date if NO previous pending
         if (!$hasPreviousPending) {
-            // No previous pending - can apply discount if they pay full
+            // ✅ No previous pending - ELIGIBLE for discount
             $discountApplied = $todayDiscount;
-            $effectiveCurrentBalance = $currentMonthRentAfterDiscount;
+            $effectiveCurrentBalance = $currentMonthRentAfterDiscount; // Rent - Discount
         } else {
-            // Has previous pending - no discount
+            // ❌ Has previous pending - NO discount
             $discountApplied = 0;
-            $effectiveCurrentBalance = $rentAmount;
+            $effectiveCurrentBalance = $rentAmount; // Full rent
         }
     }
 
