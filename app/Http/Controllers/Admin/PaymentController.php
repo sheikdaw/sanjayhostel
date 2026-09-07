@@ -1412,10 +1412,9 @@ class PaymentController extends Controller
     // ============================================================
     // UNPAID WITH PREVIOUS PENDING DETAILS - FIXED
     // ============================================================
-
-   /**
+/**
  * Get complete unpaid details including previous pending and partial payments
- * FIXED: Apply today's discount to current month's balance regardless of discount_amount in payment
+ * FIXED: Apply today's discount to current month's balance based on current date
  */
 private function getUnpaidResidentsWithDetails($resident, $month, $year)
 {
@@ -1483,6 +1482,8 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
         // No payment record for current month
         $hasPreviousPending = $totalPreviousPending > 0;
 
+        // ✅ CORRECT FIX: Apply discount based on today's date
+        // If no previous pending, they are eligible for discount
         if (!$hasPreviousPending) {
             // No previous pending - can apply discount if they pay full
             $discountApplied = $todayDiscount;
@@ -1566,7 +1567,6 @@ private function getUnpaidResidentsWithDetails($resident, $month, $year)
         ]
     ];
 }
-
     // ============================================================
     // EXPORT METHODS
     // ============================================================
