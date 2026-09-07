@@ -824,4 +824,4 @@ class GuestPaymentController extends Controller
             ], 500);
         }
     }
-}
+}   
