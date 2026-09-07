@@ -648,14 +648,15 @@ class PaymentController extends Controller
 
             // GET PREVIOUS PENDING PAYMENTS (WITH DETAILS)
             $previousPendingList = $this->getPreviousPendingDetails($resident->id, $month, $year);
-             return response()->json($previousPendingList);
+
             $totalPreviousPending = $previousPendingList->sum('balance_amount');
 
             $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
             $fullRent = (float) ($resident->rent_amount ?? 0);
 
             // ✅ Calculate tentative discount based on payment date
-            $tentativeDiscount = (float) $this->calculateDiscount($paymentDate);
+            $tentativeDiscount =  (float) $this->calculateDiscount($paymentDate);
+             return response()->json($tentativeDiscount);
             $fine = (float) ($request->fine_amount ?? 0);
 
             // ✅ FIXED: Check if payment clears ALL previous pending
