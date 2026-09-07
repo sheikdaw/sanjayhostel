@@ -1475,6 +1475,7 @@ class PaymentController extends Controller
     /**
      * Get complete unpaid details including previous pending and partial payments
      * ✅ FIXED: Apply discount if clears all pending AND pays full rent
+     * ✅ FIXED: Show original balance and discount applied separately
      */
     private function getUnpaidResidentsWithDetails($resident, $month, $year)
     {
@@ -1515,12 +1516,14 @@ class PaymentController extends Controller
         // ✅ CRITICAL FIX: Apply discount based on eligibility
         $effectiveCurrentBalance = 0;
         $discountApplied = 0;
+        $originalBalance = 0;
 
         if ($currentPayment) {
             // Payment exists for current month
             $balance = (float) $currentPayment->balance_amount;
             $amountPaid = (float) ($currentPayment->cash_paid_amount + $currentPayment->upi_paid_amount);
             $totalAmount = $amountPaid + $balance;
+            $originalBalance = $balance;
 
             // ✅ Check if payment clears all pending AND covers full rent
             $willClearAllPending = $amountPaid >= $totalPreviousPending;
@@ -1538,6 +1541,7 @@ class PaymentController extends Controller
         } else {
             // No payment record for current month
             $hasPreviousPending = $totalPreviousPending > 0;
+            $originalBalance = $rentAmount;
 
             if (!$hasPreviousPending) {
                 // No previous pending - can apply discount if they pay full
@@ -1615,7 +1619,8 @@ class PaymentController extends Controller
             'previous_pending_count' => $previousPendingCount,
             'current_month_rent' => (float) $effectiveCurrentBalance,
             'current_month_rent_original' => $rentAmount,
-            'current_balance' => (float) $effectiveCurrentBalance,
+            'current_balance' => (float) $effectiveCurrentBalance,        // ✅ Discounted balance
+            'original_balance' => (float) $originalBalance,               // ✅ Original balance without discount
             'current_status' => $currentStatus,
             'is_current_paid' => $isCurrentPaid,
             'total_due' => (float) $totalDue,
@@ -1633,7 +1638,13 @@ class PaymentController extends Controller
                 'current_month_due_original' => $rentAmount,
                 'current_month_discount' => $discountApplied,
                 'current_month_due_after_discount' => (float) $effectiveCurrentBalance,
-                'total_due' => (float) $totalDue
+                'total_due' => (float) $totalDue,
+                'discount_calculation' => [
+                    'original_balance' => (float) $originalBalance,
+                    'discount_applied' => $discountApplied,
+                    'final_balance' => (float) $effectiveCurrentBalance,
+                    'discount_reason' => $discountApplied > 0 ? 'Discount applied' : 'No discount'
+                ]
             ]
         ];
     }
@@ -1676,6 +1687,7 @@ class PaymentController extends Controller
             $totalUnpaid = 0;
             $totalPaid = 0;
             $totalDiscount = 0;
+            $totalOriginalBalance = 0;
 
             foreach ($residents as $resident) {
                 $details = $this->getUnpaidResidentsWithDetails($resident, $month, $year);
@@ -1689,6 +1701,7 @@ class PaymentController extends Controller
                     $totalCurrentBalance += isset($details['current_balance']) ? (float) $details['current_balance'] : 0;
                     $totalDue += $totalDueAmount;
                     $totalDiscount += isset($details['discount_applied']) ? (float) $details['discount_applied'] : 0;
+                    $totalOriginalBalance += isset($details['original_balance']) ? (float) $details['original_balance'] : 0;
                     $totalUnpaid++;
 
                     if (isset($details['current_payment']) && $details['current_payment']) {
@@ -1702,7 +1715,7 @@ class PaymentController extends Controller
             $today = now()->format('d M Y');
             $todayDiscount = $this->calculateDiscount(now()->toDateString());
 
-            // ✅ Build CSV
+            // ✅ Build CSV with discount columns
             $csv = "==================================================\n";
             $csv .= "UNPAID PAYMENTS REPORT\n";
             $csv .= "==================================================\n";
@@ -1713,19 +1726,21 @@ class PaymentController extends Controller
             $csv .= "Hostel: {$hostelName}\n";
             $csv .= "Total Unpaid Residents: {$totalUnpaid}\n";
             $csv .= "Total Due: ₹" . number_format((float) $totalDue, 2) . "\n";
+            $csv .= "Total Discount Applied: ₹" . number_format((float) $totalDiscount, 2) . "\n";
             $csv .= "==================================================\n\n";
 
             // ✅ SUMMARY TABLE
             $csv .= "--- SUMMARY ---\n";
             $csv .= "Total Unpaid Residents,{$totalUnpaid}\n";
             $csv .= "Total Previous Pending (All Months),₹" . number_format((float) $totalPreviousPending, 2) . "\n";
-            $csv .= "Total Current Month Balance,₹" . number_format((float) $totalCurrentBalance, 2) . "\n";
+            $csv .= "Total Original Balance,₹" . number_format((float) $totalOriginalBalance, 2) . "\n";
             $csv .= "Total Discount Applied,₹" . number_format((float) $totalDiscount, 2) . "\n";
+            $csv .= "Total Current Month Balance (After Discount),₹" . number_format((float) $totalCurrentBalance, 2) . "\n";
             $csv .= "Total Due,₹" . number_format((float) $totalDue, 2) . "\n\n";
 
-            // ✅ DETAILED REPORT
+            // ✅ DETAILED REPORT - Added Original Balance, Discount, Final Balance columns
             $csv .= "--- RESIDENT-WISE DETAILS ---\n";
-            $csv .= "S.No,Resident,Hostel,Room,Rent (₹),Discount Applied (₹),Current Due (₹),Previous Pending (₹),Total Due (₹),Status,Discount Eligible,Pending Months Count,Remark\n";
+            $csv .= "S.No,Resident,Hostel,Room,Rent (₹),Original Balance (₹),Discount Applied (₹),Final Balance (₹),Previous Pending (₹),Total Due (₹),Status,Discount Eligible,Pending Months Count,Remark\n";
 
             $serialNo = 1;
             foreach ($unpaidResidents as $item) {
@@ -1737,8 +1752,9 @@ class PaymentController extends Controller
                 $csv .= $this->csvString($resident->hostel->hostel_name ?? 'N/A') . ",";
                 $csv .= $roomNo . ",";
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
-                $csv .= $this->csvNumber($item['discount_applied'] ?? 0) . ",";
-                $csv .= $this->csvNumber($item['current_balance'] ?? 0) . ",";
+                $csv .= $this->csvNumber($item['original_balance'] ?? 0) . ",";          // ✅ Original Balance
+                $csv .= $this->csvNumber($item['discount_applied'] ?? 0) . ",";          // ✅ Discount Applied
+                $csv .= $this->csvNumber($item['current_balance'] ?? 0) . ",";           // ✅ Final Balance
                 $csv .= $this->csvNumber($item['total_previous_pending'] ?? 0) . ",";
                 $csv .= $this->csvNumber($item['total_due'] ?? 0) . ",";
                 $csv .= ($item['overall_status'] ?? 'UNKNOWN') . ",";
@@ -1771,14 +1787,15 @@ class PaymentController extends Controller
                 }
             }
 
-            // ✅ Current Month Details
+            // ✅ Current Month Details with Discount
             $csv .= "\n\n--- CURRENT MONTH DETAILS ---\n";
-            $csv .= "Resident,Original Rent (₹),Discount Applied (₹),Due After Discount (₹),Payment Status,Discount Eligible,Remark\n";
+            $csv .= "Resident,Original Rent (₹),Original Balance (₹),Discount Applied (₹),Final Balance (₹),Payment Status,Discount Eligible,Remark\n";
 
             foreach ($unpaidResidents as $item) {
                 $resident = $item['resident'];
                 $csv .= $this->csvString($resident->name ?? 'N/A') . ",";
                 $csv .= $this->csvNumber($resident->rent_amount ?? 0) . ",";
+                $csv .= $this->csvNumber($item['original_balance'] ?? 0) . ",";
                 $csv .= $this->csvNumber($item['discount_applied'] ?? 0) . ",";
                 $csv .= $this->csvNumber($item['current_month_rent'] ?? 0) . ",";
                 $csv .= ($item['current_status'] ?? '') . ",";
@@ -1834,6 +1851,7 @@ class PaymentController extends Controller
         $totalCurrentBalance = 0;
         $totalDue = 0;
         $totalUnpaid = 0;
+        $totalDiscount = 0;
 
         foreach ($residents as $resident) {
             $details = $this->getUnpaidResidentsWithDetails($resident, $month, $year);
@@ -1842,6 +1860,7 @@ class PaymentController extends Controller
                 $totalPreviousPending += $details['total_previous_pending'];
                 $totalCurrentBalance += $details['current_balance'];
                 $totalDue += $details['total_due'];
+                $totalDiscount += $details['discount_applied'];
                 $totalUnpaid++;
             }
         }
@@ -1859,6 +1878,7 @@ class PaymentController extends Controller
             'totalDue' => $totalDue,
             'totalPreviousPending' => $totalPreviousPending,
             'totalCurrentBalance' => $totalCurrentBalance,
+            'totalDiscount' => $totalDiscount,
             'generated_at' => now()->format('d M Y h:i A'),
             'user' => $user
         ];
@@ -1898,6 +1918,7 @@ class PaymentController extends Controller
         $totalCurrentBalance = 0;
         $totalDue = 0;
         $totalUnpaid = 0;
+        $totalDiscount = 0;
 
         foreach ($residents as $resident) {
             $details = $this->getUnpaidResidentsWithDetails($resident, $month, $year);
@@ -1906,6 +1927,7 @@ class PaymentController extends Controller
                 $totalPreviousPending += $details['total_previous_pending'];
                 $totalCurrentBalance += $details['current_balance'];
                 $totalDue += $details['total_due'];
+                $totalDiscount += $details['discount_applied'];
                 $totalUnpaid++;
             }
         }
@@ -1923,6 +1945,7 @@ class PaymentController extends Controller
             'totalDue' => $totalDue,
             'totalPreviousPending' => $totalPreviousPending,
             'totalCurrentBalance' => $totalCurrentBalance,
+            'totalDiscount' => $totalDiscount,
             'generated_at' => now()->format('d M Y h:i A'),
             'user' => $user
         ];
@@ -1964,6 +1987,7 @@ class PaymentController extends Controller
             $totalCurrentBalance = 0;
             $totalDue = 0;
             $totalUnpaid = 0;
+            $totalDiscount = 0;
 
             foreach ($residents as $resident) {
                 $details = $this->getUnpaidResidentsWithDetails($resident, $month, $year);
@@ -1975,17 +1999,19 @@ class PaymentController extends Controller
                         'room' => $resident->room->room_no ?? 'N/A',
                         'phone' => $resident->phone ?? '',
                         'previous_pending' => $details['total_previous_pending'],
+                        'original_balance' => $details['original_balance'],
+                        'discount_applied' => $details['discount_applied'],
                         'current_balance' => $details['current_balance'],
                         'total_due' => $details['total_due'],
                         'status' => $details['overall_status'],
                         'previous_count' => $details['previous_pending_count'],
-                        'discount_applied' => $details['discount_applied'],
                         'discount_eligible' => $details['discount_eligible'],
                         'remark' => $details['remark']
                     ];
                     $totalPreviousPending += $details['total_previous_pending'];
                     $totalCurrentBalance += $details['current_balance'];
                     $totalDue += $details['total_due'];
+                    $totalDiscount += $details['discount_applied'];
                     $totalUnpaid++;
                 }
             }
@@ -1997,6 +2023,7 @@ class PaymentController extends Controller
                         'total_unpaid' => $totalUnpaid,
                         'total_previous_pending' => $totalPreviousPending,
                         'total_current_balance' => $totalCurrentBalance,
+                        'total_discount' => $totalDiscount,
                         'total_due' => $totalDue
                     ],
                     'residents' => $unpaidList,
