@@ -648,6 +648,7 @@ class PaymentController extends Controller
 
             // GET PREVIOUS PENDING PAYMENTS (WITH DETAILS)
             $previousPendingList = $this->getPreviousPendingDetails($resident->id, $month, $year);
+             return response()->json($previousPendingList);
             $totalPreviousPending = $previousPendingList->sum('balance_amount');
 
             $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
