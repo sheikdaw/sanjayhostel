@@ -648,15 +648,13 @@ class PaymentController extends Controller
 
             // GET PREVIOUS PENDING PAYMENTS (WITH DETAILS)
             $previousPendingList = $this->getPreviousPendingDetails($resident->id, $month, $year);
-
             $totalPreviousPending = $previousPendingList->sum('balance_amount');
 
             $totalPaid = $request->cash_paid_amount + $request->upi_paid_amount;
             $fullRent = (float) ($resident->rent_amount ?? 0);
 
             // ✅ Calculate tentative discount based on payment date
-            $tentativeDiscount =  (float) $this->calculateDiscount($paymentDate);
-
+            $tentativeDiscount = (float) $this->calculateDiscount($paymentDate);
             $fine = (float) ($request->fine_amount ?? 0);
 
             // ✅ FIXED: Check if payment clears ALL previous pending
@@ -664,16 +662,15 @@ class PaymentController extends Controller
 
             // ✅ FIXED: Check remaining amount for current month
             $amountForCurrentMonth = $totalPaid - $totalPreviousPending;
-            $canCoverFullRent = $amountForCurrentMonth >= $fullRent;
-            return response()->json([
-    'amountForCurrentMonth' => $amountForCurrentMonth,
-    'fullRent' => $fullRent,
-    'canCoverFullRent' => $canCoverFullRent,
-]);
-            // ✅ FIXED: Apply discount if clears ALL pending AND pays full rent
+
+            // ✅ FIXED: Check if can cover rent AFTER discount
+            $rentAfterDiscount = $fullRent - $tentativeDiscount;
+            $canCoverFullRent = $amountForCurrentMonth >= $rentAfterDiscount;
+
+            // ✅ FIXED: Apply discount if clears ALL pending AND pays full rent (after discount)
             if ($willClearAllPending && $canCoverFullRent) {
                 $discount = $tentativeDiscount;
-                $discountReason = '✅ Eligible: Clears all pending & pays full rent';
+                $discountReason = '✅ Eligible: Clears all pending & pays full rent (after discount)';
                 $discountEligible = true;
             } else {
                 $discount = 0;
@@ -681,7 +678,7 @@ class PaymentController extends Controller
                 if (!$willClearAllPending) {
                     $discountReason = '❌ No discount: Does not clear all previous pending (₹' . number_format($totalPreviousPending, 2) . ' remaining)';
                 } elseif (!$canCoverFullRent) {
-                    $discountReason = '❌ No discount: Does not pay full rent (₹' . number_format($amountForCurrentMonth, 2) . ' of ₹' . number_format($fullRent, 2) . ')';
+                    $discountReason = '❌ No discount: Does not pay full rent after discount (₹' . number_format($amountForCurrentMonth, 2) . ' of ₹' . number_format($rentAfterDiscount, 2) . ')';
                 } else {
                     $discountReason = '❌ No discount applied';
                 }
@@ -696,6 +693,12 @@ class PaymentController extends Controller
             // 1. FIRST: Clear Previous Pending (Oldest to Newest)
             $previousPaid = 0;
             $previousClearedCount = 0;
+
+            // ✅ Generate receipt BEFORE previous payment loop
+            $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            while (Payment::where('receipt_no', $receiptNo)->exists()) {
+                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            }
 
             foreach ($previousPendingList as $prevPayment) {
                 if ($remaining <= 0) break;
@@ -718,9 +721,9 @@ class PaymentController extends Controller
                     }
                 }
 
-                // Update remark for previous payment
+                // ✅ Fixed: Use $receiptNo directly (defined above)
                 $prevPayment->remark = ($newBalance <= 0)
-                    ? "✅ Cleared on " . date('d M Y', strtotime($paymentDate)) . " (Receipt: " . ($this->receiptNo ?? 'N/A') . ")"
+                    ? "✅ Cleared on " . date('d M Y', strtotime($paymentDate)) . " (Receipt: " . $receiptNo . ")"
                     : "🟡 Partially cleared: ₹" . number_format($payAmount, 2) . " on " . date('d M Y', strtotime($paymentDate)) . ". Remaining: ₹" . number_format($newBalance, 2);
 
                 $prevPayment->save();
@@ -751,13 +754,6 @@ class PaymentController extends Controller
             } elseif ($totalPaid > 0) {
                 $status = 'PARTIAL';
             }
-
-            // Generate receipt
-            $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-            while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-            }
-            $this->receiptNo = $receiptNo;
 
             // CREATE PAYMENT FOR CURRENT MONTH (or Update if exists)
             if ($existingPayment) {
