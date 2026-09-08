@@ -370,7 +370,6 @@ Route::get('/clear-cache', function () {
 // ============================================================
 // GUEST PAYMENT ROUTES
 // ============================================================
-// Guest Payment Routes
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     // Main page
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
