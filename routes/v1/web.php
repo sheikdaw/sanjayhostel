@@ -255,7 +255,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/residents/{id}/profile-image', [ResidentController::class, 'updateProfileImage'])->name('residents.update-profile-image');
         Route::delete('/residents/{id}/profile-image', [ResidentController::class, 'removeProfileImage'])->name('residents.remove-profile-image');
         Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
-        // ============================================================
+// ============================================================
 // 6. PAYMENT MANAGEMENT - COMPLETE
 // ============================================================
 Route::prefix('payments')->name('payments.')->group(function () {
@@ -289,9 +289,9 @@ Route::prefix('payments')->name('payments.')->group(function () {
     Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
     Route::get('/export/summary', [PaymentController::class, 'exportSummary'])->name('export.summary');
     Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
-    Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
+    Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export. paid');
     
-    // ✅ Unpaid Summary Exports (Only residents active in selected month)
+    // ✅ Unpaid Summary Exports
     Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
     Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
     
@@ -304,7 +304,6 @@ Route::prefix('payments')->name('payments.')->group(function () {
     Route::get('/pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
     Route::post('/pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
 });
-
         // ============================================================
         // 7. USER MANAGEMENT
         // ============================================================

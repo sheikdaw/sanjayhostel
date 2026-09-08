@@ -131,6 +131,7 @@ class PaymentController extends Controller
 
     /**
      * Display a listing of payments with filters
+     * ✅ FIXED: Includes UNPAID residents
      */
     public function index(Request $request)
     {
@@ -166,71 +167,164 @@ class PaymentController extends Controller
         $filterStatus = $request->status ?? null;
         $search = $request->search ?? null;
 
-        // BUILD MAIN QUERY WITH FILTERS
-        $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
+        // STEP 1: Get all residents who were ACTIVE during the selected month
+        $residentsQuery = Resident::with(['hostel', 'room'])
+            ->where('status', 'ACTIVE');
 
-        if ($request->filled('month')) {
-            $query->where('month', $request->month);
-        } else {
-            $query->where('month', now()->month);
+        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $filterMonth, $filterYear);
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $residentsQuery->whereIn('hostel_id', $hostelIds);
         }
 
-        if ($request->filled('year')) {
-            $query->where('year', $request->year);
-        } else {
-            $query->where('year', now()->year);
-        }
-
-        // Apply hostel filter
         if ($filterHostelId) {
-            $query->whereHas('resident', function ($q) use ($filterHostelId) {
+            $residentsQuery->where('hostel_id', $filterHostelId);
+        }
+
+        if ($search) {
+            $residentsQuery->where(function($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('resident_code', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $activeResidents = $residentsQuery->get();
+
+        // STEP 2: Get all payments for the selected month
+        $paymentsQuery = Payment::with(['resident', 'resident.hostel', 'resident.room'])
+            ->where('month', $filterMonth)
+            ->where('year', $filterYear);
+
+        if ($filterHostelId) {
+            $paymentsQuery->whereHas('resident', function ($q) use ($filterHostelId) {
                 $q->where('hostel_id', $filterHostelId);
             });
         }
 
-        // Apply status filter
-        if ($filterStatus) {
-            $query->where('status', $filterStatus);
-        }
-
-        // Apply search filter
-        if ($search) {
-            $query->where(function($q) use ($search) {
-                $q->where('receipt_no', 'LIKE', "%{$search}%")
-                  ->orWhere('transaction_id', 'LIKE', "%{$search}%")
-                  ->orWhereHas('resident', function($sub) use ($search) {
-                      $sub->where('name', 'LIKE', "%{$search}%")
-                          ->orWhere('resident_code', 'LIKE', "%{$search}%");
-                  });
-            });
-        }
-
-        // Apply user role restriction
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
-            $query->whereHas('resident', function ($q) use ($hostelIds) {
+            $paymentsQuery->whereHas('resident', function ($q) use ($hostelIds) {
                 $q->whereIn('hostel_id', $hostelIds);
             });
         }
 
-        $payments = $query->orderBy('created_at', 'desc')->get();
+        $payments = $paymentsQuery->get()->keyBy('resident_id');
 
-        // CALCULATE STATISTICS
+        // STEP 3: Build combined data with status
+        $combinedData = [];
         $stats = [
-            'total' => $payments->count(),
-            'pending' => $payments->where('status', 'PENDING')->count(),
-            'paid' => $payments->where('status', 'PAID')->count(),
-            'partial' => $payments->where('status', 'PARTIAL')->count(),
-            'total_rent' => $payments->sum('rent_amount'),
-            'total_discount' => $payments->sum('discount_amount'),
-            'total_fine' => $payments->sum('fine_amount'),
-            'total_cash' => $payments->sum('cash_paid_amount'),
-            'total_upi' => $payments->sum('upi_paid_amount'),
-            'total_balance' => $payments->sum('balance_amount'),
-            'total_collected' => $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount')
+            'total' => 0,
+            'pending' => 0,
+            'paid' => 0,
+            'partial' => 0,
+            'unpaid' => 0,
+            'total_rent' => 0,
+            'total_discount' => 0,
+            'total_fine' => 0,
+            'total_cash' => 0,
+            'total_upi' => 0,
+            'total_balance' => 0,
+            'total_collected' => 0
         ];
 
-        $pendingPayments = $payments->where('status', 'PENDING');
+        foreach ($activeResidents as $resident) {
+            $payment = $payments->get($resident->id);
+            $previousPending = $this->getPreviousPending($resident->id, $filterMonth, $filterYear);
+            $currentBalance = $payment ? (float) $payment->balance_amount : 0;
+            $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
+            $totalDue = $previousPending + $currentBalance;
+
+            // Determine status
+            if (!$payment && $previousPending == 0) {
+                $status = 'UNPAID';
+            } elseif ($previousPending > 0) {
+                if ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
+                    $status = 'PAID';
+                } elseif ($payment && $payment->status === 'PAID' && $currentBalance > 0) {
+                    $status = 'PARTIAL';
+                } else {
+                    $status = 'PENDING';
+                }
+            } elseif ($payment) {
+                if ($payment->status === 'PAID' && $currentBalance == 0) {
+                    $status = 'PAID';
+                } elseif ($payment->status === 'PARTIAL' || $currentBalance > 0) {
+                    $status = 'PARTIAL';
+                } elseif ($payment->status === 'PENDING') {
+                    $status = 'PENDING';
+                } else {
+                    $status = $payment->status;
+                }
+            } else {
+                $status = 'UNPAID';
+            }
+
+            // Apply status filter
+            if ($filterStatus) {
+                if ($filterStatus === 'PENDING') {
+                    if (!in_array($status, ['PENDING', 'UNPAID', 'PARTIAL'])) {
+                        continue;
+                    }
+                } elseif ($filterStatus !== $status) {
+                    continue;
+                }
+            }
+
+            // Create payment object for blade
+            $combinedData[] = (object) [
+                'id' => $resident->id,
+                'receipt_no' => $payment ? $payment->receipt_no : 'N/A',
+                'resident' => $resident,
+                'month' => $filterMonth,
+                'year' => $filterYear,
+                'rent_amount' => $payment ? $payment->rent_amount : ($resident->rent_amount ?? 0),
+                'discount_amount' => $payment ? $payment->discount_amount : 0,
+                'fine_amount' => $payment ? $payment->fine_amount : 0,
+                'cash_paid_amount' => $payment ? $payment->cash_paid_amount : 0,
+                'upi_paid_amount' => $payment ? $payment->upi_paid_amount : 0,
+                'balance_amount' => $totalDue,
+                'payment_date' => $payment ? $payment->payment_date : now(),
+                'transaction_id' => $payment ? $payment->transaction_id : null,
+                'status' => $status,
+                'payment_type' => $payment ? $payment->payment_type : null,
+                'previous_pending_cleared' => $payment ? $payment->previous_pending_cleared : 0,
+                'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
+                'created_at' => $payment ? $payment->created_at : now(),
+                'joining_date' => $resident->joining_date,
+                'vacate_date' => $resident->vacate_date,
+                'has_previous_pending' => $previousPending > 0,
+                'previous_pending_amount' => $previousPending,
+                'is_unpaid' => (!$payment && $previousPending == 0),
+            ];
+
+            // Update stats
+            $stats['total']++;
+            if ($status === 'PAID') $stats['paid']++;
+            elseif ($status === 'PENDING') $stats['pending']++;
+            elseif ($status === 'PARTIAL') $stats['partial']++;
+            elseif ($status === 'UNPAID') $stats['unpaid']++;
+
+            $rent = $payment ? $payment->rent_amount : ($resident->rent_amount ?? 0);
+            $stats['total_rent'] += $rent;
+            $stats['total_discount'] += $payment ? $payment->discount_amount : 0;
+            $stats['total_fine'] += $payment ? $payment->fine_amount : 0;
+            $stats['total_cash'] += $payment ? $payment->cash_paid_amount : 0;
+            $stats['total_upi'] += $payment ? $payment->upi_paid_amount : 0;
+            $stats['total_balance'] += $totalDue;
+            $stats['total_collected'] += $payment ? ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
+        }
+
+        // Sort combined data
+        usort($combinedData, function($a, $b) {
+            return strcmp($a->resident->name ?? '', $b->resident->name ?? '');
+        });
+
+        // Get pending payments for alert
+        $pendingPayments = collect($combinedData)->filter(function($item) {
+            return in_array($item->status, ['PENDING', 'UNPAID', 'PARTIAL']);
+        });
 
         // Get filter labels
         $filterMonthName = date('F', mktime(0, 0, 0, $filterMonth, 1));
@@ -240,7 +334,7 @@ class PaymentController extends Controller
         $rooms = Room::where('status', 'ACTIVE')->get();
 
         return view('admin.payments.index', compact(
-            'payments',
+            'combinedData',
             'hostels',
             'residents',
             'rooms',
@@ -770,8 +864,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Bulk payment creation
-     */
+     * Bulk payment creation     */
     public function bulkPayment(Request $request)
     {
         $user = auth()->user();
@@ -952,7 +1045,6 @@ class PaymentController extends Controller
 
         $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
 
-        // Apply ALL filters
         if ($request->filled('month')) {
             $query->where('month', $request->month);
         } else {
@@ -996,7 +1088,6 @@ class PaymentController extends Controller
 
         $payments = $query->orderBy('created_at', 'desc')->get();
 
-        // Build CSV
         $csv = "Receipt,Resident,Hostel,Room,Month,Year,Rent,Discount,Fine,Cash,UPI,Total Paid,Balance,Status,Payment Date,Remark\n";
 
         foreach ($payments as $payment) {
@@ -1331,7 +1422,6 @@ class PaymentController extends Controller
             'total_collected' => $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount')
         ];
 
-        // Build CSV
         $csv = "Receipt,Resident,Hostel,Room,Month,Year,Rent,Discount,Fine,Cash,UPI,Total Paid,Payment Date,Txn ID,Remark\n";
 
         foreach ($payments as $payment) {
@@ -1376,7 +1466,6 @@ class PaymentController extends Controller
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
-        // Filter residents by joining/vacate date for the selected month
         $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
         if ($user->role !== 'admin') {
@@ -1390,25 +1479,37 @@ class PaymentController extends Controller
 
         $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
 
+        // Get all payments for this month
+        $paymentsQuery = Payment::where('month', $month)->where('year', $year);
+        if ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
+                $q->where('hostel_id', $hostelId);
+            });
+        }
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            });
+        }
+        $payments = $paymentsQuery->get()->keyBy('resident_id');
+
         // Build data grouped by hostel
         $hostelData = [];
         $totalOverall = 0;
-        $totalUnpaidResidents = 0;
+        $totalUnpaidCount = 0;
 
         foreach ($residents as $resident) {
+            $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            $currentPayment = Payment::where('resident_id', $resident->id)
-                ->where('month', $month)
-                ->where('year', $year)
-                ->first();
-
-            $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : 0;
-            $currentPaid = $currentPayment ? (float) ($currentPayment->cash_paid_amount + $currentPayment->upi_paid_amount) : 0;
             
-            $isUnpaid = ($currentPaid == 0 && $previousPending == 0);
-            $hasDue = ($previousPending > 0 || $currentBalance > 0);
+            // UNPAID = NO payment record AND NO previous pending
+            $isUnpaid = (!$payment && $previousPending == 0);
             
-            if ($hasDue || $isUnpaid) {
+            // Has due = has payment with balance OR previous pending
+            $hasDue = ($payment && $payment->balance_amount > 0) || $previousPending > 0;
+            
+            if ($isUnpaid || $hasDue) {
                 $hostelName = $resident->hostel->hostel_name ?? 'Unknown Hostel';
                 
                 if (!isset($hostelData[$hostelName])) {
@@ -1418,17 +1519,22 @@ class PaymentController extends Controller
                     ];
                 }
                 
-                $status = 'UNPAID';
-                if ($previousPending > 0 && $currentPaid == 0) {
+                $currentBalance = $payment ? (float) $payment->balance_amount : 0;
+                $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
+                $totalDue = $previousPending + $currentBalance;
+                
+                if ($isUnpaid) {
+                    $status = 'UNPAID';
+                } elseif ($previousPending > 0 && $currentPaid == 0) {
                     $status = 'PENDING (Previous)';
                 } elseif ($previousPending > 0 && $currentPaid > 0 && $currentBalance > 0) {
                     $status = 'PARTIAL';
                 } elseif ($currentPaid > 0 && $currentBalance > 0) {
                     $status = 'PARTIAL';
-                } elseif ($currentPaid == 0 && $previousPending == 0) {
-                    $status = 'UNPAID';
-                } elseif ($currentPaid > 0 && $currentBalance == 0) {
+                } elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
                     $status = 'PAID';
+                } else {
+                    $status = 'PENDING';
                 }
                 
                 $hostelData[$hostelName]['residents'][] = [
@@ -1439,16 +1545,15 @@ class PaymentController extends Controller
                     'previous_pending' => $previousPending,
                     'current_balance' => $currentBalance,
                     'current_paid' => $currentPaid,
-                    'total_due' => $previousPending + $currentBalance,
+                    'total_due' => $totalDue,
                     'status' => $status,
-                    'remark' => $currentPayment ? $currentPayment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
-                    'joining_date' => $resident->joining_date,
-                    'vacate_date' => $resident->vacate_date
+                    'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
+                    'has_payment' => $payment ? 'Yes' : 'No'
                 ];
                 
-                $totalOverall += ($previousPending + $currentBalance);
-                if ($currentPaid == 0) {
-                    $totalUnpaidResidents++;
+                $totalOverall += $totalDue;
+                if ($isUnpaid) {
+                    $totalUnpaidCount++;
                 }
             }
         }
@@ -1459,20 +1564,20 @@ class PaymentController extends Controller
         $csv .= "==================================================\n";
         $csv .= "Report Month: " . date('F', mktime(0,0,0,$month,1)) . " " . $year . "\n";
         $csv .= "Generated: " . now()->format('d M Y H:i A') . "\n";
-        $csv .= "Total Unpaid Residents: " . $totalUnpaidResidents . "\n";
+        $csv .= "Total Unpaid Residents: " . $totalUnpaidCount . "\n";
         $csv .= "Total Due Amount: ₹" . number_format($totalOverall, 2) . "\n";
         $csv .= "==================================================\n\n";
 
         foreach ($hostelData as $hostelName => $data) {
             $csv .= "\n🏢 " . strtoupper($hostelName) . "\n";
-            $csv .= str_repeat('-', 95) . "\n";
-            $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Current Balance (₹),Total Due (₹),Status,Remark\n";
-            $csv .= str_repeat('-', 95) . "\n";
+            $csv .= str_repeat('-', 110) . "\n";
+            $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Current Balance (₹),Total Due (₹),Status,Has Payment,Remark\n";
+            $csv .= str_repeat('-', 110) . "\n";
 
             $serialNo = 1;
             foreach ($data['residents'] as $resident) {
                 $csv .= sprintf(
-                    "%d,%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%s,%s\n",
+                    "%d,%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%s,%s,%s\n",
                     $serialNo,
                     $resident['name'],
                     $resident['room_no'],
@@ -1482,6 +1587,7 @@ class PaymentController extends Controller
                     $resident['current_balance'],
                     $resident['total_due'],
                     $resident['status'],
+                    $resident['has_payment'],
                     str_replace(',', ';', $resident['remark'])
                 );
                 $serialNo++;
@@ -1492,8 +1598,8 @@ class PaymentController extends Controller
                 return $r['status'] == 'UNPAID';
             })->count();
             
-            $csv .= str_repeat('-', 95) . "\n";
-            $csv .= ",,,,SUBTOTAL,,,₹" . number_format($subtotal, 2) . ",,\n";
+            $csv .= str_repeat('-', 110) . "\n";
+            $csv .= ",,,,SUBTOTAL,,,₹" . number_format($subtotal, 2) . ",,,\n";
             $csv .= ",,,,Unpaid Residents: " . $unpaidCount . ",,,\n";
             $csv .= "\n";
         }
@@ -1509,7 +1615,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Export Unpaid Summary (PDF) - Only residents active in selected month
+     * Export Unpaid Summary (PDF)
      */
     public function exportUnpaidPdf(Request $request)
     {
@@ -1536,25 +1642,34 @@ class PaymentController extends Controller
 
         $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
 
+        // Get payments for this month
+        $paymentsQuery = Payment::where('month', $month)->where('year', $year);
+        if ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
+                $q->where('hostel_id', $hostelId);
+            });
+        }
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            });
+        }
+        $payments = $paymentsQuery->get()->keyBy('resident_id');
+
         // Build data grouped by hostel
         $hostelData = [];
         $totalOverall = 0;
-        $totalUnpaidResidents = 0;
+        $totalUnpaidCount = 0;
 
         foreach ($residents as $resident) {
+            $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            $currentPayment = Payment::where('resident_id', $resident->id)
-                ->where('month', $month)
-                ->where('year', $year)
-                ->first();
-
-            $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : 0;
-            $currentPaid = $currentPayment ? (float) ($currentPayment->cash_paid_amount + $currentPayment->upi_paid_amount) : 0;
             
-            $isUnpaid = ($currentPaid == 0 && $previousPending == 0);
-            $hasDue = ($previousPending > 0 || $currentBalance > 0);
+            $isUnpaid = (!$payment && $previousPending == 0);
+            $hasDue = ($payment && $payment->balance_amount > 0) || $previousPending > 0;
             
-            if ($hasDue || $isUnpaid) {
+            if ($isUnpaid || $hasDue) {
                 $hostelName = $resident->hostel->hostel_name ?? 'Unknown Hostel';
                 
                 if (!isset($hostelData[$hostelName])) {
@@ -1564,17 +1679,22 @@ class PaymentController extends Controller
                     ];
                 }
                 
-                $status = 'UNPAID';
-                if ($previousPending > 0 && $currentPaid == 0) {
+                $currentBalance = $payment ? (float) $payment->balance_amount : 0;
+                $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
+                $totalDue = $previousPending + $currentBalance;
+                
+                if ($isUnpaid) {
+                    $status = 'UNPAID';
+                } elseif ($previousPending > 0 && $currentPaid == 0) {
                     $status = 'PENDING (Previous)';
                 } elseif ($previousPending > 0 && $currentPaid > 0 && $currentBalance > 0) {
                     $status = 'PARTIAL';
                 } elseif ($currentPaid > 0 && $currentBalance > 0) {
                     $status = 'PARTIAL';
-                } elseif ($currentPaid == 0 && $previousPending == 0) {
-                    $status = 'UNPAID';
-                } elseif ($currentPaid > 0 && $currentBalance == 0) {
+                } elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
                     $status = 'PAID';
+                } else {
+                    $status = 'PENDING';
                 }
                 
                 $hostelData[$hostelName]['residents'][] = [
@@ -1585,14 +1705,15 @@ class PaymentController extends Controller
                     'previous_pending' => $previousPending,
                     'current_balance' => $currentBalance,
                     'current_paid' => $currentPaid,
-                    'total_due' => $previousPending + $currentBalance,
+                    'total_due' => $totalDue,
                     'status' => $status,
-                    'remark' => $currentPayment ? $currentPayment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded')
+                    'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
+                    'has_payment' => $payment ? 'Yes' : 'No'
                 ];
                 
-                $totalOverall += ($previousPending + $currentBalance);
-                if ($currentPaid == 0) {
-                    $totalUnpaidResidents++;
+                $totalOverall += $totalDue;
+                if ($isUnpaid) {
+                    $totalUnpaidCount++;
                 }
             }
         }
@@ -1602,7 +1723,7 @@ class PaymentController extends Controller
             'month' => date('F', mktime(0,0,0,$month,1)),
             'year' => $year,
             'totalOverall' => $totalOverall,
-            'totalResidents' => $totalUnpaidResidents,
+            'totalResidents' => $totalUnpaidCount,
             'generated_at' => now()->format('d M Y H:i A'),
             'filters' => [
                 'hostel' => $hostelId ? (Hostel::find($hostelId)->hostel_name ?? 'All') : 'All'
@@ -1644,6 +1765,21 @@ class PaymentController extends Controller
 
         $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
 
+        // Get payments for this month
+        $paymentsQuery = Payment::where('month', $month)->where('year', $year);
+        if ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
+                $q->where('hostel_id', $hostelId);
+            });
+        }
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            });
+        }
+        $payments = $paymentsQuery->get()->keyBy('resident_id');
+
         // Categorize residents
         $pendingData = [];
         $partialData = [];
@@ -1651,14 +1787,10 @@ class PaymentController extends Controller
         $paidData = [];
 
         foreach ($residents as $resident) {
+            $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            $currentPayment = Payment::where('resident_id', $resident->id)
-                ->where('month', $month)
-                ->where('year', $year)
-                ->first();
-
-            $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : 0;
-            $currentPaid = $currentPayment ? (float) ($currentPayment->cash_paid_amount + $currentPayment->upi_paid_amount) : 0;
+            $currentBalance = $payment ? (float) $payment->balance_amount : 0;
+            $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
             $totalDue = $previousPending + $currentBalance;
 
             $residentData = [
@@ -1670,21 +1802,23 @@ class PaymentController extends Controller
                 'current_balance' => $currentBalance,
                 'current_paid' => $currentPaid,
                 'total_due' => $totalDue,
-                'status' => $currentPayment ? $currentPayment->status : 'NO PAYMENT',
-                'remark' => $currentPayment ? $currentPayment->remark : 'No payment record',
+                'status' => $payment ? $payment->status : ($previousPending > 0 ? 'PENDING' : 'UNPAID'),
+                'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment record'),
                 'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel'
             ];
 
             // Categorize
-            if ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
+            if (!$payment && $previousPending == 0) {
+                $unpaidData[] = $residentData;
+            } elseif ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
                 $partialData[] = $residentData;
             } elseif ($totalDue > 0 && $currentPaid == 0) {
-                $unpaidData[] = $residentData;
+                $pendingData[] = $residentData;
             } elseif ($totalDue == 0) {
                 $paidData[] = $residentData;
             }
 
-            if ($totalDue > 0) {
+            if ($totalDue > 0 && !$payment) {
                 $pendingData[] = $residentData;
             }
         }
@@ -1796,7 +1930,6 @@ class PaymentController extends Controller
         }
         $csv .= "\n";
 
-        // SUMMARY
         $csv .= "==================================================\n";
         $csv .= "SUMMARY\n";
         $csv .= "==================================================\n";
@@ -1840,6 +1973,21 @@ class PaymentController extends Controller
 
         $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
 
+        // Get payments for this month
+        $paymentsQuery = Payment::where('month', $month)->where('year', $year);
+        if ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
+                $q->where('hostel_id', $hostelId);
+            });
+        }
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            });
+        }
+        $payments = $paymentsQuery->get()->keyBy('resident_id');
+
         // Categorize residents
         $pendingData = [];
         $partialData = [];
@@ -1847,14 +1995,10 @@ class PaymentController extends Controller
         $paidData = [];
 
         foreach ($residents as $resident) {
+            $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            $currentPayment = Payment::where('resident_id', $resident->id)
-                ->where('month', $month)
-                ->where('year', $year)
-                ->first();
-
-            $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : 0;
-            $currentPaid = $currentPayment ? (float) ($currentPayment->cash_paid_amount + $currentPayment->upi_paid_amount) : 0;
+            $currentBalance = $payment ? (float) $payment->balance_amount : 0;
+            $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
             $totalDue = $previousPending + $currentBalance;
 
             $residentData = [
@@ -1866,20 +2010,22 @@ class PaymentController extends Controller
                 'current_balance' => $currentBalance,
                 'current_paid' => $currentPaid,
                 'total_due' => $totalDue,
-                'status' => $currentPayment ? $currentPayment->status : 'NO PAYMENT',
-                'remark' => $currentPayment ? $currentPayment->remark : 'No payment record',
+                'status' => $payment ? $payment->status : ($previousPending > 0 ? 'PENDING' : 'UNPAID'),
+                'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment record'),
                 'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel'
             ];
 
-            if ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
+            if (!$payment && $previousPending == 0) {
+                $unpaidData[] = $residentData;
+            } elseif ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
                 $partialData[] = $residentData;
             } elseif ($totalDue > 0 && $currentPaid == 0) {
-                $unpaidData[] = $residentData;
+                $pendingData[] = $residentData;
             } elseif ($totalDue == 0) {
                 $paidData[] = $residentData;
             }
 
-            if ($totalDue > 0) {
+            if ($totalDue > 0 && !$payment) {
                 $pendingData[] = $residentData;
             }
         }
