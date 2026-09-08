@@ -1106,7 +1106,6 @@ function debounce(func, wait) {
 // ============================================================
 // EXPORT FUNCTIONS
 // ============================================================
-
 function exportWithType(type) {
     var params = getFilterParams();
     var url = '';
@@ -1119,7 +1118,7 @@ function exportWithType(type) {
             url = '{{ route("admin.payments.export.pdf") }}';
             break;
         case 'summary':
-            url = '{{ route("admin.payments.export.summary") }}';
+            url = '{{ route("admin.payments.export.summary") }}'; // ✅ This now exists
             break;
         default:
             url = '{{ route("admin.payments.export.filtered") }}';
@@ -1127,7 +1126,6 @@ function exportWithType(type) {
     
     window.location.href = url + '?' + params;
 }
-
 function exportPaymentStatus(type) {
     var params = getFilterParams();
     var url = type === 'csv' 

@@ -255,9 +255,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/residents/{id}/profile-image', [ResidentController::class, 'updateProfileImage'])->name('residents.update-profile-image');
         Route::delete('/residents/{id}/profile-image', [ResidentController::class, 'removeProfileImage'])->name('residents.remove-profile-image');
         Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
-// ============================================================
-// 6. PAYMENT MANAGEMENT - COMPLETE
-// ============================================================
+// In your routes file (php.txt), add this route inside the payments group:
+
 Route::prefix('payments')->name('payments.')->group(function () {
     // ---------- MAIN CRUD ROUTES ----------
     Route::get('/', [PaymentController::class, 'index'])->name('index');
@@ -287,17 +286,27 @@ Route::prefix('payments')->name('payments.')->group(function () {
     // ---------- EXPORT ROUTES ----------
     Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
     Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
+    Route::get('/export/summary', [PaymentController::class, 'exportSummary'])->name('export.summary'); // ✅ ADD THIS LINE
     
-    // 🔥 NEW: Unpaid Summary Exports
+    // Unpaid Summary Exports
     Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
     Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
+    
+    // Payment Status Exports
+    Route::get('/export/payment-status', [PaymentController::class, 'exportPaymentStatus'])->name('export.payment-status');
+    Route::get('/export/payment-status-pdf', [PaymentController::class, 'exportPaymentStatusPdf'])->name('export.payment-status-pdf');
+    
+    // Hostel Wise Export
+    Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
+    
+    // Paid Export
+    Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
 
     // ---------- PDF EXPORT ROUTES ----------
     Route::get('/pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
     Route::get('/pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
     Route::post('/pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
 });
-
         // ============================================================
         // 7. USER MANAGEMENT
         // ============================================================
