@@ -257,9 +257,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
 
         // ============================================================
-        // 6. PAYMENT MANAGEMENT - COMPLETE
-        // ============================================================
-       Route::prefix('payments')->name('payments.')->group(function () {
+// 6. PAYMENT MANAGEMENT - COMPLETE
+// ============================================================
+Route::prefix('payments')->name('payments.')->group(function () {
     // ---------- MAIN CRUD ROUTES ----------
     Route::get('/', [PaymentController::class, 'index'])->name('index');
     Route::post('/', [PaymentController::class, 'store'])->name('store');

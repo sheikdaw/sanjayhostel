@@ -150,9 +150,20 @@ class PaymentController extends Controller
         $search = $request->search ?? null;
 
         // BUILD MAIN QUERY WITH FILTERS
-        $query = Payment::with(['resident', 'resident.hostel', 'resident.room'])
-            ->where('month', $filterMonth)
-            ->where('year', $filterYear);
+        $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
+
+        // ✅ FIXED: Always filter by month and year if provided
+        if ($request->filled('month')) {
+            $query->where('month', $request->month);
+        } else {
+            $query->where('month', now()->month);
+        }
+
+        if ($request->filled('year')) {
+            $query->where('year', $request->year);
+        } else {
+            $query->where('year', now()->year);
+        }
 
         // Apply hostel filter
         if ($filterHostelId) {
@@ -913,7 +924,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Export filtered payments as CSV
+     * ✅ FIXED: Export filtered payments as CSV - respects ALL filters
      */
     public function exportFiltered(Request $request)
     {
@@ -921,27 +932,37 @@ class PaymentController extends Controller
 
         $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
 
-        // Apply filters
+        // ✅ Apply ALL filters exactly like index()
         if ($request->filled('month')) {
             $query->where('month', $request->month);
+        } else {
+            $query->where('month', now()->month);
         }
+
         if ($request->filled('year')) {
             $query->where('year', $request->year);
+        } else {
+            $query->where('year', now()->year);
         }
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
+
         if ($request->filled('hostel_id')) {
             $query->whereHas('resident', function($q) use ($request) {
                 $q->where('hostel_id', $request->hostel_id);
             });
         }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('receipt_no', 'LIKE', "%{$search}%")
+                  ->orWhere('transaction_id', 'LIKE', "%{$search}%")
                   ->orWhereHas('resident', function($sub) use ($search) {
-                      $sub->where('name', 'LIKE', "%{$search}%");
+                      $sub->where('name', 'LIKE', "%{$search}%")
+                          ->orWhere('resident_code', 'LIKE', "%{$search}%");
                   });
             });
         }
@@ -987,7 +1008,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Export as PDF
+     * Export as PDF - respects ALL filters
      */
     public function exportPdf(Request $request)
     {
@@ -995,19 +1016,38 @@ class PaymentController extends Controller
 
         $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
 
-        // Apply same filters
+        // ✅ Apply ALL filters exactly like index()
         if ($request->filled('month')) {
             $query->where('month', $request->month);
+        } else {
+            $query->where('month', now()->month);
         }
+
         if ($request->filled('year')) {
             $query->where('year', $request->year);
+        } else {
+            $query->where('year', now()->year);
         }
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
+
         if ($request->filled('hostel_id')) {
             $query->whereHas('resident', function($q) use ($request) {
                 $q->where('hostel_id', $request->hostel_id);
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('receipt_no', 'LIKE', "%{$search}%")
+                  ->orWhere('transaction_id', 'LIKE', "%{$search}%")
+                  ->orWhereHas('resident', function($sub) use ($search) {
+                      $sub->where('name', 'LIKE', "%{$search}%")
+                          ->orWhere('resident_code', 'LIKE', "%{$search}%");
+                  });
             });
         }
 
@@ -1024,7 +1064,13 @@ class PaymentController extends Controller
             'payments' => $payments,
             'title' => 'Payment Report',
             'generated_at' => now()->format('d M Y H:i'),
-            'filters' => $request->all()
+            'filters' => [
+                'month' => $request->month ?? now()->month,
+                'year' => $request->year ?? now()->year,
+                'status' => $request->status ?? 'All',
+                'hostel' => $request->hostel_id ? (Hostel::find($request->hostel_id)->hostel_name ?? 'All') : 'All',
+                'search' => $request->search ?? ''
+            ]
         ];
 
         $pdf = PDF::loadView('admin.payments.pdf.export', $data);
