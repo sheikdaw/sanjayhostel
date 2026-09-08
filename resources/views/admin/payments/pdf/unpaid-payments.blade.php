@@ -110,7 +110,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🏠 Unpaid Payments Summary</h1>
+        <h1> Unpaid Payments Summary</h1>
         <p>
             <strong>Month:</strong> {{ $month }} {{ $year }} &nbsp;|&nbsp;
             <strong>Generated:</strong> {{ $generated_at }} &nbsp;|&nbsp;
