@@ -34,7 +34,7 @@ class GuestPaymentController extends Controller
     }
 
     /**
-     * Get previous pending payments with details
+     * Get previous pending payments with details (oldest first)
      */
     private function getPreviousPendingDetails($residentId, $month, $year)
     {
@@ -148,7 +148,6 @@ class GuestPaymentController extends Controller
                 ->where('year', $currentYear)
                 ->first();
 
-            // ✅ CORRECT DISCOUNT LOGIC:
             // Check if current month is already paid
             $isCurrentPaid = $currentPayment && $currentPayment->status == 'PAID';
 
@@ -156,30 +155,27 @@ class GuestPaymentController extends Controller
             $tentativeDiscount = $this->calculateDiscount($paymentDate);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
 
-            // ✅ FIX: Determine if discount should apply
-            // A resident is eligible for discount if:
-            // 1. They have NO previous pending, OR
-            // 2. They WILL clear all previous pending with this payment AND pay full rent
-            // For the "getResident" preview, we check if they CAN clear everything
-
+            // ✅ FIXED: Determine if discount would apply
+            // For preview, show discount as eligible if:
+            // 1. No previous pending, OR
+            // 2. Previous pending exists but they can clear it (assuming full payment)
             $discount = 0;
             $discountEligible = false;
 
-            // If already paid for current month, no discount needed
             if ($isCurrentPaid) {
+                // Already paid - no discount needed
                 $discount = 0;
                 $discountEligible = false;
             } else {
-                // If no previous pending, discount applies (assuming they'll pay full)
+                // Show discount as eligible for preview
+                // Actual discount will be applied in verifyPayment based on actual payment
                 if ($previousPending == 0) {
                     $discount = $tentativeDiscount;
                     $discountEligible = true;
                 } else {
-                    // Has previous pending - discount only applies if they pay enough to clear ALL pending AND full rent
-                    // For preview purposes, we assume they'll pay the full amount
-                    // The actual discount will be applied in the store/verify method when payment is made
+                    // Has previous pending - show discount as eligible if they pay full amount
                     $discount = $tentativeDiscount;
-                    $discountEligible = true; // They CAN get discount if they pay full amount
+                    $discountEligible = true; // Will be verified in verifyPayment
                 }
             }
 
@@ -197,7 +193,7 @@ class GuestPaymentController extends Controller
                 $discountEligible = true;
             }
 
-            // ✅ FIX: Total due = previous pending + current balance (with discount applied)
+            // Total due = previous pending + current balance (with discount applied)
             $totalDue = $previousPending + $currentBalance;
 
             // Get pending count for display
@@ -208,7 +204,7 @@ class GuestPaymentController extends Controller
             // Generate reference
             $reference = 'PAY-' . date('Ymd') . '-' . strtoupper(Str::random(8));
 
-            // ✅ Amount to pay should be the total due
+            // Amount to pay should be the total due
             $amountToPay = $totalDue;
 
             // Get discount type for display
@@ -288,7 +284,7 @@ class GuestPaymentController extends Controller
             }
 
             $resident = Resident::find($request->resident_id);
-            $amount = $request->amount;
+            $amount = (float) $request->amount;
             $reference = $request->reference;
 
             // Generate order ID
@@ -411,13 +407,13 @@ class GuestPaymentController extends Controller
             if ($status === 'SUCCESS') {
                 DB::beginTransaction();
                 try {
-                    $amount = session('guest_payment_amount') ?? 0;
+                    $amount = (float) (session('guest_payment_amount') ?? 0);
                     $orderId = session('guest_payment_order_id');
                     $currentMonth = now()->month;
                     $currentYear = now()->year;
                     $paymentDate = now()->toDateString();
 
-                    // ✅ Calculate discount based on today's date
+                    // Calculate discount based on today's date
                     $tentativeDiscount = $this->calculateDiscount($paymentDate);
                     $rentAmount = (float) ($resident->rent_amount ?? 0);
 
@@ -491,9 +487,10 @@ class GuestPaymentController extends Controller
                         }
 
                         // Update remark
+                        $monthName = date('F Y', mktime(0,0,0,$prevPayment->month,1,$prevPayment->year));
                         $prevPayment->remark = ($newBalance <= 0)
-                            ? "✅ Cleared on " . date('d M Y', strtotime($paymentDate)) . " (Online payment)"
-                            : "🟡 Partially cleared: ₹" . number_format($payAmount, 2) . " on " . date('d M Y', strtotime($paymentDate)) . ". Remaining: ₹" . number_format($newBalance, 2);
+                            ? "✅ Previous {$monthName} pending ₹" . number_format($prevBalance, 2) . " cleared on " . date('d M Y', strtotime($paymentDate)) . " (Online payment)"
+                            : "🟡 Partially cleared {$monthName}: ₹" . number_format($payAmount, 2) . " on " . date('d M Y', strtotime($paymentDate)) . ". Remaining: ₹" . number_format($newBalance, 2);
 
                         $prevPayment->save();
 
@@ -512,21 +509,55 @@ class GuestPaymentController extends Controller
                     $currentBalanceRemaining = max(0, $currentBalance - $currentPaid);
 
                     // 3. Any remaining amount is advance payment
-                    $advanceAmount = $remaining;
+                    $advanceAmount = max(0, $remaining);
 
                     // Determine final status
                     $totalBalance = $previousBalanceRemaining + $currentBalanceRemaining;
                     $statusFinal = 'PENDING';
+                    
                     if ($totalBalance <= 0) {
                         $statusFinal = 'PAID';
-                    } elseif ($amount > 0) {
+                    } elseif ($amount > 0 && $totalBalance > 0) {
                         $statusFinal = 'PARTIAL';
+                    } elseif ($amount == 0) {
+                        $statusFinal = 'PENDING';
                     }
 
                     // Generate receipt
                     $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
                     while (Payment::where('receipt_no', $receiptNo)->exists()) {
                         $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+                    }
+
+                    // Build remark
+                    $remark = "Online payment via Axis Bank. Reference: {$reference}\n";
+                    $remark .= "Transaction ID: {$transactionId}\n";
+                    
+                    if ($discount > 0) {
+                        $remark .= "✅ Discount applied: ₹" . number_format($discount, 2) . " (" . ($discount == 250 ? 'Early Bird 1st-5th' : 'Early Payment 6th-10th') . ")\n";
+                    } else {
+                        $remark .= $discountReason . "\n";
+                    }
+                    
+                    if ($previousPaid > 0) {
+                        $remark .= "✅ Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))\n";
+                    }
+                    
+                    if ($currentPaid > 0) {
+                        $remark .= "✅ Current month paid: ₹" . number_format($currentPaid, 2) . "\n";
+                        if ($currentBalanceRemaining > 0) {
+                            $remark .= "⚠️ Current month remaining: ₹" . number_format($currentBalanceRemaining, 2) . "\n";
+                        }
+                    }
+                    
+                    if ($advanceAmount > 0) {
+                        $remark .= "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)\n";
+                    }
+                    
+                    if ($totalBalance > 0) {
+                        $remark .= "📊 Total pending: ₹" . number_format($totalBalance, 2);
+                    } else {
+                        $remark .= "✅ All dues cleared!";
                     }
 
                     // Create or update payment record for current month
@@ -540,17 +571,6 @@ class GuestPaymentController extends Controller
                         $currentPayment->payment_type = 'online';
                         $currentPayment->discount_amount = $discount;
                         $currentPayment->previous_pending_cleared = $previousPaid;
-
-                        // Build remark
-                        $remark = "Online payment via Axis Bank. Reference: {$reference}\n";
-                        if ($discount > 0) {
-                            $remark .= "✅ Discount applied: ₹" . number_format($discount, 2) . "\n";
-                        }
-                        if ($previousPaid > 0) {
-                            $remark .= "✅ Previous pending cleared: ₹" . number_format($previousPaid, 2) . " ({$previousClearedCount} month(s))\n";
-                        }
-                        $remark .= "Current month: ₹" . number_format($currentPaid, 2) . " paid. Balance: ₹" . number_format($currentBalanceRemaining, 2);
-
                         $currentPayment->remark = $remark;
                         $currentPayment->save();
                         $payment = $currentPayment;
@@ -572,10 +592,7 @@ class GuestPaymentController extends Controller
                             'status' => $statusFinal,
                             'payment_type' => 'online',
                             'previous_pending_cleared' => $previousPaid,
-                            'remark' => "Online payment via Axis Bank. Reference: {$reference}\n" .
-                                        ($discount > 0 ? "✅ Discount applied: ₹" . number_format($discount, 2) . "\n" : "") .
-                                        ($previousPaid > 0 ? "✅ Previous pending cleared: ₹" . number_format($previousPaid, 2) . " ({$previousClearedCount} month(s))\n" : "") .
-                                        "Current month: ₹" . number_format($currentPaid, 2) . " paid. Balance: ₹" . number_format($currentBalanceRemaining, 2)
+                            'remark' => $remark
                         ]);
                     }
 
@@ -597,17 +614,21 @@ class GuestPaymentController extends Controller
                     $message .= "─────────────────────\n";
 
                     if ($previousPaid > 0) {
-                        $message .= "📅 Previous pending cleared: ₹" . number_format($previousPaid, 2) . " ({$previousClearedCount} month(s))\n";
+                        $message .= "📅 Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))\n";
                     }
+                    
                     if ($currentPaid > 0) {
                         $message .= "📅 Current month paid: ₹" . number_format($currentPaid, 2) . "\n";
                     }
+                    
                     if ($advanceAmount > 0) {
                         $message .= "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)\n";
                     }
+                    
                     if ($discount > 0) {
                         $message .= "✅ Discount applied: ₹" . number_format($discount, 2) . "\n";
                     }
+                    
                     if ($totalBalance > 0) {
                         $message .= "⚠️ Remaining balance: ₹" . number_format($totalBalance, 2);
                     } else {
@@ -630,6 +651,7 @@ class GuestPaymentController extends Controller
                             'discount_applied' => $discount,
                             'discount_eligible' => $discountEligible,
                             'discount_type' => $discount > 0 ? ($discount == 250 ? 'Early Bird (1st-5th)' : 'Early Payment (6th-10th)') : 'No discount',
+                            'discount_reason' => $discountReason,
                             'status' => $statusFinal,
                             'breakdown' => [
                                 'rent' => $rentAmount,
@@ -702,7 +724,9 @@ class GuestPaymentController extends Controller
                         'payment' => $payment,
                         'resident' => $payment->resident,
                         'receipt_no' => $payment->receipt_no,
-                        'amount' => $payment->rent_amount
+                        'amount' => $payment->rent_amount,
+                        'transaction_id' => $transactionId,
+                        'reference' => $reference
                     ]);
                 }
 
@@ -816,6 +840,11 @@ class GuestPaymentController extends Controller
                 $resident = Resident::where('id', $payload['resident_id'] ?? 0)->first();
                 if ($resident) {
                     // Same logic as verifyPayment
+                    Log::info('Guest payment - webhook processing payment', [
+                        'resident_id' => $resident->id,
+                        'reference' => $reference,
+                        'amount' => $amount
+                    ]);
                 }
             }
 
@@ -959,8 +988,6 @@ class GuestPaymentController extends Controller
             $rentAmount = (float) ($resident->rent_amount ?? 0);
 
             // Check if discount applies
-            $willClearAllPending = false; // For preview only
-            $canCoverFullRent = true; // Assume they'll pay full
             $discount = $tentativeDiscount; // Show discount as eligible
 
             $currentPayment = Payment::where('resident_id', $resident->id)
@@ -980,7 +1007,8 @@ class GuestPaymentController extends Controller
                     'previous_pending' => $previousPending,
                     'current_balance' => $currentBalance,
                     'rent_amount' => $rentAmount,
-                    'discount_amount' => $discount
+                    'discount_amount' => $discount,
+                    'payment_date' => $paymentDate
                 ]
             ]);
 
