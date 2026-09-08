@@ -388,6 +388,7 @@ class PaymentController extends Controller
             'payment_date' => 'required|date',
             'transaction_id' => 'nullable|string|max:500',
             'fine_amount' => 'nullable|numeric|min:0',
+            'payment_type' => 'nullable|in:cash,upi,both'
         ]);
 
         if ($validator->fails()) {
@@ -405,7 +406,9 @@ class PaymentController extends Controller
             $year = $request->year;
             $rentAmount = (float) ($resident->rent_amount ?? 0);
             $fineAmount = (float) ($request->fine_amount ?? 0);
-            $totalPaid = (float) $request->cash_paid_amount + (float) $request->upi_paid_amount + $fineAmount;
+            $cashPaid = (float) $request->cash_paid_amount;
+            $upiPaid = (float) $request->upi_paid_amount;
+            $totalPaid = $cashPaid + $upiPaid + $fineAmount;
 
             // Get previous pending
             $previousPendingList = $this->getPreviousPendingDetails($resident->id, $month, $year);
@@ -416,14 +419,6 @@ class PaymentController extends Controller
                 ->where('month', $month)
                 ->where('year', $year)
                 ->first();
-
-            if ($existingPayment && $existingPayment->status === 'PAID') {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => "⚠️ Already paid for " . date('F Y', mktime(0,0,0,$month,1,$year))
-                ], 422);
-            }
 
             // DISCOUNT LOGIC: Only apply if customer pays enough
             $tentativeDiscount = (float) $this->calculateDiscount($paymentDate);
@@ -508,15 +503,23 @@ class PaymentController extends Controller
             $remark .= $advanceAmount > 0 ? " | 💰 Advance ₹" . number_format($advanceAmount, 2) : "";
             $remark .= $totalBalance > 0 ? " | 📊 Pending ₹" . number_format($totalBalance, 2) : " | ✅ All cleared!";
 
+            // Determine payment type
+            $paymentType = $request->payment_type ?? 'both';
+            if ($cashPaid > 0 && $upiPaid > 0) $paymentType = 'both';
+            elseif ($cashPaid > 0) $paymentType = 'cash';
+            elseif ($upiPaid > 0) $paymentType = 'upi';
+
             // Create or update payment
             if ($existingPayment) {
-                $existingPayment->cash_paid_amount += $currentPaid;
+                $existingPayment->cash_paid_amount += $cashPaid;
+                $existingPayment->upi_paid_amount += $upiPaid;
                 $existingPayment->balance_amount = $currentBalance;
                 $existingPayment->status = $status;
                 $existingPayment->payment_date = $paymentDate;
                 $existingPayment->discount_amount = $discount;
                 $existingPayment->fine_amount = $fineAmount;
                 $existingPayment->remark = $remark;
+                $existingPayment->payment_type = $paymentType;
                 if ($request->transaction_id) {
                     $existingPayment->transaction_id = $existingPayment->transaction_id 
                         ? $existingPayment->transaction_id . ' / ' . $request->transaction_id 
@@ -533,13 +536,13 @@ class PaymentController extends Controller
                     'rent_amount' => $rentAmount,
                     'discount_amount' => $discount,
                     'fine_amount' => $fineAmount,
-                    'cash_paid_amount' => $currentPaid,
-                    'upi_paid_amount' => 0,
+                    'cash_paid_amount' => $cashPaid,
+                    'upi_paid_amount' => $upiPaid,
                     'balance_amount' => $currentBalance,
                     'payment_date' => $paymentDate,
                     'transaction_id' => $request->transaction_id,
                     'status' => $status,
-                    'payment_type' => 'all',
+                    'payment_type' => $paymentType,
                     'previous_pending_cleared' => $previousPaid,
                     'remark' => $remark,
                 ]);
@@ -587,7 +590,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Edit payment - ✅ Always returns payment data regardless of status
+     * Edit payment - Returns payment data for editing
      */
     public function edit($id)
     {
@@ -611,7 +614,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Update payment - ✅ FIXED: Allows editing PAID payments
+     * Update payment - Allows editing PAID payments with manual payment method
      */
     public function update(Request $request, $id)
     {
@@ -635,7 +638,8 @@ class PaymentController extends Controller
             'upi_paid_amount' => 'required|numeric|min:0',
             'payment_date' => 'required|date',
             'transaction_id' => 'nullable|string|max:255',
-            'status' => 'required|in:PAID,PARTIAL,PENDING'
+            'status' => 'required|in:PAID,PARTIAL,PENDING',
+            'payment_type' => 'nullable|in:cash,upi,both'
         ]);
 
         if ($validator->fails()) {
@@ -643,31 +647,48 @@ class PaymentController extends Controller
         }
 
         // Calculate totals
-        $totalPaid = (float) $request->cash_paid_amount + (float) $request->upi_paid_amount;
+        $cashPaid = (float) $request->cash_paid_amount;
+        $upiPaid = (float) $request->upi_paid_amount;
+        $totalPaid = $cashPaid + $upiPaid;
         $totalAmount = (float) $request->rent_amount - (float) ($request->discount_amount ?? 0) + (float) ($request->fine_amount ?? 0);
         $balanceAmount = max(0, $totalAmount - $totalPaid);
 
-        // 🔥 FIX: Auto-correct status based on balance
+        // Auto-correct status based on balance
         $status = $request->status;
         if ($balanceAmount == 0) {
             $status = 'PAID';
         } elseif ($status === 'PAID' && $balanceAmount > 0) {
-            $status = 'PARTIAL'; // If trying to set PAID but has balance, set to PARTIAL
+            $status = 'PARTIAL';
         }
+
+        // Determine payment type
+        $paymentType = $request->payment_type ?? 'both';
+        if ($cashPaid > 0 && $upiPaid > 0) $paymentType = 'both';
+        elseif ($cashPaid > 0) $paymentType = 'cash';
+        elseif ($upiPaid > 0) $paymentType = 'upi';
+        else $paymentType = 'none';
 
         // Build remark for update
         $monthName = date('F Y', mktime(0,0,0,$request->month,1,$request->year));
         $oldRemark = $payment->remark ?? '';
+        
         $newRemark = "🔄 Updated on " . date('d M Y H:i') . " | ";
+        $newRemark .= "Month: {$monthName} | ";
         $newRemark .= "Rent: ₹" . number_format($request->rent_amount, 2) . " | ";
         $newRemark .= $request->discount_amount > 0 ? "Discount: ₹" . number_format($request->discount_amount, 2) . " | " : "";
         $newRemark .= $request->fine_amount > 0 ? "Fine: ₹" . number_format($request->fine_amount, 2) . " | " : "";
-        $newRemark .= "Paid: ₹" . number_format($totalPaid, 2) . " | ";
+        $newRemark .= "Cash: ₹" . number_format($cashPaid, 2) . " | ";
+        $newRemark .= "UPI: ₹" . number_format($upiPaid, 2) . " | ";
+        $newRemark .= "Total Paid: ₹" . number_format($totalPaid, 2) . " | ";
         $newRemark .= $balanceAmount > 0 ? "Balance: ₹" . number_format($balanceAmount, 2) : "✅ Fully Paid";
         $newRemark .= " | Status: " . $status;
+        $newRemark .= " | Method: " . strtoupper($paymentType);
         
-        // Keep old remark for history
-        $finalRemark = $newRemark . " | [Previous: " . $oldRemark . "]";
+        // Keep old remark for history (limit to avoid too long)
+        $finalRemark = $newRemark;
+        if (!empty($oldRemark) && strlen($oldRemark) < 500) {
+            $finalRemark .= " | [Previous: " . $oldRemark . "]";
+        }
 
         $payment->update([
             'month' => $request->month,
@@ -675,12 +696,13 @@ class PaymentController extends Controller
             'rent_amount' => $request->rent_amount,
             'discount_amount' => $request->discount_amount ?? 0,
             'fine_amount' => $request->fine_amount ?? 0,
-            'cash_paid_amount' => $request->cash_paid_amount,
-            'upi_paid_amount' => $request->upi_paid_amount,
+            'cash_paid_amount' => $cashPaid,
+            'upi_paid_amount' => $upiPaid,
             'balance_amount' => $balanceAmount,
             'payment_date' => $request->payment_date,
             'transaction_id' => $request->transaction_id,
             'status' => $status,
+            'payment_type' => $paymentType,
             'remark' => $finalRemark
         ]);
 
@@ -708,64 +730,6 @@ class PaymentController extends Controller
 
         $payment->delete();
         return response()->json(['success' => true, 'message' => 'Payment deleted!']);
-    }
-
-    /**
-     * Mark as paid - ✅ FIXED: Tracks payment method
-     */
-    public function markAsPaid($id)
-    {
-        $user = auth()->user();
-        $payment = Payment::findOrFail($id);
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            if (!in_array($payment->resident->hostel_id, $hostelIds)) {
-                return response()->json(['success' => false, 'message' => 'Permission denied!'], 403);
-            }
-        }
-
-        $totalAmount = (float) $payment->rent_amount - (float) $payment->discount_amount + (float) $payment->fine_amount;
-        $currentPaid = (float) $payment->cash_paid_amount + (float) $payment->upi_paid_amount;
-        $remainingBalance = $totalAmount - $currentPaid;
-
-        if ($remainingBalance <= 0) {
-            // Already fully paid - just update status
-            $payment->update([
-                'status' => 'PAID',
-                'balance_amount' => 0
-            ]);
-            $message = '✅ Already fully paid! Status updated to PAID.';
-        } else {
-            // 🔥 FIX: Add remaining balance to the appropriate payment method
-            // Check which method was used more recently
-            if ($payment->upi_paid_amount > 0 || $payment->transaction_id) {
-                // If there's UPI payment or transaction ID, add to UPI
-                $payment->upi_paid_amount += $remainingBalance;
-                $method = 'UPI';
-            } else {
-                // Default to Cash
-                $payment->cash_paid_amount += $remainingBalance;
-                $method = 'Cash';
-            }
-            
-            $payment->balance_amount = 0;
-            $payment->status = 'PAID';
-            
-            // Add remark about how it was marked paid
-            $monthName = date('F Y', mktime(0,0,0,$payment->month,1,$payment->year));
-            $payment->remark = "✅ {$monthName} marked as PAID on " . date('d M Y H:i') . 
-                              " (Remaining ₹" . number_format($remainingBalance, 2) . " cleared via {$method}) | " . 
-                              ($payment->remark ?? '');
-            
-            $payment->save();
-            $message = "✅ Payment marked as PAID! ₹" . number_format($remainingBalance, 2) . " added to {$method}.";
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => $message
-        ]);
     }
 
     /**
@@ -800,7 +764,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Check if already paid
+     * Check if already paid - FIXED: Returns payment_id for edit detection
      */
     public function checkAlreadyPaid($residentId, $month, $year)
     {
@@ -813,9 +777,13 @@ class PaymentController extends Controller
             return response()->json([
                 'success' => true,
                 'is_paid' => true,
+                'payment_id' => $payment->id,  // ← ADDED: For edit detection
                 'status' => $payment->status,
                 'receipt_no' => $payment->receipt_no,
-                'amount' => $payment->rent_amount
+                'amount' => $payment->rent_amount,
+                'cash_paid' => $payment->cash_paid_amount,
+                'upi_paid' => $payment->upi_paid_amount,
+                'payment_type' => $payment->payment_type
             ]);
         }
 
@@ -1038,7 +1006,6 @@ class PaymentController extends Controller
                 $totalAmount = $payment->rent_amount - $payment->discount_amount + $payment->fine_amount;
                 $remainingBalance = $totalAmount - ($payment->cash_paid_amount + $payment->upi_paid_amount);
                 if ($remainingBalance > 0) {
-                    // Add remaining to cash (default)
                     $payment->cash_paid_amount += $remainingBalance;
                 }
                 $payment->balance_amount = 0;

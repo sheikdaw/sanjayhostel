@@ -549,7 +549,7 @@
 <div class="payments-grid">
     @if(count($combinedData) > 0)
         @foreach($combinedData as $payment)
-            <div class="payment-card" id="payment-card-{{ $payment->id }}">
+            <div class="payment-card" id="payment-card-{{ $payment->id ?? 'new-' . $loop->index }}">
                 <div class="card-checkbox">
                     @if($payment->id)
                         <input type="checkbox" class="payment-checkbox" value="{{ $payment->id }}" onchange="updateBulkActions()">
@@ -574,6 +574,11 @@
                     <div class="payment-meta">
                         <i class="bi bi-building"></i> {{ $payment->resident->hostel->hostel_name ?? 'N/A' }}
                     </div>
+                    @if($payment->payment_type)
+                        <div class="payment-meta">
+                            <i class="bi bi-credit-card"></i> Method: {{ ucfirst($payment->payment_type) }}
+                        </div>
+                    @endif
 
                     <div class="payment-stats">
                         <div class="payment-stat-item">
@@ -617,39 +622,27 @@
                         </div>
                     @endif
 
+                    {{-- 🔥 FIX: Actions - Edit button visible for ALL payments with ID --}}
                     <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
                         <span style="font-size:0.65rem; color:#6b7280;">
                             <i class="bi bi-clock"></i> {{ $payment->payment_date ? date('d M Y', strtotime($payment->payment_date)) : 'N/A' }}
                         </span>
-                     {{-- In the payment card actions section --}}
-<div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-    <span style="font-size:0.65rem; color:#6b7280;">
-        <i class="bi bi-clock"></i> {{ $payment->payment_date ? date('d M Y', strtotime($payment->payment_date)) : 'N/A' }}
-    </span>
-    <div class="d-flex gap-1">
-        {{-- Mark as Paid button - only show if NOT PAID --}}
-        @if($payment->status != 'PAID' && $payment->id)
-            <button class="btn-action text-success" onclick="markAsPaid({{ $payment->id }})" title="Mark as Paid">
-                <i class="bi bi-check-circle"></i>
-            </button>
-        @endif
-        
-        {{-- 🔥 FIX: Edit button - Show for ALL payments with an ID --}}
-        @if($payment->id)
-            <button class="btn-action text-primary" onclick="editPayment({{ $payment->id }})" title="Edit Payment">
-                <i class="bi bi-pencil"></i>
-            </button>
-            <button class="btn-action text-danger" onclick="deletePayment({{ $payment->id }})" title="Delete Payment">
-                <i class="bi bi-trash"></i>
-            </button>
-        @else
-            {{-- Show "Add Payment" button for unpaid residents --}}
-            <button class="btn-action text-success" onclick="openAddModalForResident({{ $payment->resident_id }})" title="Add Payment">
-                <i class="bi bi-plus-circle"></i>
-            </button>
-        @endif
-    </div>
-</div>
+                        <div class="d-flex gap-1">
+                            @if($payment->id)
+                                {{-- Edit button - Show for ALL payments --}}
+                                <button class="btn-action text-primary" onclick="editPayment({{ $payment->id }})" title="Edit Payment">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn-action text-danger" onclick="deletePayment({{ $payment->id }})" title="Delete Payment">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            @else
+                                {{-- Show "Add Payment" button for unpaid residents --}}
+                                <button class="btn-action text-success" onclick="openAddModalForResident({{ $payment->resident_id }})" title="Add Payment">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </div>
@@ -790,6 +783,17 @@
                                 <input type="number" class="rv-input" id="upi_paid_amount" name="upi_paid_amount" step="0.01" value="0" required>
                             </div>
                             <div class="invalid-feedback" id="upi_paid_amount_error"></div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Payment Method</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-credit-card rv-input-icon"></i>
+                                <select class="rv-input" id="payment_type" name="payment_type">
+                                    <option value="cash">💵 Cash Only</option>
+                                    <option value="upi">📱 UPI Only</option>
+                                    <option value="both">💳 Both Cash & UPI</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label">Transaction ID</label>
@@ -994,28 +998,55 @@ $(document).ready(function() {
 });
 
 // ============================================================
-// CHECK FUNCTIONS
+// CHECK FUNCTIONS - FIXED: Edit mode detection
 // ============================================================
 
 function checkAlreadyPaid(residentId, month, year) {
+    var editId = $('#editId').val();
+    
     $.ajax({
         url: '/admin/payments/resident/' + residentId + '/check-paid/' + month + '/' + year,
         type: 'GET',
         success: function(response) {
             if (response.success && response.is_paid) {
-                $('#alreadyPaidWarning').html(`
-                    <div class="mt-2" style="padding:0.75rem 1rem; background:#dcfce7; border:1px solid #86efac; border-radius:8px;">
-                        <strong style="color:#166534;">✅ Already Paid!</strong>
-                        <span style="display:block; font-size:0.8rem; color:#4b5563;">
-                            Receipt: ${response.receipt_no} | Amount: ₹${response.amount}
-                        </span>
-                    </div>
-                `).show();
-                $('#saveBtn').prop('disabled', true).html('<i class="bi bi-check-circle"></i> Already Paid');
+                var isEditMode = (editId && editId == response.payment_id);
+                
+                if (isEditMode) {
+                    // ✅ EDITING THE SAME PAID PAYMENT - Allow editing
+                    $('#alreadyPaidWarning').html(`
+                        <div class="mt-2" style="padding:0.75rem 1rem; background:#dbeafe; border:1px solid #93c5fd; border-radius:8px;">
+                            <strong style="color:#1e40af;">✏️ Editing Mode</strong>
+                            <span style="display:block; font-size:0.8rem; color:#4b5563;">
+                                You are editing receipt: ${response.receipt_no} | Amount: ₹${response.amount}
+                                <br><small>You can modify the payment details below.</small>
+                            </span>
+                        </div>
+                    `).show();
+                    $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
+                    $('#saveBtnText').text('Update');
+                } else {
+                    // ❌ DUPLICATE - Already paid, cannot create new
+                    $('#alreadyPaidWarning').html(`
+                        <div class="mt-2" style="padding:0.75rem 1rem; background:#dcfce7; border:1px solid #86efac; border-radius:8px;">
+                            <strong style="color:#166534;">✅ Already Paid!</strong>
+                            <span style="display:block; font-size:0.8rem; color:#4b5563;">
+                                Receipt: ${response.receipt_no} | Amount: ₹${response.amount}
+                                <br><small>This month is already paid. You can edit the existing payment.</small>
+                            </span>
+                        </div>
+                    `).show();
+                    $('#saveBtn').prop('disabled', true).html('<i class="bi bi-check-circle"></i> Already Paid');
+                }
             } else {
                 $('#alreadyPaidWarning').hide();
                 $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
+                $('#saveBtnText').text('Save');
             }
+        },
+        error: function() {
+            // On error, allow saving
+            $('#alreadyPaidWarning').hide();
+            $('#saveBtn').prop('disabled', false);
         }
     });
 }
@@ -1124,6 +1155,7 @@ function debounce(func, wait) {
 // ============================================================
 // EXPORT FUNCTIONS
 // ============================================================
+
 function exportWithType(type) {
     var params = getFilterParams();
     var url = '';
@@ -1136,7 +1168,7 @@ function exportWithType(type) {
             url = '{{ route("admin.payments.export.pdf") }}';
             break;
         case 'summary':
-            url = '{{ route("admin.payments.export.summary") }}'; // ✅ This now exists
+            url = '{{ route("admin.payments.export.summary") }}';
             break;
         default:
             url = '{{ route("admin.payments.export.filtered") }}';
@@ -1144,6 +1176,7 @@ function exportWithType(type) {
     
     window.location.href = url + '?' + params;
 }
+
 function exportPaymentStatus(type) {
     var params = getFilterParams();
     var url = type === 'csv' 
@@ -1262,16 +1295,37 @@ function bulkDelete() {
 }
 
 // ============================================================
-// MODAL FUNCTIONS
+// MODAL FUNCTIONS - FIXED
 // ============================================================
 
 function openAddModal() {
     resetForm();
     $('#modalTitle').text('Add Payment');
     $('#saveBtnText').text('Save');
-    $('#editId').val('');
+    $('#editId').val('');  // ← CLEAR edit ID
     $('#saveBtn').prop('disabled', false);
     $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
+    $('#alreadyPaidWarning').hide();  // ← HIDE warnings
+    $('#pendingWarning').hide();
+    $('#remarkPreview').hide();
+    $('#paymentModal').modal('show');
+}
+
+function openAddModalForResident(residentId) {
+    resetForm();
+    $('#modalTitle').text('Add Payment');
+    $('#saveBtnText').text('Save');
+    $('#editId').val('');  // ← CLEAR edit ID
+    $('#saveBtn').prop('disabled', false);
+    $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
+    $('#alreadyPaidWarning').hide();
+    $('#pendingWarning').hide();
+    $('#remarkPreview').hide();
+    
+    if (residentId) {
+        $('#resident_id').val(residentId).trigger('change');
+    }
+    
     $('#paymentModal').modal('show');
 }
 
@@ -1290,6 +1344,7 @@ function resetForm() {
     $('#modal_hostel_id').val('');
     $('#modal_room_id').empty().append('<option value="">Select Hostel First</option>').prop('disabled', true);
     $('#resident_id').empty().append('<option value="">Select Room First</option>').prop('disabled', true);
+    $('#payment_type').val('both');
 }
 
 function resetBulkForm() {
@@ -1299,6 +1354,10 @@ function resetBulkForm() {
     $('#bulk_payment_date').val(new Date().toISOString().split('T')[0]);
 }
 
+// ============================================================
+// EDIT PAYMENT FUNCTION - FIXED: Set editId before checks
+// ============================================================
+
 function editPayment(id) {
     $.ajax({
         url: "{{ url('admin/payments') }}/" + id + "/edit",
@@ -1307,31 +1366,36 @@ function editPayment(id) {
             if (response.success) {
                 let data = response.data;
                 $('#modalTitle').text('Edit Payment');
-                $('#editId').val(data.id);
+                $('#editId').val(data.id);  // ← SET editId FIRST
+                $('#saveBtnText').text('Update');
+                $('#saveBtn').prop('disabled', false);
+                $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
+                
+                // Load payment data into form
                 $('#month').val(data.month);
                 $('#year').val(data.year);
                 $('#rent_amount').val(data.rent_amount);
                 $('#discount_amount').val(data.discount_amount || 0);
                 $('#fine_amount').val(data.fine_amount || 0);
-                $('#cash_paid_amount').val(data.cash_paid_amount);
-                $('#upi_paid_amount').val(data.upi_paid_amount);
+                $('#cash_paid_amount').val(data.cash_paid_amount || 0);
+                $('#upi_paid_amount').val(data.upi_paid_amount || 0);
                 $('#transaction_id').val(data.transaction_id || '');
-                $('#status').val(data.status);
+                $('#status').val(data.status || 'PENDING');
+                $('#payment_type').val(data.payment_type || 'both');
+                
                 if (data.payment_date) {
                     $('#payment_date').val(data.payment_date.split('T')[0]);
                 }
-                $('#saveBtnText').text('Update');
-                $('#saveBtn').prop('disabled', false);
-                $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
-
+                
+                // Now trigger checks with editId set
+                let residentId = data.resident_id;
+                let month = data.month;
+                let year = data.year;
+                
+                // Set cascading selects for edit
                 let hostelId = data.resident ? data.resident.hostel_id : null;
                 let roomId = data.resident ? data.resident.room_id : null;
-                let residentId = data.resident_id;
-
-                // Reset cascading selects first
-                $('#modal_room_id').empty().append('<option value="">Select Room</option>').prop('disabled', true);
-                $('#resident_id').empty().append('<option value="">Select Room First</option>').prop('disabled', true);
-
+                
                 if (hostelId) {
                     $('#modal_hostel_id').val(hostelId);
                     
@@ -1350,8 +1414,8 @@ function editPayment(id) {
                                 });
                             }
                             
-                            // Now load residents for this room
                             if (roomId) {
+                                // Load residents for this room
                                 $.ajax({
                                     url: '/admin/payments/room/' + roomId + '/residents',
                                     type: 'GET',
@@ -1366,27 +1430,19 @@ function editPayment(id) {
                                             });
                                         }
                                         
-                                        // Trigger change to load rent amount
-                                        $('#resident_id').trigger('change');
-                                    },
-                                    error: function() {
-                                        showToast('Failed to load residents', 'error');
+                                        // Trigger checks after resident is set
+                                        if (residentId && month && year) {
+                                            checkAlreadyPaid(residentId, month, year);
+                                            checkPreviousPending(residentId, month, year);
+                                            generateRemarkPreview();
+                                        }
                                     }
                                 });
-                            } else {
-                                // No room selected, enable resident select with empty options
-                                $('#resident_id').prop('disabled', false);
                             }
-                        },
-                        error: function() {
-                            showToast('Failed to load rooms', 'error');
                         }
                     });
-                } else {
-                    // No hostel, enable room select manually
-                    $('#modal_room_id').prop('disabled', false);
                 }
-
+                
                 $('#paymentModal').modal('show');
             }
         },
@@ -1395,6 +1451,11 @@ function editPayment(id) {
         }
     });
 }
+
+// ============================================================
+// DELETE PAYMENT
+// ============================================================
+
 function deletePayment(id) {
     Swal.fire({
         title: 'Delete?',
@@ -1409,33 +1470,6 @@ function deletePayment(id) {
             $.ajax({
                 url: "{{ url('admin/payments') }}/" + id,
                 type: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                success: function(response) {
-                    if (response.success) {
-                        showToast(response.message, 'success');
-                        location.reload();
-                    }
-                },
-                error: function() { showToast('Failed!', 'error'); }
-            });
-        }
-    });
-}
-
-function markAsPaid(id) {
-    Swal.fire({
-        title: 'Mark as Paid?',
-        text: "This will mark the payment as fully paid.",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#22c55e',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            $.ajax({
-                url: "{{ url('admin/payments') }}/" + id + "/mark-paid",
-                type: 'POST',
                 headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                 success: function(response) {
                     if (response.success) {
