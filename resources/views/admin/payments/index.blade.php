@@ -288,6 +288,10 @@
         from { transform: translateX(100%); opacity: 0; }
         to { transform: translateX(0); opacity: 1; }
     }
+    @keyframes slideOutRight {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
 
     .current-month-badge {
         display: inline-flex;
@@ -307,6 +311,7 @@
         border-radius: 4px;
         font-size: 0.6rem;
         font-weight: 600;
+        margin-right: 4px;
     }
     .discount-badge.applied { background: #dcfce7; color: #166534; }
     .discount-badge.not-applied { background: #fee2e2; color: #991b1b; }
@@ -337,7 +342,6 @@
                 <i class="bi bi-download"></i> Export
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:350px; padding:0.5rem;">
-                <!-- Filtered Reports -->
                 <li class="dropdown-header">📊 Filtered Reports</li>
                 <li>
                     <a class="dropdown-item" href="#" onclick="exportWithType('filtered')">
@@ -349,7 +353,7 @@
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Filtered Payments (PDF)
                     </a>
                 </li>
-                
+
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">📋 Payment Status Reports</li>
                 <li>
@@ -362,7 +366,7 @@
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Payment Status (PDF)
                     </a>
                 </li>
-                
+
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">📈 Summary Reports</li>
                 <li>
@@ -370,7 +374,7 @@
                         <i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (PDF)
                     </a>
                 </li>
-                
+
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">🏢 Hostel Wise Reports</li>
                 @foreach($hostels as $hostel)
@@ -380,7 +384,7 @@
                         </a>
                     </li>
                 @endforeach
-                
+
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">🔴 Unpaid Reports</li>
                 <li>
@@ -393,7 +397,7 @@
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid Summary (PDF)
                     </a>
                 </li>
-                
+
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">✅ Paid Reports</li>
                 <li>
@@ -521,7 +525,381 @@
                 @for($m = 1; $m <= 12; $m++)
                     <option value="{{ $m }}" {{ $filterMonth == $m ? 'selected' : '' }}>
                         {{ date('F', mktime(0,0,0,$m,1)) }}
-                
+                    </option>
+                @endfor
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select id="filterYear" class="form-select form-select-sm">
+                @for($y = date('Y') - 2; $y <= date('Y') + 1; $y++)
+                    <option value="{{ $y }}" {{ $filterYear == $y ? 'selected' : '' }}>{{ $y }}</option>
+                @endfor
+            </select>
+        </div>
+    </div>
+</div>
+
+{{-- Payment Cards --}}
+<div class="row g-3" id="paymentCardsContainer">
+    @forelse($combinedData as $payment)
+        <div class="col-md-6 col-lg-4">
+            <div class="payment-card">
+                <div class="card-checkbox">
+                    @if($payment->status !== 'UNPAID')
+                        <input type="checkbox" class="payment-checkbox" value="{{ $payment->id }}">
+                    @endif
+                </div>
+
+                <div class="payment-header">
+                    <span class="payment-status-badge {{ strtolower($payment->status) }}">
+                        <span class="dot"></span> {{ $payment->status }}
+                    </span>
+                    <h6 class="mb-1" style="font-weight:700;">{{ $payment->resident->name ?? 'N/A' }}</h6>
+                    <div style="font-size:0.75rem; opacity:0.85;">
+                        {{ $payment->resident->resident_code ?? '' }}
+                        @if($payment->resident->room)
+                            &middot; Room #{{ $payment->resident->room->room_no }}
+                        @endif
+                    </div>
+                </div>
+
+                <div class="payment-body">
+                    <div class="payment-meta">
+                        <i class="bi bi-building"></i> {{ $payment->resident->hostel->hostel_name ?? 'N/A' }}
+                    </div>
+                    <div class="payment-meta">
+                        <i class="bi bi-receipt"></i> {{ $payment->receipt_no }}
+                    </div>
+                    <div class="payment-meta">
+                        <i class="bi bi-calendar3"></i>
+                        {{ date('F Y', mktime(0,0,0,$payment->month,1,$payment->year)) }}
+                    </div>
+
+                    <div class="payment-stats">
+                        <div class="payment-stat-item">
+                            <div class="number">₹{{ number_format($payment->rent_amount, 0) }}</div>
+                            <div class="label">Rent</div>
+                        </div>
+                        <div class="payment-stat-item">
+                            <div class="number">
+                                ₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 0) }}
+                            </div>
+                            <div class="label">Paid</div>
+                        </div>
+                        <div class="payment-stat-item">
+                            <div class="number {{ $payment->balance_amount > 0 ? 'balance-due' : 'balance-clear' }}">
+                                ₹{{ number_format($payment->balance_amount, 0) }}
+                            </div>
+                            <div class="label">Balance</div>
+                        </div>
+                    </div>
+
+                    @if($payment->discount_amount > 0)
+                        <span class="discount-badge applied">
+                            <i class="bi bi-tag"></i> Discount ₹{{ number_format($payment->discount_amount, 0) }}
+                        </span>
+                    @endif
+
+                    @if($payment->has_previous_pending)
+                        <span class="discount-badge not-applied">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Prev. pending ₹{{ number_format($payment->previous_pending_amount, 0) }}
+                        </span>
+                    @endif
+
+                    @if($payment->remark)
+                        <div class="remark-box">{{ $payment->remark }}</div>
+                    @endif
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <button class="status-badge {{ strtolower($payment->status) }}" type="button" disabled>
+                            <span class="dot"></span> {{ $payment->status }}
+                        </button>
+
+                        <div class="d-flex gap-1">
+                            @if($payment->status !== 'UNPAID')
+                                @if($payment->status !== 'PAID')
+                                    <button class="btn-action text-success" title="Mark as Paid"
+                                            onclick="markAsPaid({{ $payment->id }})">
+                                        <i class="bi bi-check-circle"></i>
+                                    </button>
+                                @endif
+                                <button class="btn-action text-primary" title="Edit"
+                                        onclick="editPayment({{ $payment->id }})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn-action text-danger" title="Delete"
+                                        onclick="deletePayment({{ $payment->id }})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            @else
+                                <button class="btn-action text-primary" title="Add Payment"
+                                        onclick="openAddModal()">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @empty
+        <div class="col-12">
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <p>No payments found for the selected filters.</p>
+            </div>
+        </div>
+    @endforelse
+</div>
+
+{{-- ============================================================ --}}
+{{-- ADD / EDIT PAYMENT MODAL --}}
+{{-- ============================================================ --}}
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="paymentForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Add Payment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editId" name="id">
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Hostel<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-building rv-input-icon"></i>
+                                <select id="modal_hostel_id" class="rv-input" required>
+                                    <option value="">Select Hostel</option>
+                                    @foreach($hostels as $hostel)
+                                        <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Room<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-door-open rv-input-icon"></i>
+                                <select id="modal_room_id" class="rv-input" disabled required>
+                                    <option value="">Select Hostel First</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Resident<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-person rv-input-icon"></i>
+                                <select id="resident_id" name="resident_id" class="rv-input" disabled required>
+                                    <option value="">Select Room First</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="resident_id_error"></div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Month<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar3 rv-input-icon"></i>
+                                <select id="month" name="month" class="rv-input" required>
+                                    @for($m = 1; $m <= 12; $m++)
+                                        <option value="{{ $m }}" {{ $m == now()->month ? 'selected' : '' }}>
+                                            {{ date('F', mktime(0,0,0,$m,1)) }}
+                                        </option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="month_error"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Year<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-event rv-input-icon"></i>
+                                <select id="year" name="year" class="rv-input" required>
+                                    @for($y = date('Y') - 1; $y <= date('Y') + 1; $y++)
+                                        <option value="{{ $y }}" {{ $y == now()->year ? 'selected' : '' }}>{{ $y }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="year_error"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Rent Amount</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-cash rv-input-icon"></i>
+                                <input type="number" id="rent_amount" name="rent_amount" class="rv-input" step="0.01" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Fine Amount</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-exclamation-circle rv-input-icon"></i>
+                                <input type="number" id="fine_amount" name="fine_amount" class="rv-input" step="0.01" value="0">
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Cash Paid<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-cash-coin rv-input-icon"></i>
+                                <input type="number" id="cash_paid_amount" name="cash_paid_amount" class="rv-input" step="0.01" value="0" required>
+                            </div>
+                            <div class="invalid-feedback" id="cash_paid_amount_error"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">UPI Paid<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-phone rv-input-icon"></i>
+                                <input type="number" id="upi_paid_amount" name="upi_paid_amount" class="rv-input" step="0.01" value="0" required>
+                            </div>
+                            <div class="invalid-feedback" id="upi_paid_amount_error"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Payment Date<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-check rv-input-icon"></i>
+                                <input type="date" id="payment_date" name="payment_date" class="rv-input" required>
+                            </div>
+                            <div class="invalid-feedback" id="payment_date_error"></div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Transaction ID</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-hash rv-input-icon"></i>
+                                <input type="text" id="transaction_id" name="transaction_id" class="rv-input">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Discount Amount</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-tag rv-input-icon"></i>
+                                <input type="number" id="discount_amount" name="discount_amount" class="rv-input" step="0.01" value="0" readonly>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div id="pendingWarning" style="display:none;"></div>
+                            <div id="alreadyPaidWarning" style="display:none;"></div>
+                            <div id="remarkPreview" style="display:none;" class="remark-box">
+                                <strong>Preview:</strong> <span id="remarkPreviewText"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="rv-submit" id="saveBtn" style="width:auto; padding:0 1.5rem; height:38px; animation:none;">
+                        <i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- ============================================================ --}}
+{{-- BULK PAYMENT MODAL --}}
+{{-- ============================================================ --}}
+<div class="modal fade" id="bulkPaymentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form id="bulkPaymentForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Bulk Create Payments</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Hostel</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-building rv-input-icon"></i>
+                                <select id="bulk_hostel_id" class="rv-input">
+                                    <option value="">All Hostels</option>
+                                    @foreach($hostels as $hostel)
+                                        <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Month<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar3 rv-input-icon"></i>
+                                <select id="bulk_month" name="month" class="rv-input" required>
+                                    @for($m = 1; $m <= 12; $m++)
+                                        <option value="{{ $m }}" {{ $m == now()->month ? 'selected' : '' }}>
+                                            {{ date('F', mktime(0,0,0,$m,1)) }}
+                                        </option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="bulk_month_error"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Year<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-event rv-input-icon"></i>
+                                <select id="bulk_year" name="year" class="rv-input" required>
+                                    @for($y = date('Y') - 1; $y <= date('Y') + 1; $y++)
+                                        <option value="{{ $y }}" {{ $y == now()->year ? 'selected' : '' }}>{{ $y }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="bulk_year_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Date<span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-check rv-input-icon"></i>
+                                <input type="date" id="bulk_payment_date" name="payment_date" class="rv-input" required>
+                            </div>
+                            <div class="invalid-feedback" id="bulk_payment_date_error"></div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Residents<span class="required">*</span></label>
+                            <div class="rv-input-box" style="background:#fafafa; max-height:220px; overflow-y:auto;">
+                                <div class="p-2">
+                                    @foreach($residents as $resident)
+                                        <div class="form-check">
+                                            <input class="form-check-input bulk-resident-checkbox" type="checkbox"
+                                                   name="resident_ids[]" value="{{ $resident->id }}"
+                                                   id="bulk_resident_{{ $resident->id }}"
+                                                   data-hostel-id="{{ $resident->hostel_id }}">
+                                            <label class="form-check-label" for="bulk_resident_{{ $resident->id }}" style="font-size:0.85rem;">
+                                                {{ $resident->name }} ({{ $resident->resident_code }})
+                                                &middot; {{ $resident->hostel->hostel_name ?? '' }}
+                                                @if($resident->room)
+                                                    &middot; Room #{{ $resident->room->room_no }}
+                                                @endif
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="invalid-feedback" id="resident_ids_error"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="rv-submit" id="bulkSaveBtn" style="width:auto; padding:0 1.5rem; height:38px; animation:none;">
+                        <i class="bi bi-collection"></i> Create
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- Toast container used by showToast() --}}
+<div class="toast-container" id="flashMessageContainer"></div>
+
 @push('scripts')
 <script>
 $(document).ready(function() {
@@ -616,6 +994,23 @@ $(document).ready(function() {
     // Filter events
     $('#filterStatus, #filterHostel, #filterMonth, #filterYear').on('change', applyFilters);
     $('#searchPayment').on('keyup', debounce(applyFilters, 500));
+
+    // Bulk modal: filter resident checklist by hostel
+    $('#bulk_hostel_id').on('change', function() {
+        var hostelId = $(this).val();
+        $('.bulk-resident-checkbox').each(function() {
+            var row = $(this).closest('.form-check');
+            if (!hostelId || $(this).data('hostel-id') == hostelId) {
+                row.show();
+            } else {
+                row.hide();
+                $(this).prop('checked', false);
+            }
+        });
+    });
+
+    // Card selection -> bulk actions bar
+    $(document).on('change', '.payment-checkbox', updateBulkActions);
 });
 
 // ============================================================
@@ -696,8 +1091,8 @@ function generateRemarkPreview() {
             if (response.success && response.data) {
                 let data = response.data;
                 let discountStatus = data.discount_eligible ? '✅ Discount ₹' + data.discount.toFixed(2) : '❌ No discount';
-                let remark = discountStatus + ' | Previous: ₹' + data.previous_pending.toFixed(2) + 
-                           ' | Current: ₹' + data.current_due.toFixed(2) + 
+                let remark = discountStatus + ' | Previous: ₹' + data.previous_pending.toFixed(2) +
+                           ' | Current: ₹' + data.current_due.toFixed(2) +
                            ' | Paid: ₹' + data.total_paid.toFixed(2);
 
                 $('#remarkPreviewText').text(remark);
@@ -753,7 +1148,7 @@ function debounce(func, wait) {
 function exportWithType(type) {
     var params = getFilterParams();
     var url = '';
-    
+
     switch(type) {
         case 'filtered':
             url = '{{ route("admin.payments.export.filtered") }}';
@@ -767,22 +1162,22 @@ function exportWithType(type) {
         default:
             url = '{{ route("admin.payments.export.filtered") }}';
     }
-    
+
     window.location.href = url + '?' + params;
 }
 
 function exportPaymentStatus(type) {
     var params = getFilterParams();
-    var url = type === 'csv' 
-        ? '{{ route("admin.payments.export.payment-status") }}' 
+    var url = type === 'csv'
+        ? '{{ route("admin.payments.export.payment-status") }}'
         : '{{ route("admin.payments.export.payment-status-pdf") }}';
     window.location.href = url + '?' + params;
 }
 
 function exportUnpaid(type) {
     var params = getFilterParams();
-    var url = type === 'csv' 
-        ? '{{ route("admin.payments.export.unpaid-summary") }}' 
+    var url = type === 'csv'
+        ? '{{ route("admin.payments.export.unpaid-summary") }}'
         : '{{ route("admin.payments.export.unpaid-pdf") }}';
     window.location.href = url + '?' + params;
 }
