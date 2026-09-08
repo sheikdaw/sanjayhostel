@@ -29,7 +29,7 @@ class PaymentController extends Controller
         return 0;
     }
 
-    /**
+/**
  * Get previous pending total - ONLY for months BEFORE the selected month
  * This should NOT include the current month
  */
@@ -106,78 +106,6 @@ private function getPreviousPending($residentId, $month, $year)
     
     return $totalPending;
 }
-    /**
-     * Get previous pending total - INCLUDES UNPAID months
-     */
-    private function getPreviousPending($residentId, $month, $year)
-    {
-        $resident = Resident::find($residentId);
-        if (!$resident) return 0;
-        
-        $totalPending = 0;
-        $rentAmount = (float) ($resident->rent_amount ?? 0);
-        
-        // Get all payments for this resident for previous months
-        $payments = Payment::where('resident_id', $residentId)
-            ->where(function($q) use ($month, $year) {
-                $q->where('year', '<', $year)
-                  ->orWhere(function($q2) use ($month, $year) {
-                      $q2->where('year', $year)
-                         ->where('month', '<', $month);
-                  });
-            })
-            ->get()
-            ->keyBy(function($item) {
-                return $item->year . '-' . $item->month;
-            });
-        
-        $joiningDate = strtotime($resident->joining_date);
-        $vacateDate = $resident->vacate_date ? strtotime($resident->vacate_date) : null;
-        
-        $startYear = (int) date('Y', $joiningDate);
-        $startMonth = (int) date('n', $joiningDate);
-        
-        $endYear = $year;
-        $endMonth = $month - 1;
-        if ($endMonth < 1) {
-            $endMonth = 12;
-            $endYear--;
-        }
-        
-        if ($endYear < $startYear || ($endYear == $startYear && $endMonth < $startMonth)) {
-            return 0;
-        }
-        
-        for ($y = $startYear; $y <= $endYear; $y++) {
-            $startM = ($y == $startYear) ? $startMonth : 1;
-            $endM = ($y == $endYear) ? $endMonth : 12;
-            
-            for ($m = $startM; $m <= $endM; $m++) {
-                if ($y == $year && $m >= $month) continue;
-                
-                $startDate = strtotime("$y-$m-01");
-                $endDate = strtotime("$y-$m-" . date('t', $startDate));
-                
-                if ($startDate > $joiningDate) continue;
-                if ($vacateDate && $endDate > $vacateDate) continue;
-                
-                $key = $y . '-' . $m;
-                
-                if (isset($payments[$key])) {
-                    $payment = $payments[$key];
-                    if (in_array($payment->status, ['PENDING', 'PARTIAL'])) {
-                        $totalPending += (float) $payment->balance_amount;
-                    }
-                    // If PAID, balance is 0, so skip
-                } else {
-                    // No payment record - UNPAID month, add full rent
-                    $totalPending += $rentAmount;
-                }
-            }
-        }
-        
-        return $totalPending;
-    }
 
     /**
      * Filter residents who were active during the selected month
