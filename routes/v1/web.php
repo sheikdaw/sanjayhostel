@@ -259,81 +259,38 @@ Route::middleware(['auth'])->group(function () {
         // ============================================================
         // 6. PAYMENT MANAGEMENT - COMPLETE
         // ============================================================
-        Route::prefix('payments')->name('payments.')->group(function () {
-            // ---------- MAIN CRUD ROUTES ----------
-            Route::get('/', [PaymentController::class, 'index'])->name('index');
-            Route::post('/', [PaymentController::class, 'store'])->name('store');
-            Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('edit');
-            Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
-            Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
+       Route::prefix('payments')->name('payments.')->group(function () {
+    // ---------- MAIN CRUD ROUTES ----------
+    Route::get('/', [PaymentController::class, 'index'])->name('index');
+    Route::post('/', [PaymentController::class, 'store'])->name('store');
+    Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
 
-            // ---------- RESIDENT-SPECIFIC ROUTES ----------
-            Route::get('/resident/{residentId}', [PaymentController::class, 'getResidentPayments'])->name('resident');
-            Route::get('/resident/{residentId}/due', [PaymentController::class, 'getResidentDue'])->name('resident-due');
-            Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
-            Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
-            Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
+    // ---------- RESIDENT-SPECIFIC ROUTES ----------
+    Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
+    Route::get('/resident/{residentId}/check-paid/{month}/{year}', [PaymentController::class, 'checkAlreadyPaid'])->name('check-paid');
+    Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
+    Route::post('/resident/{residentId}/payment-details', [PaymentController::class, 'getPaymentDetails'])->name('payment-details');
 
-            // 🔥 NEW: Payment Details API
-            Route::post('/resident/{residentId}/payment-details', [PaymentController::class, 'getPaymentDetails'])->name('payment-details');
+    // ---------- HELPER ROUTES ----------
+    Route::get('/room/{roomId}/residents', [PaymentController::class, 'getResidentsByRoom'])->name('room.residents');
 
-            // 🔥 NEW: Get pending details
-            Route::get('/resident/{residentId}/pending-details/{month}/{year}', [PaymentController::class, 'getPendingDetails'])->name('pending-details');
+    // ---------- STATUS UPDATE ROUTES ----------
+    Route::post('/{id}/mark-paid', [PaymentController::class, 'markAsPaid'])->name('mark-paid');
 
-            // ---------- HELPER ROUTES ----------
-            Route::get('/room/{roomId}/residents', [PaymentController::class, 'getResidentsByRoom'])->name('room.residents');
-            Route::get('/summary/monthly', [PaymentController::class, 'getMonthlySummary'])->name('monthly-summary');
+    // ---------- BULK OPERATIONS ----------
+    Route::post('/bulk', [PaymentController::class, 'bulkPayment'])->name('bulk');
+    Route::post('/bulk-status', [PaymentController::class, 'bulkStatus'])->name('bulk-status');
+    Route::post('/bulk-delete', [PaymentController::class, 'bulkDelete'])->name('bulk-delete');
 
-            // ---------- STATUS UPDATE ROUTES ----------
-            Route::post('/{id}/mark-paid', [PaymentController::class, 'markAsPaid'])->name('mark-paid');
+    // ---------- EXPORT ROUTES ----------
+    Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
+    Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
 
-            // ---------- BULK OPERATIONS ----------
-            Route::post('/bulk', [PaymentController::class, 'bulkPayment'])->name('bulk');
-            Route::post('/bulk-status', [PaymentController::class, 'bulkStatus'])->name('bulk-status');
-            Route::post('/bulk-delete', [PaymentController::class, 'bulkDelete'])->name('bulk-delete');
-
-            // ---------- CSV EXPORT ROUTES ----------
-            // Basic Exports
-            Route::get('/export/all', [PaymentController::class, 'exportAll'])->name('export.all');
-            Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
-            Route::get('/export/unpaid', [PaymentController::class, 'exportUnpaid'])->name('export.unpaid');
-            Route::get('/export/pending-only', [PaymentController::class, 'exportPendingOnly'])->name('export.pending-only');
-            Route::get('/export/partial-only', [PaymentController::class, 'exportPartialOnly'])->name('export.partial-only');
-
-            // 🔥 NEW: Export resident payment status
-            Route::get('/export/resident-status', [PaymentController::class, 'exportResidentPaymentStatus'])->name('export.resident-status');
-
-            // 🔥 NEW: Export pending residents
-            Route::get('/export/pending-residents', [PaymentController::class, 'exportPendingResidents'])->name('export.pending-residents');
-
-            // Monthly Unpaid Report
-            Route::get('/export/monthly-unpaid', [PaymentController::class, 'exportMonthlyUnpaid'])->name('export.monthly-unpaid');
-
-            // Hostel-Wise Exports
-            Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
-            Route::get('/export/hostel-wise-paid', [PaymentController::class, 'exportHostelWisePaid'])->name('export.hostel-wise-paid');
-            Route::get('/export/hostel-wise-unpaid', [PaymentController::class, 'exportHostelWiseUnpaid'])->name('export.hostel-wise-unpaid');
-
-            // Summary Reports
-            Route::get('/export/summary', [PaymentController::class, 'exportPaymentSummary'])->name('export.summary');
-
-            // ---------- PDF EXPORT ROUTES ----------
-            // 🔥 NEW: Resident Status PDF
-            Route::get('pdf/resident-status', [PaymentController::class, 'pdfResidentPaymentStatus'])->name('pdf.resident-status');
-
-            // 🔥 NEW: Pending Residents PDF
-            Route::get('pdf/pending-residents', [PaymentController::class, 'pdfPendingResidents'])->name('pdf.pending-residents');
-
-            // All Payments PDF
-            Route::get('pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
-            Route::get('pdf/paid', [PaymentController::class, 'pdfPaidPayments'])->name('pdf.paid');
-            Route::get('pdf/unpaid', [PaymentController::class, 'pdfUnpaidPayments'])->name('pdf.unpaid');
-            Route::get('pdf/hostel-wise', [PaymentController::class, 'pdfHostelWise'])->name('pdf.hostel-wise');
-            Route::get('pdf/summary', [PaymentController::class, 'pdfPaymentSummary'])->name('pdf.summary');
-            Route::get('pdf/monthly-unpaid', [PaymentController::class, 'pdfMonthlyUnpaid'])->name('pdf.monthly-unpaid');
-            Route::get('pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
-            Route::post('pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
-        });
+    // ---------- ROOMS BY HOSTEL ----------
+    Route::get('/rooms/hostel/{hostelId}/rooms', [PaymentController::class, 'getRoomsByHostel'])->name('rooms.by.hostel');
+});
 
         // ============================================================
         // 7. USER MANAGEMENT
