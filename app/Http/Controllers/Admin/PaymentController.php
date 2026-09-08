@@ -333,10 +333,10 @@ class PaymentController extends Controller
         // Get rooms for filter
         $rooms = Room::where('status', 'ACTIVE')->get();
 
-        $payments = $combinedData; // Add this line before return
+        $combinedData = $combinedData ?? collect(); // Ensure it's never null
 
 return view('admin.payments.index', compact(
-    'payments', // Change from 'combinedData'
+    'combinedData',  // Make sure this matches
     'hostels',
     'residents',
     'rooms',
