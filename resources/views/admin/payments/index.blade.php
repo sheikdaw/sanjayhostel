@@ -549,10 +549,13 @@
 <div class="payments-grid">
     @if(count($combinedData) > 0)
         @foreach($combinedData as $payment)
-            <div class="payment-card" id="payment-card-{{ $payment->id }}">
+           <div class="payment-card" id="payment-card-{{ $payment->id }}-{{ $payment->payment_id ?? 'none' }}">
                 <div class="card-checkbox">
-                    <input type="checkbox" class="payment-checkbox" value="{{ $payment->id }}" onchange="updateBulkActions()">
-                </div>
+    <input type="checkbox" class="payment-checkbox"
+           value="{{ $payment->payment_id }}"
+           {{ !$payment->payment_id ? 'disabled' : '' }}
+           onchange="updateBulkActions()">
+</div>
                 <div class="payment-header" style="background: {{ $payment->status == 'PAID' ? '#22c55e' : ($payment->status == 'PARTIAL' ? '#f59e0b' : ($payment->status == 'UNPAID' ? '#6b7280' : '#ef4444')) }};">
                     <div>
                         <strong style="font-size:0.9rem;">{{ $payment->resident->name ?? 'N/A' }}</strong>
@@ -619,19 +622,23 @@
                         <span style="font-size:0.65rem; color:#6b7280;">
                             <i class="bi bi-clock"></i> {{ $payment->payment_date ? date('d M Y', strtotime($payment->payment_date)) : 'N/A' }}
                         </span>
-                        <div class="d-flex gap-1">
-                            @if($payment->status != 'PAID')
-                                <button class="btn-action text-success" onclick="markAsPaid({{ $payment->id }})" title="Mark as Paid">
-                                    <i class="bi bi-check-circle"></i>
-                                </button>
-                            @endif
-                            <button class="btn-action text-primary" onclick="editPayment({{ $payment->id }})" title="Edit">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn-action text-danger" onclick="deletePayment({{ $payment->id }})" title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
+                       <div class="d-flex gap-1">
+    @if($payment->payment_id)
+        @if($payment->status != 'PAID')
+            <button class="btn-action text-success" onclick="markAsPaid({{ $payment->payment_id }})" title="Mark as Paid">
+                <i class="bi bi-check-circle"></i>
+            </button>
+        @endif
+        <button class="btn-action text-primary" onclick="editPayment({{ $payment->payment_id }})" title="Edit">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn-action text-danger" onclick="deletePayment({{ $payment->payment_id }})" title="Delete">
+            <i class="bi bi-trash"></i>
+        </button>
+    @else
+        <span style="font-size:0.65rem; color:#9ca3af;">No payment yet — use "Add Payment"</span>
+    @endif
+</div>
                     </div>
                 </div>
             </div>
