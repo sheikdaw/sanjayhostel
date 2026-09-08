@@ -1739,307 +1739,328 @@ class PaymentController extends Controller
 
         return $pdf->download('unpaid-summary-' . date('Y-m-d') . '.pdf');
     }
+/**
+ * Export Payment Status (CSV) - FIXED: No duplicates
+ */
+public function exportPaymentStatus(Request $request)
+{
+    $user = auth()->user();
 
-    /**
-     * Export Payment Status (CSV)
-     */
-    public function exportPaymentStatus(Request $request)
-    {
-        $user = auth()->user();
+    $month = $request->filled('month') ? (int) $request->month : (int) date('n');
+    $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
+    $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
 
-        $month = $request->filled('month') ? (int) $request->month : (int) date('n');
-        $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
-        $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
+    $residentsQuery = Resident::with(['hostel', 'room'])
+        ->where('status', 'ACTIVE');
 
-        $residentsQuery = Resident::with(['hostel', 'room'])
-            ->where('status', 'ACTIVE');
+    $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
 
-        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
-
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $residentsQuery->whereIn('hostel_id', $hostelIds);
-        }
-
-        if ($hostelId) {
-            $residentsQuery->where('hostel_id', $hostelId);
-        }
-
-        $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
-
-        $paymentsQuery = Payment::where('month', $month)->where('year', $year);
-        if ($hostelId) {
-            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
-                $q->where('hostel_id', $hostelId);
-            });
-        }
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
-                $q->whereIn('hostel_id', $hostelIds);
-            });
-        }
-        $payments = $paymentsQuery->get()->keyBy('resident_id');
-
-        $pendingData = [];
-        $partialData = [];
-        $unpaidData = [];
-        $paidData = [];
-
-        foreach ($residents as $resident) {
-            $payment = $payments->get($resident->id);
-            $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            $currentBalance = $payment ? (float) $payment->balance_amount : 0;
-            $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
-            $totalDue = $previousPending + $currentBalance;
-
-            $residentData = [
-                'name' => $resident->name,
-                'room_no' => $resident->room->room_no ?? 'N/A',
-                'phone' => $resident->phone ?? '-',
-                'rent' => (float) ($resident->rent_amount ?? 0),
-                'previous_pending' => $previousPending,
-                'current_balance' => $currentBalance,
-                'current_paid' => $currentPaid,
-                'total_due' => $totalDue,
-                'status' => $payment ? $payment->status : ($previousPending > 0 ? 'PENDING' : 'UNPAID'),
-                'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment record'),
-                'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel'
-            ];
-
-            if (!$payment && $previousPending == 0) {
-                $unpaidData[] = $residentData;
-            } elseif ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
-                $partialData[] = $residentData;
-            } elseif ($totalDue > 0 && $currentPaid == 0) {
-                $pendingData[] = $residentData;
-            } elseif ($totalDue == 0) {
-                $paidData[] = $residentData;
-            }
-
-            if ($totalDue > 0 && !$payment) {
-                $pendingData[] = $residentData;
-            }
-        }
-
-        $csv = "==================================================\n";
-        $csv .= "PAYMENT STATUS SUMMARY\n";
-        $csv .= "==================================================\n";
-        $csv .= "Report Month: " . date('F', mktime(0,0,0,$month,1)) . " " . $year . "\n";
-        $csv .= "Generated: " . now()->format('d M Y H:i A') . "\n";
-        $csv .= "==================================================\n\n";
-
-        $csv .= "🔴 PENDING PAYMENTS (Previous Balance + Current Balance)\n";
-        $csv .= "Total Pending Residents: " . count($pendingData) . "\n";
-        $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Current Balance (₹),Total Due (₹),Status,Remark\n";
-        $csv .= str_repeat('-', 80) . "\n";
-
-        $serialNo = 1;
-        foreach ($pendingData as $resident) {
-            $csv .= sprintf(
-                "%d,%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%s,%s\n",
-                $serialNo,
-                $resident['name'],
-                $resident['room_no'],
-                $resident['phone'],
-                $resident['rent'],
-                $resident['previous_pending'],
-                $resident['current_balance'],
-                $resident['total_due'],
-                $resident['status'],
-                str_replace(',', ';', $resident['remark'])
-            );
-            $serialNo++;
-        }
-        $csv .= "\n";
-
-        $csv .= "🟡 PARTIAL PAYMENTS (Paid some, balance remains)\n";
-        $csv .= "Total Partial Residents: " . count($partialData) . "\n";
-        $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Paid (₹),Balance (₹),Status,Remark\n";
-        $csv .= str_repeat('-', 80) . "\n";
-
-        $serialNo = 1;
-        foreach ($partialData as $resident) {
-            $csv .= sprintf(
-                "%d,%s,%s,%s,%.2f,%.2f,%.2f,%s,%s\n",
-                $serialNo,
-                $resident['name'],
-                $resident['room_no'],
-                $resident['phone'],
-                $resident['rent'],
-                $resident['current_paid'],
-                $resident['total_due'],
-                $resident['status'],
-                str_replace(',', ';', $resident['remark'])
-            );
-            $serialNo++;
-        }
-        $csv .= "\n";
-
-        $csv .= "⬜ UNPAID PAYMENTS (No payment at all)\n";
-        $csv .= "Total Unpaid Residents: " . count($unpaidData) . "\n";
-        $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Total Due (₹),Remark\n";
-        $csv .= str_repeat('-', 80) . "\n";
-
-        $serialNo = 1;
-        foreach ($unpaidData as $resident) {
-            $csv .= sprintf(
-                "%d,%s,%s,%s,%.2f,%.2f,%.2f,%s\n",
-                $serialNo,
-                $resident['name'],
-                $resident['room_no'],
-                $resident['phone'],
-                $resident['rent'],
-                $resident['previous_pending'],
-                $resident['total_due'],
-                str_replace(',', ';', $resident['remark'])
-            );
-            $serialNo++;
-        }
-        $csv .= "\n";
-
-        $csv .= "✅ PAID PAYMENTS (Fully paid - balance 0)\n";
-        $csv .= "Total Paid Residents: " . count($paidData) . "\n";
-        $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Paid (₹),Status,Remark\n";
-        $csv .= str_repeat('-', 80) . "\n";
-
-        $serialNo = 1;
-        foreach ($paidData as $resident) {
-            $csv .= sprintf(
-                "%d,%s,%s,%s,%.2f,%.2f,%s,%s\n",
-                $serialNo,
-                $resident['name'],
-                $resident['room_no'],
-                $resident['phone'],
-                $resident['rent'],
-                $resident['current_paid'],
-                $resident['status'],
-                str_replace(',', ';', $resident['remark'])
-            );
-            $serialNo++;
-        }
-        $csv .= "\n";
-
-        $csv .= "==================================================\n";
-        $csv .= "SUMMARY\n";
-        $csv .= "==================================================\n";
-        $csv .= "Total Pending: " . count($pendingData) . " residents\n";
-        $csv .= "Total Partial: " . count($partialData) . " residents\n";
-        $csv .= "Total Unpaid: " . count($unpaidData) . " residents\n";
-        $csv .= "Total Paid: " . count($paidData) . " residents\n";
-        $csv .= "==================================================\n";
-
-        $filename = 'payment-status-' . date('Y-m-d') . '.csv';
-        return response($csv)
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $residentsQuery->whereIn('hostel_id', $hostelIds);
     }
 
-    /**
-     * Export Payment Status (PDF)
-     */
-    public function exportPaymentStatusPdf(Request $request)
-    {
-        $user = auth()->user();
+    if ($hostelId) {
+        $residentsQuery->where('hostel_id', $hostelId);
+    }
 
-        $month = $request->filled('month') ? (int) $request->month : (int) date('n');
-        $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
-        $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
+    $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
 
-        $residentsQuery = Resident::with(['hostel', 'room'])
-            ->where('status', 'ACTIVE');
+    $paymentsQuery = Payment::where('month', $month)->where('year', $year);
+    if ($hostelId) {
+        $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
+            $q->where('hostel_id', $hostelId);
+        });
+    }
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
+            $q->whereIn('hostel_id', $hostelIds);
+        });
+    }
+    $payments = $paymentsQuery->get()->keyBy('resident_id');
 
-        $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+    $pendingData = [];
+    $partialData = [];
+    $unpaidData = [];
+    $paidData = [];
 
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $residentsQuery->whereIn('hostel_id', $hostelIds);
-        }
+    foreach ($residents as $resident) {
+        $payment = $payments->get($resident->id);
+        $previousPending = $this->getPreviousPending($resident->id, $month, $year);
+        $currentBalance = $payment ? (float) $payment->balance_amount : 0;
+        $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
+        $totalDue = $previousPending + $currentBalance;
 
-        if ($hostelId) {
-            $residentsQuery->where('hostel_id', $hostelId);
-        }
-
-        $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
-
-        $paymentsQuery = Payment::where('month', $month)->where('year', $year);
-        if ($hostelId) {
-            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
-                $q->where('hostel_id', $hostelId);
-            });
-        }
-        if ($user->role !== 'admin') {
-            $hostelIds = $user->hostel_ids ?? [];
-            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
-                $q->whereIn('hostel_id', $hostelIds);
-            });
-        }
-        $payments = $paymentsQuery->get()->keyBy('resident_id');
-
-        $pendingData = [];
-        $partialData = [];
-        $unpaidData = [];
-        $paidData = [];
-
-        foreach ($residents as $resident) {
-            $payment = $payments->get($resident->id);
-            $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            $currentBalance = $payment ? (float) $payment->balance_amount : 0;
-            $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
-            $totalDue = $previousPending + $currentBalance;
-
-            $residentData = [
-                'name' => $resident->name,
-                'room_no' => $resident->room->room_no ?? 'N/A',
-                'phone' => $resident->phone ?? '-',
-                'rent' => (float) ($resident->rent_amount ?? 0),
-                'previous_pending' => $previousPending,
-                'current_balance' => $currentBalance,
-                'current_paid' => $currentPaid,
-                'total_due' => $totalDue,
-                'status' => $payment ? $payment->status : ($previousPending > 0 ? 'PENDING' : 'UNPAID'),
-                'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment record'),
-                'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel'
-            ];
-
-            if (!$payment && $previousPending == 0) {
-                $unpaidData[] = $residentData;
-            } elseif ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
-                $partialData[] = $residentData;
-            } elseif ($totalDue > 0 && $currentPaid == 0) {
-                $pendingData[] = $residentData;
-            } elseif ($totalDue == 0) {
-                $paidData[] = $residentData;
-            }
-
-            if ($totalDue > 0 && !$payment) {
-                $pendingData[] = $residentData;
-            }
-        }
-
-        $data = [
-            'pendingData' => $pendingData,
-            'partialData' => $partialData,
-            'unpaidData' => $unpaidData,
-            'paidData' => $paidData,
-            'month' => date('F', mktime(0,0,0,$month,1)),
-            'year' => $year,
-            'generated_at' => now()->format('d M Y H:i A'),
-            'filters' => [
-                'hostel' => $hostelId ? (Hostel::find($hostelId)->hostel_name ?? 'All') : 'All'
-            ],
-            'user' => $user
+        $residentData = [
+            'name' => $resident->name,
+            'room_no' => $resident->room->room_no ?? 'N/A',
+            'phone' => $resident->phone ?? '-',
+            'rent' => (float) ($resident->rent_amount ?? 0),
+            'previous_pending' => $previousPending,
+            'current_balance' => $currentBalance,
+            'current_paid' => $currentPaid,
+            'total_due' => $totalDue,
+            'status' => $payment ? $payment->status : ($previousPending > 0 ? 'PENDING' : 'UNPAID'),
+            'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment record'),
+            'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel',
+            'has_payment' => $payment ? true : false
         ];
 
-        $pdf = PDF::loadView('admin.payments.pdf.payment-status', $data);
-        $pdf->setPaper('A4', 'landscape');
-
-        return $pdf->download('payment-status-' . date('Y-m-d') . '.pdf');
+        // 🔥 FIX: Only add to ONE category based on actual status
+        if ($totalDue == 0) {
+            // Fully paid - balance is 0
+            $paidData[] = $residentData;
+        } elseif (!$payment && $previousPending == 0) {
+            // No payment at all
+            $unpaidData[] = $residentData;
+        } elseif ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
+            // Partial payment (has some paid, still has balance)
+            $partialData[] = $residentData;
+        } elseif ($totalDue > 0 && $currentPaid == 0) {
+            // Pending (no payment for current month or previous pending)
+            $pendingData[] = $residentData;
+        } else {
+            // Fallback - if totalDue > 0 and has payment, it's partial
+            if ($totalDue > 0 && $currentPaid > 0) {
+                $partialData[] = $residentData;
+            } elseif ($totalDue > 0) {
+                $pendingData[] = $residentData;
+            }
+        }
     }
+
+    // Build CSV
+    $csv = "==================================================\n";
+    $csv .= "PAYMENT STATUS SUMMARY\n";
+    $csv .= "==================================================\n";
+    $csv .= "Report Month: " . date('F', mktime(0,0,0,$month,1)) . " " . $year . "\n";
+    $csv .= "Generated: " . now()->format('d M Y H:i A') . "\n";
+    $csv .= "==================================================\n\n";
+
+    // PENDING SECTION
+    $csv .= "🔴 PENDING PAYMENTS (Previous Balance + Current Balance)\n";
+    $csv .= "Total Pending Residents: " . count($pendingData) . "\n";
+    $csv .= str_repeat('=', 80) . "\n";
+    $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Current Balance (₹),Total Due (₹),Status,Remark\n";
+    $csv .= str_repeat('-', 80) . "\n";
+
+    $serialNo = 1;
+    foreach ($pendingData as $resident) {
+        $csv .= sprintf(
+            "%d,%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%s,%s\n",
+            $serialNo,
+            $resident['name'],
+            $resident['room_no'],
+            $resident['phone'],
+            $resident['rent'],
+            $resident['previous_pending'],
+            $resident['current_balance'],
+            $resident['total_due'],
+            $resident['status'],
+            str_replace(',', ';', $resident['remark'])
+        );
+        $serialNo++;
+    }
+    $csv .= "\n";
+
+    // PARTIAL SECTION
+    $csv .= "🟡 PARTIAL PAYMENTS (Paid some, balance remains)\n";
+    $csv .= "Total Partial Residents: " . count($partialData) . "\n";
+    $csv .= str_repeat('=', 80) . "\n";
+    $csv .= "S.No,Name,Room No,Phone,Rent (₹),Paid (₹),Balance (₹),Status,Remark\n";
+    $csv .= str_repeat('-', 80) . "\n";
+
+    $serialNo = 1;
+    foreach ($partialData as $resident) {
+        $csv .= sprintf(
+            "%d,%s,%s,%s,%.2f,%.2f,%.2f,%s,%s\n",
+            $serialNo,
+            $resident['name'],
+            $resident['room_no'],
+            $resident['phone'],
+            $resident['rent'],
+            $resident['current_paid'],
+            $resident['total_due'],
+            $resident['status'],
+            str_replace(',', ';', $resident['remark'])
+        );
+        $serialNo++;
+    }
+    $csv .= "\n";
+
+    // UNPAID SECTION
+    $csv .= "⬜ UNPAID PAYMENTS (No payment at all)\n";
+    $csv .= "Total Unpaid Residents: " . count($unpaidData) . "\n";
+    $csv .= str_repeat('=', 80) . "\n";
+    $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Total Due (₹),Remark\n";
+    $csv .= str_repeat('-', 80) . "\n";
+
+    $serialNo = 1;
+    foreach ($unpaidData as $resident) {
+        $csv .= sprintf(
+            "%d,%s,%s,%s,%.2f,%.2f,%.2f,%s\n",
+            $serialNo,
+            $resident['name'],
+            $resident['room_no'],
+            $resident['phone'],
+            $resident['rent'],
+            $resident['previous_pending'],
+            $resident['total_due'],
+            str_replace(',', ';', $resident['remark'])
+        );
+        $serialNo++;
+    }
+    $csv .= "\n";
+
+    // PAID SECTION
+    $csv .= "✅ PAID PAYMENTS (Fully paid - balance 0)\n";
+    $csv .= "Total Paid Residents: " . count($paidData) . "\n";
+    $csv .= str_repeat('=', 80) . "\n";
+    $csv .= "S.No,Name,Room No,Phone,Rent (₹),Paid (₹),Status,Remark\n";
+    $csv .= str_repeat('-', 80) . "\n";
+
+    $serialNo = 1;
+    foreach ($paidData as $resident) {
+        $csv .= sprintf(
+            "%d,%s,%s,%s,%.2f,%.2f,%s,%s\n",
+            $serialNo,
+            $resident['name'],
+            $resident['room_no'],
+            $resident['phone'],
+            $resident['rent'],
+            $resident['current_paid'],
+            $resident['status'],
+            str_replace(',', ';', $resident['remark'])
+        );
+        $serialNo++;
+    }
+    $csv .= "\n";
+
+    $csv .= "==================================================\n";
+    $csv .= "SUMMARY\n";
+    $csv .= "==================================================\n";
+    $csv .= "Total Pending: " . count($pendingData) . " residents\n";
+    $csv .= "Total Partial: " . count($partialData) . " residents\n";
+    $csv .= "Total Unpaid: " . count($unpaidData) . " residents\n";
+    $csv .= "Total Paid: " . count($paidData) . " residents\n";
+    $csv .= "==================================================\n";
+
+    $filename = 'payment-status-' . date('Y-m-d') . '.csv';
+    return response($csv)
+        ->header('Content-Type', 'text/csv; charset=UTF-8')
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+}
+
+/**
+ * Export Payment Status (PDF) - FIXED: No duplicates
+ */
+public function exportPaymentStatusPdf(Request $request)
+{
+    $user = auth()->user();
+
+    $month = $request->filled('month') ? (int) $request->month : (int) date('n');
+    $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
+    $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
+
+    $residentsQuery = Resident::with(['hostel', 'room'])
+        ->where('status', 'ACTIVE');
+
+    $residentsQuery = $this->filterResidentsByMonth($residentsQuery, $month, $year);
+
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $residentsQuery->whereIn('hostel_id', $hostelIds);
+    }
+
+    if ($hostelId) {
+        $residentsQuery->where('hostel_id', $hostelId);
+    }
+
+    $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
+
+    $paymentsQuery = Payment::where('month', $month)->where('year', $year);
+    if ($hostelId) {
+        $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
+            $q->where('hostel_id', $hostelId);
+        });
+    }
+    if ($user->role !== 'admin') {
+        $hostelIds = $user->hostel_ids ?? [];
+        $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
+            $q->whereIn('hostel_id', $hostelIds);
+        });
+    }
+    $payments = $paymentsQuery->get()->keyBy('resident_id');
+
+    $pendingData = [];
+    $partialData = [];
+    $unpaidData = [];
+    $paidData = [];
+
+    foreach ($residents as $resident) {
+        $payment = $payments->get($resident->id);
+        $previousPending = $this->getPreviousPending($resident->id, $month, $year);
+        $currentBalance = $payment ? (float) $payment->balance_amount : 0;
+        $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
+        $totalDue = $previousPending + $currentBalance;
+
+        $residentData = [
+            'name' => $resident->name,
+            'room_no' => $resident->room->room_no ?? 'N/A',
+            'phone' => $resident->phone ?? '-',
+            'rent' => (float) ($resident->rent_amount ?? 0),
+            'previous_pending' => $previousPending,
+            'current_balance' => $currentBalance,
+            'current_paid' => $currentPaid,
+            'total_due' => $totalDue,
+            'status' => $payment ? $payment->status : ($previousPending > 0 ? 'PENDING' : 'UNPAID'),
+            'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment record'),
+            'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel'
+        ];
+
+        // 🔥 FIX: Only add to ONE category based on actual status
+        if ($totalDue == 0) {
+            // Fully paid - balance is 0
+            $paidData[] = $residentData;
+        } elseif (!$payment && $previousPending == 0) {
+            // No payment at all
+            $unpaidData[] = $residentData;
+        } elseif ($totalDue > 0 && $currentPaid > 0 && $currentBalance > 0) {
+            // Partial payment (has some paid, still has balance)
+            $partialData[] = $residentData;
+        } elseif ($totalDue > 0 && $currentPaid == 0) {
+            // Pending (no payment for current month or previous pending)
+            $pendingData[] = $residentData;
+        } else {
+            // Fallback - if totalDue > 0 and has payment, it's partial
+            if ($totalDue > 0 && $currentPaid > 0) {
+                $partialData[] = $residentData;
+            } elseif ($totalDue > 0) {
+                $pendingData[] = $residentData;
+            }
+        }
+    }
+
+    $data = [
+        'pendingData' => $pendingData,
+        'partialData' => $partialData,
+        'unpaidData' => $unpaidData,
+        'paidData' => $paidData,
+        'month' => date('F', mktime(0,0,0,$month,1)),
+        'year' => $year,
+        'generated_at' => now()->format('d M Y H:i A'),
+        'filters' => [
+            'hostel' => $hostelId ? (Hostel::find($hostelId)->hostel_name ?? 'All') : 'All'
+        ],
+        'user' => $user
+    ];
+
+    $pdf = PDF::loadView('admin.payments.pdf.payment-status', $data);
+    $pdf->setPaper('A4', 'landscape');
+
+    return $pdf->download('payment-status-' . date('Y-m-d') . '.pdf');
+}
 
     // ============================================================
     // PDF VIEW METHODS
