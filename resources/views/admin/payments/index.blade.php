@@ -621,28 +621,29 @@
                         <span style="font-size:0.65rem; color:#6b7280;">
                             <i class="bi bi-clock"></i> {{ $payment->payment_date ? date('d M Y', strtotime($payment->payment_date)) : 'N/A' }}
                         </span>
-                        <div class="d-flex gap-1">
-                            @if($payment->status != 'PAID' && $payment->id)
-                                <button class="btn-action text-success" onclick="markAsPaid({{ $payment->id }})" title="Mark as Paid">
-                                    <i class="bi bi-check-circle"></i>
-                                </button>
-                            @endif
-                            
-                            {{-- Only show Edit button if payment exists --}}
-                            @if($payment->id)
-                                <button class="btn-action text-primary" onclick="editPayment({{ $payment->id }})" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn-action text-danger" onclick="deletePayment({{ $payment->id }})" title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            @else
-                                {{-- Show "Add Payment" button for unpaid residents --}}
-                                <button class="btn-action text-success" onclick="openAddModalForResident({{ $payment->resident_id }})" title="Add Payment">
-                                    <i class="bi bi-plus-circle"></i>
-                                </button>
-                            @endif
-                        </div>
+                       {{-- In the payment card actions section --}}
+<div class="d-flex gap-1">
+    @if($payment->status != 'PAID' && $payment->id)
+        <button class="btn-action text-success" onclick="markAsPaid({{ $payment->id }})" title="Mark as Paid">
+            <i class="bi bi-check-circle"></i>
+        </button>
+    @endif
+    
+    {{-- 🔥 FIX: Show Edit button for ALL payments that have an ID --}}
+    @if($payment->id)
+        <button class="btn-action text-primary" onclick="editPayment({{ $payment->id }})" title="Edit">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn-action text-danger" onclick="deletePayment({{ $payment->id }})" title="Delete">
+            <i class="bi bi-trash"></i>
+        </button>
+    @else
+        {{-- Show "Add Payment" button for unpaid residents --}}
+        <button class="btn-action text-success" onclick="openAddModalForResident({{ $payment->resident_id }})" title="Add Payment">
+            <i class="bi bi-plus-circle"></i>
+        </button>
+    @endif
+</div>
                     </div>
                 </div>
             </div>
