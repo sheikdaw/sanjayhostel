@@ -274,8 +274,8 @@ class PaymentController extends Controller
 
             // Create payment object for blade
             $combinedData[] = (object) [
-                'id' => $resident->id,
-                'payment_id' => $payment ? $payment->id : null,  
+                'id' => $payment ? $payment->id : null,  // ✅ This is the actual payment ID
+    'resident_id' => $resident->id,    
                 'receipt_no' => $payment ? $payment->receipt_no : 'N/A',
                 'resident' => $resident,
                 'month' => $filterMonth,
