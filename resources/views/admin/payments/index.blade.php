@@ -329,11 +329,11 @@
         <h1 class="ol-page-title">Payment Management</h1>
         <p class="ol-page-sub">Manage monthly rent payments and receipts</p>
         <div class="d-flex align-items-center gap-3 mt-2">
-            <span class="current-month-badge">
-                <i class="bi bi-calendar-check"></i>
-                {{ date('F Y') }} - Current Month
-            </span>
-        </div>
+    <span class="current-month-badge">
+        <i class="bi bi-calendar-check"></i>
+        {{ now()->format('F Y') }} - Current Month
+    </span>
+</div>
     </div>
     <div class="d-flex gap-2">
         <div class="dropdown">
