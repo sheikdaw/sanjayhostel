@@ -131,7 +131,6 @@ class PaymentController extends Controller
 
     /**
      * Display a listing of payments with filters
-     * ✅ FIXED: Includes UNPAID residents
      */
     public function index(Request $request)
     {
@@ -588,7 +587,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Edit payment - FIXED: Now allows editing ALL payments including PAID
+     * Edit payment - ✅ Always returns payment data regardless of status
      */
     public function edit($id)
     {
@@ -612,7 +611,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Update payment - FIXED: Now properly updates ALL fields including PAID status
+     * Update payment - ✅ FIXED: Allows editing PAID payments
      */
     public function update(Request $request, $id)
     {
@@ -643,29 +642,32 @@ class PaymentController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
+        // Calculate totals
         $totalPaid = (float) $request->cash_paid_amount + (float) $request->upi_paid_amount;
         $totalAmount = (float) $request->rent_amount - (float) ($request->discount_amount ?? 0) + (float) ($request->fine_amount ?? 0);
         $balanceAmount = max(0, $totalAmount - $totalPaid);
 
-        // 🔥 FIX: Allow editing even if PAID - just recalculate
-        // If status is PAID but balance > 0, automatically change to PARTIAL
+        // 🔥 FIX: Auto-correct status based on balance
         $status = $request->status;
-        if ($status === 'PAID' && $balanceAmount > 0) {
-            $status = 'PARTIAL';
-        }
-        // If balance is 0, status should be PAID
         if ($balanceAmount == 0) {
             $status = 'PAID';
+        } elseif ($status === 'PAID' && $balanceAmount > 0) {
+            $status = 'PARTIAL'; // If trying to set PAID but has balance, set to PARTIAL
         }
 
         // Build remark for update
         $monthName = date('F Y', mktime(0,0,0,$request->month,1,$request->year));
-        $remark = "🔄 Updated on " . date('d M Y H:i') . " | ";
-        $remark .= "Rent: ₹" . number_format($request->rent_amount, 2) . " | ";
-        $remark .= $request->discount_amount > 0 ? "Discount: ₹" . number_format($request->discount_amount, 2) . " | " : "";
-        $remark .= $request->fine_amount > 0 ? "Fine: ₹" . number_format($request->fine_amount, 2) . " | " : "";
-        $remark .= "Paid: ₹" . number_format($totalPaid, 2) . " | ";
-        $remark .= $balanceAmount > 0 ? "Balance: ₹" . number_format($balanceAmount, 2) : "✅ Fully Paid";
+        $oldRemark = $payment->remark ?? '';
+        $newRemark = "🔄 Updated on " . date('d M Y H:i') . " | ";
+        $newRemark .= "Rent: ₹" . number_format($request->rent_amount, 2) . " | ";
+        $newRemark .= $request->discount_amount > 0 ? "Discount: ₹" . number_format($request->discount_amount, 2) . " | " : "";
+        $newRemark .= $request->fine_amount > 0 ? "Fine: ₹" . number_format($request->fine_amount, 2) . " | " : "";
+        $newRemark .= "Paid: ₹" . number_format($totalPaid, 2) . " | ";
+        $newRemark .= $balanceAmount > 0 ? "Balance: ₹" . number_format($balanceAmount, 2) : "✅ Fully Paid";
+        $newRemark .= " | Status: " . $status;
+        
+        // Keep old remark for history
+        $finalRemark = $newRemark . " | [Previous: " . $oldRemark . "]";
 
         $payment->update([
             'month' => $request->month,
@@ -679,13 +681,13 @@ class PaymentController extends Controller
             'payment_date' => $request->payment_date,
             'transaction_id' => $request->transaction_id,
             'status' => $status,
-            'remark' => $remark . " | " . ($payment->remark ?? '')
+            'remark' => $finalRemark
         ]);
 
         return response()->json([
             'success' => true,
             'message' => '✅ Payment updated successfully!',
-            'data' => $payment
+            'data' => $payment->fresh()
         ]);
     }
 
@@ -709,7 +711,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Mark as paid - FIXED: Now tracks payment method (UPI/Cash)
+     * Mark as paid - ✅ FIXED: Tracks payment method
      */
     public function markAsPaid($id)
     {
@@ -728,33 +730,23 @@ class PaymentController extends Controller
         $remainingBalance = $totalAmount - $currentPaid;
 
         if ($remainingBalance <= 0) {
-            // Already fully paid
+            // Already fully paid - just update status
             $payment->update([
                 'status' => 'PAID',
                 'balance_amount' => 0
             ]);
+            $message = '✅ Already fully paid! Status updated to PAID.';
         } else {
-            // 🔥 FIX: If no payment method specified, use the existing method or default to Cash
-            // Check if we have transaction_id to determine method
-            $method = 'cash'; // default
-            
-            // If there's a transaction_id, it's likely UPI
-            if ($payment->transaction_id) {
-                $method = 'upi';
-            }
-            
-            // If both cash and upi are 0, ask user to specify
-            if ($payment->cash_paid_amount == 0 && $payment->upi_paid_amount == 0) {
-                // Default to cash if no method specified
-                $payment->cash_paid_amount = $remainingBalance;
+            // 🔥 FIX: Add remaining balance to the appropriate payment method
+            // Check which method was used more recently
+            if ($payment->upi_paid_amount > 0 || $payment->transaction_id) {
+                // If there's UPI payment or transaction ID, add to UPI
+                $payment->upi_paid_amount += $remainingBalance;
+                $method = 'UPI';
             } else {
-                // Add remaining balance to the existing payment method
-                // If cash is higher than UPI, add to cash
-                if ($payment->cash_paid_amount >= $payment->upi_paid_amount) {
-                    $payment->cash_paid_amount += $remainingBalance;
-                } else {
-                    $payment->upi_paid_amount += $remainingBalance;
-                }
+                // Default to Cash
+                $payment->cash_paid_amount += $remainingBalance;
+                $method = 'Cash';
             }
             
             $payment->balance_amount = 0;
@@ -763,15 +755,16 @@ class PaymentController extends Controller
             // Add remark about how it was marked paid
             $monthName = date('F Y', mktime(0,0,0,$payment->month,1,$payment->year));
             $payment->remark = "✅ {$monthName} marked as PAID on " . date('d M Y H:i') . 
-                              " (Remaining ₹" . number_format($remainingBalance, 2) . " cleared) | " . 
+                              " (Remaining ₹" . number_format($remainingBalance, 2) . " cleared via {$method}) | " . 
                               ($payment->remark ?? '');
             
             $payment->save();
+            $message = "✅ Payment marked as PAID! ₹" . number_format($remainingBalance, 2) . " added to {$method}.";
         }
 
         return response()->json([
             'success' => true,
-            'message' => '✅ Payment marked as PAID! Balance: ₹' . number_format(0, 2)
+            'message' => $message
         ]);
     }
 
@@ -1102,7 +1095,7 @@ class PaymentController extends Controller
     }
 
     // ============================================================
-    // EXPORT METHODS (All remaining methods unchanged)
+    // EXPORT METHODS
     // ============================================================
 
     /**
@@ -1521,7 +1514,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Export Unpaid Summary (CSV) - Only residents active in selected month
+     * Export Unpaid Summary (CSV)
      */
     public function exportUnpaidSummary(Request $request)
     {
@@ -1531,7 +1524,6 @@ class PaymentController extends Controller
         $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
         $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
 
-        // Get residents who were ACTIVE during the selected month
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
@@ -1548,7 +1540,6 @@ class PaymentController extends Controller
 
         $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
 
-        // Get all payments for this month
         $paymentsQuery = Payment::where('month', $month)->where('year', $year);
         if ($hostelId) {
             $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
@@ -1563,7 +1554,6 @@ class PaymentController extends Controller
         }
         $payments = $paymentsQuery->get()->keyBy('resident_id');
 
-        // Build data grouped by hostel
         $hostelData = [];
         $totalOverall = 0;
         $totalUnpaidCount = 0;
@@ -1574,7 +1564,6 @@ class PaymentController extends Controller
             
             $rentAmount = (float) ($resident->rent_amount ?? 0);
             $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
-            
             $currentBalance = $payment ? (float) $payment->balance_amount : $rentAmount;
             $totalDue = $previousPending + $currentBalance;
             
@@ -1609,7 +1598,6 @@ class PaymentController extends Controller
             $totalUnpaidCount++;
         }
 
-        // Build CSV
         $csv = "==================================================\n";
         $csv .= "UNPAID PAYMENTS SUMMARY\n";
         $csv .= "==================================================\n";
