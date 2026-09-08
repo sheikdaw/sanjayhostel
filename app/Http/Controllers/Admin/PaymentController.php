@@ -29,41 +29,168 @@ class PaymentController extends Controller
         return 0;
     }
 
-    /**
-     * Get previous pending payments with details (oldest first)
-     */
-    private function getPreviousPendingDetails($residentId, $month, $year)
-    {
-        return Payment::where('resident_id', $residentId)
-            ->where(function($q) use ($month, $year) {
-                $q->where('year', '<', $year)
-                  ->orWhere(function($q2) use ($month, $year) {
-                      $q2->where('year', $year)
-                         ->where('month', '<', $month);
-                  });
-            })
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->orderBy('year', 'asc')
-            ->orderBy('month', 'asc')
-            ->get();
+   /**
+ * Get previous pending payments with details (oldest first) - FIXED
+ */
+private function getPreviousPendingDetails($residentId, $month, $year)
+{
+    $resident = Resident::find($residentId);
+    if (!$resident) {
+        return collect([]);
     }
 
-    /**
-     * Get previous pending total
-     */
-    private function getPreviousPending($residentId, $month, $year)
-    {
-        return Payment::where('resident_id', $residentId)
-            ->where(function($q) use ($month, $year) {
-                $q->where('year', '<', $year)
-                  ->orWhere(function($q2) use ($month, $year) {
-                      $q2->where('year', $year)
-                         ->where('month', '<', $month);
-                  });
-            })
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->sum('balance_amount');
+    $pendingPayments = collect([]);
+    
+    // Check current year previous months
+    for ($m = 1; $m < $month; $m++) {
+        $startDate = date('Y-m-01', strtotime("$year-$m-01"));
+        $endDate = date('Y-m-t', strtotime("$year-$m-01"));
+        
+        $wasActive = ($resident->joining_date <= $endDate) && 
+                     (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+        
+        if (!$wasActive) {
+            continue;
+        }
+        
+        $payment = Payment::where('resident_id', $residentId)
+            ->where('month', $m)
+            ->where('year', $year)
+            ->first();
+            
+        if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
+            $pendingPayments->push($payment);
+        } elseif (!$payment) {
+            // Create a virtual payment object for pending rent
+            $virtualPayment = new Payment([
+                'resident_id' => $residentId,
+                'month' => $m,
+                'year' => $year,
+                'rent_amount' => $resident->rent_amount ?? 0,
+                'balance_amount' => $resident->rent_amount ?? 0,
+                'status' => 'PENDING',
+                'remark' => 'No payment recorded for this month'
+            ]);
+            $virtualPayment->id = 0; // Temporary ID
+            $pendingPayments->push($virtualPayment);
+        }
     }
+    
+    // Check previous years (similarly)
+    for ($y = $year - 1; $y >= 2000; $y--) {
+        for ($m = 12; $m >= 1; $m--) {
+            if ($y == $year && $m >= $month) {
+                continue;
+            }
+            
+            $startDate = date('Y-m-01', strtotime("$y-$m-01"));
+            $endDate = date('Y-m-t', strtotime("$y-$m-01"));
+            
+            $wasActive = ($resident->joining_date <= $endDate) && 
+                         (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+            
+            if (!$wasActive) {
+                continue;
+            }
+            
+            $payment = Payment::where('resident_id', $residentId)
+                ->where('month', $m)
+                ->where('year', $y)
+                ->first();
+                
+            if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
+                $pendingPayments->push($payment);
+            } elseif (!$payment) {
+                $virtualPayment = new Payment([
+                    'resident_id' => $residentId,
+                    'month' => $m,
+                    'year' => $y,
+                    'rent_amount' => $resident->rent_amount ?? 0,
+                    'balance_amount' => $resident->rent_amount ?? 0,
+                    'status' => 'PENDING',
+                    'remark' => 'No payment recorded for this month'
+                ]);
+                $virtualPayment->id = 0;
+                $pendingPayments->push($virtualPayment);
+            }
+        }
+    }
+    
+    return $pendingPayments->sortBy(function($item) {
+        return $item->year . '-' . str_pad($item->month, 2, '0', STR_PAD_LEFT);
+    })->values();
+}
+/**
+ * Get previous pending total - FIXED to check if resident was active during those months
+ */
+private function getPreviousPending($residentId, $month, $year)
+{
+    $resident = Resident::find($residentId);
+    if (!$resident) {
+        return 0;
+    }
+
+    $pendingTotal = 0;
+    
+    // Get all previous months
+    for ($m = 1; $m < $month; $m++) {
+        $payment = Payment::where('resident_id', $residentId)
+            ->where('month', $m)
+            ->where('year', $year)
+            ->first();
+            
+        // Check if resident was active during this month
+        $startDate = date('Y-m-01', strtotime("$year-$m-01"));
+        $endDate = date('Y-m-t', strtotime("$year-$m-01"));
+        
+        $wasActive = ($resident->joining_date <= $endDate) && 
+                     (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+        
+        if (!$wasActive) {
+            continue; // Skip inactive months
+        }
+        
+        if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
+            $pendingTotal += $payment->balance_amount;
+        } elseif (!$payment && $wasActive) {
+            // No payment record for this month - full rent is pending
+            $pendingTotal += ($resident->rent_amount ?? 0);
+        }
+    }
+    
+    // Check previous years
+    for ($y = $year - 1; $y >= 2000; $y--) {
+        for ($m = 12; $m >= 1; $m--) {
+            // Skip if this is current year and month is >= current month
+            if ($y == $year && $m >= $month) {
+                continue;
+            }
+            
+            $payment = Payment::where('resident_id', $residentId)
+                ->where('month', $m)
+                ->where('year', $y)
+                ->first();
+                
+            $startDate = date('Y-m-01', strtotime("$y-$m-01"));
+            $endDate = date('Y-m-t', strtotime("$y-$m-01"));
+            
+            $wasActive = ($resident->joining_date <= $endDate) && 
+                         (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+            
+            if (!$wasActive) {
+                continue; // Skip inactive months
+            }
+            
+            if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
+                $pendingTotal += $payment->balance_amount;
+            } elseif (!$payment && $wasActive) {
+                $pendingTotal += ($resident->rent_amount ?? 0);
+            }
+        }
+    }
+    
+    return $pendingTotal;
+}
 
     /**
      * Filter residents who were active during the selected month
