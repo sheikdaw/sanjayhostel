@@ -51,6 +51,7 @@
     .payment-status-badge.pending { background: #ef4444; color: white; }
     .payment-status-badge.partial { background: #f59e0b; color: white; }
     .payment-status-badge.paid { background: #22c55e; color: white; }
+    .payment-status-badge.unpaid { background: #6b7280; color: white; }
     .payment-status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: white; display: inline-block; }
 
     .payment-body { padding: 1rem 1.25rem; }
@@ -108,10 +109,12 @@
     .status-badge.pending { background: #fee2e2; color: #991b1b; }
     .status-badge.partial { background: #fef3c7; color: #92400e; }
     .status-badge.paid { background: #dcfce7; color: #166534; }
+    .status-badge.unpaid { background: #e5e7eb; color: #4b5563; }
     .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
     .status-badge.pending .dot { background: #ef4444; }
     .status-badge.partial .dot { background: #f59e0b; }
     .status-badge.paid .dot { background: #22c55e; }
+    .status-badge.unpaid .dot { background: #6b7280; }
 
     .btn-action {
         padding: 0.2rem 0.5rem;
@@ -311,9 +314,16 @@
     .discount-badge.applied { background: #dcfce7; color: #166534; }
     .discount-badge.not-applied { background: #fee2e2; color: #991b1b; }
 
-    .payment-status-badge.unpaid { background: #6b7280; color: white; }
-    .status-badge.unpaid { background: #e5e7eb; color: #4b5563; }
-    .status-badge.unpaid .dot { background: #6b7280; }
+    .payments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 1rem;
+    }
+    @media (max-width: 768px) {
+        .payments-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 @endpush
 
@@ -337,7 +347,6 @@
                 <i class="bi bi-download"></i> Export
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:350px; padding:0.5rem;">
-                <!-- Filtered Reports -->
                 <li class="dropdown-header">📊 Filtered Reports</li>
                 <li>
                     <a class="dropdown-item" href="#" onclick="exportWithType('filtered')">
@@ -349,7 +358,6 @@
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Filtered Payments (PDF)
                     </a>
                 </li>
-                
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">📋 Payment Status Reports</li>
                 <li>
@@ -362,7 +370,6 @@
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Payment Status (PDF)
                     </a>
                 </li>
-                
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">📈 Summary Reports</li>
                 <li>
@@ -370,7 +377,6 @@
                         <i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (PDF)
                     </a>
                 </li>
-                
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">🏢 Hostel Wise Reports</li>
                 @foreach($hostels as $hostel)
@@ -380,7 +386,6 @@
                         </a>
                     </li>
                 @endforeach
-                
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">🔴 Unpaid Reports</li>
                 <li>
@@ -393,7 +398,6 @@
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid Summary (PDF)
                     </a>
                 </li>
-                
                 <li><hr class="dropdown-divider"></li>
                 <li class="dropdown-header">✅ Paid Reports</li>
                 <li>
@@ -540,7 +544,341 @@
         </div>
     </div>
 </div>
-                
+
+{{-- PAYMENT CARDS GRID --}}
+<div class="payments-grid">
+    @if(count($combinedData) > 0)
+        @foreach($combinedData as $payment)
+            <div class="payment-card" id="payment-card-{{ $payment->id }}">
+                <div class="card-checkbox">
+                    <input type="checkbox" class="payment-checkbox" value="{{ $payment->id }}" onchange="updateBulkActions()">
+                </div>
+                <div class="payment-header" style="background: {{ $payment->status == 'PAID' ? '#22c55e' : ($payment->status == 'PARTIAL' ? '#f59e0b' : ($payment->status == 'UNPAID' ? '#6b7280' : '#ef4444')) }};">
+                    <div>
+                        <strong style="font-size:0.9rem;">{{ $payment->resident->name ?? 'N/A' }}</strong>
+                        <div style="font-size:0.65rem; opacity:0.8;">{{ $payment->resident->resident_code ?? '' }} | Room #{{ $payment->resident->room->room_no ?? 'N/A' }}</div>
+                    </div>
+                    <span class="payment-status-badge {{ strtolower($payment->status) }}">
+                        <span class="dot"></span> {{ $payment->status }}
+                    </span>
+                </div>
+                <div class="payment-body">
+                    <div class="payment-meta">
+                        <i class="bi bi-receipt"></i> Receipt: {{ $payment->receipt_no }}
+                    </div>
+                    <div class="payment-meta">
+                        <i class="bi bi-calendar3"></i> {{ date('F', mktime(0,0,0,$payment->month,1)) }} {{ $payment->year }}
+                    </div>
+                    <div class="payment-meta">
+                        <i class="bi bi-building"></i> {{ $payment->resident->hostel->hostel_name ?? 'N/A' }}
+                    </div>
+
+                    <div class="payment-stats">
+                        <div class="payment-stat-item">
+                            <div class="number">₹{{ number_format($payment->rent_amount, 0) }}</div>
+                            <div class="label">Rent</div>
+                        </div>
+                        <div class="payment-stat-item">
+                            <div class="number {{ $payment->balance_amount > 0 ? 'balance-due' : 'balance-clear' }}">
+                                ₹{{ number_format($payment->balance_amount, 0) }}
+                            </div>
+                            <div class="label">Balance</div>
+                        </div>
+                        <div class="payment-stat-item">
+                            <div class="number">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 0) }}</div>
+                            <div class="label">Paid</div>
+                        </div>
+                    </div>
+
+                    @if($payment->discount_amount > 0)
+                        <div class="payment-meta" style="color:#166534;">
+                            <i class="bi bi-tag"></i> Discount: ₹{{ number_format($payment->discount_amount, 2) }}
+                        </div>
+                    @endif
+
+                    @if($payment->fine_amount > 0)
+                        <div class="payment-meta" style="color:#dc2626;">
+                            <i class="bi bi-exclamation-triangle"></i> Fine: ₹{{ number_format($payment->fine_amount, 2) }}
+                        </div>
+                    @endif
+
+                    @if($payment->previous_pending_amount > 0)
+                        <div class="payment-meta" style="color:#f59e0b;">
+                            <i class="bi bi-clock-history"></i> Previous Pending: ₹{{ number_format($payment->previous_pending_amount, 2) }}
+                        </div>
+                    @endif
+
+                    @if($payment->remark)
+                        <div class="remark-box">
+                            <i class="bi bi-chat-left-text" style="color:var(--sanjay-gold);"></i>
+                            <span>{{ $payment->remark }}</span>
+                        </div>
+                    @endif
+
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <span style="font-size:0.65rem; color:#6b7280;">
+                            <i class="bi bi-clock"></i> {{ $payment->payment_date ? date('d M Y', strtotime($payment->payment_date)) : 'N/A' }}
+                        </span>
+                        <div class="d-flex gap-1">
+                            @if($payment->status != 'PAID')
+                                <button class="btn-action text-success" onclick="markAsPaid({{ $payment->id }})" title="Mark as Paid">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            @endif
+                            <button class="btn-action text-primary" onclick="editPayment({{ $payment->id }})" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn-action text-danger" onclick="deletePayment({{ $payment->id }})" title="Delete">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    @else
+        <div class="empty-state" style="grid-column: 1 / -1;">
+            <i class="bi bi-inbox"></i>
+            <h4>No payments found</h4>
+            <p style="color: #6b7280;">Try adjusting your filters or create a new payment</p>
+        </div>
+    @endif
+</div>
+
+{{-- ============================================================ --}}
+{{-- PAYMENT MODAL --}}
+{{-- ============================================================ --}}
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Add Payment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="paymentForm" novalidate>
+                @csrf
+                <input type="hidden" id="editId" name="edit_id" value="">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Hostel <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-building rv-input-icon"></i>
+                                <select class="rv-input" id="modal_hostel_id" name="hostel_id" required>
+                                    <option value="">Select Hostel</option>
+                                    @foreach($hostels as $hostel)
+                                        <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="hostel_id_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Room <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-door-open rv-input-icon"></i>
+                                <select class="rv-input" id="modal_room_id" name="room_id" required disabled>
+                                    <option value="">Select Hostel First</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="room_id_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Resident <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-person rv-input-icon"></i>
+                                <select class="rv-input" id="resident_id" name="resident_id" required disabled>
+                                    <option value="">Select Room First</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="resident_id_error"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Month <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-month rv-input-icon"></i>
+                                <select class="rv-input" id="month" name="month" required>
+                                    @for($m = 1; $m <= 12; $m++)
+                                        <option value="{{ $m }}" {{ $m == now()->month ? 'selected' : '' }}>{{ date('F', mktime(0,0,0,$m,1)) }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="month_error"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Year <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-year rv-input-icon"></i>
+                                <select class="rv-input" id="year" name="year" required>
+                                    @for($y = date('Y') - 2; $y <= date('Y') + 1; $y++)
+                                        <option value="{{ $y }}" {{ $y == now()->year ? 'selected' : '' }}>{{ $y }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="year_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Date <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-date rv-input-icon"></i>
+                                <input type="date" class="rv-input" id="payment_date" name="payment_date" required>
+                            </div>
+                            <div class="invalid-feedback" id="payment_date_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rent Amount</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-currency-rupee rv-input-icon"></i>
+                                <input type="number" class="rv-input" id="rent_amount" name="rent_amount" step="0.01" readonly>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Discount</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-tag rv-input-icon"></i>
+                                <input type="number" class="rv-input" id="discount_amount" name="discount_amount" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fine</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-exclamation-triangle rv-input-icon"></i>
+                                <input type="number" class="rv-input" id="fine_amount" name="fine_amount" step="0.01" value="0">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-tag rv-input-icon"></i>
+                                <select class="rv-input" id="status" name="status">
+                                    <option value="PENDING">Pending</option>
+                                    <option value="PARTIAL">Partial</option>
+                                    <option value="PAID">Paid</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Cash Paid <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-cash rv-input-icon"></i>
+                                <input type="number" class="rv-input" id="cash_paid_amount" name="cash_paid_amount" step="0.01" value="0" required>
+                            </div>
+                            <div class="invalid-feedback" id="cash_paid_amount_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">UPI Paid <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-phone rv-input-icon"></i>
+                                <input type="number" class="rv-input" id="upi_paid_amount" name="upi_paid_amount" step="0.01" value="0" required>
+                            </div>
+                            <div class="invalid-feedback" id="upi_paid_amount_error"></div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Transaction ID</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-hash rv-input-icon"></i>
+                                <input type="text" class="rv-input" id="transaction_id" name="transaction_id" placeholder="Optional">
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div id="pendingWarning" style="display:none;"></div>
+                            <div id="alreadyPaidWarning" style="display:none;"></div>
+                            <div id="remarkPreview" style="display:none; margin-top:8px; padding:8px 12px; background:#eff6ff; border-radius:6px; border-left:3px solid #3b82f6;">
+                                <span style="font-size:0.75rem; color:#1e40af;">
+                                    <i class="bi bi-info-circle"></i> <span id="remarkPreviewText"></span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="rv-submit" id="saveBtn" style="width:auto; padding:0.6rem 1.5rem;">
+                        <i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- ============================================================ --}}
+{{-- BULK PAYMENT MODAL --}}
+{{-- ============================================================ --}}
+<div class="modal fade" id="bulkPaymentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Payment Creation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="bulkPaymentForm" novalidate>
+                @csrf
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Select Residents <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-people rv-input-icon" style="top: 20px;"></i>
+                                <select class="rv-input" id="bulk_resident_ids" name="resident_ids[]" multiple required style="min-height:150px; padding-top:0.6rem;">
+                                    @foreach($residents as $resident)
+                                        <option value="{{ $resident->id }}">
+                                            {{ $resident->name }} ({{ $resident->resident_code }}) - {{ $resident->hostel->hostel_name ?? '' }} - Room #{{ $resident->room->room_no ?? '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="resident_ids_error"></div>
+                            <small class="text-muted">Hold Ctrl/Cmd to select multiple residents</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Month <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-month rv-input-icon"></i>
+                                <select class="rv-input" id="bulk_month" name="month" required>
+                                    @for($m = 1; $m <= 12; $m++)
+                                        <option value="{{ $m }}" {{ $m == now()->month ? 'selected' : '' }}>{{ date('F', mktime(0,0,0,$m,1)) }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="month_error"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Year <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-year rv-input-icon"></i>
+                                <select class="rv-input" id="bulk_year" name="year" required>
+                                    @for($y = date('Y') - 2; $y <= date('Y') + 1; $y++)
+                                        <option value="{{ $y }}" {{ $y == now()->year ? 'selected' : '' }}>{{ $y }}</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="year_error"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Payment Date <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-date rv-input-icon"></i>
+                                <input type="date" class="rv-input" id="bulk_payment_date" name="payment_date" required>
+                            </div>
+                            <div class="invalid-feedback" id="payment_date_error"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="rv-submit" id="bulkSaveBtn" style="width:auto; padding:0.6rem 1.5rem; background:#6b7280;">
+                        <i class="bi bi-collection"></i> Create
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- Toast Container --}}
+<div class="toast-container" id="flashMessageContainer"></div>
+
 @push('scripts')
 <script>
 $(document).ready(function() {
@@ -970,7 +1308,6 @@ function editPayment(id) {
                 $('#saveBtn').prop('disabled', false);
                 $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
 
-                // Load hostel/room/resident
                 let hostelId = data.resident ? data.resident.hostel_id : null;
                 let roomId = data.resident ? data.resident.room_id : null;
                 let residentId = data.resident_id;
