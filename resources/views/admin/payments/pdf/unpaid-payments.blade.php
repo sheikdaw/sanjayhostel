@@ -115,7 +115,7 @@
             <strong>Month:</strong> {{ $month }} {{ $year }} &nbsp;|&nbsp;
             <strong>Generated:</strong> {{ $generated_at }} &nbsp;|&nbsp;
             <strong>Total Unpaid:</strong> {{ $totalResidents }} residents &nbsp;|&nbsp;
-            <strong>Total Due:</strong> ₹{{ number_format($totalOverall, 2) }}
+            <strong>Total Due:</strong> {{ number_format($totalOverall, 2) }}
         </p>
         @if($filters['hostel'] != 'All')
             <p><strong>Hostel:</strong> {{ $filters['hostel'] }}</p>
@@ -133,10 +133,10 @@
                             <th style="width:25%;">Name</th>
                             <th style="width:12%;">Room</th>
                             <th style="width:15%;">Phone</th>
-                            <th style="width:12%;" class="text-right">Rent (₹)</th>
-                            <th style="width:15%;" class="text-right">Previous Pending (₹)</th>
-                            <th style="width:15%;" class="text-right">Current Balance (₹)</th>
-                            <th style="width:15%;" class="text-right">Total Due (₹)</th>
+                            <th style="width:12%;" class="text-right">Rent ()</th>
+                            <th style="width:15%;" class="text-right">Previous Pending ()</th>
+                            <th style="width:15%;" class="text-right">Current Balance ()</th>
+                            <th style="width:15%;" class="text-right">Total Due ()</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -155,7 +155,7 @@
                                     {{ number_format($resident['current_balance'], 2) }}
                                 </td>
                                 <td class="text-right amount due">
-                                    <strong>₹{{ number_format($resident['total_due'], 2) }}</strong>
+                                    <strong>{{ number_format($resident['total_due'], 2) }}</strong>
                                 </td>
                             </tr>
                             @php $serialNo++; @endphp
@@ -163,7 +163,7 @@
                         <tr class="total-row">
                             <td colspan="7" class="text-right"><strong>TOTAL</strong></td>
                             <td class="text-right amount due">
-                                <strong>₹{{ number_format(collect($data['residents'])->sum('total_due'), 2) }}</strong>
+                                <strong>{{ number_format(collect($data['residents'])->sum('total_due'), 2) }}</strong>
                             </td>
                         </tr>
                     </tbody>
@@ -178,7 +178,7 @@
                         GRAND TOTAL DUE
                     </td>
                     <td style="border:none; text-align:right; font-size:14px; font-weight:bold; color:#dc2626;">
-                        ₹{{ number_format($totalOverall, 2) }}
+                        {{ number_format($totalOverall, 2) }}
                     </td>
                 </tr>
             </table>

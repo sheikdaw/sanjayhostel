@@ -93,15 +93,15 @@
                         <div class="label">🟡 Partial</div>
                     </div>
                     <div class="summary-item">
-                        <div class="number text-primary">₹{{ number_format($totalRent, 0) }}</div>
+                        <div class="number text-primary">{{ number_format($totalRent, 0) }}</div>
                         <div class="label">Total Rent</div>
                     </div>
                     <div class="summary-item">
-                        <div class="number text-success">₹{{ number_format($totalCollected, 0) }}</div>
+                        <div class="number text-success">{{ number_format($totalCollected, 0) }}</div>
                         <div class="label">Collected</div>
                     </div>
                     <div class="summary-item">
-                        <div class="number text-danger">₹{{ number_format($totalBalance, 0) }}</div>
+                        <div class="number text-danger">{{ number_format($totalBalance, 0) }}</div>
                         <div class="label">Balance</div>
                     </div>
                 </div>
@@ -144,37 +144,37 @@
             <div class="section-title" style="margin-top:6px;">Amount Details</div>
             <div class="row">
                 <span class="label">Rent</span>
-                <span class="value">₹{{ number_format($payment->rent_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->rent_amount, 2) }}</span>
             </div>
             @if($payment->discount_amount > 0)
             <div class="row" style="color:#2e7d32;">
                 <span class="label">Discount</span>
-                <span class="value">-₹{{ number_format($payment->discount_amount, 2) }}</span>
+                <span class="value">-{{ number_format($payment->discount_amount, 2) }}</span>
             </div>
             @endif
             @if($payment->fine_amount > 0)
             <div class="row" style="color:#c62828;">
                 <span class="label">Fine</span>
-                <span class="value">+₹{{ number_format($payment->fine_amount, 2) }}</span>
+                <span class="value">+{{ number_format($payment->fine_amount, 2) }}</span>
             </div>
             @endif
             <div class="row">
                 <span class="label">Cash</span>
-                <span class="value">₹{{ number_format($payment->cash_paid_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->cash_paid_amount, 2) }}</span>
             </div>
             <div class="row">
                 <span class="label">UPI</span>
-                <span class="value">₹{{ number_format($payment->upi_paid_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->upi_paid_amount, 2) }}</span>
             </div>
 
             <div class="total-row">
                 <span class="label">Total Paid</span>
-                <span class="value">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) }}</span>
             </div>
             <div class="total-row" style="background:{{ $payment->balance_amount > 0 ? '#ffebee' : '#e8f5e9' }};">
                 <span class="label">Balance</span>
                 <span class="value {{ $payment->balance_amount > 0 ? 'text-danger' : 'text-success' }}">
-                    ₹{{ number_format($payment->balance_amount, 2) }}
+                    {{ number_format($payment->balance_amount, 2) }}
                 </span>
             </div>
 

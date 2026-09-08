@@ -58,9 +58,9 @@
                 <th width="90">Resident</th>
                 <th width="40">Room</th>
                 <th width="35">Bed</th>
-                <th width="45">Rent (₹)</th>
-                <th width="45">Paid (₹)</th>
-                <th width="45">Balance (₹)</th>
+                <th width="45">Rent ()</th>
+                <th width="45">Paid ()</th>
+                <th width="45">Balance ()</th>
                 <th width="35">Count</th>
                 <th width="55">Status</th>
                 <th width="100">Remark</th>
@@ -103,13 +103,13 @@
                     <th>Room</th>
                     <th>Month</th>
                     <th>Year</th>
-                    <th>Rent (₹)</th>
-                    <th>Disc (₹)</th>
-                    <th>Fine (₹)</th>
-                    <th>Cash (₹)</th>
-                    <th>UPI (₹)</th>
-                    <th>Paid (₹)</th>
-                    <th>Balance (₹)</th>
+                    <th>Rent ()</th>
+                    <th>Disc ()</th>
+                    <th>Fine ()</th>
+                    <th>Cash ()</th>
+                    <th>UPI ()</th>
+                    <th>Paid ()</th>
+                    <th>Balance ()</th>
                     <th>Status</th>
                     <th>Date</th>
                     <th>Remark</th>
@@ -164,15 +164,15 @@
                 <div class="label">🟡 Partial</div>
             </div>
             <div class="summary-item">
-                <div class="number text-primary">₹{{ number_format($summary['total_rent'], 2) }}</div>
+                <div class="number text-primary">{{ number_format($summary['total_rent'], 2) }}</div>
                 <div class="label">Total Rent</div>
             </div>
             <div class="summary-item">
-                <div class="number text-success">₹{{ number_format($summary['total_collected'], 2) }}</div>
+                <div class="number text-success">{{ number_format($summary['total_collected'], 2) }}</div>
                 <div class="label">Total Collected</div>
             </div>
             <div class="summary-item">
-                <div class="number text-danger">₹{{ number_format($summary['total_balance'], 2) }}</div>
+                <div class="number text-danger">{{ number_format($summary['total_balance'], 2) }}</div>
                 <div class="label">Total Balance</div>
             </div>
             <div class="summary-item">

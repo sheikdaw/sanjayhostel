@@ -115,37 +115,37 @@
             <div class="section-title" style="margin-top:12px;">💰 Amount Breakdown</div>
             <div class="amount-row">
                 <span class="label">Monthly Rent</span>
-                <span class="value">₹{{ number_format($payment->rent_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->rent_amount, 2) }}</span>
             </div>
             @if($payment->discount_amount > 0)
             <div class="amount-row" style="background:#e8f5e9;">
                 <span class="label text-success">Discount (-)</span>
-                <span class="value text-success">-₹{{ number_format($payment->discount_amount, 2) }}</span>
+                <span class="value text-success">-{{ number_format($payment->discount_amount, 2) }}</span>
             </div>
             @endif
             @if($payment->fine_amount > 0)
             <div class="amount-row" style="background:#ffebee;">
                 <span class="label text-danger">Fine (+)</span>
-                <span class="value text-danger">+₹{{ number_format($payment->fine_amount, 2) }}</span>
+                <span class="value text-danger">+{{ number_format($payment->fine_amount, 2) }}</span>
             </div>
             @endif
             <div class="amount-row" style="background:#f5f5f5;">
                 <span class="label">Cash Paid</span>
-                <span class="value">₹{{ number_format($payment->cash_paid_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->cash_paid_amount, 2) }}</span>
             </div>
             <div class="amount-row" style="background:#f5f5f5;">
                 <span class="label">UPI Paid</span>
-                <span class="value">₹{{ number_format($payment->upi_paid_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->upi_paid_amount, 2) }}</span>
             </div>
 
             <div class="total-row">
                 <span class="label">Total Paid</span>
-                <span class="value">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) }}</span>
+                <span class="value">{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) }}</span>
             </div>
             <div class="total-row" style="background:{{ $payment->balance_amount > 0 ? '#ffebee' : '#e8f5e9' }};">
                 <span class="label">Balance Due</span>
                 <span class="value {{ $payment->balance_amount > 0 ? 'text-danger' : 'text-success' }}">
-                    ₹{{ number_format($payment->balance_amount, 2) }}
+                    {{ number_format($payment->balance_amount, 2) }}
                     @if($payment->balance_amount == 0)
                         <span style="font-size:9px;"> (✅ Cleared)</span>
                     @endif
@@ -165,11 +165,11 @@
             </div>
             @elseif($payment->status == 'PARTIAL')
             <div style="text-align:center; margin-top:10px; padding:6px; background:#fff3e0; border-radius:4px;">
-                <span style="color:#e65100; font-weight:bold; font-size:12px;">🟡 Partial Payment - Balance Due: ₹{{ number_format($payment->balance_amount, 2) }}</span>
+                <span style="color:#e65100; font-weight:bold; font-size:12px;">🟡 Partial Payment - Balance Due: {{ number_format($payment->balance_amount, 2) }}</span>
             </div>
             @else
             <div style="text-align:center; margin-top:10px; padding:6px; background:#ffebee; border-radius:4px;">
-                <span style="color:#c62828; font-weight:bold; font-size:12px;">⏳ Pending Payment - Due: ₹{{ number_format($payment->balance_amount, 2) }}</span>
+                <span style="color:#c62828; font-weight:bold; font-size:12px;">⏳ Pending Payment - Due: {{ number_format($payment->balance_amount, 2) }}</span>
             </div>
             @endif
         </div>
