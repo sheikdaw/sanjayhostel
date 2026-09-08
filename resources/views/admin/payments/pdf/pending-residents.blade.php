@@ -56,8 +56,8 @@
                     <th width="35">Bed</th>
                     <th width="90">Resident</th>
                     <th width="50">Phone</th>
-                    <th width="45">Rent ()</th>
-                    <th width="45">Due ()</th>
+                    <th width="45">Rent (₹)</th>
+                    <th width="45">Due (₹)</th>
                     <th width="50">Status</th>
                     <th width="100">Remark</th>
                 </tr>
@@ -81,7 +81,7 @@
                         <td>{{ $resident->name }}</td>
                         <td>{{ $resident->phone ?? '' }}</td>
                         <td>{{ number_format($resident->rent_amount ?? 0, 2) }}</td>
-                        <td><strong>{{ number_format($item['due_amount'], 2) }}</strong></td>
+                        <td><strong>₹{{ number_format($item['due_amount'], 2) }}</strong></td>
                         <td><span class="badge badge-{{ $statusClass }}">{{ $status }}</span></td>
                         <td class="remark-cell">{{ $remark }}</td>
                     </tr>
@@ -121,11 +121,11 @@
                     <div class="label">⬜ No Payment</div>
                 </div>
                 <div class="summary-item">
-                    <div class="number text-primary">{{ number_format($totalRent, 2) }}</div>
+                    <div class="number text-primary">₹{{ number_format($totalRent, 2) }}</div>
                     <div class="label">Total Rent</div>
                 </div>
                 <div class="summary-item">
-                    <div class="number text-danger">{{ number_format($totalDue, 2) }}</div>
+                    <div class="number text-danger">₹{{ number_format($totalDue, 2) }}</div>
                     <div class="label">Total Due</div>
                 </div>
                 <div class="summary-item">

@@ -308,7 +308,7 @@
     </div>
     <div class="stat-card rent">
         <div class="icon">💰</div>
-        <div class="number">{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
+        <div class="number">₹{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
         <div class="label">Total Monthly Rent</div>
     </div>
     <div class="stat-card">
@@ -410,11 +410,11 @@
                             <div class="row mb-3">
                                 <div class="col-6">
                                     <div style="font-size:0.7rem; color:#6b7280;">Monthly Rent</div>
-                                    <div class="rent-amount">{{ number_format($roomType->monthly_rent, 2) }}</div>
+                                    <div class="rent-amount">₹{{ number_format($roomType->monthly_rent, 2) }}</div>
                                 </div>
                                 <div class="col-6">
                                     <div style="font-size:0.7rem; color:#6b7280;">Deposit</div>
-                                    <div style="font-size:1.1rem; font-weight:600; color:var(--sanjay-primary);">{{ number_format($roomType->deposit_amount ?? 0, 2) }}</div>
+                                    <div style="font-size:1.1rem; font-weight:600; color:var(--sanjay-primary);">₹{{ number_format($roomType->deposit_amount ?? 0, 2) }}</div>
                                 </div>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
@@ -514,7 +514,7 @@
                             <div class="invalid-feedback" id="is_active_error"></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Monthly Rent () <span class="required">*</span></label>
+                            <label class="form-label">Monthly Rent (₹) <span class="required">*</span></label>
                             <div class="rv-input-box">
                                 <i class="bi bi-currency-rupee rv-input-icon"></i>
                                 <input type="number" name="monthly_rent" id="monthly_rent" class="rv-input" placeholder="0.00" step="0.01" min="0" required>
@@ -522,7 +522,7 @@
                             <div class="invalid-feedback" id="monthly_rent_error"></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Deposit Amount ()</label>
+                            <label class="form-label">Deposit Amount (₹)</label>
                             <div class="rv-input-box">
                                 <i class="bi bi-currency-rupee rv-input-icon"></i>
                                 <input type="number" name="deposit_amount" id="deposit_amount" class="rv-input" placeholder="0.00" step="0.01" min="0">

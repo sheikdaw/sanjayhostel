@@ -151,7 +151,7 @@ class AdvanceController extends Controller
         if ($request->amount > $employee->advance_balance) {
             return response()->json([
                 'success' => false,
-                'message' => 'Deduction amount exceeds the outstanding advance balance (' .
+                'message' => 'Deduction amount exceeds the outstanding advance balance (₹' .
                     number_format($employee->advance_balance, 2) . ').',
             ], 422);
         }

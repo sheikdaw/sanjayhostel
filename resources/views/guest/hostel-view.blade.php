@@ -1095,7 +1095,7 @@
                 totalToPay: 'Total to Pay',
                 allPaid: '✅ All Paid',
                 enterPaymentDetails: 'Enter Payment Details',
-                amount: 'Amount ()',
+                amount: 'Amount (₹)',
                 paymentMethod: 'Payment Method',
                 cash: 'Cash',
                 upi: 'UPI',
@@ -1196,7 +1196,7 @@
                 totalToPay: 'செலுத்த வேண்டிய மொத்தம்',
                 allPaid: '✅ அனைத்தும் செலுத்தப்பட்டது',
                 enterPaymentDetails: 'கட்டண விவரங்களை உள்ளிடுக',
-                amount: 'தொகை ()',
+                amount: 'தொகை (₹)',
                 paymentMethod: 'கட்டண முறை',
                 cash: 'பணம்',
                 upi: 'யுபிஐ',
@@ -1679,7 +1679,7 @@
             if (status === 'PARTIAL' && balance > 0) {
                 balanceDisplay = `<div class="payment-detail" style="color:#92400e; border-bottom: 2px solid var(--status-partial);">
                     <span class="label"><i class="bi bi-currency-rupee"></i> ${t('remainingBalance')}</span>
-                    <span class="value" style="color:var(--warning); font-weight:700;">${balance.toFixed(2)}</span>
+                    <span class="value" style="color:var(--warning); font-weight:700;">₹${balance.toFixed(2)}</span>
                 </div>`;
             }
 
@@ -1753,7 +1753,7 @@
                         <div class="status-badge-large ${statusBadgeClass}">
                             <span class="dot"></span>
                             ${isFullPaid ? '✅ ' + t('paidStatus') : statusLabel}
-                            ${status === 'PARTIAL' ? ` (${balance.toFixed(0)})` : ''}
+                            ${status === 'PARTIAL' ? ` (₹${balance.toFixed(0)})` : ''}
                         </div>
                     </div>
 
@@ -1761,15 +1761,15 @@
                     <div class="payment-detail"><span class="label"><i class="bi bi-envelope"></i> ${t('email')}</span><span class="value">${data.email || 'Not provided'}</span></div>
                     <div class="payment-detail" style="border-top:2px solid #e5e7eb; padding-top:0.4rem; margin-top:0.4rem;">
                         <span class="label"><i class="bi bi-currency-rupee"></i> ${t('monthlyRent')}</span>
-                        <span class="value">${rent.toFixed(2)}</span>
+                        <span class="value">₹${rent.toFixed(2)}</span>
                     </div>
-                    ${data.discount > 0 ? `<div class="payment-detail" style="color:#065f46;"><span class="label"><i class="bi bi-tag"></i> ${t('discount')}</span><span class="value" style="color:#065f46;">- ${data.discount.toFixed(2)}</span></div>` : ''}
-                    ${data.fine_amount > 0 ? `<div class="payment-detail" style="color:#991b1b;"><span class="label"><i class="bi bi-clock"></i> ${t('lateFee')}</span><span class="value" style="color:#991b1b;">+ ${data.fine_amount.toFixed(2)}</span></div>` : ''}
+                    ${data.discount > 0 ? `<div class="payment-detail" style="color:#065f46;"><span class="label"><i class="bi bi-tag"></i> ${t('discount')}</span><span class="value" style="color:#065f46;">- ₹${data.discount.toFixed(2)}</span></div>` : ''}
+                    ${data.fine_amount > 0 ? `<div class="payment-detail" style="color:#991b1b;"><span class="label"><i class="bi bi-clock"></i> ${t('lateFee')}</span><span class="value" style="color:#991b1b;">+ ₹${data.fine_amount.toFixed(2)}</span></div>` : ''}
                     ${balanceDisplay}
                     <div class="payment-detail" style="border-top:2px solid var(--gold); padding-top:0.4rem; margin-top:0.4rem;">
                         <span class="label"><strong>${t('totalToPay')}</strong></span>
                         <span class="value ${amount > 0 ? 'due' : 'clear'}" style="font-size:1.1rem;">
-                            ${amount > 0 ? '' + amount.toFixed(2) : '✅ ' + t('allPaid')}
+                            ${amount > 0 ? '₹' + amount.toFixed(2) : '✅ ' + t('allPaid')}
                         </span>
                     </div>
                     ${data.discount_message ? `<div class="alert alert-info mt-2" style="font-size:0.7rem; padding:0.3rem 0.6rem;"><i class="bi bi-info-circle"></i> ${data.discount_message}</div>` : ''}
@@ -1857,9 +1857,9 @@
                             ${data.payment_history.map(p => `
                             <tr>
                                 <td>${p.month}</td>
-                                <td>${p.rent}</td>
-                                <td>${p.paid}</td>
-                                <td>${p.balance}</td>
+                                <td>₹${p.rent}</td>
+                                <td>₹${p.paid}</td>
+                                <td>₹${p.balance}</td>
                                 <td><span class="badge-status ${p.status.toLowerCase()}">${p.status}</span></td>
                             </tr>`).join('')}
                         </tbody>
@@ -1996,8 +1996,8 @@
                                 <h5>${data.status_message}</h5>
                                 <div class="payment-detail" style="justify-content:center; gap:1.5rem; flex-wrap:wrap; border:none;">
                                     <div><span class="label">${t('receiptNo')}</span><br><span class="value">${data.receipt_no}</span></div>
-                                    <div><span class="label">${t('paidAmt')}</span><br><span class="value" style="color:var(--success);">${data.amount_paid.toFixed(2)}</span></div>
-                                    <div><span class="label">${t('balance')}</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">${data.balance.toFixed(2)}</span></div>
+                                    <div><span class="label">${t('paidAmt')}</span><br><span class="value" style="color:var(--success);">₹${data.amount_paid.toFixed(2)}</span></div>
+                                    <div><span class="label">${t('balance')}</span><br><span class="value ${data.balance > 0 ? 'due' : 'clear'}">₹${data.balance.toFixed(2)}</span></div>
                                     ${transactionHtml}
                                 </div>
                                 <div class="mt-2">

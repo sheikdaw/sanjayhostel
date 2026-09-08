@@ -714,8 +714,8 @@
                     <li><span class="check">✓</span> Gourmet Meals (Veg/Non-Veg)</li>
                     <li><span class="check">✓</span> Study Desk, Wardrobe &amp; Power Backup</li>
                 </ul>
-                <div class="price">12,000 <span>/ month</span></div>
-                <div class="price-note">*EB bill included up to 200 units | Extra units charged at 8/unit</div>
+                <div class="price">₹12,000 <span>/ month</span></div>
+                <div class="price-note">*EB bill included up to 200 units | Extra units charged at ₹8/unit</div>
                 <a href="{{ route('contact') }}" class="btn btn-gold">Enquire About Luxury →</a>
             </div>
 
@@ -732,15 +732,15 @@
                     <li><span class="check">✓</span> <span class="highlight-text">Washing Machine</span> (Common Area)</li>
                     <li><span class="check">✓</span> <span class="highlight-text">Water Heater</span> with RO Purified Water</li>
                     <li><span class="check">✓</span> <span class="highlight-text">EB Bill Extra</span> (Meter Reading Basis)</li>
-                    <li><span class="check">✓</span> 🏋️ <span class="highlight-text">Gym Access</span> (Additional 500/month)</li>
+                    <li><span class="check">✓</span> 🏋️ <span class="highlight-text">Gym Access</span> (Additional ₹500/month)</li>
                     <li><span class="check">✓</span> AC / Non-AC Room Options</li>
                     <li><span class="check">✓</span> High-Speed WiFi</li>
                     <li><span class="check">✓</span> 24/7 CCTV Security</li>
                     <li><span class="check">✓</span> Home-Style Meals (Veg/Non-Veg)</li>
                     <li><span class="check">✓</span> Daily Housekeeping &amp; Power Backup</li>
                 </ul>
-                <div class="price">6,500 <span>/ month</span></div>
-                <div class="price-note">*EB bill extra as per usage | Gym access at additional 500/month</div>
+                <div class="price">₹6,500 <span>/ month</span></div>
+                <div class="price-note">*EB bill extra as per usage | Gym access at additional ₹500/month</div>
                 <a href="{{ route('contact') }}" class="btn btn-ghost">Enquire About Normal →</a>
             </div>
         </div>
@@ -765,7 +765,7 @@
                 </div>
                 <div style="margin-top: 16px; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
                     <span style="color: var(--gold); font-weight: 700;">Luxury:</span> Free Gym Access &nbsp;|&nbsp; 
-                    <span style="color: var(--gold); font-weight: 700;">Normal:</span> 500/month
+                    <span style="color: var(--gold); font-weight: 700;">Normal:</span> ₹500/month
                 </div>
                 <a href="{{ route('contact') }}" class="btn btn-gold" style="margin-top: 20px;">💪 Check Gym Availability</a>
             </div>
@@ -897,14 +897,14 @@
                     Is the gym free for all residents?
                     <span class="plus" aria-hidden="true">+</span>
                 </button>
-                <div class="faq-a">Gym access is free for Luxury PG residents. Normal PG residents can access the gym for an additional 500 per month.</div>
+                <div class="faq-a">Gym access is free for Luxury PG residents. Normal PG residents can access the gym for an additional ₹500 per month.</div>
             </div>
             <div class="faq-item">
                 <button class="faq-q" aria-expanded="false">
                     How does the EB bill work?
                     <span class="plus" aria-hidden="true">+</span>
                 </button>
-                <div class="faq-a">For Luxury PG, EB bill is included up to 200 units per month. Extra units are charged at 8 per unit. For Normal PG, EB bill is charged as per individual meter reading.</div>
+                <div class="faq-a">For Luxury PG, EB bill is included up to 200 units per month. Extra units are charged at ₹8 per unit. For Normal PG, EB bill is charged as per individual meter reading.</div>
             </div>
             <div class="faq-item">
                 <button class="faq-q" aria-expanded="false">

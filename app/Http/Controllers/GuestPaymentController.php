@@ -25,9 +25,9 @@ class GuestPaymentController extends Controller
         $day = date('j', strtotime($paymentDate));
 
         if ($day <= 5) {
-            return 250;  // 250 discount for 1st-5th
+            return 250;  // ₹250 discount for 1st-5th
         } elseif ($day <= 10) {
-            return 125;  // 125 discount for 6th-10th
+            return 125;  // ₹125 discount for 6th-10th
         } else {
             return 0;    // No discount after 10th
         }
@@ -212,9 +212,9 @@ class GuestPaymentController extends Controller
             $discountType = '';
             if ($discount > 0) {
                 if ($day <= 5) {
-                    $discountType = 'Early Bird (250)';
+                    $discountType = 'Early Bird (₹250)';
                 } elseif ($day <= 10) {
-                    $discountType = 'Early Payment (125)';
+                    $discountType = 'Early Payment (₹125)';
                 }
             }
 
@@ -438,9 +438,9 @@ class GuestPaymentController extends Controller
                         $discount = 0;
                         $discountEligible = false;
                         if (!$willClearAllPending) {
-                            $discountReason = '❌ No discount: Does not clear all previous pending (' . number_format($totalPreviousPending, 2) . ' remaining)';
+                            $discountReason = '❌ No discount: Does not clear all previous pending (₹' . number_format($totalPreviousPending, 2) . ' remaining)';
                         } elseif (!$canCoverFullRent) {
-                            $discountReason = '❌ No discount: Does not pay full rent (' . number_format($amountForCurrentMonth, 2) . ' of ' . number_format($rentAmount, 2) . ')';
+                            $discountReason = '❌ No discount: Does not pay full rent (₹' . number_format($amountForCurrentMonth, 2) . ' of ₹' . number_format($rentAmount, 2) . ')';
                         } else {
                             $discountReason = '❌ No discount applied';
                         }
@@ -489,8 +489,8 @@ class GuestPaymentController extends Controller
                         // Update remark
                         $monthName = date('F Y', mktime(0,0,0,$prevPayment->month,1,$prevPayment->year));
                         $prevPayment->remark = ($newBalance <= 0)
-                            ? "✅ Previous {$monthName} pending " . number_format($prevBalance, 2) . " cleared on " . date('d M Y', strtotime($paymentDate)) . " (Online payment)"
-                            : "🟡 Partially cleared {$monthName}: " . number_format($payAmount, 2) . " on " . date('d M Y', strtotime($paymentDate)) . ". Remaining: " . number_format($newBalance, 2);
+                            ? "✅ Previous {$monthName} pending ₹" . number_format($prevBalance, 2) . " cleared on " . date('d M Y', strtotime($paymentDate)) . " (Online payment)"
+                            : "🟡 Partially cleared {$monthName}: ₹" . number_format($payAmount, 2) . " on " . date('d M Y', strtotime($paymentDate)) . ". Remaining: ₹" . number_format($newBalance, 2);
 
                         $prevPayment->save();
 
@@ -534,28 +534,28 @@ class GuestPaymentController extends Controller
                     $remark .= "Transaction ID: {$transactionId}\n";
                     
                     if ($discount > 0) {
-                        $remark .= "✅ Discount applied: " . number_format($discount, 2) . " (" . ($discount == 250 ? 'Early Bird 1st-5th' : 'Early Payment 6th-10th') . ")\n";
+                        $remark .= "✅ Discount applied: ₹" . number_format($discount, 2) . " (" . ($discount == 250 ? 'Early Bird 1st-5th' : 'Early Payment 6th-10th') . ")\n";
                     } else {
                         $remark .= $discountReason . "\n";
                     }
                     
                     if ($previousPaid > 0) {
-                        $remark .= "✅ Previous pending cleared: " . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))\n";
+                        $remark .= "✅ Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))\n";
                     }
                     
                     if ($currentPaid > 0) {
-                        $remark .= "✅ Current month paid: " . number_format($currentPaid, 2) . "\n";
+                        $remark .= "✅ Current month paid: ₹" . number_format($currentPaid, 2) . "\n";
                         if ($currentBalanceRemaining > 0) {
-                            $remark .= "⚠️ Current month remaining: " . number_format($currentBalanceRemaining, 2) . "\n";
+                            $remark .= "⚠️ Current month remaining: ₹" . number_format($currentBalanceRemaining, 2) . "\n";
                         }
                     }
                     
                     if ($advanceAmount > 0) {
-                        $remark .= "💰 Advance payment: " . number_format($advanceAmount, 2) . " (will adjust next month)\n";
+                        $remark .= "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)\n";
                     }
                     
                     if ($totalBalance > 0) {
-                        $remark .= "📊 Total pending: " . number_format($totalBalance, 2);
+                        $remark .= "📊 Total pending: ₹" . number_format($totalBalance, 2);
                     } else {
                         $remark .= "✅ All dues cleared!";
                     }
@@ -610,27 +610,27 @@ class GuestPaymentController extends Controller
                     // Build response message
                     $message = "✅ Payment completed successfully!\n";
                     $message .= "📋 Receipt: {$receiptNo}\n";
-                    $message .= "💰 Total paid: " . number_format($amount, 2) . "\n";
+                    $message .= "💰 Total paid: ₹" . number_format($amount, 2) . "\n";
                     $message .= "─────────────────────\n";
 
                     if ($previousPaid > 0) {
-                        $message .= "📅 Previous pending cleared: " . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))\n";
+                        $message .= "📅 Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))\n";
                     }
                     
                     if ($currentPaid > 0) {
-                        $message .= "📅 Current month paid: " . number_format($currentPaid, 2) . "\n";
+                        $message .= "📅 Current month paid: ₹" . number_format($currentPaid, 2) . "\n";
                     }
                     
                     if ($advanceAmount > 0) {
-                        $message .= "💰 Advance payment: " . number_format($advanceAmount, 2) . " (will adjust next month)\n";
+                        $message .= "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)\n";
                     }
                     
                     if ($discount > 0) {
-                        $message .= "✅ Discount applied: " . number_format($discount, 2) . "\n";
+                        $message .= "✅ Discount applied: ₹" . number_format($discount, 2) . "\n";
                     }
                     
                     if ($totalBalance > 0) {
-                        $message .= "⚠️ Remaining balance: " . number_format($totalBalance, 2);
+                        $message .= "⚠️ Remaining balance: ₹" . number_format($totalBalance, 2);
                     } else {
                         $message .= "✅ All dues cleared!";
                     }

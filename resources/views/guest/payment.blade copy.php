@@ -334,7 +334,7 @@
                 <div class="info-row"
                     style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
                     <span class="label"><i class="bi bi-currency-rupee"></i> Total Due</span>
-                    <span class="value due-amount" id="totalDue">0.00</span>
+                    <span class="value due-amount" id="totalDue">₹0.00</span>
                 </div>
                 <div id="pendingInfo">
                     <i class="bi bi-exclamation-triangle-fill"></i>
@@ -403,7 +403,7 @@
                         $('#residentRoom').text('Room #' + response.data.room_no);
                         $('#residentPhone').text(response.data.phone);
                         $('#residentEmail').text(response.data.email || 'Not provided');
-                        $('#totalDue').text('' + parseFloat(response.data.total_due).toFixed(2));
+                        $('#totalDue').text('₹' + parseFloat(response.data.total_due).toFixed(2));
 
                         if (response.data.total_due > 0) {
                             $('#totalDue').removeClass('clear').addClass('due-amount');

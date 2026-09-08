@@ -51,9 +51,9 @@
                 <th>Hostel</th>
                 <th>Residents</th>
                 <th>Payments</th>
-                <th>Total Rent ()</th>
-                <th>Collected ()</th>
-                <th>Balance ()</th>
+                <th>Total Rent (₹)</th>
+                <th>Collected (₹)</th>
+                <th>Balance (₹)</th>
                 <th>✅ Paid</th>
                 <th>⏳ Pending</th>
                 <th>🟡 Partial</th>
@@ -111,15 +111,15 @@
                 <div class="label">🟡 Partial</div>
             </div>
             <div class="summary-item">
-                <div class="number text-primary">{{ number_format($grandTotal['rent'], 2) }}</div>
+                <div class="number text-primary">₹{{ number_format($grandTotal['rent'], 2) }}</div>
                 <div class="label">Total Rent</div>
             </div>
             <div class="summary-item">
-                <div class="number text-success">{{ number_format($grandTotal['collected'], 2) }}</div>
+                <div class="number text-success">₹{{ number_format($grandTotal['collected'], 2) }}</div>
                 <div class="label">Total Collected</div>
             </div>
             <div class="summary-item">
-                <div class="number text-danger">{{ number_format($grandTotal['balance'], 2) }}</div>
+                <div class="number text-danger">₹{{ number_format($grandTotal['balance'], 2) }}</div>
                 <div class="label">Total Balance</div>
             </div>
             <div class="summary-item">

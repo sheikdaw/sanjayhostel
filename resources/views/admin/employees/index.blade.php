@@ -314,7 +314,7 @@
         <div class="label">Inactive</div>
     </div>
     <div class="employee-stat salary">
-        <div class="number">{{ number_format($stats['total_salary']) }}</div>
+        <div class="number">₹{{ number_format($stats['total_salary']) }}</div>
         <div class="label">Total Salary</div>
     </div>
 </div>
@@ -413,7 +413,7 @@
                                     </div>
                                     <div class="col-6">
                                         <div class="label">Salary</div>
-                                        <div class="value">{{ number_format($employee->salary ?? 0, 2) }}</div>
+                                        <div class="value">₹{{ number_format($employee->salary ?? 0, 2) }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -964,19 +964,19 @@ function viewEmployee(id) {
                         <div class="col-md-4">
                             <div class="card bg-light p-3">
                                 <div class="text-muted small">Salary</div>
-                                <div class="fw-bold">${Number(data.salary).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+                                <div class="fw-bold">₹${Number(data.salary).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="card bg-light p-3">
                                 <div class="text-muted small">Advance Amount</div>
-                                <div class="fw-bold">${Number(data.advance_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+                                <div class="fw-bold">₹${Number(data.advance_amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="card bg-light p-3">
                                 <div class="text-muted small">Advance Deduct</div>
-                                <div class="fw-bold">${Number(data.advance_deduct).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+                                <div class="fw-bold">₹${Number(data.advance_deduct).toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
                             </div>
                         </div>
                         <div class="col-md-12">

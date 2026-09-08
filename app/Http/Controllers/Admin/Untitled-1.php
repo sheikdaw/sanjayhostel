@@ -68,7 +68,7 @@ public function store(Request $request)
                 'success' => false,
                 'message' => "⚠️ Payment already completed for " . date('F Y', mktime(0,0,0,$month,1,$year)) . "!\n" .
                              "Receipt: {$existingPayment->receipt_no}\n" .
-                             "Amount: " . number_format($existingPayment->rent_amount, 2) . "\n" .
+                             "Amount: ₹" . number_format($existingPayment->rent_amount, 2) . "\n" .
                              "Status: PAID ✅",
                 'data' => [
                     'existing_payment' => $existingPayment,
@@ -131,8 +131,8 @@ public function store(Request $request)
                 // ✅ Remark: Show which month's payment is being cleared
                 $monthName = date('F Y', mktime(0,0,0,$prevPayment->month,1,$prevPayment->year));
                 $prevPayment->remark = ($newBalance <= 0)
-                    ? "✅ Previous {$monthName} pending " . number_format($prevBalance, 2) . " cleared using " . date('F Y', mktime(0,0,0,$month,1,$year)) . " payment. (Receipt: {$receiptNo})"
-                    : "🟡 Partially cleared {$monthName} pending: " . number_format($payAmount, 2) . " paid. Remaining: " . number_format($newBalance, 2) . ". (Receipt: {$receiptNo})";
+                    ? "✅ Previous {$monthName} pending ₹" . number_format($prevBalance, 2) . " cleared using " . date('F Y', mktime(0,0,0,$month,1,$year)) . " payment. (Receipt: {$receiptNo})"
+                    : "🟡 Partially cleared {$monthName} pending: ₹" . number_format($payAmount, 2) . " paid. Remaining: ₹" . number_format($newBalance, 2) . ". (Receipt: {$receiptNo})";
 
                 $prevPayment->save();
 
@@ -173,12 +173,12 @@ public function store(Request $request)
         // Previous pending clearing info
         if ($previousPaid > 0) {
             if ($previousBalance <= 0) {
-                $remarkParts[] = "✅ Previous pending fully cleared (" . number_format($previousPaid, 2) . ")";
+                $remarkParts[] = "✅ Previous pending fully cleared (₹" . number_format($previousPaid, 2) . ")";
             } else {
-                $remarkParts[] = "🟡 Previous pending partially cleared (" . number_format($previousPaid, 2) . "). Remaining: " . number_format($previousBalance, 2);
+                $remarkParts[] = "🟡 Previous pending partially cleared (₹" . number_format($previousPaid, 2) . "). Remaining: ₹" . number_format($previousBalance, 2);
             }
         } elseif ($totalPreviousPending > 0) {
-            $remarkParts[] = "⚠️ Previous pending (" . number_format($totalPreviousPending, 2) . ") not cleared";
+            $remarkParts[] = "⚠️ Previous pending (₹" . number_format($totalPreviousPending, 2) . ") not cleared";
         } else {
             $remarkParts[] = "✅ No previous pending";
         }
@@ -186,9 +186,9 @@ public function store(Request $request)
         // Current month payment info
         if ($currentPaid > 0) {
             if ($currentBalance <= 0) {
-                $remarkParts[] = "✅ {$monthName} fully paid (" . number_format($currentPaid, 2) . ")";
+                $remarkParts[] = "✅ {$monthName} fully paid (₹" . number_format($currentPaid, 2) . ")";
             } else {
-                $remarkParts[] = "🟡 {$monthName} partial paid (" . number_format($currentPaid, 2) . "). Balance: " . number_format($currentBalance, 2);
+                $remarkParts[] = "🟡 {$monthName} partial paid (₹" . number_format($currentPaid, 2) . "). Balance: ₹" . number_format($currentBalance, 2);
             }
         } else {
             $remarkParts[] = "⏳ {$monthName} not paid";
@@ -196,12 +196,12 @@ public function store(Request $request)
 
         // Advance payment info
         if ($advanceAmount > 0) {
-            $remarkParts[] = "💰 Advance payment: " . number_format($advanceAmount, 2) . " (will adjust next month)";
+            $remarkParts[] = "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)";
         }
 
         // Total balance info
         if ($totalBalance > 0) {
-            $remarkParts[] = "📊 Total pending: " . number_format($totalBalance, 2);
+            $remarkParts[] = "📊 Total pending: ₹" . number_format($totalBalance, 2);
         } else {
             $remarkParts[] = "✅ All dues cleared!";
         }
@@ -273,7 +273,7 @@ public function store(Request $request)
 
         // ✅ Add discount info
         $discountMessage = $discount > 0
-            ? "✅ Discount applied: " . number_format($discount, 2) . " (" . ($discount == 250 ? 'Early Bird 1st-5th' : 'Early Payment 6th-10th') . ")"
+            ? "✅ Discount applied: ₹" . number_format($discount, 2) . " (" . ($discount == 250 ? 'Early Bird 1st-5th' : 'Early Payment 6th-10th') . ")"
             : "❌ No discount applied (Payment after 10th)";
 
         return response()->json([

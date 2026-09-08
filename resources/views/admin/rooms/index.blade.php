@@ -656,7 +656,7 @@ $(document).ready(function() {
                     select.empty().append('<option value="">Select Room Type</option>');
                     if (response.success && response.data.length > 0) {
                         $.each(response.data, function(key, type) {
-                            select.append('<option value="' + type.id + '">' + type.room_type_name + ' (' + type.sharing_count + ' Sharing) - ' + type.monthly_rent + '</option>');
+                            select.append('<option value="' + type.id + '">' + type.room_type_name + ' (' + type.sharing_count + ' Sharing) - ₹' + type.monthly_rent + '</option>');
                         });
                     } else {
                         select.append('<option value="">No room types available</option>');
@@ -931,7 +931,7 @@ function editRoom(id) {
                         if (typeResponse.success && typeResponse.data.length > 0) {
                             $.each(typeResponse.data, function(key, type) {
                                 let selected = type.id == data.room_type_id ? 'selected' : '';
-                                select.append('<option value="' + type.id + '" ' + selected + '>' + type.room_type_name + ' (' + type.sharing_count + ' Sharing) - ' + type.monthly_rent + '</option>');
+                                select.append('<option value="' + type.id + '" ' + selected + '>' + type.room_type_name + ' (' + type.sharing_count + ' Sharing) - ₹' + type.monthly_rent + '</option>');
                             });
                         }
                     },

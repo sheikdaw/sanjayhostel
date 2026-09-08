@@ -55,11 +55,11 @@
                 <th>Bed</th>
                 <th>Resident</th>
                 <th>Phone</th>
-                <th>Rent ()</th>
+                <th>Rent (₹)</th>
                 <th>Status</th>
                 <th>Receipt</th>
-                <th>Paid ()</th>
-                <th>Balance ()</th>
+                <th>Paid (₹)</th>
+                <th>Balance (₹)</th>
                 <th>Remark</th>
             </tr>
         </thead>
@@ -141,15 +141,15 @@
                 <div class="label">No Payment</div>
             </div>
             <div class="summary-item">
-                <div class="number">{{ number_format($totalRent, 2) }}</div>
+                <div class="number">₹{{ number_format($totalRent, 2) }}</div>
                 <div class="label">Total Rent</div>
             </div>
             <div class="summary-item">
-                <div class="number text-success">{{ number_format($totalPaid, 2) }}</div>
+                <div class="number text-success">₹{{ number_format($totalPaid, 2) }}</div>
                 <div class="label">Total Paid</div>
             </div>
             <div class="summary-item">
-                <div class="number text-danger">{{ number_format($totalBalance, 2) }}</div>
+                <div class="number text-danger">₹{{ number_format($totalBalance, 2) }}</div>
                 <div class="label">Total Balance</div>
             </div>
         </div>

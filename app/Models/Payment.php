@@ -70,37 +70,37 @@ class Payment extends Model
 
     public function getFormattedRentAttribute()
     {
-        return '' . number_format($this->rent_amount, 2);
+        return '₹' . number_format($this->rent_amount, 2);
     }
 
     public function getFormattedDiscountAttribute()
     {
-        return '' . number_format($this->discount_amount, 2);
+        return '₹' . number_format($this->discount_amount, 2);
     }
 
     public function getFormattedFineAttribute()
     {
-        return '' . number_format($this->fine_amount, 2);
+        return '₹' . number_format($this->fine_amount, 2);
     }
 
     public function getFormattedCashAttribute()
     {
-        return '' . number_format($this->cash_paid_amount, 2);
+        return '₹' . number_format($this->cash_paid_amount, 2);
     }
 
     public function getFormattedUpiAttribute()
     {
-        return '' . number_format($this->upi_paid_amount, 2);
+        return '₹' . number_format($this->upi_paid_amount, 2);
     }
 
     public function getFormattedBalanceAttribute()
     {
-        return '' . number_format($this->balance_amount, 2);
+        return '₹' . number_format($this->balance_amount, 2);
     }
 
     public function getFormattedTotalPaidAttribute()
     {
-        return '' . number_format($this->total_paid, 2);
+        return '₹' . number_format($this->total_paid, 2);
     }
 
     public function getMonthNameAttribute()

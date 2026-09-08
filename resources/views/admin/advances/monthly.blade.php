@@ -39,13 +39,13 @@
                         <td>{{ $index + 1 }}</td>
                         <td><strong>{{ $data['employee']->name }}</strong></td>
                         <td>{{ $data['employee']->employee_code }}</td>
-                        <td class="text-warning">{{ number_format($data['advance_taken'], 2) }}</td>
-                        <td class="text-success">{{ number_format($data['advance_deducted'], 2) }}</td>
+                        <td class="text-warning">₹{{ number_format($data['advance_taken'], 2) }}</td>
+                        <td class="text-success">₹{{ number_format($data['advance_deducted'], 2) }}</td>
                         <td class="text-{{ $data['advance_balance'] > 0 ? 'danger' : 'success' }}">
-                            {{ number_format($data['advance_balance'], 2) }}
+                            ₹{{ number_format($data['advance_balance'], 2) }}
                         </td>
-                        <td>{{ number_format($data['salary'], 2) }}</td>
-                        <td><strong>{{ number_format($data['net_salary'], 2) }}</strong></td>
+                        <td>₹{{ number_format($data['salary'], 2) }}</td>
+                        <td><strong>₹{{ number_format($data['net_salary'], 2) }}</strong></td>
                     </tr>
                 @empty
                     <tr>

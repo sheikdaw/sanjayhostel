@@ -137,7 +137,7 @@ class ResidentController extends Controller
         // If no residents found, return empty CSV with headers
         if ($residents->isEmpty()) {
             $csv = "\xEF\xBB\xBF";
-            $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Hostel Type,Room,Bed,Bed Type,Food Status,Joining Date,Vacate Date,Rent (),Deposit (),Status,Employee Code,Biometric Access,Last Sync\n";
+            $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Hostel Type,Room,Bed,Bed Type,Food Status,Joining Date,Vacate Date,Rent (₹),Deposit (₹),Status,Employee Code,Biometric Access,Last Sync\n";
             $csv .= "No data found matching the filters,,,,,,,,,,,,,,,,,,,\n";
 
             return response($csv)
@@ -147,7 +147,7 @@ class ResidentController extends Controller
 
         // Build CSV content
         $csv = "\xEF\xBB\xBF"; // UTF-8 BOM
-        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Hostel Type,Room,Bed,Bed Type,Food Status,Joining Date,Vacate Date,Rent (),Deposit (),Status,Employee Code,Biometric Access,Last Sync\n";
+        $csv .= "ID,Resident Code,Name,Phone,Parents Phone,Email,Hostel,Hostel Type,Room,Bed,Bed Type,Food Status,Joining Date,Vacate Date,Rent (₹),Deposit (₹),Status,Employee Code,Biometric Access,Last Sync\n";
 
         foreach ($residents as $resident) {
             $hostelName = $resident->hostel ? $resident->hostel->hostel_name : 'N/A';

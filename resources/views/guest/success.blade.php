@@ -85,7 +85,7 @@
             </div>
             <div class="row">
                 <span class="label">Amount Paid</span>
-                <span class="value">{{ number_format($amount ?? 0, 2) }}</span>
+                <span class="value">₹{{ number_format($amount ?? 0, 2) }}</span>
             </div>
             <div class="row">
                 <span class="label">Date</span>

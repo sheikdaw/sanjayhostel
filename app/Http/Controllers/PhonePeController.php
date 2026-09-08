@@ -27,7 +27,7 @@ class PhonePeController extends Controller
 
             $result = $this->phonePe->createPayment(
                 $merchantOrderId,
-                100, // 1.00 in paise
+                100, // ₹1.00 in paise
                 config('phonepe.redirect_url') . '?merchant_order_id=' . $merchantOrderId,
                 'Test Payment'
             );

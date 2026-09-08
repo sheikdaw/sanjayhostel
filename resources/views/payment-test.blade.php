@@ -178,7 +178,7 @@
 
 
     <div class="amount">
-        1.00
+        ₹1.00
     </div>
 
 
@@ -196,7 +196,7 @@
 
         <div>
             <strong>Amount:</strong>
-            1.00
+            ₹1.00
         </div>
 
         <div>

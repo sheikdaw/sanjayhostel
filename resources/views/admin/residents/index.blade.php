@@ -1065,7 +1065,7 @@
             </div>
             <div class="stat-card rent">
                 <span class="icon">💰</span>
-                <div class="number">{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
+                <div class="number">₹{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
                 <div class="label">Monthly Rent</div>
             </div>
             <div class="stat-card biometric">
@@ -1296,7 +1296,7 @@
                                                     {{ $resident->food_status == 'WITH_FOOD' ? '🍽️' : '🍞' }}
                                                 </span>
                                                 <span class="resident-rent">
-                                                    {{ number_format($resident->rent_amount ?? 0, 0) }}
+                                                    ₹{{ number_format($resident->rent_amount ?? 0, 0) }}
                                                 </span>
                                             </div>
                                         </div>
@@ -1584,7 +1584,7 @@
                                 <div class="invalid-feedback" id="food_status_error"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Rent () <span class="required">*</span></label>
+                                <label class="form-label">Rent (₹) <span class="required">*</span></label>
                                 <div class="rv-input-box">
                                     <i class="bi bi-currency-rupee rv-input-icon"></i>
                                     <input type="number" name="rent_amount" id="rent_amount" class="rv-input"
@@ -1595,7 +1595,7 @@
 
                             {{-- Financial & Dates --}}
                             <div class="col-md-6">
-                                <label class="form-label">Deposit ()</label>
+                                <label class="form-label">Deposit (₹)</label>
                                 <div class="rv-input-box">
                                     <i class="bi bi-currency-rupee rv-input-icon"></i>
                                     <input type="number" name="deposit_amount" id="deposit_amount" class="rv-input"

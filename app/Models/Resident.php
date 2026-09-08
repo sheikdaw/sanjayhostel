@@ -234,12 +234,12 @@ class Resident extends Model
 
     public function getFormattedRentAttribute(): string
     {
-        return '' . number_format($this->rent_amount ?? 0, 2);
+        return '₹' . number_format($this->rent_amount ?? 0, 2);
     }
 
     public function getFormattedDepositAttribute(): string
     {
-        return '' . number_format($this->deposit_amount ?? 0, 2);
+        return '₹' . number_format($this->deposit_amount ?? 0, 2);
     }
 
     // ============================================
