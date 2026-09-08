@@ -255,8 +255,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/residents/{id}/profile-image', [ResidentController::class, 'updateProfileImage'])->name('residents.update-profile-image');
         Route::delete('/residents/{id}/profile-image', [ResidentController::class, 'removeProfileImage'])->name('residents.remove-profile-image');
         Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
-
-        // ============================================================
+// ============================================================
 // 6. PAYMENT MANAGEMENT - COMPLETE
 // ============================================================
 Route::prefix('payments')->name('payments.')->group(function () {
@@ -275,6 +274,7 @@ Route::prefix('payments')->name('payments.')->group(function () {
 
     // ---------- HELPER ROUTES ----------
     Route::get('/room/{roomId}/residents', [PaymentController::class, 'getResidentsByRoom'])->name('room.residents');
+    Route::get('/rooms/hostel/{hostelId}/rooms', [PaymentController::class, 'getRoomsByHostel'])->name('rooms.by.hostel');
 
     // ---------- STATUS UPDATE ROUTES ----------
     Route::post('/{id}/mark-paid', [PaymentController::class, 'markAsPaid'])->name('mark-paid');
@@ -287,9 +287,15 @@ Route::prefix('payments')->name('payments.')->group(function () {
     // ---------- EXPORT ROUTES ----------
     Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
     Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
+    
+    // 🔥 NEW: Unpaid Summary Exports
+    Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
+    Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
 
-    // ---------- ROOMS BY HOSTEL ----------
-    Route::get('/rooms/hostel/{hostelId}/rooms', [PaymentController::class, 'getRoomsByHostel'])->name('rooms.by.hostel');
+    // ---------- PDF EXPORT ROUTES ----------
+    Route::get('/pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
+    Route::get('/pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
+    Route::post('/pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
 });
 
         // ============================================================

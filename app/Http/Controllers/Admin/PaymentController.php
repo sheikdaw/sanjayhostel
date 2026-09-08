@@ -152,7 +152,6 @@ class PaymentController extends Controller
         // BUILD MAIN QUERY WITH FILTERS
         $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
 
-        // ✅ FIXED: Always filter by month and year if provided
         if ($request->filled('month')) {
             $query->where('month', $request->month);
         } else {
@@ -1060,10 +1059,23 @@ class PaymentController extends Controller
 
         $payments = $query->orderBy('created_at', 'desc')->get();
 
+        // Use the existing all-payments PDF view
+        $summary = [
+            'total' => $payments->count(),
+            'total_rent' => $payments->sum('rent_amount'),
+            'total_collected' => $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount'),
+            'total_balance' => $payments->sum('balance_amount'),
+            'paid' => $payments->where('status', 'PAID')->count(),
+            'pending' => $payments->where('status', 'PENDING')->count(),
+            'partial' => $payments->where('status', 'PARTIAL')->count()
+        ];
+
         $data = [
-            'payments' => $payments,
             'title' => 'Payment Report',
+            'payments' => $payments,
+            'summary' => $summary,
             'generated_at' => now()->format('d M Y H:i'),
+            'user' => $user,
             'filters' => [
                 'month' => $request->month ?? now()->month,
                 'year' => $request->year ?? now()->year,
@@ -1073,9 +1085,349 @@ class PaymentController extends Controller
             ]
         ];
 
-        $pdf = PDF::loadView('admin.payments.pdf.export', $data);
+        $pdf = PDF::loadView('admin.payments.pdf.all-payments', $data);
         $pdf->setPaper('A4', 'landscape');
 
         return $pdf->download('payments-' . date('Y-m-d') . '.pdf');
+    }
+
+    /**
+     * ✅ NEW: Export Unpaid Summary with Hostel Names as Headings (CSV)
+     */
+    public function exportUnpaidSummary(Request $request)
+    {
+        $user = auth()->user();
+
+        $month = $request->filled('month') ? (int) $request->month : (int) date('n');
+        $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
+        $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
+
+        // Get residents with unpaid payments
+        $residentsQuery = Resident::with(['hostel', 'room'])
+            ->where('status', 'ACTIVE');
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $residentsQuery->whereIn('hostel_id', $hostelIds);
+        }
+
+        if ($hostelId) {
+            $residentsQuery->where('hostel_id', $hostelId);
+        }
+
+        $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
+
+        // Build data grouped by hostel
+        $hostelData = [];
+        $totalOverall = 0;
+        $totalUnpaidResidents = 0;
+
+        foreach ($residents as $resident) {
+            $previousPending = $this->getPreviousPending($resident->id, $month, $year);
+            $currentPayment = Payment::where('resident_id', $resident->id)
+                ->where('month', $month)
+                ->where('year', $year)
+                ->first();
+
+            $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : 0;
+            
+            // Check if resident has any payment due
+            $hasDue = $previousPending > 0 || $currentBalance > 0;
+            
+            if ($hasDue) {
+                $hostelName = $resident->hostel->hostel_name ?? 'Unknown Hostel';
+                
+                if (!isset($hostelData[$hostelName])) {
+                    $hostelData[$hostelName] = [
+                        'hostel_id' => $resident->hostel_id,
+                        'residents' => []
+                    ];
+                }
+                
+                $hostelData[$hostelName]['residents'][] = [
+                    'name' => $resident->name,
+                    'room_no' => $resident->room->room_no ?? 'N/A',
+                    'phone' => $resident->phone ?? '-',
+                    'rent' => (float) ($resident->rent_amount ?? 0),
+                    'previous_pending' => $previousPending,
+                    'current_balance' => $currentBalance,
+                    'total_due' => $previousPending + $currentBalance,
+                    'remark' => $currentPayment ? $currentPayment->remark : 'No payment record'
+                ];
+                
+                $totalOverall += ($previousPending + $currentBalance);
+                $totalUnpaidResidents++;
+            }
+        }
+
+        // Build CSV
+        $csv = "==================================================\n";
+        $csv .= "UNPAID PAYMENTS SUMMARY\n";
+        $csv .= "==================================================\n";
+        $csv .= "Report Month: " . date('F', mktime(0,0,0,$month,1)) . " " . $year . "\n";
+        $csv .= "Generated: " . now()->format('d M Y H:i A') . "\n";
+        $csv .= "Total Unpaid Residents: " . $totalUnpaidResidents . "\n";
+        $csv .= "Total Due Amount: ₹" . number_format($totalOverall, 2) . "\n";
+        $csv .= "==================================================\n\n";
+
+        foreach ($hostelData as $hostelName => $data) {
+            $csv .= "\n🏢 " . strtoupper($hostelName) . "\n";
+            $csv .= str_repeat('-', 85) . "\n";
+            $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Current Balance (₹),Total Due (₹),Remark\n";
+            $csv .= str_repeat('-', 85) . "\n";
+
+            $serialNo = 1;
+            foreach ($data['residents'] as $resident) {
+                $csv .= sprintf(
+                    "%d,%s,%s,%s,%.2f,%.2f,%.2f,%.2f,%s\n",
+                    $serialNo,
+                    $resident['name'],
+                    $resident['room_no'],
+                    $resident['phone'],
+                    $resident['rent'],
+                    $resident['previous_pending'],
+                    $resident['current_balance'],
+                    $resident['total_due'],
+                    str_replace(',', ';', $resident['remark'])
+                );
+                $serialNo++;
+            }
+            
+            // Add subtotal for this hostel
+            $subtotal = collect($data['residents'])->sum('total_due');
+            $csv .= str_repeat('-', 85) . "\n";
+            $csv .= ",,,,SUBTOTAL,,,₹" . number_format($subtotal, 2) . ",\n";
+            $csv .= "\n";
+        }
+
+        $csv .= "==================================================\n";
+        $csv .= "GRAND TOTAL DUE: ₹" . number_format($totalOverall, 2) . "\n";
+        $csv .= "==================================================\n";
+
+        $filename = 'unpaid-summary-' . date('Y-m-d') . '.csv';
+        return response($csv)
+            ->header('Content-Type', 'text/csv; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    }
+
+    /**
+     * ✅ NEW: PDF Export for Unpaid Summary
+     */
+    public function exportUnpaidPdf(Request $request)
+    {
+        $user = auth()->user();
+
+        $month = $request->filled('month') ? (int) $request->month : (int) date('n');
+        $year = $request->filled('year') ? (int) $request->year : (int) date('Y');
+        $hostelId = $request->filled('hostel_id') ? (int) $request->hostel_id : null;
+
+        // Get residents with unpaid payments
+        $residentsQuery = Resident::with(['hostel', 'room'])
+            ->where('status', 'ACTIVE');
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $residentsQuery->whereIn('hostel_id', $hostelIds);
+        }
+
+        if ($hostelId) {
+            $residentsQuery->where('hostel_id', $hostelId);
+        }
+
+        $residents = $residentsQuery->orderBy('hostel_id')->orderBy('name')->get();
+
+        // Build data grouped by hostel
+        $hostelData = [];
+        $totalOverall = 0;
+        $totalUnpaidResidents = 0;
+
+        foreach ($residents as $resident) {
+            $previousPending = $this->getPreviousPending($resident->id, $month, $year);
+            $currentPayment = Payment::where('resident_id', $resident->id)
+                ->where('month', $month)
+                ->where('year', $year)
+                ->first();
+
+            $currentBalance = $currentPayment ? (float) $currentPayment->balance_amount : 0;
+            
+            $hasDue = $previousPending > 0 || $currentBalance > 0;
+            
+            if ($hasDue) {
+                $hostelName = $resident->hostel->hostel_name ?? 'Unknown Hostel';
+                
+                if (!isset($hostelData[$hostelName])) {
+                    $hostelData[$hostelName] = [
+                        'hostel_id' => $resident->hostel_id,
+                        'residents' => []
+                    ];
+                }
+                
+                $hostelData[$hostelName]['residents'][] = [
+                    'name' => $resident->name,
+                    'room_no' => $resident->room->room_no ?? 'N/A',
+                    'phone' => $resident->phone ?? '-',
+                    'rent' => (float) ($resident->rent_amount ?? 0),
+                    'previous_pending' => $previousPending,
+                    'current_balance' => $currentBalance,
+                    'total_due' => $previousPending + $currentBalance,
+                    'remark' => $currentPayment ? $currentPayment->remark : 'No payment record'
+                ];
+                
+                $totalOverall += ($previousPending + $currentBalance);
+                $totalUnpaidResidents++;
+            }
+        }
+
+        $data = [
+            'hostelData' => $hostelData,
+            'month' => date('F', mktime(0,0,0,$month,1)),
+            'year' => $year,
+            'totalOverall' => $totalOverall,
+            'totalResidents' => $totalUnpaidResidents,
+            'generated_at' => now()->format('d M Y H:i A'),
+            'filters' => [
+                'hostel' => $hostelId ? (Hostel::find($hostelId)->hostel_name ?? 'All') : 'All'
+            ],
+            'user' => $user
+        ];
+
+        $pdf = PDF::loadView('admin.payments.pdf.unpaid-summary', $data);
+        $pdf->setPaper('A4', 'landscape');
+
+        return $pdf->download('unpaid-summary-' . date('Y-m-d') . '.pdf');
+    }
+
+    // ============================================================
+    // PDF VIEW METHODS (Using your existing views)
+    // ============================================================
+
+    public function pdfAllPayments(Request $request)
+    {
+        $user = auth()->user();
+
+        $query = Payment::with(['resident', 'resident.hostel', 'resident.room']);
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $query->whereHas('resident', function ($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            });
+        }
+
+        // Apply filters
+        if ($request->filled('month')) {
+            $query->where('month', $request->month);
+        }
+        if ($request->filled('year')) {
+            $query->where('year', $request->year);
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('hostel_id')) {
+            $query->whereHas('resident', function ($q) use ($request) {
+                $q->where('hostel_id', $request->hostel_id);
+            });
+        }
+
+        $payments = $query->orderBy('created_at', 'desc')->get();
+
+        $summary = [
+            'total' => $payments->count(),
+            'total_rent' => $payments->sum('rent_amount'),
+            'total_collected' => $payments->sum('cash_paid_amount') + $payments->sum('upi_paid_amount'),
+            'total_balance' => $payments->sum('balance_amount'),
+            'paid' => $payments->where('status', 'PAID')->count(),
+            'pending' => $payments->where('status', 'PENDING')->count(),
+            'partial' => $payments->where('status', 'PARTIAL')->count()
+        ];
+
+        $data = [
+            'title' => 'All Payments Report',
+            'payments' => $payments,
+            'summary' => $summary,
+            'generated_at' => now()->format('d M Y H:i A'),
+            'user' => $user,
+            'filters' => $request->all()
+        ];
+
+        $pdf = PDF::loadView('admin.payments.pdf.all-payments', $data);
+        $pdf->setPaper('A4', 'landscape');
+
+        return $pdf->download('all-payments-' . date('Y-m-d') . '.pdf');
+    }
+
+    public function pdfReceipt($id)
+    {
+        $user = auth()->user();
+        $payment = Payment::with(['resident', 'resident.hostel', 'resident.room'])->findOrFail($id);
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!in_array($payment->resident->hostel_id, $hostelIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to view this receipt!'
+                ], 403);
+            }
+        }
+
+        $data = [
+            'payment' => $payment,
+            'resident' => $payment->resident,
+            'hostel' => $payment->resident->hostel,
+            'room' => $payment->resident->room,
+            'generated_at' => now()->format('d M Y H:i A'),
+            'user' => $user
+        ];
+
+        $pdf = PDF::loadView('admin.payments.pdf.receipt', $data);
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('receipt-' . $payment->receipt_no . '.pdf');
+    }
+
+    public function pdfBulkReceipts(Request $request)
+    {
+        $user = auth()->user();
+
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array',
+            'ids.*' => 'exists:payments,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $payments = Payment::with(['resident', 'resident.hostel', 'resident.room'])
+            ->whereIn('id', $request->ids)
+            ->get();
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            foreach ($payments as $payment) {
+                if (!in_array($payment->resident->hostel_id, $hostelIds)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to view some receipts!'
+                    ], 403);
+                }
+            }
+        }
+
+        $data = [
+            'payments' => $payments,
+            'generated_at' => now()->format('d M Y H:i A'),
+            'user' => $user
+        ];
+
+        $pdf = PDF::loadView('admin.payments.pdf.bulk-receipts', $data);
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('bulk-receipts-' . date('Y-m-d') . '.pdf');
     }
 }

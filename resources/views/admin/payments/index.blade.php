@@ -300,6 +300,17 @@
         font-size: 0.75rem;
         font-weight: 600;
     }
+
+    /* Discount Badge */
+    .discount-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 0.6rem;
+        font-weight: 600;
+    }
+    .discount-badge.applied { background: #dcfce7; color: #166534; }
+    .discount-badge.not-applied { background: #fee2e2; color: #991b1b; }
 </style>
 @endpush
 
@@ -317,10 +328,37 @@
         </div>
     </div>
     <div class="d-flex gap-2">
-        <button type="button" class="rv-submit" id="exportBtn"
-            style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
-            <i class="bi bi-download"></i> Export
-        </button>
+        <div class="dropdown">
+            <button class="rv-submit dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:320px; padding:0.5rem;">
+                <li class="dropdown-header">📊 Payment Reports</li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportWithType('filtered')">
+                        <i class="bi bi-file-earmark-text me-2 text-primary"></i> Filtered Payments (CSV)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportWithType('pdf')">
+                        <i class="bi bi-file-pdf me-2 text-danger"></i> Filtered Payments (PDF)
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">🔴 Unpaid Summary Reports</li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportUnpaid('csv')">
+                        <i class="bi bi-file-earmark-text me-2 text-danger"></i> Unpaid Summary (CSV)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportUnpaid('pdf')">
+                        <i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid Summary (PDF)
+                    </a>
+                </li>
+            </ul>
+        </div>
         <button type="button" class="rv-submit" id="bulkPaymentBtn"
             style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
             <i class="bi bi-collection"></i> Bulk
@@ -918,12 +956,6 @@ $(document).ready(function() {
     // Filter events
     $('#filterStatus, #filterHostel, #filterMonth, #filterYear').on('change', applyFilters);
     $('#searchPayment').on('keyup', debounce(applyFilters, 500));
-
-    // Export button
-    $('#exportBtn').on('click', function() {
-        var url = '{{ route("admin.payments.export.filtered") }}?' + getFilterParams();
-        window.location.href = url;
-    });
 });
 
 // ============================================================
@@ -1052,6 +1084,26 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, arguments), wait);
     };
+}
+
+// ============================================================
+// EXPORT FUNCTIONS
+// ============================================================
+
+function exportWithType(type) {
+    var params = getFilterParams();
+    var url = type === 'filtered' 
+        ? '{{ route("admin.payments.export.filtered") }}' 
+        : '{{ route("admin.payments.export.pdf") }}';
+    window.location.href = url + '?' + params;
+}
+
+function exportUnpaid(type) {
+    var params = getFilterParams();
+    var url = type === 'csv' 
+        ? '{{ route("admin.payments.export.unpaid-summary") }}' 
+        : '{{ route("admin.payments.export.unpaid-pdf") }}';
+    window.location.href = url + '?' + params;
 }
 
 // ============================================================
