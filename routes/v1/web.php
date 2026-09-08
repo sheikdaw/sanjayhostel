@@ -256,50 +256,54 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/residents/{id}/profile-image', [ResidentController::class, 'removeProfileImage'])->name('residents.remove-profile-image');
         Route::get('/resident/{residentId}/partial-details/{month}/{year}', [PaymentController::class, 'getPartialPaymentDetails'])->name('partial-details');
         // ============================================================
-        // 6. PAYMENT MANAGEMENT - COMPLETE
-        // ============================================================
-        Route::prefix('payments')->name('payments.')->group(function () {
-            // ---------- MAIN CRUD ROUTES ----------
-            Route::get('/', [PaymentController::class, 'index'])->name('index');
-            Route::post('/', [PaymentController::class, 'store'])->name('store');
-            Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('edit');
-            Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
-            Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
+// 6. PAYMENT MANAGEMENT - COMPLETE
+// ============================================================
+Route::prefix('payments')->name('payments.')->group(function () {
+    // ---------- MAIN CRUD ROUTES ----------
+    Route::get('/', [PaymentController::class, 'index'])->name('index');
+    Route::post('/', [PaymentController::class, 'store'])->name('store');
+    Route::get('/{id}/edit', [PaymentController::class, 'edit'])->name('edit');
+    Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
 
-            // ---------- RESIDENT-SPECIFIC ROUTES ----------
-            Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
-            Route::get('/resident/{residentId}/check-paid/{month}/{year}', [PaymentController::class, 'checkAlreadyPaid'])->name('check-paid');
-            Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
-            Route::post('/resident/{residentId}/payment-details', [PaymentController::class, 'getPaymentDetails'])->name('payment-details');
+    // ---------- RESIDENT-SPECIFIC ROUTES ----------
+    Route::get('/resident/{residentId}/rent', [PaymentController::class, 'getResidentRent'])->name('resident-rent');
+    Route::get('/resident/{residentId}/check-paid/{month}/{year}', [PaymentController::class, 'checkAlreadyPaid'])->name('check-paid');
+    Route::get('/resident/{residentId}/check-pending/{month}/{year}', [PaymentController::class, 'checkPreviousPending'])->name('check-pending');
+    Route::post('/resident/{residentId}/payment-details', [PaymentController::class, 'getPaymentDetails'])->name('payment-details');
 
-            // ---------- HELPER ROUTES ----------
-            Route::get('/room/{roomId}/residents', [PaymentController::class, 'getResidentsByRoom'])->name('room.residents');
-            Route::get('/rooms/hostel/{hostelId}/rooms', [PaymentController::class, 'getRoomsByHostel'])->name('rooms.by.hostel');
+    // ---------- HELPER ROUTES ----------
+    Route::get('/room/{roomId}/residents', [PaymentController::class, 'getResidentsByRoom'])->name('room.residents');
+    Route::get('/rooms/hostel/{hostelId}/rooms', [PaymentController::class, 'getRoomsByHostel'])->name('rooms.by.hostel');
 
-            // ---------- STATUS UPDATE ROUTES ----------
-            Route::post('/{id}/mark-paid', [PaymentController::class, 'markAsPaid'])->name('mark-paid');
+    // ---------- STATUS UPDATE ROUTES ----------
+    Route::post('/{id}/mark-paid', [PaymentController::class, 'markAsPaid'])->name('mark-paid');
 
-            // ---------- BULK OPERATIONS ----------
-            Route::post('/bulk', [PaymentController::class, 'bulkPayment'])->name('bulk');
-            Route::post('/bulk-status', [PaymentController::class, 'bulkStatus'])->name('bulk-status');
-            Route::post('/bulk-delete', [PaymentController::class, 'bulkDelete'])->name('bulk-delete');
+    // ---------- BULK OPERATIONS ----------
+    Route::post('/bulk', [PaymentController::class, 'bulkPayment'])->name('bulk');
+    Route::post('/bulk-status', [PaymentController::class, 'bulkStatus'])->name('bulk-status');
+    Route::post('/bulk-delete', [PaymentController::class, 'bulkDelete'])->name('bulk-delete');
 
-            // ---------- EXPORT ROUTES ----------
-            Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
-            Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
-            Route::get('/export/summary', [PaymentController::class, 'exportSummary'])->name('export.summary');
-            Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
-            Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
-            Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
-            Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
-            Route::get('/export/payment-status', [PaymentController::class, 'exportPaymentStatus'])->name('export.payment-status');
-            Route::get('/export/payment-status-pdf', [PaymentController::class, 'exportPaymentStatusPdf'])->name('export.payment-status-pdf');
+    // ---------- EXPORT ROUTES ----------
+    Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
+    Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
+    Route::get('/export/summary', [PaymentController::class, 'exportSummary'])->name('export.summary');
+    Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
+    Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
+    
+    // ✅ Unpaid Summary Exports (Only residents active in selected month)
+    Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
+    Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
+    
+    // Payment Status Exports
+    Route::get('/export/payment-status', [PaymentController::class, 'exportPaymentStatus'])->name('export.payment-status');
+    Route::get('/export/payment-status-pdf', [PaymentController::class, 'exportPaymentStatusPdf'])->name('export.payment-status-pdf');
 
-            // ---------- PDF ROUTES ----------
-            Route::get('/pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
-            Route::get('/pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
-            Route::post('/pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
-        });
+    // ---------- PDF ROUTES ----------
+    Route::get('/pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
+    Route::get('/pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
+    Route::post('/pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
+});
 
         // ============================================================
         // 7. USER MANAGEMENT
