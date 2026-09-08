@@ -116,7 +116,7 @@
             <strong>Month:</strong> {{ $month }} {{ $year }} &nbsp;|&nbsp;
             <strong>Generated:</strong> {{ $generated_at }} &nbsp;|&nbsp;
             <strong>Total Unpaid:</strong> {{ $totalResidents }} residents &nbsp;|&nbsp;
-            <strong>Total Due:</strong> ₹{{ number_format($totalOverall, 2) }}
+            <strong>Total Due:</strong> {{ number_format($totalOverall, 2) }}
         </p>
         @if($filters['hostel'] != 'All')
             <p><strong>Hostel:</strong> {{ $filters['hostel'] }}</p>
@@ -135,10 +135,10 @@
                             <th style="width:20%;">Name</th>
                             <th style="width:10%;">Room</th>
                             <th style="width:13%;">Phone</th>
-                            <th style="width:10%;" class="text-right">Rent (₹)</th>
-                            <th style="width:14%;" class="text-right">Previous Pending (₹)</th>
-                            <th style="width:14%;" class="text-right">Current Balance (₹)</th>
-                            <th style="width:14%;" class="text-right">Total Due (₹)</th>
+                            <th style="width:10%;" class="text-right">Rent ()</th>
+                            <th style="width:14%;" class="text-right">Previous Pending ()</th>
+                            <th style="width:14%;" class="text-right">Current Balance ()</th>
+                            <th style="width:14%;" class="text-right">Total Due ()</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -158,7 +158,7 @@
                                     {{ number_format($resident['current_balance'], 2) }}
                                 </td>
                                 <td class="text-right amount due">
-                                    <strong>₹{{ number_format($resident['total_due'], 2) }}</strong>
+                                    <strong>{{ number_format($resident['total_due'], 2) }}</strong>
                                 </td>
                             </tr>
                             @php $serialNo++; @endphp
@@ -166,7 +166,7 @@
                         <tr class="subtotal-row">
                             <td colspan="7" class="text-right"><strong>SUBTOTAL</strong></td>
                             <td class="text-right amount due">
-                                <strong>₹{{ number_format($hostelTotal, 2) }}</strong>
+                                <strong>{{ number_format($hostelTotal, 2) }}</strong>
                             </td>
                         </tr>
                     </tbody>
@@ -176,7 +176,7 @@
         @endforeach
 
         <div class="grand-total">
-            GRAND TOTAL DUE: <span class="total-amount">₹{{ number_format($grandTotal, 2) }}</span>
+            GRAND TOTAL DUE: <span class="total-amount">{{ number_format($grandTotal, 2) }}</span>
         </div>
     @else
         <div style="text-align:center; padding:30px; color:#6b7280;">

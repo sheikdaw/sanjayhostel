@@ -172,7 +172,7 @@
                         <td class="text-right">{{ number_format($resident['rent'], 2) }}</td>
                         <td class="text-right amount due">{{ number_format($resident['previous_pending'], 2) }}</td>
                         <td class="text-right amount due">{{ number_format($resident['current_balance'], 2) }}</td>
-                        <td class="text-right amount due"><strong>₹{{ number_format($resident['total_due'], 2) }}</strong></td>
+                        <td class="text-right amount due"><strong>{{ number_format($resident['total_due'], 2) }}</strong></td>
                         <td><span class="badge badge-{{ strtolower($resident['status']) }}">{{ $resident['status'] }}</span></td>
                         <td>{{ $resident['remark'] }}</td>
                     </tr>
@@ -249,7 +249,7 @@
                         <td>{{ $resident['phone'] }}</td>
                         <td class="text-right">{{ number_format($resident['rent'], 2) }}</td>
                         <td class="text-right amount due">{{ number_format($resident['previous_pending'], 2) }}</td>
-                        <td class="text-right amount due"><strong>₹{{ number_format($resident['total_due'], 2) }}</strong></td>
+                        <td class="text-right amount due"><strong>{{ number_format($resident['total_due'], 2) }}</strong></td>
                         <td>{{ $resident['remark'] }}</td>
                     </tr>
                     @php $serialNo++; @endphp

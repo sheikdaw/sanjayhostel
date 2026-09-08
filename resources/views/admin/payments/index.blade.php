@@ -425,7 +425,7 @@
             <i class="bi bi-exclamation-triangle-fill" style="color:#991b1b;"></i>
             <span style="font-weight:600; color:#991b1b;">Pending Payments:</span>
             <span class="count">{{ $pendingPayments->count() }}</span> pending for {{ date('F Y') }}.
-            Total: <span class="count">₹{{ number_format($pendingPayments->sum('balance_amount'), 2) }}</span>
+            Total: <span class="count">{{ number_format($pendingPayments->sum('balance_amount'), 2) }}</span>
         </div>
         <button class="btn btn-sm btn-danger" onclick="filterPending()">View Pending</button>
     </div>
@@ -454,7 +454,7 @@
         <div class="label">Unpaid</div>
     </div>
     <div class="stat-card">
-        <div class="number" id="statCollected">₹{{ number_format($stats['total_collected'] ?? 0, 0) }}</div>
+        <div class="number" id="statCollected">{{ number_format($stats['total_collected'] ?? 0, 0) }}</div>
         <div class="label">Collected</div>
     </div>
 </div>
@@ -575,36 +575,36 @@
 
                     <div class="payment-stats">
                         <div class="payment-stat-item">
-                            <div class="number">₹{{ number_format($payment->rent_amount, 0) }}</div>
+                            <div class="number">{{ number_format($payment->rent_amount, 0) }}</div>
                             <div class="label">Rent</div>
                         </div>
                         <div class="payment-stat-item">
                             <div class="number {{ $payment->balance_amount > 0 ? 'balance-due' : 'balance-clear' }}">
-                                ₹{{ number_format($payment->balance_amount, 0) }}
+                                {{ number_format($payment->balance_amount, 0) }}
                             </div>
                             <div class="label">Balance</div>
                         </div>
                         <div class="payment-stat-item">
-                            <div class="number">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 0) }}</div>
+                            <div class="number">{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 0) }}</div>
                             <div class="label">Paid</div>
                         </div>
                     </div>
 
                     @if($payment->discount_amount > 0)
                         <div class="payment-meta" style="color:#166534;">
-                            <i class="bi bi-tag"></i> Discount: ₹{{ number_format($payment->discount_amount, 2) }}
+                            <i class="bi bi-tag"></i> Discount: {{ number_format($payment->discount_amount, 2) }}
                         </div>
                     @endif
 
                     @if($payment->fine_amount > 0)
                         <div class="payment-meta" style="color:#dc2626;">
-                            <i class="bi bi-exclamation-triangle"></i> Fine: ₹{{ number_format($payment->fine_amount, 2) }}
+                            <i class="bi bi-exclamation-triangle"></i> Fine: {{ number_format($payment->fine_amount, 2) }}
                         </div>
                     @endif
 
                     @if($payment->previous_pending_amount > 0)
                         <div class="payment-meta" style="color:#f59e0b;">
-                            <i class="bi bi-clock-history"></i> Previous Pending: ₹{{ number_format($payment->previous_pending_amount, 2) }}
+                            <i class="bi bi-clock-history"></i> Previous Pending: {{ number_format($payment->previous_pending_amount, 2) }}
                         </div>
                     @endif
 
@@ -989,7 +989,7 @@ function checkAlreadyPaid(residentId, month, year) {
                     <div class="mt-2" style="padding:0.75rem 1rem; background:#dcfce7; border:1px solid #86efac; border-radius:8px;">
                         <strong style="color:#166534;">✅ Already Paid!</strong>
                         <span style="display:block; font-size:0.8rem; color:#4b5563;">
-                            Receipt: ${response.receipt_no} | Amount: ₹${response.amount}
+                            Receipt: ${response.receipt_no} | Amount: ${response.amount}
                         </span>
                     </div>
                 `).show();
@@ -1052,10 +1052,10 @@ function generateRemarkPreview() {
         success: function(response) {
             if (response.success && response.data) {
                 let data = response.data;
-                let discountStatus = data.discount_eligible ? '✅ Discount ₹' + data.discount.toFixed(2) : '❌ No discount';
-                let remark = discountStatus + ' | Previous: ₹' + data.previous_pending.toFixed(2) + 
-                           ' | Current: ₹' + data.current_due.toFixed(2) + 
-                           ' | Paid: ₹' + data.total_paid.toFixed(2);
+                let discountStatus = data.discount_eligible ? '✅ Discount ' + data.discount.toFixed(2) : '❌ No discount';
+                let remark = discountStatus + ' | Previous: ' + data.previous_pending.toFixed(2) + 
+                           ' | Current: ' + data.current_due.toFixed(2) + 
+                           ' | Paid: ' + data.total_paid.toFixed(2);
 
                 $('#remarkPreviewText').text(remark);
                 $('#remarkPreview').show();

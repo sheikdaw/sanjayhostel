@@ -90,40 +90,40 @@ class PaymentController extends Controller
         $messages = [];
         $messages[] = $isExisting ? "✅ Payment updated successfully!" : "✅ Payment recorded successfully!";
         $messages[] = "📋 Receipt: " . $receiptNo;
-        $messages[] = "💰 Total paid: ₹" . number_format($totalPaid, 2);
+        $messages[] = "💰 Total paid: " . number_format($totalPaid, 2);
         $messages[] = "─────────────────────";
 
         if ($previousPaid > 0) {
-            $messages[] = "📅 Previous pending cleared: ₹" . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))";
+            $messages[] = "📅 Previous pending cleared: " . number_format($previousPaid, 2) . " (" . $previousClearedCount . " month(s))";
             if ($previousBalance > 0) {
-                $messages[] = "⚠️ Remaining previous pending: ₹" . number_format($previousBalance, 2);
+                $messages[] = "⚠️ Remaining previous pending: " . number_format($previousBalance, 2);
             }
         } else {
             if ($totalPreviousPending > 0) {
-                $messages[] = "⚠️ Previous pending: ₹" . number_format($totalPreviousPending, 2) . " (not cleared)";
+                $messages[] = "⚠️ Previous pending: " . number_format($totalPreviousPending, 2) . " (not cleared)";
             } else {
                 $messages[] = "✅ No previous pending";
             }
         }
 
         if ($currentPaid > 0) {
-            $messages[] = "📅 Current month paid: ₹" . number_format($currentPaid, 2);
+            $messages[] = "📅 Current month paid: " . number_format($currentPaid, 2);
             if ($currentBalance > 0) {
-                $messages[] = "⚠️ Current month remaining: ₹" . number_format($currentBalance, 2);
+                $messages[] = "⚠️ Current month remaining: " . number_format($currentBalance, 2);
             } else {
                 $messages[] = "✅ Current month fully paid!";
             }
         }
 
         if ($advanceAmount > 0) {
-            $messages[] = "💰 Advance payment: ₹" . number_format($advanceAmount, 2) . " (will adjust next month)";
+            $messages[] = "💰 Advance payment: " . number_format($advanceAmount, 2) . " (will adjust next month)";
         }
 
         $messages[] = "─────────────────────";
         if ($totalBalance <= 0) {
             $messages[] = "✅ All dues cleared!";
         } else {
-            $messages[] = "⚠️ Total pending: ₹" . number_format($totalBalance, 2);
+            $messages[] = "⚠️ Total pending: " . number_format($totalBalance, 2);
         }
 
         return implode("\n", $messages);
@@ -433,11 +433,11 @@ return view('admin.payments.index', compact(
             if ($totalNeedToPayWithDiscount <= $totalPaid) {
                 $discount = $tentativeDiscount;
                 $discountApplied = true;
-                $discountReason = "✅ Discount applied: ₹" . number_format($discount, 2);
+                $discountReason = "✅ Discount applied: " . number_format($discount, 2);
             } else {
                 $discount = 0;
                 $discountApplied = false;
-                $discountReason = "❌ No discount: Need ₹" . number_format($totalNeedToPayWithDiscount, 2) . ", paid ₹" . number_format($totalPaid, 2);
+                $discountReason = "❌ No discount: Need " . number_format($totalNeedToPayWithDiscount, 2) . ", paid " . number_format($totalPaid, 2);
             }
 
             $totalNeedToPay = $rentAmount + $totalPreviousPending - $discount;
@@ -478,7 +478,7 @@ return view('admin.payments.index', compact(
                     $monthName = date('F Y', mktime(0,0,0,$prevPayment->month,1,$prevPayment->year));
                     $prevPayment->remark = ($newBalance <= 0)
                         ? "✅ {$monthName} cleared using " . date('F Y', mktime(0,0,0,$month,1,$year)) . " payment"
-                        : "🟡 Partial cleared {$monthName}: ₹" . number_format($payAmount, 2);
+                        : "🟡 Partial cleared {$monthName}: " . number_format($payAmount, 2);
 
                     $prevPayment->save();
                     $previousPaid += $payAmount;
@@ -504,10 +504,10 @@ return view('admin.payments.index', compact(
             // Build remark
             $monthName = date('F Y', mktime(0,0,0,$month,1,$year));
             $remark = $discountReason . " | ";
-            $remark .= $previousPaid > 0 ? "✅ Previous cleared ₹" . number_format($previousPaid, 2) . " | " : "";
-            $remark .= $currentPaid > 0 ? ($currentBalance <= 0 ? "✅ {$monthName} paid ₹" . number_format($currentPaid, 2) : "🟡 {$monthName} partial ₹" . number_format($currentPaid, 2)) : "⏳ {$monthName} not paid";
-            $remark .= $advanceAmount > 0 ? " | 💰 Advance ₹" . number_format($advanceAmount, 2) : "";
-            $remark .= $totalBalance > 0 ? " | 📊 Pending ₹" . number_format($totalBalance, 2) : " | ✅ All cleared!";
+            $remark .= $previousPaid > 0 ? "✅ Previous cleared " . number_format($previousPaid, 2) . " | " : "";
+            $remark .= $currentPaid > 0 ? ($currentBalance <= 0 ? "✅ {$monthName} paid " . number_format($currentPaid, 2) : "🟡 {$monthName} partial " . number_format($currentPaid, 2)) : "⏳ {$monthName} not paid";
+            $remark .= $advanceAmount > 0 ? " | 💰 Advance " . number_format($advanceAmount, 2) : "";
+            $remark .= $totalBalance > 0 ? " | 📊 Pending " . number_format($totalBalance, 2) : " | ✅ All cleared!";
 
             // Create or update payment
             if ($existingPayment) {
@@ -827,10 +827,10 @@ return view('admin.payments.index', compact(
             $remaining -= $currentPaid;
             $advanceAmount = max(0, $remaining);
 
-            $previewRemark = ($discountApplied ? "✅ Discount ₹" . number_format($discount, 2) : "❌ No discount") . " | ";
-            $previewRemark .= $previousPaid > 0 ? "Previous: ₹" . number_format($previousPaid, 2) . " | " : "";
-            $previewRemark .= $currentPaid > 0 ? "Current: ₹" . number_format($currentPaid, 2) : "Current: ₹0";
-            $previewRemark .= $advanceAmount > 0 ? " | Advance: ₹" . number_format($advanceAmount, 2) : "";
+            $previewRemark = ($discountApplied ? "✅ Discount " . number_format($discount, 2) : "❌ No discount") . " | ";
+            $previewRemark .= $previousPaid > 0 ? "Previous: " . number_format($previousPaid, 2) . " | " : "";
+            $previewRemark .= $currentPaid > 0 ? "Current: " . number_format($currentPaid, 2) : "Current: 0";
+            $previewRemark .= $advanceAmount > 0 ? " | Advance: " . number_format($advanceAmount, 2) : "";
 
             return response()->json([
                 'success' => true,
@@ -911,7 +911,7 @@ return view('admin.payments.index', compact(
             // Check previous pending - if exists, skip
             $previousPending = $this->getPreviousPending($residentId, $request->month, $request->year);
             if ($previousPending > 0) {
-                $errors[] = "Previous pending for " . $resident->name . " (₹" . number_format($previousPending, 2) . ")";
+                $errors[] = "Previous pending for " . $resident->name . " (" . number_format($previousPending, 2) . ")";
                 continue;
             }
 
@@ -1552,13 +1552,13 @@ public function exportUnpaidSummary(Request $request)
     $csv .= "Report Month: " . date('F', mktime(0,0,0,$month,1)) . " " . $year . "\n";
     $csv .= "Generated: " . now()->format('d M Y H:i A') . "\n";
     $csv .= "Total Unpaid Residents: " . $totalUnpaidCount . "\n";
-    $csv .= "Total Due Amount: ₹" . number_format($totalOverall, 2) . "\n";
+    $csv .= "Total Due Amount: " . number_format($totalOverall, 2) . "\n";
     $csv .= "==================================================\n\n";
 
     foreach ($hostelData as $hostelName => $data) {
         $csv .= "\n🏢 " . strtoupper($hostelName) . "\n";
         $csv .= str_repeat('-', 110) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Current Balance (₹),Total Due (₹),Status,Has Payment,Remark\n";
+        $csv .= "S.No,Name,Room No,Phone,Rent (),Previous Pending (),Current Balance (),Total Due (),Status,Has Payment,Remark\n";
         $csv .= str_repeat('-', 110) . "\n";
 
         $serialNo = 1;
@@ -1586,13 +1586,13 @@ public function exportUnpaidSummary(Request $request)
         })->count();
         
         $csv .= str_repeat('-', 110) . "\n";
-        $csv .= ",,,,SUBTOTAL,,,₹" . number_format($subtotal, 2) . ",,,\n";
+        $csv .= ",,,,SUBTOTAL,,," . number_format($subtotal, 2) . ",,,\n";
         $csv .= ",,,,Unpaid Residents: " . $unpaidCount . ",,,\n";
         $csv .= "\n";
     }
 
     $csv .= "==================================================\n";
-    $csv .= "GRAND TOTAL DUE: ₹" . number_format($totalOverall, 2) . "\n";
+    $csv .= "GRAND TOTAL DUE: " . number_format($totalOverall, 2) . "\n";
     $csv .= "==================================================\n";
 
     $filename = 'unpaid-summary-' . date('Y-m-d') . '.csv';
@@ -1829,7 +1829,7 @@ public function exportUnpaidPdf(Request $request)
         $csv .= "🔴 PENDING PAYMENTS (Previous Balance + Current Balance)\n";
         $csv .= "Total Pending Residents: " . count($pendingData) . "\n";
         $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Current Balance (₹),Total Due (₹),Status,Remark\n";
+        $csv .= "S.No,Name,Room No,Phone,Rent (),Previous Pending (),Current Balance (),Total Due (),Status,Remark\n";
         $csv .= str_repeat('-', 80) . "\n";
 
         $serialNo = 1;
@@ -1855,7 +1855,7 @@ public function exportUnpaidPdf(Request $request)
         $csv .= "🟡 PARTIAL PAYMENTS (Paid some, balance remains)\n";
         $csv .= "Total Partial Residents: " . count($partialData) . "\n";
         $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Paid (₹),Balance (₹),Status,Remark\n";
+        $csv .= "S.No,Name,Room No,Phone,Rent (),Paid (),Balance (),Status,Remark\n";
         $csv .= str_repeat('-', 80) . "\n";
 
         $serialNo = 1;
@@ -1880,7 +1880,7 @@ public function exportUnpaidPdf(Request $request)
         $csv .= "⬜ UNPAID PAYMENTS (No payment at all)\n";
         $csv .= "Total Unpaid Residents: " . count($unpaidData) . "\n";
         $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Previous Pending (₹),Total Due (₹),Remark\n";
+        $csv .= "S.No,Name,Room No,Phone,Rent (),Previous Pending (),Total Due (),Remark\n";
         $csv .= str_repeat('-', 80) . "\n";
 
         $serialNo = 1;
@@ -1904,7 +1904,7 @@ public function exportUnpaidPdf(Request $request)
         $csv .= "✅ PAID PAYMENTS (Fully paid - balance 0)\n";
         $csv .= "Total Paid Residents: " . count($paidData) . "\n";
         $csv .= str_repeat('=', 80) . "\n";
-        $csv .= "S.No,Name,Room No,Phone,Rent (₹),Paid (₹),Status,Remark\n";
+        $csv .= "S.No,Name,Room No,Phone,Rent (),Paid (),Status,Remark\n";
         $csv .= str_repeat('-', 80) . "\n";
 
         $serialNo = 1;

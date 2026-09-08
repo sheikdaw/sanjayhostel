@@ -216,7 +216,7 @@
                 <div><span class="label">Month:</span> <span class="value">{{ $month }} {{ $year }}</span></div>
                 <div><span class="label">Hostel:</span> <span class="value">{{ $hostel }}</span></div>
                 <div><span class="label">Unpaid Residents:</span> <span class="value">{{ $totalUnpaid }}</span></div>
-                <div><span class="label">Total Due:</span> <span class="value">₹{{ number_format($totalDue, 2) }}</span></div>
+                <div><span class="label">Total Due:</span> <span class="value">{{ number_format($totalDue, 2) }}</span></div>
             </div>
 
             @if($totalUnpaid > 0)
@@ -227,15 +227,15 @@
                         <div class="label">Total Unpaid</div>
                     </div>
                     <div class="summary-item">
-                        <div class="number text-danger">₹{{ number_format($totalPreviousPending, 2) }}</div>
+                        <div class="number text-danger">{{ number_format($totalPreviousPending, 2) }}</div>
                         <div class="label">Previous Pending</div>
                     </div>
                     <div class="summary-item">
-                        <div class="number text-warning">₹{{ number_format($totalCurrentBalance, 2) }}</div>
+                        <div class="number text-warning">{{ number_format($totalCurrentBalance, 2) }}</div>
                         <div class="label">Current Balance</div>
                     </div>
                     <div class="summary-item" style="border-left-color: #1a237e;">
-                        <div class="number text-primary">₹{{ number_format($totalDue, 2) }}</div>
+                        <div class="number text-primary">{{ number_format($totalDue, 2) }}</div>
                         <div class="label">Total Due</div>
                     </div>
                 </div>
@@ -250,9 +250,9 @@
                                 <th>Hostel</th>
                                 <th>Room</th>
                                 <th>Phone</th>
-                                <th>Prev Pending (₹)</th>
-                                <th>Current Bal (₹)</th>
-                                <th>Total Due (₹)</th>
+                                <th>Prev Pending ()</th>
+                                <th>Current Bal ()</th>
+                                <th>Total Due ()</th>
                                 <th>Status</th>
                                 <th>Remark</th>
                             </tr>
@@ -275,7 +275,7 @@
                                     <td>{{ $resident->phone ?? '' }}</td>
                                     <td>
                                         @if($item['total_previous_pending'] > 0)
-                                            <strong style="color:#c62828;">₹{{ number_format($item['total_previous_pending'], 2) }}</strong>
+                                            <strong style="color:#c62828;">{{ number_format($item['total_previous_pending'], 2) }}</strong>
                                             @if($item['previous_pending_count'] > 0)
                                                 <br><span style="font-size:8px; color:#999;">({{ $item['previous_pending_count'] }} month(s))</span>
                                             @endif
@@ -285,12 +285,12 @@
                                     </td>
                                     <td>
                                         @if($item['current_balance'] > 0)
-                                            <strong style="color:#e65100;">₹{{ number_format($item['current_balance'], 2) }}</strong>
+                                            <strong style="color:#e65100;">{{ number_format($item['current_balance'], 2) }}</strong>
                                         @else
                                             <span style="color:#22c55e;">✅ Paid</span>
                                         @endif
                                     </td>
-                                    <td><strong style="color:#c62828;">₹{{ number_format($item['total_due'], 2) }}</strong></td>
+                                    <td><strong style="color:#c62828;">{{ number_format($item['total_due'], 2) }}</strong></td>
                                     <td><span class="badge badge-{{ $statusClass }}">{{ $status }}</span></td>
                                     <td style="font-size:10px; max-width:150px; word-wrap:break-word;">{{ $item['remark'] }}</td>
                                 </tr>
@@ -303,7 +303,7 @@
                                                 @if($prev['balance'] > 0)
                                                     <span style="display:inline-block; margin-right:10px;">
                                                         <span class="month-label">{{ $prev['month_name'] }} {{ $prev['year'] }}</span>
-                                                        : ₹{{ number_format($prev['balance'], 2) }}
+                                                        : {{ number_format($prev['balance'], 2) }}
                                                         ({{ $prev['status'] }})
                                                     </span>
                                                 @endif
@@ -374,7 +374,7 @@
             lines.push(`📅 Month: {{ $month }} {{ $year }}`);
             lines.push(`🏢 Hostel: {{ $hostel }}`);
             lines.push(`🔴 Unpaid: {{ $totalUnpaid }}`);
-            lines.push(`💰 Total Due: ₹{{ number_format($totalDue, 2) }}`);
+            lines.push(`💰 Total Due: {{ number_format($totalDue, 2) }}`);
             lines.push('━'.repeat(40));
             lines.push('');
 
@@ -382,9 +382,9 @@
                 // Summary
                 lines.push('📋 *SUMMARY*');
                 lines.push(`  Total Unpaid: {{ $totalUnpaid }}`);
-                lines.push(`  Previous Pending: ₹{{ number_format($totalPreviousPending, 2) }}`);
-                lines.push(`  Current Balance: ₹{{ number_format($totalCurrentBalance, 2) }}`);
-                lines.push(`  Total Due: ₹{{ number_format($totalDue, 2) }}`);
+                lines.push(`  Previous Pending: {{ number_format($totalPreviousPending, 2) }}`);
+                lines.push(`  Current Balance: {{ number_format($totalCurrentBalance, 2) }}`);
+                lines.push(`  Total Due: {{ number_format($totalDue, 2) }}`);
                 lines.push('');
                 lines.push('━'.repeat(40));
                 lines.push('');
@@ -406,7 +406,7 @@
                         $totalDue = number_format($item['total_due'], 0);
                         $serial = $index + 1;
                     @endphp
-                    lines.push(`│ {{ str_pad($serial, 2, ' ', STR_PAD_LEFT) }} │ {{ str_pad($name, 16, ' ', STR_PAD_RIGHT) }} │ #{{ str_pad($roomNo, 6, ' ', STR_PAD_RIGHT) }} │ ₹{{ str_pad($prevPending, 10, ' ', STR_PAD_LEFT) }} │ ₹{{ str_pad($currBal, 9, ' ', STR_PAD_LEFT) }} │ ₹{{ str_pad($totalDue, 9, ' ', STR_PAD_LEFT) }} │`);
+                    lines.push(`│ {{ str_pad($serial, 2, ' ', STR_PAD_LEFT) }} │ {{ str_pad($name, 16, ' ', STR_PAD_RIGHT) }} │ #{{ str_pad($roomNo, 6, ' ', STR_PAD_RIGHT) }} │ {{ str_pad($prevPending, 10, ' ', STR_PAD_LEFT) }} │ {{ str_pad($currBal, 9, ' ', STR_PAD_LEFT) }} │ {{ str_pad($totalDue, 9, ' ', STR_PAD_LEFT) }} │`);
                 @endforeach
 
                 lines.push('└────┴──────────────────┴──────────┴──────────────┴────────────┴────────────┘');
@@ -424,7 +424,7 @@
                         lines.push(`👤 *{{ $resident->name }}*`);
                         @foreach($prevMonths as $prev)
                             @if($prev['balance'] > 0)
-                                lines.push(`  📅 {{ $prev['month_name'] }} {{ $prev['year'] }}: ₹{{ number_format($prev['balance'], 2) }} ({{ $prev['status'] }})`);
+                                lines.push(`  📅 {{ $prev['month_name'] }} {{ $prev['year'] }}: {{ number_format($prev['balance'], 2) }} ({{ $prev['status'] }})`);
                             @endif
                         @endforeach
                         lines.push('');

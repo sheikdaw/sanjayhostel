@@ -128,10 +128,10 @@
                 <div class="pricing-card">
                     <div class="pricing-badge">Popular</div>
                     <h3>Single Sharing</h3>
-                    <div class="price">₹8,500<span>/month</span></div>
+                    <div class="price">8,500<span>/month</span></div>
                     <ul class="pricing-features">
                         <li>✓ Private room</li>
-                        <li>✓ AC available (+₹2,000)</li>
+                        <li>✓ AC available (+2,000)</li>
                         <li>✓ Attached bathroom</li>
                         <li>✓ 4 meals daily</li>
                         <li>✓ WiFi & CCTV</li>
@@ -141,10 +141,10 @@
                 <div class="pricing-card featured">
                     <div class="pricing-badge">Best Value</div>
                     <h3>Double Sharing</h3>
-                    <div class="price">₹6,000<span>/month</span></div>
+                    <div class="price">6,000<span>/month</span></div>
                     <ul class="pricing-features">
                         <li>✓ Comfortable for 2</li>
-                        <li>✓ AC available (+₹1,500)</li>
+                        <li>✓ AC available (+1,500)</li>
                         <li>✓ Attached bathroom</li>
                         <li>✓ 4 meals daily</li>
                         <li>✓ WiFi & CCTV</li>
@@ -154,10 +154,10 @@
                 <div class="pricing-card">
                     <div class="pricing-badge">Budget</div>
                     <h3>Triple Sharing</h3>
-                    <div class="price">₹4,500<span>/month</span></div>
+                    <div class="price">4,500<span>/month</span></div>
                     <ul class="pricing-features">
                         <li>✓ Budget-friendly</li>
-                        <li>✓ AC available (+₹1,000)</li>
+                        <li>✓ AC available (+1,000)</li>
                         <li>✓ Common bathroom</li>
                         <li>✓ 4 meals daily</li>
                         <li>✓ WiFi & CCTV</li>
@@ -167,7 +167,7 @@
                 <div class="pricing-card">
                     <div class="pricing-badge">Flexible</div>
                     <h3>Dormitory</h3>
-                    <div class="price">₹3,000<span>/month</span></div>
+                    <div class="price">3,000<span>/month</span></div>
                     <ul class="pricing-features">
                         <li>✓ For short stays</li>
                         <li>✓ Non-AC only</li>
@@ -180,7 +180,7 @@
             </div>
             <p style="text-align:center;color:var(--stone);margin-top:20px;font-size:0.9rem;">
                 * Prices are per person per month. All rates are inclusive of meals, WiFi, housekeeping & security.
-                <br>Security deposit: ₹2,000 (refundable). Minimum stay: 1 month.
+                <br>Security deposit: 2,000 (refundable). Minimum stay: 1 month.
             </p>
         </div>
     </section>
@@ -199,11 +199,11 @@
                 <button class="tab-btn" data-tab="amenities">Amenities</button>
             </div>
             <div class="tab-panel grid-cards active" id="rooms">
-                <div class="fac-card"><div class="ic">🛏️</div><h4>Single Sharing</h4><p>₹8,500/mo</p></div>
-                <div class="fac-card"><div class="ic">🛏️</div><h4>Double Sharing</h4><p>₹6,000/mo</p></div>
-                <div class="fac-card"><div class="ic">🛏️</div><h4>Triple Sharing</h4><p>₹4,500/mo</p></div>
-                <div class="fac-card"><div class="ic">🏠</div><h4>Dormitory</h4><p>₹3,000/mo</p></div>
-                <div class="fac-card"><div class="ic">❄️</div><h4>AC Rooms</h4><p>+₹1,000–2,000</p></div>
+                <div class="fac-card"><div class="ic">🛏️</div><h4>Single Sharing</h4><p>8,500/mo</p></div>
+                <div class="fac-card"><div class="ic">🛏️</div><h4>Double Sharing</h4><p>6,000/mo</p></div>
+                <div class="fac-card"><div class="ic">🛏️</div><h4>Triple Sharing</h4><p>4,500/mo</p></div>
+                <div class="fac-card"><div class="ic">🏠</div><h4>Dormitory</h4><p>3,000/mo</p></div>
+                <div class="fac-card"><div class="ic">❄️</div><h4>AC Rooms</h4><p>+1,000–2,000</p></div>
                 <div class="fac-card"><div class="ic">🌬️</div><h4>Non-AC Rooms</h4><p>Included</p></div>
                 <div class="fac-card"><div class="ic">🚿</div><h4>Attached Bathroom</h4><p>Select rooms</p></div>
                 <div class="fac-card"><div class="ic">🌿</div><h4>Balcony Rooms</h4><p>Subject to availability</p></div>
@@ -251,8 +251,8 @@
                     <h3 style="margin-top:30px;">Lunch Box Delivery</h3>
                     <p style="color:var(--stone);">For office employees, IT staff, college students, and senior citizens. Bulk orders for corporates.</p>
                     <div class="plan-grid">
-                        <div class="plan-card"><span class="tag-pill">Veg</span><h4>Daily Veg</h4><p>₹120/meal</p></div>
-                        <div class="plan-card"><span class="tag-pill">Premium</span><h4>Veg / Non-Veg</h4><p>₹150/meal</p></div>
+                        <div class="plan-card"><span class="tag-pill">Veg</span><h4>Daily Veg</h4><p>120/meal</p></div>
+                        <div class="plan-card"><span class="tag-pill">Premium</span><h4>Veg / Non-Veg</h4><p>150/meal</p></div>
                         <div class="plan-card"><span class="tag-pill">Corporate</span><h4>Bulk Supply</h4><p>Custom quote</p></div>
                     </div>
                 </div>

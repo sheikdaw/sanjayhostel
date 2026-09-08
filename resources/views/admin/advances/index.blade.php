@@ -195,15 +195,15 @@
 {{-- Stats --}}
 <div class="advance-stats">
     <div class="advance-stat total">
-        <div class="number">₹{{ number_format($summary['total_advance'], 2) }}</div>
+        <div class="number">{{ number_format($summary['total_advance'], 2) }}</div>
         <div class="label">Total Advance This Month</div>
     </div>
     <div class="advance-stat deducted">
-        <div class="number">₹{{ number_format($summary['total_deduction'], 2) }}</div>
+        <div class="number">{{ number_format($summary['total_deduction'], 2) }}</div>
         <div class="label">Total Deduction This Month</div>
     </div>
     <div class="advance-stat balance">
-        <div class="number">₹{{ number_format($summary['total_outstanding'], 2) }}</div>
+        <div class="number">{{ number_format($summary['total_outstanding'], 2) }}</div>
         <div class="label">Total Outstanding Balance</div>
     </div>
 </div>
@@ -262,10 +262,10 @@
                         <td><strong>{{ $employee->name }}</strong></td>
                         <td>{{ $employee->employee_code }}</td>
                         <td>{{ $employee->hostel->hostel_name ?? 'N/A' }}</td>
-                        <td class="text-warning">₹{{ number_format($monthlyAdvance, 2) }}</td>
-                        <td class="text-success">₹{{ number_format($monthlyDeduction, 2) }}</td>
+                        <td class="text-warning">{{ number_format($monthlyAdvance, 2) }}</td>
+                        <td class="text-success">{{ number_format($monthlyDeduction, 2) }}</td>
                         <td class="text-{{ $employee->advance_balance > 0 ? 'danger' : 'success' }}">
-                            ₹{{ number_format($employee->advance_balance, 2) }}
+                            {{ number_format($employee->advance_balance, 2) }}
                         </td>
                         <td>
                             <span class="status-badge {{ $employee->status }}">
@@ -349,7 +349,7 @@
                             <div class="alert alert-info" id="advance_balance_info">
                                 <i class="bi bi-info-circle"></i>
                                 <strong>Current Outstanding Balance:</strong> 
-                                <span id="current_balance">₹0.00</span>
+                                <span id="current_balance">0.00</span>
                             </div>
                         </div>
                     </div>
@@ -383,7 +383,7 @@ $(document).ready(function() {
         $('#advance_employee_name').val('');
         $('#advance_amount').val('');
         $('#advance_remarks').val('');
-        $('#current_balance').text('₹0.00');
+        $('#current_balance').text('0.00');
         $('#advanceForm')[0].reset();
         $('.invalid-feedback').text('');
         $('.rv-input-box').removeClass('is-invalid');
@@ -441,7 +441,7 @@ function takeAdvance(id) {
                 $('#advance_employee_name').val(data.name + ' (' + data.employee_code + ')');
                 $('#advance_amount').val('');
                 $('#advance_remarks').val('');
-                $('#current_balance').text('₹' + Number(data.advance_balance).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+                $('#current_balance').text('' + Number(data.advance_balance).toLocaleString('en-IN', {minimumFractionDigits: 2}));
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
                 var modal = new bootstrap.Modal(document.getElementById('advanceModal'));
@@ -467,7 +467,7 @@ function deductAdvance(id) {
                 $('#advance_employee_name').val(data.name + ' (' + data.employee_code + ')');
                 $('#advance_amount').val('');
                 $('#advance_remarks').val('');
-                $('#current_balance').text('₹' + Number(data.advance_balance).toLocaleString('en-IN', {minimumFractionDigits: 2}));
+                $('#current_balance').text('' + Number(data.advance_balance).toLocaleString('en-IN', {minimumFractionDigits: 2}));
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
                 var modal = new bootstrap.Modal(document.getElementById('advanceModal'));

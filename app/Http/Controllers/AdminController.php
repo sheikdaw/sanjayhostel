@@ -65,7 +65,7 @@ class AdminController extends Controller
         // on the payments table anymore. If a payment row was ever saved
         // with status=PENDING/PARTIAL but balance_amount=0 (a write-side
         // bug), this dashboard would previously show pending count > 0
-        // but pending amount = ₹0.0L. Instead we always recompute the
+        // but pending amount = 0.0L. Instead we always recompute the
         // balance live as: rent_amount - (cash_paid + upi_paid).
         // ============================================================
 

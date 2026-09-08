@@ -20,7 +20,7 @@
             @if(isset($success) && $success === true)
                 <h1 class="success">✅ Payment Successful!</h1>
                 <p><strong>Reference:</strong> {{ $reference ?? 'N/A' }}</p>
-                <p><strong>Amount:</strong> ₹{{ isset($amount) ? number_format($amount, 2) : '0.00' }}</p>
+                <p><strong>Amount:</strong> {{ isset($amount) ? number_format($amount, 2) : '0.00' }}</p>
                 <p><strong>Receipt No:</strong> {{ $receipt_no ?? $reference ?? 'N/A' }}</p>
                 <a href="{{ url('/guest/payment') }}" class="btn">Make Another Payment</a>
             @elseif(isset($success) && $success === null)

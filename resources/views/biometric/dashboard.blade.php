@@ -398,9 +398,9 @@
                     const p = result.payment_details;
                     document.getElementById('payment-info-display').style.display = 'block';
                     document.getElementById('payment-info-display').innerHTML = `
-                        <div><span class="label">💰 Amount:</span> <span class="value">₹${p.amount}</span></div>
-                        <div><span class="label">✅ Paid:</span> <span class="value">₹${p.paid}</span></div>
-                        <div><span class="label">📊 Balance:</span> <span class="value">₹${p.balance}</span></div>
+                        <div><span class="label">💰 Amount:</span> <span class="value">${p.amount}</span></div>
+                        <div><span class="label">✅ Paid:</span> <span class="value">${p.paid}</span></div>
+                        <div><span class="label">📊 Balance:</span> <span class="value">${p.balance}</span></div>
                         <div><span class="label">📌 Status:</span> <span class="value">${p.status}</span></div>
                     `;
                 } else {
@@ -444,7 +444,7 @@
                 
                 if (result.payment_details) {
                     const p = result.payment_details;
-                    log(`   Amount: ₹${p.amount}, Paid: ₹${p.paid}, Balance: ₹${p.balance}`, 'info');
+                    log(`   Amount: ${p.amount}, Paid: ${p.paid}, Balance: ${p.balance}`, 'info');
                 }
             } else {
                 log(`❌ ${result.error}`, 'error');

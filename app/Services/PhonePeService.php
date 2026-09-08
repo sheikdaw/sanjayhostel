@@ -17,7 +17,7 @@ use Exception;
  *  - Refund:         POST /payments/v2/refund
  *  - Refund Status:  GET  /payments/v2/refund/{merchantRefundId}/status
  *
- * NOTE: PhonePe amounts are always in PAISE (₹1 = 100). This service expects
+ * NOTE: PhonePe amounts are always in PAISE (1 = 100). This service expects
  * amountInPaise everywhere — convert rupees * 100 before calling it.
  */
 class PhonePeService

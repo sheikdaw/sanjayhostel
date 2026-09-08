@@ -546,26 +546,26 @@
                 <div class="payment-breakdown" id="paymentBreakdown" style="display: none;">
                     <div class="breakdown-row" id="breakdownPrevious">
                         <span class="label">Previous Pending</span>
-                        <span class="amount" id="breakdownPreviousAmount">₹0.00</span>
+                        <span class="amount" id="breakdownPreviousAmount">0.00</span>
                     </div>
                     <div class="breakdown-row" id="breakdownCurrent">
                         <span class="label">Current Month Rent</span>
-                        <span class="amount" id="breakdownCurrentAmount">₹0.00</span>
+                        <span class="amount" id="breakdownCurrentAmount">0.00</span>
                     </div>
                     <div class="breakdown-row" id="breakdownDiscount" style="display: none;">
                         <span class="label breakdown-label-discount">Early Payment Discount</span>
-                        <span class="amount" id="breakdownDiscountAmount" style="color: #065f46;">-₹0.00</span>
+                        <span class="amount" id="breakdownDiscountAmount" style="color: #065f46;">-0.00</span>
                     </div>
                     <div class="breakdown-row total">
                         <span class="label"><strong>Total to Pay</strong></span>
-                        <span class="amount" id="breakdownTotalAmount">₹0.00</span>
+                        <span class="amount" id="breakdownTotalAmount">0.00</span>
                     </div>
                 </div>
 
                 <div class="info-row"
                     style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
                     <span class="label"><i class="bi bi-currency-rupee"></i> Amount to Pay</span>
-                    <span class="value due-amount" id="totalDue">₹0.00</span>
+                    <span class="value due-amount" id="totalDue">0.00</span>
                 </div>
 
                 <div id="pendingInfo">
@@ -680,7 +680,7 @@
                         const rentAmount = parseFloat(response.data.rent_amount || 0);
 
                         // Update total due
-                        $('#totalDue').text('₹' + amountToPay.toFixed(2));
+                        $('#totalDue').text('' + amountToPay.toFixed(2));
 
                         // Show payment breakdown
                         $('#paymentBreakdown').show();
@@ -688,25 +688,25 @@
                         // Previous pending
                         if (previousPending > 0) {
                             $('#breakdownPrevious').show();
-                            $('#breakdownPreviousAmount').text('₹' + previousPending.toFixed(2));
+                            $('#breakdownPreviousAmount').text('' + previousPending.toFixed(2));
                         } else {
                             $('#breakdownPrevious').hide();
                         }
 
                         // Current month (with discount applied)
                         const currentDue = rentAmount - discountAmount;
-                        $('#breakdownCurrentAmount').text('₹' + currentDue.toFixed(2));
+                        $('#breakdownCurrentAmount').text('' + currentDue.toFixed(2));
 
                         // Discount
                         if (discountAmount > 0) {
                             $('#breakdownDiscount').show();
-                            $('#breakdownDiscountAmount').text('-₹' + discountAmount.toFixed(2));
+                            $('#breakdownDiscountAmount').text('-' + discountAmount.toFixed(2));
                         } else {
                             $('#breakdownDiscount').hide();
                         }
 
                         // Total
-                        $('#breakdownTotalAmount').text('₹' + amountToPay.toFixed(2));
+                        $('#breakdownTotalAmount').text('' + amountToPay.toFixed(2));
 
                         if (amountToPay > 0) {
                             $('#breakdownTotalAmount').removeClass('clear');
@@ -719,7 +719,7 @@
                         // Update discount badge
                         if (discountAmount > 0) {
                             $('#discountDisplay').show();
-                            $('#discountText').text('₹' + discountAmount.toFixed(2) + ' off (Early Payment)');
+                            $('#discountText').text('' + discountAmount.toFixed(2) + ' off (Early Payment)');
                             $('#discountBadge').show();
                         } else {
                             $('#discountDisplay').hide();

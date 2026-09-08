@@ -21,16 +21,16 @@
 {{-- Summary Cards --}}
 <div class="employee-stats" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:1rem; margin-bottom:1.5rem;">
     <div class="employee-stat total">
-        <div class="number">₹{{ number_format($employee->advance_amount, 2) }}</div>
+        <div class="number">{{ number_format($employee->advance_amount, 2) }}</div>
         <div class="label">Total Advance</div>
     </div>
     <div class="employee-stat active">
-        <div class="number" style="color:#22c55e;">₹{{ number_format($employee->advance_deduct, 2) }}</div>
+        <div class="number" style="color:#22c55e;">{{ number_format($employee->advance_deduct, 2) }}</div>
         <div class="label">Total Deducted</div>
     </div>
     <div class="employee-stat salary">
         <div class="number" style="color: {{ $employee->advance_balance > 0 ? '#dc2626' : '#22c55e' }};">
-            ₹{{ number_format($employee->advance_balance, 2) }}
+            {{ number_format($employee->advance_balance, 2) }}
         </div>
         <div class="label">Outstanding Balance</div>
     </div>
@@ -75,10 +75,10 @@
                                 {{ $transaction->type_label }}
                             </span>
                         </td>
-                        <td class="text-warning">₹{{ number_format($transaction->amount, 2) }}</td>
-                        <td class="text-info">₹{{ number_format($transaction->deducted_amount, 2) }}</td>
+                        <td class="text-warning">{{ number_format($transaction->amount, 2) }}</td>
+                        <td class="text-info">{{ number_format($transaction->deducted_amount, 2) }}</td>
                         <td class="text-{{ ($transaction->amount - $transaction->deducted_amount) > 0 ? 'danger' : 'success' }}">
-                            ₹{{ number_format($transaction->amount - $transaction->deducted_amount, 2) }}
+                            {{ number_format($transaction->amount - $transaction->deducted_amount, 2) }}
                         </td>
                         <td>{{ $transaction->remarks ?? '-' }}</td>
                     </tr>

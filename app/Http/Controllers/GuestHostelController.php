@@ -105,9 +105,9 @@ class GuestHostelController extends Controller
 
         // IMPORTANT: exclude the current month/year here. The current month's
         // balance is added separately below, so including it here as well
-        // was double-counting it into the total due (e.g. a ₹250 partial
+        // was double-counting it into the total due (e.g. a 250 partial
         // balance was being added once from this sum and once again from
-        // $currentPayment->balance_amount, showing ₹500 instead of ₹250).
+        // $currentPayment->balance_amount, showing 500 instead of 250).
         $pendingPayments = Payment::where('resident_id', $resident->id)
             ->whereIn('status', ['PENDING', 'PARTIAL'])
             ->where(function ($q) use ($currentMonth, $currentYear) {
@@ -144,10 +144,10 @@ class GuestHostelController extends Controller
         if ($pendingPayments->count() == 0 && !$isCurrentMonthPaid && $totalDue > 0) {
             if ($currentDay >= 1 && $currentDay <= 5) {
                 $discount = min(250, $rentAmount * 0.10);
-                $discountMessage = 'Early payment discount (1st-5th): 10% off up to ₹250';
+                $discountMessage = 'Early payment discount (1st-5th): 10% off up to 250';
             } elseif ($currentDay >= 6 && $currentDay <= 10) {
                 $discount = min(125, $rentAmount * 0.05);
-                $discountMessage = 'Early payment discount (6th-10th): 5% off up to ₹125';
+                $discountMessage = 'Early payment discount (6th-10th): 5% off up to 125';
             } else {
                 $discountMessage = 'No discount available. Pay before 10th for early discount.';
             }
@@ -161,7 +161,7 @@ class GuestHostelController extends Controller
         }
 
         // Late fee is currently disabled (multiplier is 0). Change the
-        // multiplier below (e.g. 10 for ₹10/day) whenever you're ready to
+        // multiplier below (e.g. 10 for 10/day) whenever you're ready to
         // switch it on — nothing else needs to change.
         $fineAmount = 0;
         $fineMessage = '';
@@ -169,7 +169,7 @@ class GuestHostelController extends Controller
         if (!$isCurrentMonthPaid && $currentDay > 10 && $totalDue > 0) {
             $daysLate = $currentDay - 10;
             $fineAmount = $daysLate * 0;
-            $fineMessage = "Late fee: ₹10 per day after 10th ({$daysLate} days late)";
+            $fineMessage = "Late fee: 10 per day after 10th ({$daysLate} days late)";
         }
 
         $amountToPay = $finalAmount + $fineAmount;
@@ -327,7 +327,7 @@ class GuestHostelController extends Controller
                 $statusMessage = '✅ Payment completed! Full rent paid.';
             } elseif ($totalPaid > 0) {
                 $payment->status = 'PARTIAL';
-                $statusMessage = '⚠️ Partial payment recorded. Balance: ₹' . number_format($payment->balance_amount, 2);
+                $statusMessage = '⚠️ Partial payment recorded. Balance: ' . number_format($payment->balance_amount, 2);
             } else {
                 $payment->status = 'PENDING';
                 $statusMessage = '❌ Payment pending.';
@@ -395,7 +395,7 @@ class GuestHostelController extends Controller
                 $statusMessage = '✅ Payment completed! Full rent paid.';
             } elseif ($totalPaid > 0) {
                 $payment->status = 'PARTIAL';
-                $statusMessage = '⚠️ Partial payment recorded. Balance: ₹' . number_format($payment->balance_amount, 2);
+                $statusMessage = '⚠️ Partial payment recorded. Balance: ' . number_format($payment->balance_amount, 2);
             } else {
                 $payment->status = 'PENDING';
                 $statusMessage = '❌ Payment pending.';
@@ -413,7 +413,7 @@ class GuestHostelController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Payment of ₹' . number_format($paidAmount, 2) . ' recorded successfully!',
+            'message' => 'Payment of ' . number_format($paidAmount, 2) . ' recorded successfully!',
             'data' => [
                 'payment_id' => $payment->id,
                 'receipt_no' => $payment->receipt_no,

@@ -97,17 +97,17 @@ class Advance extends Model
 
     public function getFormattedAmountAttribute(): string
     {
-        return '₹' . number_format($this->amount, 2);
+        return '' . number_format($this->amount, 2);
     }
 
     public function getFormattedDeductedAmountAttribute(): string
     {
-        return '₹' . number_format($this->deducted_amount ?? 0, 2);
+        return '' . number_format($this->deducted_amount ?? 0, 2);
     }
 
     public function getFormattedRemainingAmountAttribute(): string
     {
-        return '₹' . number_format($this->remaining_amount, 2);
+        return '' . number_format($this->remaining_amount, 2);
     }
 
     // ============================================

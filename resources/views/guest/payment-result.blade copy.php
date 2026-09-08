@@ -123,7 +123,7 @@
                 </div>
                 <div class="row-line">
                     <span class="label">Amount Paid</span>
-                    <span class="value" id="amtText">₹{{ number_format($amount ?? 0, 2) }}</span>
+                    <span class="value" id="amtText">{{ number_format($amount ?? 0, 2) }}</span>
                 </div>
                 <div class="row-line">
                     <span class="label">Receipt No</span>
@@ -200,7 +200,7 @@
             document.getElementById('failedBlock').style.display = 'none';
             document.getElementById('successBlock').style.display = '';
             document.getElementById('refText').textContent = reference;
-            document.getElementById('amtText').textContent = '₹' + parseFloat(data.amount).toFixed(2);
+            document.getElementById('amtText').textContent = '' + parseFloat(data.amount).toFixed(2);
             document.getElementById('receiptText').textContent = data.receipt_no;
         }
 

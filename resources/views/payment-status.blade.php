@@ -57,7 +57,7 @@
             <div class="status-details">
                 <p><strong>Status:</strong> <span class="text-success">{{ $status }}</span></p>
                 <p><strong>Transaction ID:</strong> {{ $txn_id }}</p>
-                <p><strong>Amount:</strong> ₹{{ number_format($amount, 2) }}</p>
+                <p><strong>Amount:</strong> {{ number_format($amount, 2) }}</p>
                 <p><strong>UPI ID:</strong> {{ $upi_id ?? 'N/A' }}</p>
             </div>
 

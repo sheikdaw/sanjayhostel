@@ -527,7 +527,7 @@
         <div class="ds-stat pink">
             <div class="ds-stat-icon pink"><i class="bi bi-currency-rupee"></i></div>
             <div class="ds-stat-label">Total Collected</div>
-            <div class="ds-stat-value">₹{{ number_format($totalCollected / 100000, 1) }}L</div>
+            <div class="ds-stat-value">{{ number_format($totalCollected / 100000, 1) }}L</div>
             <span class="ds-stat-change up"><i class="bi bi-arrow-up-short"></i>{{ $totalPayments }} transactions</span>
         </div>
     </div>
@@ -536,7 +536,7 @@
             <div class="ds-stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
             <div class="ds-stat-label">Pending Amount</div>
             <div class="ds-stat-value">
-                ₹{{ $totalPending > 0 ? number_format($totalPending / 100000, 1) : '0.0' }}L
+                {{ $totalPending > 0 ? number_format($totalPending / 100000, 1) : '0.0' }}L
             </div>
             <span class="ds-stat-change down">
                 <i class="bi bi-arrow-up-short"></i>
@@ -557,7 +557,7 @@
         <div class="ds-card h-100">
             <div class="ds-card-head">
                 <div class="ds-card-title">Monthly Collections (Last 6 Months)</div>
-                <span class="ds-pill paid">Lakhs ₹</span>
+                <span class="ds-pill paid">Lakhs </span>
             </div>
             <div class="ds-card-body">
                 @if(count($months) > 0)
@@ -569,7 +569,7 @@
                                  style="width: 0%;"
                                  data-width="{{ $collections[$index] > 0 ? round(($collections[$index] / max($collections)) * 100) : 0 }}"></div>
                         </div>
-                        <span class="ds-bar-val">₹{{ $collections[$index] }}L</span>
+                        <span class="ds-bar-val">{{ $collections[$index] }}L</span>
                     </div>
                     @endforeach
                 @else
@@ -663,11 +663,11 @@
                                 </div>
                                 <div class="stat-item">
                                     <span>Collected</span>
-                                    <span class="value">₹{{ number_format($stat['collected'] / 100000, 1) }}L</span>
+                                    <span class="value">{{ number_format($stat['collected'] / 100000, 1) }}L</span>
                                 </div>
                                 <div class="stat-item">
                                     <span>Pending</span>
-                                    <span class="value" style="color:#ef4444;">₹{{ number_format($stat['pending'] / 100000, 1) }}L</span>
+                                    <span class="value" style="color:#ef4444;">{{ number_format($stat['pending'] / 100000, 1) }}L</span>
                                 </div>
                                 <div class="occupancy-bar">
                                     <div class="fill" style="width: {{ $stat['occupancy_rate'] }}%; background: {{ $stat['occupancy_rate'] >= 70 ? '#10b981' : ($stat['occupancy_rate'] >= 40 ? '#f59e0b' : '#ef4444') }};"></div>
@@ -716,7 +716,7 @@
                                 <td><span style="font-family:var(--font-mono); font-size:0.72rem; color:#0a2e1a;">{{ $payment->receipt_no }}</span></td>
                                 <td><span style="font-weight:600; color:#111827;">{{ $payment->resident->name ?? 'N/A' }}</span></td>
                                 <td><span style="color:#6b7280;">{{ $payment->resident->hostel->hostel_name ?? 'N/A' }}</span></td>
-                                <td><span style="font-family:var(--font-mono); font-weight:500; color:#0a2e1a;">₹{{ number_format($payment->rent_amount, 0) }}</span></td>
+                                <td><span style="font-family:var(--font-mono); font-weight:500; color:#0a2e1a;">{{ number_format($payment->rent_amount, 0) }}</span></td>
                                 <td><span style="color:#9ca3af; font-size:0.72rem;">{{ $payment->payment_date->format('d M Y') }}</span></td>
                                 <td>
                                     @php
@@ -789,7 +789,7 @@
                         </div>
                         <div>
                             <div class="ds-activity-text">
-                                <strong>Payment received</strong> — ₹{{ number_format($payment->rent_amount, 0) }}
+                                <strong>Payment received</strong> — {{ number_format($payment->rent_amount, 0) }}
                                 from {{ $payment->resident->name ?? 'N/A' }}
                             </div>
                             <div class="ds-activity-time">
@@ -965,19 +965,19 @@
                             </tr>
                             <tr>
                                 <th>Total Rent (All Active)</th>
-                                <td>₹{{ number_format($calculationSummary['total_rent_for_active_residents'] ?? 0, 2) }}</td>
+                                <td>{{ number_format($calculationSummary['total_rent_for_active_residents'] ?? 0, 2) }}</td>
                             </tr>
                             <tr>
                                 <th>Total Collected</th>
-                                <td>₹{{ number_format($calculationSummary['total_collected'] ?? 0, 2) }}</td>
+                                <td>{{ number_format($calculationSummary['total_collected'] ?? 0, 2) }}</td>
                             </tr>
                             <tr>
                                 <th class="fw-bold text-danger">Total Pending</th>
-                                <td class="fw-bold text-danger">₹{{ number_format($calculationSummary['total_pending'] ?? 0, 2) }}</td>
+                                <td class="fw-bold text-danger">{{ number_format($calculationSummary['total_pending'] ?? 0, 2) }}</td>
                             </tr>
                             <tr>
                                 <th>Pending (Alternative)</th>
-                                <td>₹{{ number_format($calculationSummary['total_pending_alternative'] ?? 0, 2) }}</td>
+                                <td>{{ number_format($calculationSummary['total_pending_alternative'] ?? 0, 2) }}</td>
                             </tr>
                             <tr>
                                 <th>Paid Residents</th>
@@ -1018,8 +1018,8 @@
                                         @foreach($calculationSummary['pending_details'] as $detail)
                                         <tr>
                                             <td>{{ $detail['resident'] }}</td>
-                                            <td>₹{{ number_format($detail['rent'], 2) }}</td>
-                                            <td class="text-danger fw-bold">₹{{ number_format($detail['balance'], 2) }}</td>
+                                            <td>{{ number_format($detail['rent'], 2) }}</td>
+                                            <td class="text-danger fw-bold">{{ number_format($detail['balance'], 2) }}</td>
                                             <td><span class="badge bg-warning">{{ $detail['status'] }}</span></td>
                                         </tr>
                                         @endforeach

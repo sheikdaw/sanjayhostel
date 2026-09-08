@@ -101,7 +101,7 @@
 
             <!-- Amount -->
             <div class="text-center mb-3">
-                <h2 class="text-success">₹{{ number_format($amount, 2) }}</h2>
+                <h2 class="text-success">{{ number_format($amount, 2) }}</h2>
             </div>
 
             <!-- UPI Apps Quick Pay -->

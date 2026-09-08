@@ -110,7 +110,7 @@
                 @if(isset($amount) && $amount !== null)
                 <div class="row d-flex justify-content-between">
                     <span class="label">Amount</span>
-                    <span class="value">₹{{ number_format($amount, 2) }}</span>
+                    <span class="value">{{ number_format($amount, 2) }}</span>
                 </div>
                 @endif
                 @if(isset($receipt_no) && $receipt_no !== null)

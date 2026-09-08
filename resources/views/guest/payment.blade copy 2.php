@@ -448,7 +448,7 @@
                 <div class="info-row"
                     style="border-bottom: 2px solid var(--gold-color); padding-bottom: 0.75rem; margin-bottom: 0.5rem;">
                     <span class="label"><i class="bi bi-currency-rupee"></i> Amount to Pay</span>
-                    <span class="value due-amount" id="totalDue">₹0.00</span>
+                    <span class="value due-amount" id="totalDue">0.00</span>
                 </div>
 
                 <div id="pendingInfo">
@@ -553,7 +553,7 @@
 
                         // Show amount to pay (after discount + fine)
                         const amountToPay = parseFloat(response.data.amount_to_pay || response.data.total_due);
-                        $('#totalDue').text('₹' + amountToPay.toFixed(2));
+                        $('#totalDue').text('' + amountToPay.toFixed(2));
 
                         // Show discount and fine badges
                         const discount = parseFloat(response.data.discount_amount || 0);
@@ -562,13 +562,13 @@
                         if (discount > 0 || fine > 0) {
                             $('#discountDisplay').show();
                             if (discount > 0) {
-                                $('#discountText').text('₹' + discount.toFixed(2) + ' off');
+                                $('#discountText').text('' + discount.toFixed(2) + ' off');
                                 $('#discountBadge').show();
                             } else {
                                 $('#discountBadge').hide();
                             }
                             if (fine > 0) {
-                                $('#fineText').text('₹' + fine.toFixed(2) + ' late fee');
+                                $('#fineText').text('' + fine.toFixed(2) + ' late fee');
                                 $('#fineBadge').show();
                             } else {
                                 $('#fineBadge').hide();
