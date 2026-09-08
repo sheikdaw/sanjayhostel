@@ -488,7 +488,6 @@
     <button class="btn-action" onclick="clearSelection()"><i class="bi bi-x"></i> Clear</button>
 </div>
 
-{{-- Filter Section --}}
 <div class="filter-section">
     <div class="row g-2 w-100">
         <div class="col-md-3">
@@ -521,6 +520,26 @@
                 @for($m = 1; $m <= 12; $m++)
                     <option value="{{ $m }}" {{ $filterMonth == $m ? 'selected' : '' }}>
                         {{ date('F', mktime(0,0,0,$m,1)) }}
+                    </option>
+                @endfor
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select id="filterYear" class="form-select form-select-sm">
+                @for($y = date('Y') - 2; $y <= date('Y') + 1; $y++)
+                    <option value="{{ $y }}" {{ $filterYear == $y ? 'selected' : '' }}>
+                        {{ $y }}
+                    </option>
+                @endfor
+            </select>
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-sm btn-outline-secondary w-100" onclick="applyFilters()">
+                <i class="bi bi-search"></i>
+            </button>
+        </div>
+    </div>
+</div>
                 
 @push('scripts')
 <script>
