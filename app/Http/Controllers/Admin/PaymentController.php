@@ -333,23 +333,26 @@ class PaymentController extends Controller
         // Get rooms for filter
         $rooms = Room::where('status', 'ACTIVE')->get();
 
-        return view('admin.payments.index', compact(
-            'combinedData',
-            'hostels',
-            'residents',
-            'rooms',
-            'stats',
-            'pendingPayments',
-            'user',
-            'filterMonth',
-            'filterYear',
-            'filterMonthName',
-            'filterHostelName',
-            'filterHostelId',
-            'filterStatus',
-            'search'
-        ));
+        $payments = $combinedData; // Add this line before return
+
+return view('admin.payments.index', compact(
+    'payments', // Change from 'combinedData'
+    'hostels',
+    'residents',
+    'rooms',
+    'stats',
+    'pendingPayments',
+    'user',
+    'filterMonth',
+    'filterYear',
+    'filterMonthName',
+    'filterHostelName',
+    'filterHostelId',
+    'filterStatus',
+    'search'
+));
     }
+
 
     /**
      * Store a newly created payment with discount logic
