@@ -285,19 +285,20 @@ Route::prefix('payments')->name('payments.')->group(function () {
     Route::post('/bulk-delete', [PaymentController::class, 'bulkDelete'])->name('bulk-delete');
 
     // ---------- EXPORT ROUTES ----------
-Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
-Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
-Route::get('/export/summary', [PaymentController::class, 'exportSummary'])->name('export.summary');
-Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
-Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid'); // ← Fixed!
+    Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
+    Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
+    Route::get('/export/summary', [PaymentController::class, 'exportSummary'])->name('export.summary');
+    Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
+    Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export. paid');
+    
+    // ✅ Unpaid Summary Exports
+    Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
+    Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
+    
+    // Payment Status Exports
+    Route::get('/export/payment-status', [PaymentController::class, 'exportPaymentStatus'])->name('export.payment-status');
+    Route::get('/export/payment-status-pdf', [PaymentController::class, 'exportPaymentStatusPdf'])->name('export.payment-status-pdf');
 
-// Unpaid Summary Exports
-Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
-Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
-
-// Payment Status Exports
-Route::get('/export/payment-status', [PaymentController::class, 'exportPaymentStatus'])->name('export.payment-status');
-Route::get('/export/payment-status-pdf', [PaymentController::class, 'exportPaymentStatusPdf'])->name('export.payment-status-pdf');
     // ---------- PDF ROUTES ----------
     Route::get('/pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
     Route::get('/pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
