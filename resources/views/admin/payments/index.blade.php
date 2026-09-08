@@ -1310,46 +1310,73 @@ function editPayment(id) {
                 let roomId = data.resident ? data.resident.room_id : null;
                 let residentId = data.resident_id;
 
+                // Reset cascading selects first
+                $('#modal_room_id').empty().append('<option value="">Select Room</option>').prop('disabled', true);
+                $('#resident_id').empty().append('<option value="">Select Room First</option>').prop('disabled', true);
+
                 if (hostelId) {
                     $('#modal_hostel_id').val(hostelId);
+                    
+                    // Load rooms for this hostel
                     $.ajax({
                         url: '/admin/rooms/hostel/' + hostelId + '/rooms',
                         type: 'GET',
                         success: function(roomResp) {
                             let roomSelect = $('#modal_room_id');
                             roomSelect.empty().append('<option value="">Select Room</option>').prop('disabled', false);
-                            if (roomResp.success) {
+                            
+                            if (roomResp.success && roomResp.data.length > 0) {
                                 $.each(roomResp.data, function(key, room) {
-                                    roomSelect.append('<option value="' + room.id + '">Room #' + room.room_no + '</option>');
+                                    let selected = (room.id == roomId) ? 'selected' : '';
+                                    roomSelect.append('<option value="' + room.id + '" ' + selected + '>Room #' + room.room_no + '</option>');
                                 });
                             }
-                            roomSelect.val(roomId);
-
-                            $.ajax({
-                                url: '/admin/payments/room/' + roomId + '/residents',
-                                type: 'GET',
-                                success: function(resResp) {
-                                    let residentSelect = $('#resident_id');
-                                    residentSelect.empty().append('<option value="">Select Resident</option>').prop('disabled', false);
-                                    if (resResp.success) {
-                                        $.each(resResp.data, function(key, resident) {
-                                            residentSelect.append('<option value="' + resident.id + '">' + resident.name + ' (' + resident.resident_code + ')</option>');
-                                        });
+                            
+                            // Now load residents for this room
+                            if (roomId) {
+                                $.ajax({
+                                    url: '/admin/payments/room/' + roomId + '/residents',
+                                    type: 'GET',
+                                    success: function(resResp) {
+                                        let residentSelect = $('#resident_id');
+                                        residentSelect.empty().append('<option value="">Select Resident</option>').prop('disabled', false);
+                                        
+                                        if (resResp.success && resResp.data.length > 0) {
+                                            $.each(resResp.data, function(key, resident) {
+                                                let selected = (resident.id == residentId) ? 'selected' : '';
+                                                residentSelect.append('<option value="' + resident.id + '" ' + selected + '>' + resident.name + ' (' + resident.resident_code + ')</option>');
+                                            });
+                                        }
+                                        
+                                        // Trigger change to load rent amount
+                                        $('#resident_id').trigger('change');
+                                    },
+                                    error: function() {
+                                        showToast('Failed to load residents', 'error');
                                     }
-                                    residentSelect.val(residentId);
-                                }
-                            });
+                                });
+                            } else {
+                                // No room selected, enable resident select with empty options
+                                $('#resident_id').prop('disabled', false);
+                            }
+                        },
+                        error: function() {
+                            showToast('Failed to load rooms', 'error');
                         }
                     });
+                } else {
+                    // No hostel, enable room select manually
+                    $('#modal_room_id').prop('disabled', false);
                 }
 
                 $('#paymentModal').modal('show');
             }
         },
-        error: function() { showToast('Failed to load payment data', 'error'); }
+        error: function() {
+            showToast('Failed to load payment data', 'error');
+        }
     });
 }
-
 function deletePayment(id) {
     Swal.fire({
         title: 'Delete?',
