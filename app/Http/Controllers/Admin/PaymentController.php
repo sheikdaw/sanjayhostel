@@ -31,21 +31,10 @@ class PaymentController extends Controller
 
     /**
      * Get previous pending payments with details (oldest first)
-     * INCLUDES UNPAID months
      */
     private function getPreviousPendingDetails($residentId, $month, $year)
     {
-        $pendingDetails = [];
-        $resident = Resident::find($residentId);
-        
-        if (!$resident) {
-            return collect($pendingDetails);
-        }
-        
-        $rentAmount = (float) ($resident->rent_amount ?? 0);
-        
-        // Get all existing payments for this resident
-        $payments = Payment::where('resident_id', $residentId)
+        return Payment::where('resident_id', $residentId)
             ->where(function($q) use ($month, $year) {
                 $q->where('year', '<', $year)
                   ->orWhere(function($q2) use ($month, $year) {
@@ -53,93 +42,18 @@ class PaymentController extends Controller
                          ->where('month', '<', $month);
                   });
             })
-            ->get()
-            ->keyBy(function($item) {
-                return $item->year . '-' . $item->month;
-            });
-        
-        // Check each month from joining date
-        $joiningDate = strtotime($resident->joining_date);
-        $vacateDate = $resident->vacate_date ? strtotime($resident->vacate_date) : null;
-        
-        $startYear = (int) date('Y', $joiningDate);
-        $startMonth = (int) date('n', $joiningDate);
-        
-        $endYear = $year;
-        $endMonth = $month - 1;
-        if ($endMonth < 1) {
-            $endMonth = 12;
-            $endYear--;
-        }
-        
-        if ($endYear < $startYear || ($endYear == $startYear && $endMonth < $startMonth)) {
-            return collect($pendingDetails);
-        }
-        
-        for ($y = $startYear; $y <= $endYear; $y++) {
-            $startM = ($y == $startYear) ? $startMonth : 1;
-            $endM = ($y == $endYear) ? $endMonth : 12;
-            
-            for ($m = $startM; $m <= $endM; $m++) {
-                if ($y == $year && $m >= $month) continue;
-                
-                $startDate = strtotime("$y-$m-01");
-                $endDate = strtotime("$y-$m-" . date('t', $startDate));
-                
-                if ($startDate > $joiningDate) continue;
-                if ($vacateDate && $endDate > $vacateDate) continue;
-                
-                $key = $y . '-' . $m;
-                
-                if (isset($payments[$key])) {
-                    $payment = $payments[$key];
-                    if (in_array($payment->status, ['PENDING', 'PARTIAL'])) {
-                        $pendingDetails[] = $payment;
-                    }
-                    // If PAID, skip
-                } else {
-                    // UNPAID - Create virtual payment
-                    $virtualPayment = new Payment();
-                    $virtualPayment->resident_id = $residentId;
-                    $virtualPayment->month = $m;
-                    $virtualPayment->year = $y;
-                    $virtualPayment->rent_amount = $rentAmount;
-                    $virtualPayment->balance_amount = $rentAmount;
-                    $virtualPayment->status = 'UNPAID';
-                    $virtualPayment->receipt_no = 'N/A';
-                    $virtualPayment->cash_paid_amount = 0;
-                    $virtualPayment->upi_paid_amount = 0;
-                    $virtualPayment->discount_amount = 0;
-                    $virtualPayment->fine_amount = 0;
-                    $virtualPayment->payment_date = now();
-                    $virtualPayment->remark = 'Unpaid - No payment recorded';
-                    $pendingDetails[] = $virtualPayment;
-                }
-            }
-        }
-        
-        // Sort by year, month
-        usort($pendingDetails, function($a, $b) {
-            if ($a->year != $b->year) return $a->year - $b->year;
-            return $a->month - $b->month;
-        });
-        
-        return collect($pendingDetails);
+            ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get();
     }
 
     /**
-     * Get previous pending total - INCLUDES UNPAID months
+     * Get previous pending total
      */
     private function getPreviousPending($residentId, $month, $year)
     {
-        $resident = Resident::find($residentId);
-        if (!$resident) return 0;
-        
-        $totalPending = 0;
-        $rentAmount = (float) ($resident->rent_amount ?? 0);
-        
-        // Get all payments for this resident for previous months
-        $payments = Payment::where('resident_id', $residentId)
+        return Payment::where('resident_id', $residentId)
             ->where(function($q) use ($month, $year) {
                 $q->where('year', '<', $year)
                   ->orWhere(function($q2) use ($month, $year) {
@@ -147,57 +61,8 @@ class PaymentController extends Controller
                          ->where('month', '<', $month);
                   });
             })
-            ->get()
-            ->keyBy(function($item) {
-                return $item->year . '-' . $item->month;
-            });
-        
-        $joiningDate = strtotime($resident->joining_date);
-        $vacateDate = $resident->vacate_date ? strtotime($resident->vacate_date) : null;
-        
-        $startYear = (int) date('Y', $joiningDate);
-        $startMonth = (int) date('n', $joiningDate);
-        
-        $endYear = $year;
-        $endMonth = $month - 1;
-        if ($endMonth < 1) {
-            $endMonth = 12;
-            $endYear--;
-        }
-        
-        if ($endYear < $startYear || ($endYear == $startYear && $endMonth < $startMonth)) {
-            return 0;
-        }
-        
-        for ($y = $startYear; $y <= $endYear; $y++) {
-            $startM = ($y == $startYear) ? $startMonth : 1;
-            $endM = ($y == $endYear) ? $endMonth : 12;
-            
-            for ($m = $startM; $m <= $endM; $m++) {
-                if ($y == $year && $m >= $month) continue;
-                
-                $startDate = strtotime("$y-$m-01");
-                $endDate = strtotime("$y-$m-" . date('t', $startDate));
-                
-                if ($startDate > $joiningDate) continue;
-                if ($vacateDate && $endDate > $vacateDate) continue;
-                
-                $key = $y . '-' . $m;
-                
-                if (isset($payments[$key])) {
-                    $payment = $payments[$key];
-                    if (in_array($payment->status, ['PENDING', 'PARTIAL'])) {
-                        $totalPending += (float) $payment->balance_amount;
-                    }
-                    // If PAID, balance is 0, so skip
-                } else {
-                    // No payment record - UNPAID month
-                    $totalPending += $rentAmount;
-                }
-            }
-        }
-        
-        return $totalPending;
+            ->whereIn('status', ['PENDING', 'PARTIAL'])
+            ->sum('balance_amount');
     }
 
     /**
@@ -271,6 +136,7 @@ class PaymentController extends Controller
     {
         $user = auth()->user();
 
+        // Get hostels based on user role
         if ($user->role === 'admin') {
             $hostels = Hostel::where('status', 'ACTIVE')->get();
         } else {
@@ -278,6 +144,7 @@ class PaymentController extends Controller
             $hostels = Hostel::whereIn('id', $hostelIds)->where('status', 'ACTIVE')->get();
         }
 
+        // Get all active residents for dropdown
         if ($user->role === 'admin') {
             $residents = Resident::with(['hostel', 'room'])
                 ->where('status', 'ACTIVE')
@@ -292,12 +159,14 @@ class PaymentController extends Controller
                 ->get();
         }
 
+        // Get filter values from request
         $filterMonth = $request->month ?? now()->month;
         $filterYear = $request->year ?? now()->year;
         $filterHostelId = $request->hostel_id ?? null;
         $filterStatus = $request->status ?? null;
         $search = $request->search ?? null;
 
+        // STEP 1: Get all residents who were ACTIVE during the selected month
         $residentsQuery = Resident::with(['hostel', 'room'])
             ->where('status', 'ACTIVE');
 
@@ -322,6 +191,7 @@ class PaymentController extends Controller
 
         $activeResidents = $residentsQuery->get();
 
+        // STEP 2: Get all payments for the selected month
         $paymentsQuery = Payment::with(['resident', 'resident.hostel', 'resident.room'])
             ->where('month', $filterMonth)
             ->where('year', $filterYear);
@@ -341,6 +211,7 @@ class PaymentController extends Controller
 
         $payments = $paymentsQuery->get()->keyBy('resident_id');
 
+        // STEP 3: Build combined data with status
         $combinedData = [];
         $stats = [
             'total' => 0,
@@ -364,26 +235,29 @@ class PaymentController extends Controller
             $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
             $totalDue = $previousPending + $currentBalance;
 
-            // 🔥 FIX: Correct status determination
-            if ($payment && $payment->status === 'PAID' && $currentBalance == 0 && $previousPending == 0) {
-                $status = 'PAID';
-            } elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0 && $previousPending > 0) {
-                // Has previous pending but current month is paid - should be PARTIAL or PENDING
-                // Actually this shouldn't happen because previous pending would be added to current balance
-                $status = 'PARTIAL';
-            } elseif ($payment && $payment->status === 'PARTIAL') {
-                $status = 'PARTIAL';
-            } elseif ($payment && $payment->status === 'PENDING') {
-                $status = 'PENDING';
-            } elseif (!$payment && $previousPending > 0) {
-                // No current payment but has previous pending
-                $status = 'PENDING';
-            } elseif (!$payment && $previousPending == 0) {
+            // Determine status
+            if (!$payment && $previousPending == 0) {
                 $status = 'UNPAID';
-            } elseif ($payment && $currentBalance > 0) {
-                $status = 'PARTIAL';
+            } elseif ($previousPending > 0) {
+                if ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
+                    $status = 'PAID';
+                } elseif ($payment && $payment->status === 'PAID' && $currentBalance > 0) {
+                    $status = 'PARTIAL';
+                } else {
+                    $status = 'PENDING';
+                }
+            } elseif ($payment) {
+                if ($payment->status === 'PAID' && $currentBalance == 0) {
+                    $status = 'PAID';
+                } elseif ($payment->status === 'PARTIAL' || $currentBalance > 0) {
+                    $status = 'PARTIAL';
+                } elseif ($payment->status === 'PENDING') {
+                    $status = 'PENDING';
+                } else {
+                    $status = $payment->status;
+                }
             } else {
-                $status = $payment ? $payment->status : 'UNPAID';
+                $status = 'UNPAID';
             }
 
             // Apply status filter
@@ -397,6 +271,7 @@ class PaymentController extends Controller
                 }
             }
 
+            // Create payment object for blade
             $combinedData[] = (object) [
                 'id' => $payment ? $payment->id : null,
                 'resident_id' => $resident->id,
@@ -424,6 +299,7 @@ class PaymentController extends Controller
                 'is_unpaid' => (!$payment && $previousPending == 0),
             ];
 
+            // Update stats
             $stats['total']++;
             if ($status === 'PAID') $stats['paid']++;
             elseif ($status === 'PENDING') $stats['pending']++;
@@ -440,17 +316,24 @@ class PaymentController extends Controller
             $stats['total_collected'] += $payment ? ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
         }
 
+        // Sort combined data
         usort($combinedData, function($a, $b) {
             return strcmp($a->resident->name ?? '', $b->resident->name ?? '');
         });
 
+        // Get pending payments for alert
         $pendingPayments = collect($combinedData)->filter(function($item) {
             return in_array($item->status, ['PENDING', 'UNPAID', 'PARTIAL']);
         });
 
+        // Get filter labels
         $filterMonthName = date('F', mktime(0, 0, 0, $filterMonth, 1));
         $filterHostelName = $filterHostelId ? (Hostel::find($filterHostelId)->hostel_name ?? 'All Hostels') : 'All Hostels';
+
+        // Get rooms for filter
         $rooms = Room::where('status', 'ACTIVE')->get();
+
+        $combinedData = $combinedData ?? collect();
 
         return view('admin.payments.index', compact(
             'combinedData',
