@@ -301,7 +301,6 @@
         font-weight: 600;
     }
 
-    /* Discount Badge */
     .discount-badge {
         display: inline-block;
         padding: 2px 8px;
@@ -333,8 +332,9 @@
                 style="width:auto; height:38px; padding:0 1.2rem; font-size:0.8rem !important; border-radius:9px !important; display:inline-flex; align-items:center; gap:6px; animation:none; background:#6b7280;">
                 <i class="bi bi-download"></i> Export
             </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:320px; padding:0.5rem;">
-                <li class="dropdown-header">📊 Payment Reports</li>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="exportDropdown" style="min-width:350px; padding:0.5rem;">
+                <!-- Filtered Reports -->
+                <li class="dropdown-header">📊 Filtered Reports</li>
                 <li>
                     <a class="dropdown-item" href="#" onclick="exportWithType('filtered')">
                         <i class="bi bi-file-earmark-text me-2 text-primary"></i> Filtered Payments (CSV)
@@ -345,8 +345,40 @@
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Filtered Payments (PDF)
                     </a>
                 </li>
+                
                 <li><hr class="dropdown-divider"></li>
-                <li class="dropdown-header">🔴 Unpaid Summary Reports</li>
+                <li class="dropdown-header">📋 Payment Status Reports</li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportPaymentStatus('csv')">
+                        <i class="bi bi-file-earmark-text me-2 text-primary"></i> Payment Status (CSV)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportPaymentStatus('pdf')">
+                        <i class="bi bi-file-pdf me-2 text-danger"></i> Payment Status (PDF)
+                    </a>
+                </li>
+                
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">📈 Summary Reports</li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportWithType('summary')">
+                        <i class="bi bi-bar-chart me-2 text-info"></i> Payment Summary (PDF)
+                    </a>
+                </li>
+                
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">🏢 Hostel Wise Reports</li>
+                @foreach($hostels as $hostel)
+                    <li>
+                        <a class="dropdown-item" href="#" onclick="exportHostelWise({{ $hostel->id }})" style="font-size:0.75rem; padding:0.25rem 1rem;">
+                            <i class="bi bi-building me-2 text-warning"></i> {{ $hostel->hostel_name }}
+                        </a>
+                    </li>
+                @endforeach
+                
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">🔴 Unpaid Reports</li>
                 <li>
                     <a class="dropdown-item" href="#" onclick="exportUnpaid('csv')">
                         <i class="bi bi-file-earmark-text me-2 text-danger"></i> Unpaid Summary (CSV)
@@ -355,6 +387,14 @@
                 <li>
                     <a class="dropdown-item" href="#" onclick="exportUnpaid('pdf')">
                         <i class="bi bi-file-pdf me-2 text-danger"></i> Unpaid Summary (PDF)
+                    </a>
+                </li>
+                
+                <li><hr class="dropdown-divider"></li>
+                <li class="dropdown-header">✅ Paid Reports</li>
+                <li>
+                    <a class="dropdown-item" href="#" onclick="exportPaid()">
+                        <i class="bi bi-file-earmark-text me-2 text-success"></i> Paid Payments (CSV)
                     </a>
                 </li>
             </ul>
@@ -1092,9 +1132,30 @@ function debounce(func, wait) {
 
 function exportWithType(type) {
     var params = getFilterParams();
-    var url = type === 'filtered' 
-        ? '{{ route("admin.payments.export.filtered") }}' 
-        : '{{ route("admin.payments.export.pdf") }}';
+    var url = '';
+    
+    switch(type) {
+        case 'filtered':
+            url = '{{ route("admin.payments.export.filtered") }}';
+            break;
+        case 'pdf':
+            url = '{{ route("admin.payments.export.pdf") }}';
+            break;
+        case 'summary':
+            url = '{{ route("admin.payments.export.summary") }}';
+            break;
+        default:
+            url = '{{ route("admin.payments.export.filtered") }}';
+    }
+    
+    window.location.href = url + '?' + params;
+}
+
+function exportPaymentStatus(type) {
+    var params = getFilterParams();
+    var url = type === 'csv' 
+        ? '{{ route("admin.payments.export.payment-status") }}' 
+        : '{{ route("admin.payments.export.payment-status-pdf") }}';
     window.location.href = url + '?' + params;
 }
 
@@ -1104,6 +1165,18 @@ function exportUnpaid(type) {
         ? '{{ route("admin.payments.export.unpaid-summary") }}' 
         : '{{ route("admin.payments.export.unpaid-pdf") }}';
     window.location.href = url + '?' + params;
+}
+
+function exportHostelWise(hostelId) {
+    var params = getFilterParams();
+    var url = '{{ route("admin.payments.export.hostel-wise") }}?hostel_id=' + hostelId + '&' + params;
+    window.location.href = url;
+}
+
+function exportPaid() {
+    var params = getFilterParams();
+    var url = '{{ route("admin.payments.export.paid") }}?' + params;
+    window.location.href = url;
 }
 
 // ============================================================
