@@ -49,21 +49,84 @@ class PaymentController extends Controller
     }
 
     /**
-     * Get previous pending total
-     */
-    private function getPreviousPending($residentId, $month, $year)
-    {
-        return Payment::where('resident_id', $residentId)
-            ->where(function($q) use ($month, $year) {
-                $q->where('year', '<', $year)
-                  ->orWhere(function($q2) use ($month, $year) {
-                      $q2->where('year', $year)
-                         ->where('month', '<', $month);
-                  });
-            })
-            ->whereIn('status', ['PENDING', 'PARTIAL'])
-            ->sum('balance_amount');
+ * Get previous pending total - INCLUDES UNPAID months (Optimized)
+ */
+private function getPreviousPending($residentId, $month, $year)
+{
+    $resident = Resident::find($residentId);
+    if (!$resident) return 0;
+    
+    $totalPending = 0;
+    $rentAmount = (float) ($resident->rent_amount ?? 0);
+    
+    // Get all payments for this resident for previous months
+    $payments = Payment::where('resident_id', $residentId)
+        ->where(function($q) use ($month, $year) {
+            $q->where('year', '<', $year)
+              ->orWhere(function($q2) use ($month, $year) {
+                  $q2->where('year', $year)
+                     ->where('month', '<', $month);
+              });
+        })
+        ->get()
+        ->keyBy(function($item) {
+            return $item->year . '-' . $item->month;
+        });
+    
+    // Check each month from joining date
+    $joiningDate = strtotime($resident->joining_date);
+    $vacateDate = $resident->vacate_date ? strtotime($resident->vacate_date) : null;
+    
+    // Get the month and year of joining
+    $startYear = (int) date('Y', $joiningDate);
+    $startMonth = (int) date('n', $joiningDate);
+    
+    // End check at the month before current
+    $endYear = $year;
+    $endMonth = $month - 1;
+    if ($endMonth < 1) {
+        $endMonth = 12;
+        $endYear--;
     }
+    
+    // Don't go beyond current month
+    if ($endYear < $startYear || ($endYear == $startYear && $endMonth < $startMonth)) {
+        return 0;
+    }
+    
+    for ($y = $startYear; $y <= $endYear; $y++) {
+        $startM = ($y == $startYear) ? $startMonth : 1;
+        $endM = ($y == $endYear) ? $endMonth : 12;
+        
+        for ($m = $startM; $m <= $endM; $m++) {
+            // Skip current month
+            if ($y == $year && $m >= $month) continue;
+            
+            // Check if resident was active during this month
+            $startDate = strtotime("$y-$m-01");
+            $endDate = strtotime("$y-$m-" . date('t', $startDate));
+            
+            if ($startDate > $joiningDate) continue;
+            if ($vacateDate && $endDate > $vacateDate) continue;
+            
+            $key = $y . '-' . $m;
+            
+            if (isset($payments[$key])) {
+                $payment = $payments[$key];
+                // Add balance if PENDING or PARTIAL
+                if (in_array($payment->status, ['PENDING', 'PARTIAL'])) {
+                    $totalPending += (float) $payment->balance_amount;
+                }
+                // If PAID, balance is 0, so skip
+            } else {
+                // No payment record - UNPAID month
+                $totalPending += $rentAmount;
+            }
+        }
+    }
+    
+    return $totalPending;
+}
 
     /**
      * Filter residents who were active during the selected month
