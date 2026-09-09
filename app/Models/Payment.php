@@ -22,9 +22,9 @@ class Payment extends Model
         'balance_amount',
         'payment_date',
         'transaction_id',
-        'remark',                    // 🔥 NEW
-        'payment_type',              // 🔥 NEW
-        'previous_pending_cleared',  // 🔥 NEW
+        'remark',
+        'payment_type',
+        'previous_pending_cleared',
         'status'
     ];
 
@@ -35,19 +35,17 @@ class Payment extends Model
         'cash_paid_amount' => 'decimal:2',
         'upi_paid_amount' => 'decimal:2',
         'balance_amount' => 'decimal:2',
-        'previous_pending_cleared' => 'decimal:2',  // 🔥 NEW
+        'previous_pending_cleared' => 'decimal:2',
         'payment_date' => 'date',
         'month' => 'integer',
         'year' => 'integer'
     ];
 
-    // Relationships
     public function resident()
     {
         return $this->belongsTo(Resident::class);
     }
 
-    // Accessors
     public function getTotalPaidAttribute()
     {
         return $this->cash_paid_amount + $this->upi_paid_amount;
@@ -73,52 +71,14 @@ class Payment extends Model
         return '₹' . number_format($this->rent_amount, 2);
     }
 
-    public function getFormattedDiscountAttribute()
-    {
-        return '₹' . number_format($this->discount_amount, 2);
-    }
-
-    public function getFormattedFineAttribute()
-    {
-        return '₹' . number_format($this->fine_amount, 2);
-    }
-
-    public function getFormattedCashAttribute()
-    {
-        return '₹' . number_format($this->cash_paid_amount, 2);
-    }
-
-    public function getFormattedUpiAttribute()
-    {
-        return '₹' . number_format($this->upi_paid_amount, 2);
-    }
-
     public function getFormattedBalanceAttribute()
     {
         return '₹' . number_format($this->balance_amount, 2);
     }
 
-    public function getFormattedTotalPaidAttribute()
-    {
-        return '₹' . number_format($this->total_paid, 2);
-    }
-
     public function getMonthNameAttribute()
     {
         return date('F', mktime(0, 0, 0, $this->month, 1));
-    }
-
-    public function getReceiptLinkAttribute()
-    {
-        return route('admin.payments.receipt', $this->id);
-    }
-
-    public function getRemarkDisplayAttribute()
-    {
-        if (empty($this->remark)) {
-            return 'No remarks';
-        }
-        return $this->remark;
     }
 
     public function isPastMonth()
@@ -131,7 +91,6 @@ class Payment extends Model
         return false;
     }
 
-    // Scopes
     public function scopeByMonth($query, $month, $year)
     {
         return $query->where('month', $month)->where('year', $year);
@@ -155,29 +114,5 @@ class Payment extends Model
     public function scopePartial($query)
     {
         return $query->where('status', 'PARTIAL');
-    }
-
-    public function scopeHasPendingPreviousMonth($query, $residentId, $currentMonth, $currentYear)
-    {
-        return $query->where('resident_id', $residentId)
-            ->where(function($q) use ($currentMonth, $currentYear) {
-                $q->where('year', '<', $currentYear)
-                  ->orWhere(function($q2) use ($currentMonth, $currentYear) {
-                      $q2->where('year', $currentYear)
-                         ->where('month', '<', $currentMonth);
-                  });
-            })
-            ->whereIn('status', ['PENDING', 'PARTIAL']);
-    }
-
-    // 🔥 NEW: Get payment type label
-    public function getPaymentTypeLabelAttribute()
-    {
-        $labels = [
-            'current' => 'Current Month',
-            'previous' => 'Previous Pending',
-            'all' => 'Clear All Dues'
-        ];
-        return $labels[$this->payment_type] ?? $this->payment_type;
     }
 }
