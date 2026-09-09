@@ -381,6 +381,33 @@
         font-size: 0.75rem;
         color: #6b7280;
     }
+
+    /* Status legend */
+    .status-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.75rem;
+    }
+    .status-legend .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .status-legend .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .status-legend .legend-dot.unpaid { background: #6b7280; }
+    .status-legend .legend-dot.pending { background: #ef4444; }
+    .status-legend .legend-dot.partial { background: #f59e0b; }
+    .status-legend .legend-dot.paid { background: #22c55e; }
 </style>
 @endpush
 
@@ -475,14 +502,53 @@
     </div>
 </div>
 
+{{-- Status Legend --}}
+<div class="status-legend">
+    <span class="legend-item"><span class="legend-dot unpaid"></span> UNPAID - No payment for this month</span>
+    <span class="legend-item"><span class="legend-dot pending"></span> PENDING - Previous month(s) pending</span>
+    <span class="legend-item"><span class="legend-dot partial"></span> PARTIAL - Partial payment this month</span>
+    <span class="legend-item"><span class="legend-dot paid"></span> PAID - Fully paid this month</span>
+</div>
+
 {{-- Pending Alert --}}
-<div class="pending-alert" id="pendingAlert" style="{{ $pendingPayments->count() > 0 ? '' : 'display:none;' }}">
+@php
+    $unpaidCount = collect($combinedData)->filter(function($item) { return $item->status == 'UNPAID'; })->count();
+    $pendingCount = collect($combinedData)->filter(function($item) { return $item->status == 'PENDING'; })->count();
+    $partialCount = collect($combinedData)->filter(function($item) { return $item->status == 'PARTIAL'; })->count();
+    $paidCount = collect($combinedData)->filter(function($item) { return $item->status == 'PAID'; })->count();
+    
+    $totalPendingAmount = collect($combinedData)->filter(function($item) { 
+        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']); 
+    })->sum('balance_amount');
+    
+    $currentPendingTotal = collect($combinedData)->filter(function($item) { 
+        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']); 
+    })->sum('current_balance_amount');
+    
+    $prevPendingTotal = collect($combinedData)->filter(function($item) { 
+        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']); 
+    })->sum('previous_pending_amount');
+@endphp
+
+<div class="pending-alert" id="pendingAlert" style="{{ ($pendingCount + $unpaidCount + $partialCount) > 0 ? '' : 'display:none;' }}">
     <div>
         <i class="bi bi-exclamation-triangle-fill" style="color:#991b1b;"></i>
-        <span style="font-weight:600; color:#991b1b;">Pending Payments:</span>
-        <span class="count" id="pendingCount">{{ $pendingPayments->count() }}</span> pending for
-        <span id="pendingMonthText">{{ date('F Y') }}</span>.
-        Total: <span class="count" id="pendingTotal">₹{{ number_format($pendingPayments->sum('balance_amount'), 2) }}</span>
+        <span style="font-weight:600; color:#991b1b;">Payment Status Summary:</span>
+        <div style="font-size:0.85rem; margin-top:4px;">
+            <span style="color:#6b7280;">⬜ Unpaid:</span> <span class="count" style="color:#6b7280;">{{ $unpaidCount }}</span>
+            <span style="color:#6b7280; margin:0 4px;">|</span>
+            <span style="color:#ef4444;">🔴 Pending (Previous):</span> <span class="count" style="color:#ef4444;">{{ $pendingCount }}</span>
+            <span style="color:#6b7280; margin:0 4px;">|</span>
+            <span style="color:#f59e0b;">🟡 Partial:</span> <span class="count" style="color:#f59e0b;">{{ $partialCount }}</span>
+            <span style="color:#6b7280; margin:0 4px;">|</span>
+            <span style="color:#22c55e;">✅ Paid:</span> <span class="count" style="color:#22c55e;">{{ $paidCount }}</span>
+            <br>
+            <span style="color:#6b7280;">💰 Total Due:</span> <span class="count" style="color:#991b1b;">₹{{ number_format($totalPendingAmount, 2) }}</span>
+            <span style="color:#6b7280; margin:0 4px;">|</span>
+            <span style="color:#f59e0b;">📅 Current Balance:</span> <span class="count" style="color:#f59e0b;">₹{{ number_format($currentPendingTotal, 2) }}</span>
+            <span style="color:#6b7280; margin:0 4px;">|</span>
+            <span style="color:#ef4444;">📅 Previous Pending:</span> <span class="count" style="color:#ef4444;">₹{{ number_format($prevPendingTotal, 2) }}</span>
+        </div>
     </div>
     <button class="btn btn-sm btn-danger" onclick="filterPending()">View Pending</button>
 </div>
@@ -495,7 +561,7 @@
     </div>
     <div class="stat-card">
         <div class="number" style="color:#ef4444;" id="statPending">{{ $stats['pending'] }}</div>
-        <div class="label">Pending</div>
+        <div class="label">Pending (Previous)</div>
     </div>
     <div class="stat-card">
         <div class="number" style="color:#f59e0b;" id="statPartial">{{ $stats['partial'] }}</div>
@@ -560,8 +626,8 @@
         <div class="col-md-2">
             <select id="filterStatus" class="form-select form-select-sm">
                 <option value="">All Status</option>
-                <option value="PENDING" {{ $filterStatus == 'PENDING' ? 'selected' : '' }}>🔴 Pending</option>
                 <option value="UNPAID" {{ $filterStatus == 'UNPAID' ? 'selected' : '' }}>⬜ Unpaid</option>
+                <option value="PENDING" {{ $filterStatus == 'PENDING' ? 'selected' : '' }}>🔴 Pending (Previous)</option>
                 <option value="PARTIAL" {{ $filterStatus == 'PARTIAL' ? 'selected' : '' }}>🟡 Partial</option>
                 <option value="PAID" {{ $filterStatus == 'PAID' ? 'selected' : '' }}>✅ Paid</option>
             </select>
@@ -646,7 +712,7 @@
                             <div class="number {{ $payment->balance_amount > 0 ? 'balance-due' : 'balance-clear' }}">
                                 ₹{{ number_format($payment->balance_amount, 0) }}
                             </div>
-                            <div class="label">Balance</div>
+                            <div class="label">Total Due</div>
                         </div>
                         <div class="payment-stat-item">
                             <div class="number">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 0) }}</div>
@@ -667,8 +733,14 @@
                     @endif
 
                     @if($payment->previous_pending_amount > 0)
-                        <div class="payment-meta" style="color:#f59e0b;">
+                        <div class="payment-meta" style="color:#ef4444;">
                             <i class="bi bi-clock-history"></i> Previous Pending: ₹{{ number_format($payment->previous_pending_amount, 2) }}
+                        </div>
+                    @endif
+
+                    @if($payment->current_balance_amount > 0 && $payment->status != 'PENDING')
+                        <div class="payment-meta" style="color:#f59e0b;">
+                            <i class="bi bi-calendar"></i> Current Balance: ₹{{ number_format($payment->current_balance_amount, 2) }}
                         </div>
                     @endif
 
@@ -1095,7 +1167,7 @@ function applyFiltersAjax() {
                 updateStats(response.stats);
                 
                 // 3. Update pending alert
-                updatePendingAlert(response.pending_count, response.filter_month, response.filter_year);
+                updatePendingAlert(response.data);
                 
                 // 4. Update filter display
                 updateFilterDisplay(response.filter_month, response.filter_year, status, hostel, search);
@@ -1178,7 +1250,7 @@ function renderPaymentCards(data) {
                             <div class="number ${parseFloat(payment.balance_amount) > 0 ? 'balance-due' : 'balance-clear'}">
                                 ₹${parseFloat(payment.balance_amount).toFixed(0)}
                             </div>
-                            <div class="label">Balance</div>
+                            <div class="label">Total Due</div>
                         </div>
                         <div class="payment-stat-item">
                             <div class="number">₹${parseFloat(payment.total_paid || 0).toFixed(0)}</div>
@@ -1188,7 +1260,8 @@ function renderPaymentCards(data) {
                     
                     ${parseFloat(payment.discount_amount) > 0 ? `<div class="payment-meta" style="color:#166534;"><i class="bi bi-tag"></i> Discount: ₹${parseFloat(payment.discount_amount).toFixed(2)}</div>` : ''}
                     ${parseFloat(payment.fine_amount) > 0 ? `<div class="payment-meta" style="color:#dc2626;"><i class="bi bi-exclamation-triangle"></i> Fine: ₹${parseFloat(payment.fine_amount).toFixed(2)}</div>` : ''}
-                    ${parseFloat(payment.previous_pending_amount) > 0 ? `<div class="payment-meta" style="color:#f59e0b;"><i class="bi bi-clock-history"></i> Previous Pending: ₹${parseFloat(payment.previous_pending_amount).toFixed(2)}</div>` : ''}
+                    ${parseFloat(payment.previous_pending_amount) > 0 ? `<div class="payment-meta" style="color:#ef4444;"><i class="bi bi-clock-history"></i> Previous Pending: ₹${parseFloat(payment.previous_pending_amount).toFixed(2)}</div>` : ''}
+                    ${parseFloat(payment.current_balance_amount) > 0 && payment.status != 'PENDING' ? `<div class="payment-meta" style="color:#f59e0b;"><i class="bi bi-calendar"></i> Current Balance: ₹${parseFloat(payment.current_balance_amount).toFixed(2)}</div>` : ''}
                     
                     ${payment.remark ? `<div class="remark-box"><i class="bi bi-chat-left-text" style="color:var(--sanjay-gold);"></i> <span>${payment.remark}</span></div>` : ''}
                     
@@ -1235,12 +1308,38 @@ function updateStats(stats) {
 // UPDATE PENDING ALERT
 // ============================================================
 
-function updatePendingAlert(count, month, year) {
+function updatePendingAlert(data) {
+    var unpaidCount = 0, pendingCount = 0, partialCount = 0, paidCount = 0;
+    var totalBalance = 0, currentBalance = 0, previousPending = 0;
+    
+    $.each(data, function(index, item) {
+        if (item.status == 'UNPAID') unpaidCount++;
+        else if (item.status == 'PENDING') pendingCount++;
+        else if (item.status == 'PARTIAL') partialCount++;
+        else if (item.status == 'PAID') paidCount++;
+        
+        if (['UNPAID', 'PENDING', 'PARTIAL'].includes(item.status)) {
+            totalBalance += parseFloat(item.balance_amount) || 0;
+            currentBalance += parseFloat(item.current_balance_amount) || 0;
+            previousPending += parseFloat(item.previous_pending_amount) || 0;
+        }
+    });
+    
     var alert = $('#pendingAlert');
-    if (count > 0) {
+    var totalPending = unpaidCount + pendingCount + partialCount;
+    
+    if (totalPending > 0) {
         alert.show();
-        $('#pendingCount').text(count);
-        $('#pendingMonthText').text(month + ' ' + year);
+        // Update counts
+        alert.find('span:contains("Unpaid:")').next('.count').text(unpaidCount);
+        alert.find('span:contains("Pending (Previous):")').next('.count').text(pendingCount);
+        alert.find('span:contains("Partial:")').next('.count').text(partialCount);
+        alert.find('span:contains("Paid:")').next('.count').text(paidCount);
+        
+        // Update amounts
+        alert.find('span:contains("Total Due:")').next('.count').text('₹' + totalBalance.toFixed(2));
+        alert.find('span:contains("Current Balance:")').next('.count').text('₹' + currentBalance.toFixed(2));
+        alert.find('span:contains("Previous Pending:")').next('.count').text('₹' + previousPending.toFixed(2));
     } else {
         alert.hide();
     }

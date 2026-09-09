@@ -31,7 +31,7 @@ class PaymentController extends Controller
 
     /**
      * Get previous pending payments with details (oldest first)
-     * ✅ FIXED: Only returns actual payment records, no virtual payments
+     * ✅ Only returns actual payment records, no virtual payments
      */
     private function getPreviousPendingDetails($residentId, $month, $year)
     {
@@ -102,7 +102,7 @@ class PaymentController extends Controller
 
     /**
      * Get previous pending total
-     * ✅ FIXED: Only sums actual payment records
+     * ✅ Only sums actual payment records
      */
     private function getPreviousPending($residentId, $month, $year)
     {
@@ -235,7 +235,7 @@ class PaymentController extends Controller
 
     /**
      * Display a listing of payments with filters
-     * ✅ WITHOUT PAGINATION
+     * ✅ CORRECTED STATUS LOGIC
      */
     public function index(Request $request)
     {
@@ -294,7 +294,6 @@ class PaymentController extends Controller
             });
         }
 
-        // ✅ NO PAGINATION - Get all residents
         $activeResidents = $residentsQuery->orderBy('name')->get();
         $residentIds = $activeResidents->pluck('id')->toArray();
 
@@ -330,18 +329,18 @@ class PaymentController extends Controller
             $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
             $totalDue = $previousPending + $currentBalance;
 
-            // Determine status
+            // ✅ CORRECTED STATUS LOGIC
             if (!$payment && $previousPending == 0) {
+                // ❌ No payment record for this month AND no previous pending
                 $status = 'UNPAID';
-            } elseif ($previousPending > 0) {
-                if ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
-                    $status = 'PAID';
-                } elseif ($payment && $payment->status === 'PAID' && $currentBalance > 0) {
-                    $status = 'PARTIAL';
-                } else {
-                    $status = 'PENDING';
-                }
-            } elseif ($payment) {
+            } 
+            elseif ($previousPending > 0) {
+                // ⏳ Previous month(s) have pending dues
+                // This OVERRIDES everything else
+                $status = 'PENDING';
+            } 
+            elseif ($payment) {
+                // Payment record exists for this month
                 if ($payment->status === 'PAID' && $currentBalance == 0) {
                     $status = 'PAID';
                 } elseif ($payment->status === 'PARTIAL' || $currentBalance > 0) {
@@ -351,18 +350,36 @@ class PaymentController extends Controller
                 } else {
                     $status = $payment->status;
                 }
-            } else {
+            } 
+            else {
+                // Fallback - no payment record
                 $status = 'UNPAID';
             }
 
-            // Apply status filter
+            // ✅ CORRECTED FILTER LOGIC
             if ($filterStatus) {
-                if ($filterStatus === 'PENDING') {
-                    if (!in_array($status, ['PENDING', 'UNPAID', 'PARTIAL'])) {
+                if ($filterStatus === 'UNPAID') {
+                    // Show ONLY residents with NO payment record for this month
+                    if ($status !== 'UNPAID') {
                         continue;
                     }
-                } elseif ($filterStatus !== $status) {
-                    continue;
+                } elseif ($filterStatus === 'PENDING') {
+                    // Show ONLY residents with previous pending dues
+                    if ($status !== 'PENDING') {
+                        continue;
+                    }
+                } elseif ($filterStatus === 'PARTIAL') {
+                    // Show ONLY residents with partial payment this month
+                    if ($status !== 'PARTIAL') {
+                        continue;
+                    }
+                } elseif ($filterStatus === 'PAID') {
+                    // Show ONLY residents with full payment
+                    if ($status !== 'PAID') {
+                        continue;
+                    }
+                } else {
+                    // All status - no filter
                 }
             }
 
@@ -380,6 +397,7 @@ class PaymentController extends Controller
                 'cash_paid_amount' => $payment ? $payment->cash_paid_amount : 0,
                 'upi_paid_amount' => $payment ? $payment->upi_paid_amount : 0,
                 'balance_amount' => $totalDue,
+                'current_balance_amount' => $currentBalance,
                 'payment_date' => $payment ? $payment->payment_date : now(),
                 'transaction_id' => $payment ? $payment->transaction_id : null,
                 'status' => $status,
@@ -449,6 +467,7 @@ class PaymentController extends Controller
 
     /**
      * Filter payments via AJAX - No page refresh
+     * ✅ CORRECTED STATUS LOGIC
      */
     public function filter(Request $request)
     {
@@ -511,18 +530,14 @@ class PaymentController extends Controller
             $currentPaid = $payment ? (float) ($payment->cash_paid_amount + $payment->upi_paid_amount) : 0;
             $totalDue = $previousPending + $currentBalance;
 
-            // Determine status
+            // ✅ CORRECTED STATUS LOGIC
             if (!$payment && $previousPending == 0) {
                 $status = 'UNPAID';
-            } elseif ($previousPending > 0) {
-                if ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
-                    $status = 'PAID';
-                } elseif ($payment && $payment->status === 'PAID' && $currentBalance > 0) {
-                    $status = 'PARTIAL';
-                } else {
-                    $status = 'PENDING';
-                }
-            } elseif ($payment) {
+            } 
+            elseif ($previousPending > 0) {
+                $status = 'PENDING';
+            } 
+            elseif ($payment) {
                 if ($payment->status === 'PAID' && $currentBalance == 0) {
                     $status = 'PAID';
                 } elseif ($payment->status === 'PARTIAL' || $currentBalance > 0) {
@@ -532,18 +547,29 @@ class PaymentController extends Controller
                 } else {
                     $status = $payment->status;
                 }
-            } else {
+            } 
+            else {
                 $status = 'UNPAID';
             }
 
-            // Apply status filter
+            // ✅ CORRECTED FILTER LOGIC
             if ($filterStatus) {
-                if ($filterStatus === 'PENDING') {
-                    if (!in_array($status, ['PENDING', 'UNPAID', 'PARTIAL'])) {
+                if ($filterStatus === 'UNPAID') {
+                    if ($status !== 'UNPAID') {
                         continue;
                     }
-                } elseif ($filterStatus !== $status) {
-                    continue;
+                } elseif ($filterStatus === 'PENDING') {
+                    if ($status !== 'PENDING') {
+                        continue;
+                    }
+                } elseif ($filterStatus === 'PARTIAL') {
+                    if ($status !== 'PARTIAL') {
+                        continue;
+                    }
+                } elseif ($filterStatus === 'PAID') {
+                    if ($status !== 'PAID') {
+                        continue;
+                    }
                 }
             }
 
@@ -564,6 +590,7 @@ class PaymentController extends Controller
                 'cash_paid_amount' => number_format($payment ? $payment->cash_paid_amount : 0, 2),
                 'upi_paid_amount' => number_format($payment ? $payment->upi_paid_amount : 0, 2),
                 'balance_amount' => number_format($totalDue, 2),
+                'current_balance_amount' => number_format($currentBalance, 2),
                 'total_paid' => number_format($currentPaid, 2),
                 'status' => $status,
                 'status_badge' => strtolower($status),
@@ -609,7 +636,7 @@ class PaymentController extends Controller
 
     /**
      * Store a newly created payment with discount logic
-     * ✅ FIXED: Only stores when payment is actually made
+     * ✅ Only stores when payment is actually made
      */
     public function store(Request $request)
     {
@@ -665,7 +692,7 @@ class PaymentController extends Controller
             $upiPaid = (float) $request->upi_paid_amount;
             $totalPaid = $cashPaid + $upiPaid + $fineAmount;
 
-            // ✅ FIX: If no payment is made, don't create any record
+            // If no payment is made, don't create any record
             if ($totalPaid <= 0) {
                 return response()->json([
                     'success' => false,
@@ -721,7 +748,7 @@ class PaymentController extends Controller
                 $payAmount = min($remaining, $prevBalance);
                 
                 if ($payAmount > 0) {
-                    // ✅ UPDATE EXISTING payment record
+                    // UPDATE EXISTING payment record
                     $prevPayment->cash_paid_amount += $payAmount;
                     $newBalance = $prevBalance - $payAmount;
                     $prevPayment->balance_amount = max(0, $newBalance);
@@ -757,13 +784,13 @@ class PaymentController extends Controller
             $advanceAmount = max(0, $remaining);
             $totalBalance = $previousBalance + $currentBalance;
 
-            // ✅ FIX: Determine status based on actual payment
+            // Determine status based on actual payment
             if ($totalBalance <= 0 && $totalPaid > 0) {
                 $status = 'PAID';
             } elseif ($totalPaid > 0 && $totalBalance > 0) {
                 $status = 'PARTIAL';
             } else {
-                $status = 'PENDING'; // This should never happen
+                $status = 'PENDING';
             }
 
             // Build remark
@@ -780,10 +807,10 @@ class PaymentController extends Controller
             elseif ($cashPaid > 0) $paymentType = 'cash';
             elseif ($upiPaid > 0) $paymentType = 'upi';
 
-            // ✅ FIX: Only create/update if payment was made
+            // Only create/update if payment was made
             if ($totalPaid > 0) {
                 if ($existingPayment) {
-                    // ✅ UPDATE existing payment
+                    // UPDATE existing payment
                     $existingPayment->cash_paid_amount += $cashPaid;
                     $existingPayment->upi_paid_amount += $upiPaid;
                     $existingPayment->balance_amount = $currentBalance;
@@ -801,7 +828,7 @@ class PaymentController extends Controller
                     $existingPayment->save();
                     $payment = $existingPayment;
                 } else {
-                    // ✅ CREATE NEW payment record
+                    // CREATE NEW payment record
                     $payment = Payment::create([
                         'resident_id' => $resident->id,
                         'receipt_no' => $receiptNo,
@@ -822,7 +849,7 @@ class PaymentController extends Controller
                     ]);
                 }
             } else {
-                // 🚫 NO PAYMENT - Don't create any record
+                // NO PAYMENT - Don't create any record
                 DB::rollBack();
                 return response()->json([
                     'success' => false,
@@ -896,7 +923,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Update payment - Allows editing PAID payments with manual payment method
+     * Update payment - Allows editing payments with manual payment method
      */
     public function update(Request $request, $id)
     {
@@ -1764,6 +1791,7 @@ class PaymentController extends Controller
 
     /**
      * Export Unpaid Summary (CSV)
+     * ✅ CORRECTED STATUS LOGIC
      */
     public function exportUnpaidSummary(Request $request)
     {
@@ -1829,6 +1857,21 @@ class PaymentController extends Controller
                 ];
             }
             
+            // ✅ CORRECTED STATUS LOGIC
+            if (!$payment && $previousPending == 0) {
+                $status = 'UNPAID';
+            } elseif ($previousPending > 0) {
+                $status = 'PENDING';
+            } elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
+                $status = 'PAID';
+            } elseif ($payment && ($payment->status === 'PARTIAL' || $currentBalance > 0)) {
+                $status = 'PARTIAL';
+            } elseif ($payment && $payment->status === 'PENDING') {
+                $status = 'PENDING';
+            } else {
+                $status = 'PENDING';
+            }
+            
             $hostelData[$hostelName]['residents'][] = [
                 'name' => $resident->name,
                 'room_no' => $resident->room->room_no ?? 'N/A',
@@ -1838,7 +1881,7 @@ class PaymentController extends Controller
                 'current_balance' => $currentBalance,
                 'current_paid' => $currentPaid,
                 'total_due' => $totalDue,
-                'status' => $payment ? $payment->status : ($previousPending > 0 ? 'PENDING' : 'UNPAID'),
+                'status' => $status,
                 'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
                 'has_payment' => $payment ? 'Yes' : 'No'
             ];
@@ -1904,6 +1947,7 @@ class PaymentController extends Controller
 
     /**
      * Export Unpaid Summary (PDF)
+     * ✅ CORRECTED STATUS LOGIC
      */
     public function exportUnpaidPdf(Request $request)
     {
@@ -1969,18 +2013,17 @@ class PaymentController extends Controller
                 ];
             }
             
+            // ✅ CORRECTED STATUS LOGIC
             if (!$payment && $previousPending == 0) {
                 $status = 'UNPAID';
-            } elseif ($previousPending > 0 && $currentPaid == 0 && $currentBalance > 0) {
-                $status = 'PENDING (Previous)';
-            } elseif ($previousPending > 0 && $currentPaid > 0 && $currentBalance > 0) {
-                $status = 'PARTIAL';
-            } elseif ($payment && $payment->status === 'PARTIAL') {
+            } elseif ($previousPending > 0) {
+                $status = 'PENDING';
+            } elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
+                $status = 'PAID';
+            } elseif ($payment && ($payment->status === 'PARTIAL' || $currentBalance > 0)) {
                 $status = 'PARTIAL';
             } elseif ($payment && $payment->status === 'PENDING') {
                 $status = 'PENDING';
-            } elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
-                continue;
             } else {
                 $status = 'PENDING';
             }
@@ -2090,40 +2133,36 @@ class PaymentController extends Controller
                 'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel'
             ];
 
-            if ($totalDue == 0 && $hasCurrentPayment) {
-                $residentData['status'] = 'PAID';
-                $residentData['remark'] = $payment->remark ?? 'Fully paid';
-                $paidData[] = $residentData;
-            } 
-            elseif (!$hasCurrentPayment && !$hasPreviousPending) {
+            // ✅ CORRECTED STATUS LOGIC
+            if (!$payment && $previousPending == 0) {
                 $residentData['status'] = 'UNPAID';
                 $residentData['remark'] = 'No payment recorded for this month';
                 $unpaidData[] = $residentData;
             } 
-            elseif ($hasCurrentPayment && $currentPaid > 0 && $currentBalance > 0) {
+            elseif ($previousPending > 0) {
+                $residentData['status'] = 'PENDING';
+                $residentData['remark'] = $payment ? $payment->remark : 'Previous months pending';
+                $pendingData[] = $residentData;
+            } 
+            elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
+                $residentData['status'] = 'PAID';
+                $residentData['remark'] = $payment->remark ?? 'Fully paid';
+                $paidData[] = $residentData;
+            } 
+            elseif ($payment && ($payment->status === 'PARTIAL' || $currentBalance > 0)) {
                 $residentData['status'] = 'PARTIAL';
                 $residentData['remark'] = $payment->remark ?? 'Partial payment';
                 $partialData[] = $residentData;
             } 
-            elseif ($totalDue > 0 && $currentPaid == 0) {
+            elseif ($payment && $payment->status === 'PENDING') {
                 $residentData['status'] = 'PENDING';
-                if ($hasPreviousPending && !$hasCurrentPayment) {
-                    $residentData['remark'] = 'Previous months pending + Current month rent due';
-                } elseif ($hasPreviousPending && $hasCurrentPayment) {
-                    $residentData['remark'] = $payment->remark ?? 'Previous pending not cleared + Current balance';
-                } elseif ($hasCurrentPayment && $currentPaid == 0) {
-                    $residentData['remark'] = $payment->remark ?? 'Payment recorded but not paid';
-                } else {
-                    $residentData['remark'] = 'Current month rent pending';
-                }
+                $residentData['remark'] = $payment->remark ?? 'Payment pending';
                 $pendingData[] = $residentData;
             } 
             else {
-                if ($totalDue > 0) {
-                    $residentData['status'] = 'PENDING';
-                    $residentData['remark'] = 'Pending payment';
-                    $pendingData[] = $residentData;
-                }
+                $residentData['status'] = 'PENDING';
+                $residentData['remark'] = 'Pending payment';
+                $pendingData[] = $residentData;
             }
         }
 
@@ -2315,40 +2354,36 @@ class PaymentController extends Controller
                 'hostel_name' => $resident->hostel->hostel_name ?? 'Unknown Hostel'
             ];
 
-            if ($totalDue == 0 && $hasCurrentPayment) {
-                $residentData['status'] = 'PAID';
-                $residentData['remark'] = $payment->remark ?? 'Fully paid';
-                $paidData[] = $residentData;
-            } 
-            elseif (!$hasCurrentPayment && !$hasPreviousPending) {
+            // ✅ CORRECTED STATUS LOGIC
+            if (!$payment && $previousPending == 0) {
                 $residentData['status'] = 'UNPAID';
                 $residentData['remark'] = 'No payment recorded for this month';
                 $unpaidData[] = $residentData;
             } 
-            elseif ($hasCurrentPayment && $currentPaid > 0 && $currentBalance > 0) {
+            elseif ($previousPending > 0) {
+                $residentData['status'] = 'PENDING';
+                $residentData['remark'] = $payment ? $payment->remark : 'Previous months pending';
+                $pendingData[] = $residentData;
+            } 
+            elseif ($payment && $payment->status === 'PAID' && $currentBalance == 0) {
+                $residentData['status'] = 'PAID';
+                $residentData['remark'] = $payment->remark ?? 'Fully paid';
+                $paidData[] = $residentData;
+            } 
+            elseif ($payment && ($payment->status === 'PARTIAL' || $currentBalance > 0)) {
                 $residentData['status'] = 'PARTIAL';
                 $residentData['remark'] = $payment->remark ?? 'Partial payment';
                 $partialData[] = $residentData;
             } 
-            elseif ($totalDue > 0 && $currentPaid == 0) {
+            elseif ($payment && $payment->status === 'PENDING') {
                 $residentData['status'] = 'PENDING';
-                if ($hasPreviousPending && !$hasCurrentPayment) {
-                    $residentData['remark'] = 'Previous months pending';
-                } elseif ($hasPreviousPending && $hasCurrentPayment) {
-                    $residentData['remark'] = $payment->remark ?? 'Previous pending not cleared';
-                } elseif ($hasCurrentPayment && $currentPaid == 0) {
-                    $residentData['remark'] = $payment->remark ?? 'Payment recorded but not paid';
-                } else {
-                    $residentData['remark'] = 'Pending payment';
-                }
+                $residentData['remark'] = $payment->remark ?? 'Payment pending';
                 $pendingData[] = $residentData;
             } 
             else {
-                if ($totalDue > 0) {
-                    $residentData['status'] = 'PENDING';
-                    $residentData['remark'] = 'Pending';
-                    $pendingData[] = $residentData;
-                }
+                $residentData['status'] = 'PENDING';
+                $residentData['remark'] = 'Pending payment';
+                $pendingData[] = $residentData;
             }
         }
 
