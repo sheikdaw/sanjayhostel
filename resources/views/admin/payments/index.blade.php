@@ -576,7 +576,7 @@
         <div class="label">Unpaid</div>
     </div>
     <div class="stat-card">
-        <div class="number" id="statCollected">₹{{ number_format($stats['total_collected'] ?? 0, 2) }}</div>
+        <div class="number" id="statCollected">₹{{ number_format($stats['total_collected'] ?? 0, 0) }}</div>
         <div class="label">Collected</div>
     </div>
 </div>
@@ -705,17 +705,17 @@
 
                     <div class="payment-stats">
                         <div class="payment-stat-item">
-                            <div class="number">₹{{ number_format($payment->rent_amount, 2) }}</div>
+                            <div class="number">₹{{ number_format($payment->rent_amount, 0) }}</div>
                             <div class="label">Rent</div>
                         </div>
                         <div class="payment-stat-item">
                             <div class="number {{ $payment->balance_amount > 0 ? 'balance-due' : 'balance-clear' }}">
-                                ₹{{ number_format($payment->balance_amount, 2) }}
+                                ₹{{ number_format($payment->balance_amount, 0) }}
                             </div>
                             <div class="label">Total Due</div>
                         </div>
                         <div class="payment-stat-item">
-                            <div class="number">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) }}</div>
+                            <div class="number">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 0) }}</div>
                             <div class="label">Paid</div>
                         </div>
                     </div>
@@ -1191,10 +1191,6 @@ function applyFiltersAjax() {
     });
 }
 
-// ============================================================
-// RENDER PAYMENT CARDS - FIXED WITH PROPER NUMBER FORMATTING
-// ============================================================
-
 function renderPaymentCards(data) {
     var grid = $('#paymentsGrid');
     grid.empty();
@@ -1211,23 +1207,18 @@ function renderPaymentCards(data) {
     }
 
     $.each(data, function(index, payment) {
+        // ✅ Use Number() and format with toLocaleString
+        var rent = Number(payment.rent_amount) || 0;
+        var balance = Number(payment.balance_amount) || 0;
+        var totalPaid = Number(payment.total_paid) || 0;
+        var discount = Number(payment.discount_amount) || 0;
+        var fine = Number(payment.fine_amount) || 0;
+        var prevPending = Number(payment.previous_pending_amount) || 0;
+        var currentBal = Number(payment.current_balance_amount) || 0;
+
         var statusColor = payment.status == 'PAID' ? '#22c55e' :
                          (payment.status == 'PARTIAL' ? '#f59e0b' :
                          (payment.status == 'UNPAID' ? '#6b7280' : '#ef4444'));
-
-        // ✅ Parse numbers correctly - handle both string and number
-        var rentAmount = parseFloat(payment.rent_amount) || 0;
-        var balanceAmount = parseFloat(payment.balance_amount) || 0;
-        var totalPaid = parseFloat(payment.total_paid) || 0;
-        var discountAmount = parseFloat(payment.discount_amount) || 0;
-        var fineAmount = parseFloat(payment.fine_amount) || 0;
-        var previousPending = parseFloat(payment.previous_pending_amount) || 0;
-        var currentBalance = parseFloat(payment.current_balance_amount) || 0;
-
-        // ✅ Format with 2 decimal places and thousands separator
-        var formatCurrency = function(amount) {
-            return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        };
 
         var card = `
             <div class="payment-card" id="payment-card-${payment.id || 'new-' + index}" data-resident-id="${payment.resident_id}" data-status="${payment.status}">
@@ -1257,25 +1248,25 @@ function renderPaymentCards(data) {
 
                     <div class="payment-stats">
                         <div class="payment-stat-item">
-                            <div class="number">₹${formatCurrency(rentAmount)}</div>
+                            <div class="number">₹${rent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
                             <div class="label">Rent</div>
                         </div>
                         <div class="payment-stat-item">
-                            <div class="number ${balanceAmount > 0 ? 'balance-due' : 'balance-clear'}">
-                                ₹${formatCurrency(balanceAmount)}
+                            <div class="number ${balance > 0 ? 'balance-due' : 'balance-clear'}">
+                                ₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                             </div>
                             <div class="label">Total Due</div>
                         </div>
                         <div class="payment-stat-item">
-                            <div class="number">₹${formatCurrency(totalPaid)}</div>
+                            <div class="number">₹${totalPaid.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
                             <div class="label">Paid</div>
                         </div>
                     </div>
 
-                    ${discountAmount > 0 ? `<div class="payment-meta" style="color:#166534;"><i class="bi bi-tag"></i> Discount: ₹${formatCurrency(discountAmount)}</div>` : ''}
-                    ${fineAmount > 0 ? `<div class="payment-meta" style="color:#dc2626;"><i class="bi bi-exclamation-triangle"></i> Fine: ₹${formatCurrency(fineAmount)}</div>` : ''}
-                    ${previousPending > 0 ? `<div class="payment-meta" style="color:#ef4444;"><i class="bi bi-clock-history"></i> Previous Pending: ₹${formatCurrency(previousPending)}</div>` : ''}
-                    ${currentBalance > 0 && payment.status != 'PENDING' ? `<div class="payment-meta" style="color:#f59e0b;"><i class="bi bi-calendar"></i> Current Balance: ₹${formatCurrency(currentBalance)}</div>` : ''}
+                    ${discount > 0 ? `<div class="payment-meta" style="color:#166534;"><i class="bi bi-tag"></i> Discount: ₹${discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>` : ''}
+                    ${fine > 0 ? `<div class="payment-meta" style="color:#dc2626;"><i class="bi bi-exclamation-triangle"></i> Fine: ₹${fine.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>` : ''}
+                    ${prevPending > 0 ? `<div class="payment-meta" style="color:#ef4444;"><i class="bi bi-clock-history"></i> Previous Pending: ₹${prevPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>` : ''}
+                    ${currentBal > 0 && payment.status != 'PENDING' ? `<div class="payment-meta" style="color:#f59e0b;"><i class="bi bi-calendar"></i> Current Balance: ₹${currentBal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>` : ''}
 
                     ${payment.remark ? `<div class="remark-box"><i class="bi bi-chat-left-text" style="color:var(--sanjay-gold);"></i> <span>${payment.remark}</span></div>` : ''}
 
@@ -1304,22 +1295,20 @@ function renderPaymentCards(data) {
         grid.append(card);
     });
 }
+
 // ============================================================
 // UPDATE STATISTICS
 // ============================================================
 
 function updateStats(stats) {
-    var formatCurrency = function(amount) {
-        return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    };
-
     $('#statTotal').text(stats.total || 0);
     $('#statPending').text(stats.pending || 0);
     $('#statPartial').text(stats.partial || 0);
     $('#statPaid').text(stats.paid || 0);
     $('#statUnpaid').text(stats.unpaid || 0);
-    $('#statCollected').text('₹' + formatCurrency(stats.total_collected || 0));
+    $('#statCollected').text('₹' + (stats.total_collected || 0).toLocaleString());
 }
+
 // ============================================================
 // UPDATE PENDING ALERT
 // ============================================================
@@ -1344,11 +1333,6 @@ function updatePendingAlert(data) {
     var alert = $('#pendingAlert');
     var totalPending = unpaidCount + pendingCount + partialCount;
 
-    // Format currency helper
-    var formatCurrency = function(amount) {
-        return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    };
-
     if (totalPending > 0) {
         alert.show();
         // Update counts
@@ -1357,10 +1341,10 @@ function updatePendingAlert(data) {
         alert.find('span:contains("Partial:")').next('.count').text(partialCount);
         alert.find('span:contains("Paid:")').next('.count').text(paidCount);
 
-        // Update amounts with 2 decimal places and commas
-        alert.find('span:contains("Total Due:")').next('.count').text('₹' + formatCurrency(totalBalance));
-        alert.find('span:contains("Current Balance:")').next('.count').text('₹' + formatCurrency(currentBalance));
-        alert.find('span:contains("Previous Pending:")').next('.count').text('₹' + formatCurrency(previousPending));
+        // Update amounts
+        alert.find('span:contains("Total Due:")').next('.count').text('₹' + totalBalance.toFixed(2));
+        alert.find('span:contains("Current Balance:")').next('.count').text('₹' + currentBalance.toFixed(2));
+        alert.find('span:contains("Previous Pending:")').next('.count').text('₹' + previousPending.toFixed(2));
     } else {
         alert.hide();
     }

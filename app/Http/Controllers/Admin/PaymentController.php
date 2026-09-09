@@ -46,7 +46,7 @@ class PaymentController extends Controller
             $endDate = date('Y-m-t', strtotime("$year-$m-01"));
 
             $wasActive = ($resident->joining_date <= $endDate) &&
-                (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+                         (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
 
             if (!$wasActive) {
                 continue;
@@ -73,7 +73,7 @@ class PaymentController extends Controller
                 $endDate = date('Y-m-t', strtotime("$y-$m-01"));
 
                 $wasActive = ($resident->joining_date <= $endDate) &&
-                    (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+                             (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
 
                 if (!$wasActive) {
                     continue;
@@ -90,7 +90,7 @@ class PaymentController extends Controller
             }
         }
 
-        return $pendingPayments->sortBy(function ($item) {
+        return $pendingPayments->sortBy(function($item) {
             return $item->year . '-' . str_pad($item->month, 2, '0', STR_PAD_LEFT);
         })->values();
     }
@@ -118,7 +118,7 @@ class PaymentController extends Controller
             $endDate = date('Y-m-t', strtotime("$year-$m-01"));
 
             $wasActive = ($resident->joining_date <= $endDate) &&
-                (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+                         (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
 
             if (!$wasActive) {
                 continue;
@@ -144,7 +144,7 @@ class PaymentController extends Controller
                 $endDate = date('Y-m-t', strtotime("$y-$m-01"));
 
                 $wasActive = ($resident->joining_date <= $endDate) &&
-                    (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
+                             (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
 
                 if (!$wasActive) {
                     continue;
@@ -167,12 +167,12 @@ class PaymentController extends Controller
         $startDate = date('Y-m-01', strtotime("$year-$month-01"));
         $endDate = date('Y-m-t', strtotime("$year-$month-01"));
 
-        return $query->where(function ($q) use ($startDate, $endDate) {
+        return $query->where(function($q) use ($startDate, $endDate) {
             $q->where('joining_date', '<=', $endDate)
-                ->where(function ($sub) use ($startDate) {
-                    $sub->whereNull('vacate_date')
-                        ->orWhere('vacate_date', '>=', $startDate);
-                });
+              ->where(function($sub) use ($startDate) {
+                  $sub->whereNull('vacate_date')
+                      ->orWhere('vacate_date', '>=', $startDate);
+              });
         });
     }
 
@@ -276,10 +276,10 @@ class PaymentController extends Controller
         }
 
         if ($search) {
-            $residentsQuery->where(function ($q) use ($search) {
+            $residentsQuery->where(function($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('resident_code', 'LIKE', "%{$search}%")
-                    ->orWhere('phone', 'LIKE', "%{$search}%");
+                  ->orWhere('resident_code', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%");
             });
         }
 
@@ -370,7 +370,6 @@ class PaymentController extends Controller
                 'upi_paid_amount' => $payment ? $payment->upi_paid_amount : 0,
                 'balance_amount' => $totalDue,
                 'current_balance_amount' => $currentBalance,
-                'previous_pending_amount' => $previousPending,
                 'payment_date' => $payment ? $payment->payment_date : now(),
                 'transaction_id' => $payment ? $payment->transaction_id : null,
                 'status' => $status,
@@ -381,6 +380,7 @@ class PaymentController extends Controller
                 'joining_date' => $resident->joining_date,
                 'vacate_date' => $resident->vacate_date,
                 'has_previous_pending' => $previousPending > 0,
+                'previous_pending_amount' => $previousPending,
                 'is_unpaid' => (!$payment && $previousPending == 0),
             ];
 
@@ -403,11 +403,11 @@ class PaymentController extends Controller
             }
         }
 
-        usort($combinedData, function ($a, $b) {
+        usort($combinedData, function($a, $b) {
             return strcmp($a->resident->name ?? '', $b->resident->name ?? '');
         });
 
-        $pendingPayments = collect($combinedData)->filter(function ($item) {
+        $pendingPayments = collect($combinedData)->filter(function($item) {
             return in_array($item->status, ['PENDING', 'UNPAID', 'PARTIAL']);
         });
 
@@ -436,7 +436,6 @@ class PaymentController extends Controller
 
     /**
      * Filter payments via AJAX - No page refresh
-     * ✅ Send raw numbers, format in JavaScript
      */
     public function filter(Request $request)
     {
@@ -463,10 +462,10 @@ class PaymentController extends Controller
         }
 
         if ($search) {
-            $residentsQuery->where(function ($q) use ($search) {
+            $residentsQuery->where(function($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('resident_code', 'LIKE', "%{$search}%")
-                    ->orWhere('phone', 'LIKE', "%{$search}%");
+                  ->orWhere('resident_code', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%");
             });
         }
 
@@ -482,18 +481,10 @@ class PaymentController extends Controller
 
         $combinedData = [];
         $stats = [
-            'total' => 0,
-            'pending' => 0,
-            'paid' => 0,
-            'partial' => 0,
-            'unpaid' => 0,
-            'total_rent' => 0,
-            'total_discount' => 0,
-            'total_fine' => 0,
-            'total_cash' => 0,
-            'total_upi' => 0,
-            'total_balance' => 0,
-            'total_collected' => 0
+            'total' => 0, 'pending' => 0, 'paid' => 0, 'partial' => 0,
+            'unpaid' => 0, 'total_rent' => 0, 'total_discount' => 0,
+            'total_fine' => 0, 'total_cash' => 0, 'total_upi' => 0,
+            'total_balance' => 0, 'total_collected' => 0
         ];
 
         $pendingCount = 0;
@@ -544,36 +535,35 @@ class PaymentController extends Controller
                 }
             }
 
-            // ✅ FIX: Send raw numbers, NOT formatted strings
-            $combinedData[] = [
-                'id' => $payment ? $payment->id : null,
-                'resident_id' => $resident->id,
-                'receipt_no' => $payment ? $payment->receipt_no : 'N/A',
-                'resident_name' => $resident->name ?? 'N/A',
-                'resident_code' => $resident->resident_code ?? '',
-                'room_no' => $resident->room->room_no ?? 'N/A',
-                'hostel_name' => $resident->hostel->hostel_name ?? 'N/A',
-                'month' => $filterMonth,
-                'year' => $filterYear,
-                'month_name' => date('F', mktime(0, 0, 0, $filterMonth, 1)),
-                // ✅ Send as raw numbers (float)
-                'rent_amount' => (float) ($payment ? $payment->rent_amount : $rentAmount),
-                'discount_amount' => (float) ($payment ? $payment->discount_amount : 0),
-                'fine_amount' => (float) ($payment ? $payment->fine_amount : 0),
-                'cash_paid_amount' => (float) ($payment ? $payment->cash_paid_amount : 0),
-                'upi_paid_amount' => (float) ($payment ? $payment->upi_paid_amount : 0),
-                'balance_amount' => (float) $totalDue,
-                'current_balance_amount' => (float) $currentBalance,
-                'total_paid' => (float) $currentPaid,
-                'previous_pending_amount' => (float) $previousPending,
-                'status' => $status,
-                'status_badge' => strtolower($status),
-                'payment_type' => $payment ? $payment->payment_type : null,
-                'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
-                'payment_date' => $payment ? $payment->payment_date : now(),
-                'has_previous_pending' => $previousPending > 0,
-                'previous_pending_cleared' => $payment ? $payment->previous_pending_cleared : 0,
-            ];
+           $combinedData[] = [
+            'id' => $payment ? $payment->id : null,
+            'resident_id' => $resident->id,
+            'receipt_no' => $payment ? $payment->receipt_no : 'N/A',
+            'resident_name' => $resident->name ?? 'N/A',
+            'resident_code' => $resident->resident_code ?? '',
+            'room_no' => $resident->room->room_no ?? 'N/A',
+            'hostel_name' => $resident->hostel->hostel_name ?? 'N/A',
+            'month' => $filterMonth,
+            'year' => $filterYear,
+            'month_name' => date('F', mktime(0, 0, 0, $filterMonth, 1)),
+            // ✅ Return RAW NUMBERS (not formatted)
+            'rent_amount' => (float) ($payment ? $payment->rent_amount : $rentAmount),
+            'discount_amount' => (float) ($payment ? $payment->discount_amount : 0),
+            'fine_amount' => (float) ($payment ? $payment->fine_amount : 0),
+            'cash_paid_amount' => (float) ($payment ? $payment->cash_paid_amount : 0),
+            'upi_paid_amount' => (float) ($payment ? $payment->upi_paid_amount : 0),
+            'balance_amount' => (float) $totalDue,
+            'current_balance_amount' => (float) $currentBalance,
+            'total_paid' => (float) $currentPaid,
+            'status' => $status,
+            'status_badge' => strtolower($status),
+            'payment_type' => $payment ? $payment->payment_type : null,
+            'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
+            'payment_date' => $payment ? $payment->payment_date : now(),
+            'has_previous_pending' => $previousPending > 0,
+            'previous_pending_amount' => (float) $previousPending,
+            'previous_pending_cleared' => (float) ($payment ? $payment->previous_pending_cleared : 0),
+        ];
 
             $stats['total']++;
             if ($status === 'PAID') $stats['paid']++;
@@ -664,7 +654,7 @@ class PaymentController extends Controller
             $fineAmount = (float) ($request->fine_amount ?? 0);
             $cashPaid = (float) $request->cash_paid_amount;
             $upiPaid = (float) $request->upi_paid_amount;
-            $totalPaid = $cashPaid + $upiPaid;
+            $totalPaid = $cashPaid + $upiPaid; // Money actually received
 
             if ($totalPaid <= 0) {
                 return response()->json([
@@ -734,9 +724,9 @@ class PaymentController extends Controller
                             : $request->transaction_id;
                     }
 
-                    $monthName = date('F Y', mktime(0, 0, 0, $prevPayment->month, 1, $prevPayment->year));
+                    $monthName = date('F Y', mktime(0,0,0,$prevPayment->month,1,$prevPayment->year));
                     $prevPayment->remark = ($newBalance <= 0)
-                        ? "✅ {$monthName} cleared using " . date('F Y', mktime(0, 0, 0, $month, 1, $year)) . " payment"
+                        ? "✅ {$monthName} cleared using " . date('F Y', mktime(0,0,0,$month,1,$year)) . " payment"
                         : "🟡 Partial cleared {$monthName}: ₹" . number_format($payAmount, 2);
 
                     $prevPayment->save();
@@ -774,7 +764,7 @@ class PaymentController extends Controller
             }
 
             // Build remark
-            $monthName = date('F Y', mktime(0, 0, 0, $month, 1, $year));
+            $monthName = date('F Y', mktime(0,0,0,$month,1,$year));
             $remark = $discountReason . " | ";
 
             if ($fineAmount > 0) {
@@ -853,16 +843,9 @@ class PaymentController extends Controller
             DB::commit();
 
             $message = $this->buildDetailedResponseMessage(
-                $totalPaid,
-                $previousPaid,
-                $currentPaidThisTransaction,
-                $advanceAmount,
-                $previousBalance,
-                $currentBalance,
-                $totalBalance,
-                $totalPreviousPending,
-                $previousClearedCount,
-                $receiptNo,
+                $totalPaid, $previousPaid, $currentPaidThisTransaction, $advanceAmount,
+                $previousBalance, $currentBalance, $totalBalance,
+                $totalPreviousPending, $previousClearedCount, $receiptNo,
                 $existingPayment ? true : false
             );
 
@@ -887,6 +870,7 @@ class PaymentController extends Controller
                     ]
                 ]
             ]);
+
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Payment Error: ' . $e->getMessage());
@@ -980,7 +964,7 @@ class PaymentController extends Controller
         elseif ($cashPaid > 0) $paymentType = 'cash';
         elseif ($upiPaid > 0) $paymentType = 'upi';
 
-        $monthName = date('F Y', mktime(0, 0, 0, $request->month, 1, $request->year));
+        $monthName = date('F Y', mktime(0,0,0,$request->month,1,$request->year));
         $oldRemark = $payment->remark ?? '';
 
         $newRemark = "🔄 Updated on " . date('d M Y H:i') . " | ";
@@ -1107,11 +1091,11 @@ class PaymentController extends Controller
     public function checkPreviousPending($residentId, $month, $year)
     {
         $hasPending = Payment::where('resident_id', $residentId)
-            ->where(function ($q) use ($month, $year) {
+            ->where(function($q) use ($month, $year) {
                 $q->where('year', '<', $year)
-                    ->orWhere(function ($q2) use ($month, $year) {
-                        $q2->where('year', $year)->where('month', '<', $month);
-                    });
+                  ->orWhere(function($q2) use ($month, $year) {
+                      $q2->where('year', $year)->where('month', '<', $month);
+                  });
             })
             ->whereIn('status', ['PENDING', 'PARTIAL'])
             ->exists();
@@ -1286,7 +1270,7 @@ class PaymentController extends Controller
                 'payment_date' => $request->payment_date,
                 'status' => 'PENDING',
                 'payment_type' => 'none',
-                'remark' => "📅 Pending for " . date('F', mktime(0, 0, 0, $request->month, 1)) . " " . $request->year
+                'remark' => "📅 Pending for " . date('F', mktime(0,0,0,$request->month,1)) . " " . $request->year
             ]);
 
             $created++;
@@ -1394,7 +1378,7 @@ class PaymentController extends Controller
     }
 
     // ============================================================
-    // EXPORT METHODS - ALL WITH 2 DECIMAL PLACES
+    // EXPORT METHODS (All use same logic)
     // ============================================================
 
     /**
@@ -1425,10 +1409,10 @@ class PaymentController extends Controller
         }
 
         if ($search) {
-            $residentsQuery->where(function ($q) use ($search) {
+            $residentsQuery->where(function($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('resident_code', 'LIKE', "%{$search}%")
-                    ->orWhere('phone', 'LIKE', "%{$search}%");
+                  ->orWhere('resident_code', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%");
             });
         }
 
@@ -1486,7 +1470,7 @@ class PaymentController extends Controller
                 'resident_name' => $resident->name ?? 'N/A',
                 'hostel_name' => $resident->hostel->hostel_name ?? 'N/A',
                 'room_no' => $resident->room->room_no ?? 'N/A',
-                'month' => date('F', mktime(0, 0, 0, $month, 1)),
+                'month' => date('F', mktime(0,0,0,$month,1)),
                 'year' => $year,
                 'rent_amount' => $payment ? $payment->rent_amount : $rentAmount,
                 'discount_amount' => $payment ? $payment->discount_amount : 0,
@@ -1531,9 +1515,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * Export as PDF
-     */
     public function exportPdf(Request $request)
     {
         $user = auth()->user();
@@ -1559,10 +1540,10 @@ class PaymentController extends Controller
         }
 
         if ($search) {
-            $residentsQuery->where(function ($q) use ($search) {
+            $residentsQuery->where(function($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('resident_code', 'LIKE', "%{$search}%")
-                    ->orWhere('phone', 'LIKE', "%{$search}%");
+                  ->orWhere('resident_code', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%");
             });
         }
 
@@ -1641,7 +1622,7 @@ class PaymentController extends Controller
                 'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
                 'month' => $month,
                 'year' => $year,
-                'month_name' => date('F', mktime(0, 0, 0, $month, 1)),
+                'month_name' => date('F', mktime(0,0,0,$month,1)),
                 'has_previous_pending' => $previousPending > 0,
                 'previous_pending_amount' => $previousPending
             ];
@@ -1664,7 +1645,7 @@ class PaymentController extends Controller
             'generated_at' => now()->format('d M Y H:i'),
             'user' => $user,
             'filters' => [
-                'month' => date('F', mktime(0, 0, 0, $month, 1)),
+                'month' => date('F', mktime(0,0,0,$month,1)),
                 'year' => $year,
                 'status' => $filterStatus ?? 'All',
                 'hostel' => $hostelId ? (Hostel::find($hostelId)->hostel_name ?? 'All') : 'All',
@@ -1678,9 +1659,6 @@ class PaymentController extends Controller
         return $pdf->download('payments-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * Export summary PDF
-     */
     public function exportSummary(Request $request)
     {
         $user = auth()->user();
@@ -1806,9 +1784,7 @@ class PaymentController extends Controller
             'hostelSummaries' => $hostelSummaries,
             'grandTotal' => $grandTotal,
             'generated_at' => now()->format('d M Y H:i A'),
-            'user' => $user,
-            'month' => date('F', mktime(0, 0, 0, $month, 1)),
-            'year' => $year
+            'user' => $user
         ];
 
         $pdf = PDF::loadView('admin.payments.pdf.payment-summary', $data);
@@ -1817,9 +1793,6 @@ class PaymentController extends Controller
         return $pdf->download('payment-summary-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * Export hostel wise report
-     */
     public function exportHostelWise(Request $request)
     {
         $user = auth()->user();
@@ -1940,7 +1913,7 @@ class PaymentController extends Controller
             'summary' => $summary,
             'generated_at' => now()->format('d M Y H:i A'),
             'user' => $user,
-            'month' => date('F', mktime(0, 0, 0, $month, 1)),
+            'month' => date('F', mktime(0,0,0,$month,1)),
             'year' => $year
         ];
 
@@ -1950,9 +1923,6 @@ class PaymentController extends Controller
         return $pdf->download('hostel-' . $hostel->hostel_code . '-report-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * Export paid payments CSV
-     */
     public function exportPaid(Request $request)
     {
         $user = auth()->user();
@@ -1973,14 +1943,14 @@ class PaymentController extends Controller
         }
 
         if ($request->filled('hostel_id')) {
-            $query->whereHas('resident', function ($q) use ($request) {
+            $query->whereHas('resident', function($q) use ($request) {
                 $q->where('hostel_id', $request->hostel_id);
             });
         }
 
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
-            $query->whereHas('resident', function ($q) use ($hostelIds) {
+            $query->whereHas('resident', function($q) use ($hostelIds) {
                 $q->whereIn('hostel_id', $hostelIds);
             });
         }
@@ -2002,7 +1972,7 @@ class PaymentController extends Controller
                 $payment->resident->name ?? 'N/A',
                 $payment->resident->hostel->hostel_name ?? 'N/A',
                 $payment->resident->room->room_no ?? 'N/A',
-                date('F', mktime(0, 0, 0, $payment->month, 1)),
+                date('F', mktime(0,0,0,$payment->month,1)),
                 $payment->year,
                 $payment->rent_amount,
                 $payment->discount_amount ?? 0,
@@ -2022,9 +1992,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * Export unpaid summary CSV
-     */
     public function exportUnpaidSummary(Request $request)
     {
         $user = auth()->user();
@@ -2051,13 +2018,13 @@ class PaymentController extends Controller
 
         $paymentsQuery = Payment::where('month', $month)->where('year', $year);
         if ($hostelId) {
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
                 $q->where('hostel_id', $hostelId);
             });
         }
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelIds) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
                 $q->whereIn('hostel_id', $hostelIds);
             });
         }
@@ -2128,10 +2095,11 @@ class PaymentController extends Controller
             $totalUnpaidCount++;
         }
 
+        // Build CSV (same as before)
         $csv = "==================================================\n";
         $csv .= "UNPAID PAYMENTS SUMMARY\n";
         $csv .= "==================================================\n";
-        $csv .= "Report Month: " . date('F', mktime(0, 0, 0, $month, 1)) . " " . $year . "\n";
+        $csv .= "Report Month: " . date('F', mktime(0,0,0,$month,1)) . " " . $year . "\n";
         $csv .= "Generated: " . now()->format('d M Y H:i A') . "\n";
         $csv .= "Total Unpaid Residents: " . $totalUnpaidCount . "\n";
         $csv .= "Total Due Amount: ₹" . number_format($totalOverall, 2) . "\n";
@@ -2163,7 +2131,7 @@ class PaymentController extends Controller
             }
 
             $subtotal = collect($data['residents'])->sum('total_due');
-            $unpaidCount = collect($data['residents'])->filter(function ($r) {
+            $unpaidCount = collect($data['residents'])->filter(function($r) {
                 return $r['status'] == 'UNPAID';
             })->count();
 
@@ -2183,9 +2151,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * Export unpaid summary PDF
-     */
     public function exportUnpaidPdf(Request $request)
     {
         $user = auth()->user();
@@ -2212,13 +2177,13 @@ class PaymentController extends Controller
 
         $paymentsQuery = Payment::where('month', $month)->where('year', $year);
         if ($hostelId) {
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
                 $q->where('hostel_id', $hostelId);
             });
         }
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelIds) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
                 $q->whereIn('hostel_id', $hostelIds);
             });
         }
@@ -2291,7 +2256,7 @@ class PaymentController extends Controller
 
         $data = [
             'hostelData' => $hostelData,
-            'month' => date('F', mktime(0, 0, 0, $month, 1)),
+            'month' => date('F', mktime(0,0,0,$month,1)),
             'year' => $year,
             'totalOverall' => $totalOverall,
             'totalResidents' => $totalUnpaidCount,
@@ -2308,9 +2273,6 @@ class PaymentController extends Controller
         return $pdf->download('unpaid-summary-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * Export payment status CSV
-     */
     public function exportPaymentStatus(Request $request)
     {
         $user = auth()->user();
@@ -2337,13 +2299,13 @@ class PaymentController extends Controller
 
         $paymentsQuery = Payment::where('month', $month)->where('year', $year);
         if ($hostelId) {
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
                 $q->where('hostel_id', $hostelId);
             });
         }
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelIds) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
                 $q->whereIn('hostel_id', $hostelIds);
             });
         }
@@ -2408,10 +2370,11 @@ class PaymentController extends Controller
             }
         }
 
+        // Build CSV (short version - same as before)
         $csv = "==================================================\n";
         $csv .= "PAYMENT STATUS SUMMARY\n";
         $csv .= "==================================================\n";
-        $csv .= "Report Month: " . date('F', mktime(0, 0, 0, $month, 1)) . " " . $year . "\n";
+        $csv .= "Report Month: " . date('F', mktime(0,0,0,$month,1)) . " " . $year . "\n";
         $csv .= "Generated: " . now()->format('d M Y H:i A') . "\n";
         $csv .= "==================================================\n\n";
 
@@ -2528,9 +2491,6 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
-    /**
-     * Export payment status PDF
-     */
     public function exportPaymentStatusPdf(Request $request)
     {
         $user = auth()->user();
@@ -2557,13 +2517,13 @@ class PaymentController extends Controller
 
         $paymentsQuery = Payment::where('month', $month)->where('year', $year);
         if ($hostelId) {
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelId) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelId) {
                 $q->where('hostel_id', $hostelId);
             });
         }
         if ($user->role !== 'admin') {
             $hostelIds = $user->hostel_ids ?? [];
-            $paymentsQuery->whereHas('resident', function ($q) use ($hostelIds) {
+            $paymentsQuery->whereHas('resident', function($q) use ($hostelIds) {
                 $q->whereIn('hostel_id', $hostelIds);
             });
         }
@@ -2633,7 +2593,7 @@ class PaymentController extends Controller
             'partialData' => $partialData,
             'unpaidData' => $unpaidData,
             'paidData' => $paidData,
-            'month' => date('F', mktime(0, 0, 0, $month, 1)),
+            'month' => date('F', mktime(0,0,0,$month,1)),
             'year' => $year,
             'generated_at' => now()->format('d M Y H:i A'),
             'filters' => [
@@ -2657,9 +2617,6 @@ class PaymentController extends Controller
     // PDF VIEW METHODS
     // ============================================================
 
-    /**
-     * PDF - All Payments
-     */
     public function pdfAllPayments(Request $request)
     {
         $user = auth()->user();
@@ -2685,10 +2642,10 @@ class PaymentController extends Controller
         }
 
         if ($search) {
-            $residentsQuery->where(function ($q) use ($search) {
+            $residentsQuery->where(function($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('resident_code', 'LIKE', "%{$search}%")
-                    ->orWhere('phone', 'LIKE', "%{$search}%");
+                  ->orWhere('resident_code', 'LIKE', "%{$search}%")
+                  ->orWhere('phone', 'LIKE', "%{$search}%");
             });
         }
 
@@ -2767,7 +2724,7 @@ class PaymentController extends Controller
                 'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
                 'month' => $month,
                 'year' => $year,
-                'month_name' => date('F', mktime(0, 0, 0, $month, 1)),
+                'month_name' => date('F', mktime(0,0,0,$month,1)),
                 'has_previous_pending' => $previousPending > 0,
                 'previous_pending_amount' => $previousPending
             ];
@@ -2790,7 +2747,7 @@ class PaymentController extends Controller
             'generated_at' => now()->format('d M Y H:i A'),
             'user' => $user,
             'filters' => [
-                'month' => date('F', mktime(0, 0, 0, $month, 1)),
+                'month' => date('F', mktime(0,0,0,$month,1)),
                 'year' => $year,
                 'status' => $filterStatus ?? 'All',
                 'hostel' => $hostelId ? (Hostel::find($hostelId)->hostel_name ?? 'All') : 'All',
@@ -2804,9 +2761,6 @@ class PaymentController extends Controller
         return $pdf->download('all-payments-' . date('Y-m-d') . '.pdf');
     }
 
-    /**
-     * PDF - Single Receipt
-     */
     public function pdfReceipt($id)
     {
         $user = auth()->user();
@@ -2837,9 +2791,6 @@ class PaymentController extends Controller
         return $pdf->download('receipt-' . $payment->receipt_no . '.pdf');
     }
 
-    /**
-     * PDF - Bulk Receipts
-     */
     public function pdfBulkReceipts(Request $request)
     {
         $user = auth()->user();
