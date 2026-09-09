@@ -97,7 +97,6 @@ class PaymentController extends Controller
 
     /**
      * Get previous pending total
-     * ✅ Uses stored rent from payment records
      */
     private function getPreviousPending($residentId, $month, $year)
     {
@@ -126,20 +125,7 @@ class PaymentController extends Controller
             }
 
             if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
-                // ✅ Use stored balance from payment record
                 $pendingTotal += $payment->balance_amount;
-            }
-            // ✅ If no payment record, create one with historical rent
-            else if (!$payment && $wasActive) {
-                // Check if we have any payment record for this month
-                // If not, we need to create it with the correct historical rent
-                $historicalRent = $this->getHistoricalRentForMonth($residentId, $m, $year);
-                if ($historicalRent > 0) {
-                    $pendingTotal += $historicalRent;
-
-                    // Create payment record for future reference
-                    $this->createPaymentRecordForMonth($residentId, $m, $year, $historicalRent);
-                }
             }
         }
 
@@ -165,99 +151,12 @@ class PaymentController extends Controller
                 }
 
                 if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
-                    // ✅ Use stored balance from payment record
                     $pendingTotal += $payment->balance_amount;
-                }
-                // ✅ If no payment record, create one with historical rent
-                else if (!$payment && $wasActive) {
-                    $historicalRent = $this->getHistoricalRentForMonth($residentId, $m, $y);
-                    if ($historicalRent > 0) {
-                        $pendingTotal += $historicalRent;
-                        $this->createPaymentRecordForMonth($residentId, $m, $y, $historicalRent);
-                    }
                 }
             }
         }
 
         return $pendingTotal;
-    }
-
-    /**
-     * Get historical rent for a specific month
-     * ✅ Tracks rent changes over time
-     */
-    private function getHistoricalRentForMonth($residentId, $month, $year)
-    {
-        $resident = Resident::find($residentId);
-        if (!$resident) {
-            return 0;
-        }
-
-        $date = date('Y-m-d', strtotime("$year-$month-15"));
-
-        // Check if resident was active during this month
-        $startDate = date('Y-m-01', strtotime("$year-$month-01"));
-        $endDate = date('Y-m-t', strtotime("$year-$month-01"));
-
-        $wasActive = ($resident->joining_date <= $endDate) &&
-                     (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
-
-        if (!$wasActive) {
-            return 0;
-        }
-
-        // ✅ If we have a payment record, use its rent
-        $payment = Payment::where('resident_id', $residentId)
-            ->where('month', $month)
-            ->where('year', $year)
-            ->first();
-
-        if ($payment) {
-            return (float) $payment->rent_amount;
-        }
-
-        // ✅ If no payment record, try to determine historical rent
-        // Check if we have rent change history in the resident record
-        // You can add a rent_history table for better tracking
-
-        // Fallback: Use current rent (but this may be incorrect if rent changed)
-        return (float) ($resident->rent_amount ?? 0);
-    }
-
-    /**
-     * Create a payment record for a month
-     */
-    private function createPaymentRecordForMonth($residentId, $month, $year, $rentAmount)
-    {
-        $exists = Payment::where('resident_id', $residentId)
-            ->where('month', $month)
-            ->where('year', $year)
-            ->exists();
-
-        if (!$exists) {
-            $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-            while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-            }
-
-            Payment::create([
-                'resident_id' => $residentId,
-                'receipt_no' => $receiptNo,
-                'month' => $month,
-                'year' => $year,
-                'rent_amount' => $rentAmount,
-                'discount_amount' => 0,
-                'fine_amount' => 0,
-                'cash_paid_amount' => 0,
-                'upi_paid_amount' => 0,
-                'balance_amount' => $rentAmount,
-                'payment_date' => now(),
-                'status' => 'PENDING',
-                'payment_type' => 'none',
-                'previous_pending_cleared' => 0,
-                'remark' => "📅 Auto-created for " . date('F', mktime(0,0,0,$month,1)) . " $year"
-            ]);
-        }
     }
 
     /**
@@ -386,41 +285,6 @@ class PaymentController extends Controller
 
         $activeResidents = $residentsQuery->orderBy('name')->get();
         $residentIds = $activeResidents->pluck('id')->toArray();
-
-        // ✅ Ensure payment records exist for all active residents
-        foreach ($activeResidents as $resident) {
-            // Check if payment exists for this month
-            $exists = Payment::where('resident_id', $resident->id)
-                ->where('month', $filterMonth)
-                ->where('year', $filterYear)
-                ->exists();
-
-            if (!$exists && $resident->status == 'ACTIVE') {
-                $rentAmount = (float) ($resident->rent_amount ?? 0);
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                }
-
-                Payment::create([
-                    'resident_id' => $resident->id,
-                    'receipt_no' => $receiptNo,
-                    'month' => $filterMonth,
-                    'year' => $filterYear,
-                    'rent_amount' => $rentAmount,
-                    'discount_amount' => 0,
-                    'fine_amount' => 0,
-                    'cash_paid_amount' => 0,
-                    'upi_paid_amount' => 0,
-                    'balance_amount' => $rentAmount,
-                    'payment_date' => now(),
-                    'status' => 'UNPAID',
-                    'payment_type' => 'none',
-                    'previous_pending_cleared' => 0,
-                    'remark' => "📅 Auto-created for " . date('F', mktime(0,0,0,$filterMonth,1)) . " $filterYear"
-                ]);
-            }
-        }
 
         $paymentsQuery = Payment::with(['resident', 'resident.hostel', 'resident.room'])
             ->where('month', $filterMonth)
@@ -572,7 +436,6 @@ class PaymentController extends Controller
 
     /**
      * Filter payments via AJAX - No page refresh
-     * ✅ Returns RAW numbers (not formatted strings)
      */
     public function filter(Request $request)
     {
@@ -608,40 +471,6 @@ class PaymentController extends Controller
 
         $activeResidents = $residentsQuery->orderBy('name')->get();
         $residentIds = $activeResidents->pluck('id')->toArray();
-
-        // ✅ Ensure payment records exist
-        foreach ($activeResidents as $resident) {
-            $exists = Payment::where('resident_id', $resident->id)
-                ->where('month', $filterMonth)
-                ->where('year', $filterYear)
-                ->exists();
-
-            if (!$exists && $resident->status == 'ACTIVE') {
-                $rentAmount = (float) ($resident->rent_amount ?? 0);
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                }
-
-                Payment::create([
-                    'resident_id' => $resident->id,
-                    'receipt_no' => $receiptNo,
-                    'month' => $filterMonth,
-                    'year' => $filterYear,
-                    'rent_amount' => $rentAmount,
-                    'discount_amount' => 0,
-                    'fine_amount' => 0,
-                    'cash_paid_amount' => 0,
-                    'upi_paid_amount' => 0,
-                    'balance_amount' => $rentAmount,
-                    'payment_date' => now(),
-                    'status' => 'UNPAID',
-                    'payment_type' => 'none',
-                    'previous_pending_cleared' => 0,
-                    'remark' => "📅 Auto-created for " . date('F', mktime(0,0,0,$filterMonth,1)) . " $filterYear"
-                ]);
-            }
-        }
 
         $paymentsQuery = Payment::with(['resident', 'resident.hostel', 'resident.room'])
             ->where('month', $filterMonth)
@@ -706,36 +535,35 @@ class PaymentController extends Controller
                 }
             }
 
-            // ✅ Return RAW NUMBERS (not formatted strings)
-            $combinedData[] = [
-                'id' => $payment ? $payment->id : null,
-                'resident_id' => $resident->id,
-                'receipt_no' => $payment ? $payment->receipt_no : 'N/A',
-                'resident_name' => $resident->name ?? 'N/A',
-                'resident_code' => $resident->resident_code ?? '',
-                'room_no' => $resident->room->room_no ?? 'N/A',
-                'hostel_name' => $resident->hostel->hostel_name ?? 'N/A',
-                'month' => $filterMonth,
-                'year' => $filterYear,
-                'month_name' => date('F', mktime(0, 0, 0, $filterMonth, 1)),
-                // ✅ RAW NUMBERS - no formatting!
-                'rent_amount' => (float) ($payment ? $payment->rent_amount : $rentAmount),
-                'discount_amount' => (float) ($payment ? $payment->discount_amount : 0),
-                'fine_amount' => (float) ($payment ? $payment->fine_amount : 0),
-                'cash_paid_amount' => (float) ($payment ? $payment->cash_paid_amount : 0),
-                'upi_paid_amount' => (float) ($payment ? $payment->upi_paid_amount : 0),
-                'balance_amount' => (float) $totalDue,
-                'current_balance_amount' => (float) $currentBalance,
-                'total_paid' => (float) $currentPaid,
-                'status' => $status,
-                'status_badge' => strtolower($status),
-                'payment_type' => $payment ? $payment->payment_type : null,
-                'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
-                'payment_date' => $payment ? $payment->payment_date : now(),
-                'has_previous_pending' => $previousPending > 0,
-                'previous_pending_amount' => (float) $previousPending,
-                'previous_pending_cleared' => (float) ($payment ? $payment->previous_pending_cleared : 0),
-            ];
+           $combinedData[] = [
+            'id' => $payment ? $payment->id : null,
+            'resident_id' => $resident->id,
+            'receipt_no' => $payment ? $payment->receipt_no : 'N/A',
+            'resident_name' => $resident->name ?? 'N/A',
+            'resident_code' => $resident->resident_code ?? '',
+            'room_no' => $resident->room->room_no ?? 'N/A',
+            'hostel_name' => $resident->hostel->hostel_name ?? 'N/A',
+            'month' => $filterMonth,
+            'year' => $filterYear,
+            'month_name' => date('F', mktime(0, 0, 0, $filterMonth, 1)),
+            // ✅ Return RAW NUMBERS (not formatted)
+            'rent_amount' => (float) ($payment ? $payment->rent_amount : $rentAmount),
+            'discount_amount' => (float) ($payment ? $payment->discount_amount : 0),
+            'fine_amount' => (float) ($payment ? $payment->fine_amount : 0),
+            'cash_paid_amount' => (float) ($payment ? $payment->cash_paid_amount : 0),
+            'upi_paid_amount' => (float) ($payment ? $payment->upi_paid_amount : 0),
+            'balance_amount' => (float) $totalDue,
+            'current_balance_amount' => (float) $currentBalance,
+            'total_paid' => (float) $currentPaid,
+            'status' => $status,
+            'status_badge' => strtolower($status),
+            'payment_type' => $payment ? $payment->payment_type : null,
+            'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
+            'payment_date' => $payment ? $payment->payment_date : now(),
+            'has_previous_pending' => $previousPending > 0,
+            'previous_pending_amount' => (float) $previousPending,
+            'previous_pending_cleared' => (float) ($payment ? $payment->previous_pending_cleared : 0),
+        ];
 
             $stats['total']++;
             if ($status === 'PAID') $stats['paid']++;
@@ -826,7 +654,7 @@ class PaymentController extends Controller
             $fineAmount = (float) ($request->fine_amount ?? 0);
             $cashPaid = (float) $request->cash_paid_amount;
             $upiPaid = (float) $request->upi_paid_amount;
-            $totalPaid = $cashPaid + $upiPaid;
+            $totalPaid = $cashPaid + $upiPaid; // Money actually received
 
             if ($totalPaid <= 0) {
                 return response()->json([
@@ -843,32 +671,6 @@ class PaymentController extends Controller
                 ->where('month', $month)
                 ->where('year', $year)
                 ->first();
-
-            // If no existing payment, create one
-            if (!$existingPayment) {
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                }
-
-                $existingPayment = Payment::create([
-                    'resident_id' => $resident->id,
-                    'receipt_no' => $receiptNo,
-                    'month' => $month,
-                    'year' => $year,
-                    'rent_amount' => $rentAmount,
-                    'discount_amount' => 0,
-                    'fine_amount' => 0,
-                    'cash_paid_amount' => 0,
-                    'upi_paid_amount' => 0,
-                    'balance_amount' => $rentAmount,
-                    'payment_date' => $paymentDate,
-                    'status' => 'UNPAID',
-                    'payment_type' => 'none',
-                    'previous_pending_cleared' => 0,
-                    'remark' => "📅 Payment record created for " . date('F', mktime(0,0,0,$month,1)) . " $year"
-                ]);
-            }
 
             // DISCOUNT LOGIC
             $tentativeDiscount = (float) $this->calculateDiscount($paymentDate);
@@ -997,45 +799,45 @@ class PaymentController extends Controller
             elseif ($cashPaid > 0) $paymentType = 'cash';
             elseif ($upiPaid > 0) $paymentType = 'upi';
 
-            // ✅ Update existing payment record
-            if ($existingPayment) {
-                $existingPayment->receipt_no = $receiptNo; // Update receipt for this transaction
-                $existingPayment->cash_paid_amount += $cashPaid;
-                $existingPayment->upi_paid_amount += $upiPaid;
-                $existingPayment->balance_amount = $currentBalance;
-                $existingPayment->status = $status;
-                $existingPayment->payment_date = $paymentDate;
-                $existingPayment->discount_amount = $discount;
-                $existingPayment->fine_amount = $fineAmount;
-                $existingPayment->remark = $remark;
-                $existingPayment->payment_type = $paymentType;
-                $existingPayment->previous_pending_cleared = $previousPaid;
-                if ($request->transaction_id) {
-                    $existingPayment->transaction_id = $existingPayment->transaction_id
-                        ? $existingPayment->transaction_id . ' / ' . $request->transaction_id
-                        : $request->transaction_id;
+            // ✅ Create or update payment record
+            if ($totalPaid > 0) {
+                if ($existingPayment) {
+                    $existingPayment->cash_paid_amount += $cashPaid;
+                    $existingPayment->upi_paid_amount += $upiPaid;
+                    $existingPayment->balance_amount = $currentBalance;
+                    $existingPayment->status = $status;
+                    $existingPayment->payment_date = $paymentDate;
+                    $existingPayment->discount_amount = $discount;
+                    $existingPayment->fine_amount = $fineAmount;
+                    $existingPayment->remark = $remark;
+                    $existingPayment->payment_type = $paymentType;
+                    if ($request->transaction_id) {
+                        $existingPayment->transaction_id = $existingPayment->transaction_id
+                            ? $existingPayment->transaction_id . ' / ' . $request->transaction_id
+                            : $request->transaction_id;
+                    }
+                    $existingPayment->save();
+                    $payment = $existingPayment;
+                } else {
+                    $payment = Payment::create([
+                        'resident_id' => $resident->id,
+                        'receipt_no' => $receiptNo,
+                        'month' => $month,
+                        'year' => $year,
+                        'rent_amount' => $rentAmount,
+                        'discount_amount' => $discount,
+                        'fine_amount' => $fineAmount,
+                        'cash_paid_amount' => $cashPaid,
+                        'upi_paid_amount' => $upiPaid,
+                        'balance_amount' => $currentBalance,
+                        'payment_date' => $paymentDate,
+                        'transaction_id' => $request->transaction_id,
+                        'status' => $status,
+                        'payment_type' => $paymentType,
+                        'previous_pending_cleared' => $previousPaid,
+                        'remark' => $remark,
+                    ]);
                 }
-                $existingPayment->save();
-                $payment = $existingPayment;
-            } else {
-                $payment = Payment::create([
-                    'resident_id' => $resident->id,
-                    'receipt_no' => $receiptNo,
-                    'month' => $month,
-                    'year' => $year,
-                    'rent_amount' => $rentAmount,
-                    'discount_amount' => $discount,
-                    'fine_amount' => $fineAmount,
-                    'cash_paid_amount' => $cashPaid,
-                    'upi_paid_amount' => $upiPaid,
-                    'balance_amount' => $currentBalance,
-                    'payment_date' => $paymentDate,
-                    'transaction_id' => $request->transaction_id,
-                    'status' => $status,
-                    'payment_type' => $paymentType,
-                    'previous_pending_cleared' => $previousPaid,
-                    'remark' => $remark,
-                ]);
             }
 
             DB::commit();
@@ -1466,7 +1268,7 @@ class PaymentController extends Controller
                 'upi_paid_amount' => 0,
                 'balance_amount' => $rentAmount,
                 'payment_date' => $request->payment_date,
-                'status' => 'UNPAID',
+                'status' => 'PENDING',
                 'payment_type' => 'none',
                 'remark' => "📅 Pending for " . date('F', mktime(0,0,0,$request->month,1)) . " " . $request->year
             ]);
@@ -1617,40 +1419,6 @@ class PaymentController extends Controller
         $activeResidents = $residentsQuery->orderBy('name')->get();
         $residentIds = $activeResidents->pluck('id')->toArray();
 
-        // Ensure payment records exist
-        foreach ($activeResidents as $resident) {
-            $exists = Payment::where('resident_id', $resident->id)
-                ->where('month', $month)
-                ->where('year', $year)
-                ->exists();
-
-            if (!$exists && $resident->status == 'ACTIVE') {
-                $rentAmount = (float) ($resident->rent_amount ?? 0);
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                }
-
-                Payment::create([
-                    'resident_id' => $resident->id,
-                    'receipt_no' => $receiptNo,
-                    'month' => $month,
-                    'year' => $year,
-                    'rent_amount' => $rentAmount,
-                    'discount_amount' => 0,
-                    'fine_amount' => 0,
-                    'cash_paid_amount' => 0,
-                    'upi_paid_amount' => 0,
-                    'balance_amount' => $rentAmount,
-                    'payment_date' => now(),
-                    'status' => 'UNPAID',
-                    'payment_type' => 'none',
-                    'previous_pending_cleared' => 0,
-                    'remark' => "📅 Auto-created for " . date('F', mktime(0,0,0,$month,1)) . " $year"
-                ]);
-            }
-        }
-
         $paymentsQuery = Payment::with(['resident', 'resident.hostel', 'resident.room'])
             ->where('month', $month)
             ->where('year', $year)
@@ -1781,40 +1549,6 @@ class PaymentController extends Controller
 
         $activeResidents = $residentsQuery->orderBy('name')->get();
         $residentIds = $activeResidents->pluck('id')->toArray();
-
-        // Ensure payment records exist
-        foreach ($activeResidents as $resident) {
-            $exists = Payment::where('resident_id', $resident->id)
-                ->where('month', $month)
-                ->where('year', $year)
-                ->exists();
-
-            if (!$exists && $resident->status == 'ACTIVE') {
-                $rentAmount = (float) ($resident->rent_amount ?? 0);
-                $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                while (Payment::where('receipt_no', $receiptNo)->exists()) {
-                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
-                }
-
-                Payment::create([
-                    'resident_id' => $resident->id,
-                    'receipt_no' => $receiptNo,
-                    'month' => $month,
-                    'year' => $year,
-                    'rent_amount' => $rentAmount,
-                    'discount_amount' => 0,
-                    'fine_amount' => 0,
-                    'cash_paid_amount' => 0,
-                    'upi_paid_amount' => 0,
-                    'balance_amount' => $rentAmount,
-                    'payment_date' => now(),
-                    'status' => 'UNPAID',
-                    'payment_type' => 'none',
-                    'previous_pending_cleared' => 0,
-                    'remark' => "📅 Auto-created for " . date('F', mktime(0,0,0,$month,1)) . " $year"
-                ]);
-            }
-        }
 
         $paymentsQuery = Payment::with(['resident', 'resident.hostel', 'resident.room'])
             ->where('month', $month)
@@ -2188,8 +1922,6 @@ class PaymentController extends Controller
 
         return $pdf->download('hostel-' . $hostel->hostel_code . '-report-' . date('Y-m-d') . '.pdf');
     }
-
-
 
     public function exportPaid(Request $request)
     {
