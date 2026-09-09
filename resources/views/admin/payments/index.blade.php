@@ -516,17 +516,17 @@
     $pendingCount = collect($combinedData)->filter(function($item) { return $item->status == 'PENDING'; })->count();
     $partialCount = collect($combinedData)->filter(function($item) { return $item->status == 'PARTIAL'; })->count();
     $paidCount = collect($combinedData)->filter(function($item) { return $item->status == 'PAID'; })->count();
-    
-    $totalPendingAmount = collect($combinedData)->filter(function($item) { 
-        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']); 
+
+    $totalPendingAmount = collect($combinedData)->filter(function($item) {
+        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']);
     })->sum('balance_amount');
-    
-    $currentPendingTotal = collect($combinedData)->filter(function($item) { 
-        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']); 
+
+    $currentPendingTotal = collect($combinedData)->filter(function($item) {
+        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']);
     })->sum('current_balance_amount');
-    
-    $prevPendingTotal = collect($combinedData)->filter(function($item) { 
-        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']); 
+
+    $prevPendingTotal = collect($combinedData)->filter(function($item) {
+        return in_array($item->status, ['UNPAID', 'PENDING', 'PARTIAL']);
     })->sum('previous_pending_amount');
 @endphp
 
@@ -576,7 +576,7 @@
         <div class="label">Unpaid</div>
     </div>
     <div class="stat-card">
-        <div class="number" id="statCollected">₹{{ number_format($stats['total_collected'] ?? 0, 0) }}</div>
+        <div class="number" id="statCollected">₹{{ number_format($stats['total_collected'] ?? 0, 2) }}</div>
         <div class="label">Collected</div>
     </div>
 </div>
@@ -705,17 +705,17 @@
 
                     <div class="payment-stats">
                         <div class="payment-stat-item">
-                            <div class="number">₹{{ number_format($payment->rent_amount, 0) }}</div>
+                            <div class="number">₹{{ number_format($payment->rent_amount, 2) }}</div>
                             <div class="label">Rent</div>
                         </div>
                         <div class="payment-stat-item">
                             <div class="number {{ $payment->balance_amount > 0 ? 'balance-due' : 'balance-clear' }}">
-                                ₹{{ number_format($payment->balance_amount, 0) }}
+                                ₹{{ number_format($payment->balance_amount, 2) }}
                             </div>
                             <div class="label">Total Due</div>
                         </div>
                         <div class="payment-stat-item">
-                            <div class="number">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 0) }}</div>
+                            <div class="number">₹{{ number_format($payment->cash_paid_amount + $payment->upi_paid_amount, 2) }}</div>
                             <div class="label">Paid</div>
                         </div>
                     </div>
@@ -1127,7 +1127,7 @@ $(document).ready(function() {
     $('#filterStatus, #filterHostel, #filterMonth, #filterYear').on('change', function() {
         applyFiltersAjax();
     });
-    
+
     $('#searchPayment').on('keyup', debounce(function() {
         applyFiltersAjax();
     }, 500));
@@ -1162,22 +1162,22 @@ function applyFiltersAjax() {
             if (response.success) {
                 // 1. Update payment cards
                 renderPaymentCards(response.data);
-                
+
                 // 2. Update statistics
                 updateStats(response.stats);
-                
+
                 // 3. Update pending alert
                 updatePendingAlert(response.data);
-                
+
                 // 4. Update filter display
                 updateFilterDisplay(response.filter_month, response.filter_year, status, hostel, search);
-                
+
                 // 5. Update record count
                 $('#recordCount').text(response.data.length);
-                
+
                 // 6. Update current month badge
                 $('#currentMonthText').text(response.filter_month + ' ' + response.filter_year);
-                
+
                 // 7. Clear selection
                 clearSelection();
             }
@@ -1192,13 +1192,13 @@ function applyFiltersAjax() {
 }
 
 // ============================================================
-// RENDER PAYMENT CARDS
+// RENDER PAYMENT CARDS - FIXED WITH 2 DECIMAL PLACES
 // ============================================================
 
 function renderPaymentCards(data) {
     var grid = $('#paymentsGrid');
     grid.empty();
-    
+
     if (data.length === 0) {
         grid.html(`
             <div class="empty-state" style="grid-column: 1 / -1;">
@@ -1209,12 +1209,21 @@ function renderPaymentCards(data) {
         `);
         return;
     }
-    
+
     $.each(data, function(index, payment) {
-        var statusColor = payment.status == 'PAID' ? '#22c55e' : 
-                         (payment.status == 'PARTIAL' ? '#f59e0b' : 
+        var statusColor = payment.status == 'PAID' ? '#22c55e' :
+                         (payment.status == 'PARTIAL' ? '#f59e0b' :
                          (payment.status == 'UNPAID' ? '#6b7280' : '#ef4444'));
-        
+
+        // Parse amounts as floats and format with 2 decimal places
+        var rentAmount = parseFloat(payment.rent_amount) || 0;
+        var balanceAmount = parseFloat(payment.balance_amount) || 0;
+        var totalPaid = parseFloat(payment.total_paid) || 0;
+        var discountAmount = parseFloat(payment.discount_amount) || 0;
+        var fineAmount = parseFloat(payment.fine_amount) || 0;
+        var previousPending = parseFloat(payment.previous_pending_amount) || 0;
+        var currentBalance = parseFloat(payment.current_balance_amount) || 0;
+
         var card = `
             <div class="payment-card" id="payment-card-${payment.id || 'new-' + index}" data-resident-id="${payment.resident_id}" data-status="${payment.status}">
                 <div class="card-checkbox">
@@ -1240,31 +1249,31 @@ function renderPaymentCards(data) {
                         <i class="bi bi-building"></i> ${payment.hostel_name}
                     </div>
                     ${payment.payment_type ? `<div class="payment-meta"><i class="bi bi-credit-card"></i> Method: ${payment.payment_type.charAt(0).toUpperCase() + payment.payment_type.slice(1)}</div>` : ''}
-                    
+
                     <div class="payment-stats">
                         <div class="payment-stat-item">
-                            <div class="number">₹${parseFloat(payment.rent_amount).toFixed(0)}</div>
+                            <div class="number">₹${rentAmount.toFixed(2)}</div>
                             <div class="label">Rent</div>
                         </div>
                         <div class="payment-stat-item">
-                            <div class="number ${parseFloat(payment.balance_amount) > 0 ? 'balance-due' : 'balance-clear'}">
-                                ₹${parseFloat(payment.balance_amount).toFixed(0)}
+                            <div class="number ${balanceAmount > 0 ? 'balance-due' : 'balance-clear'}">
+                                ₹${balanceAmount.toFixed(2)}
                             </div>
                             <div class="label">Total Due</div>
                         </div>
                         <div class="payment-stat-item">
-                            <div class="number">₹${parseFloat(payment.total_paid || 0).toFixed(0)}</div>
+                            <div class="number">₹${totalPaid.toFixed(2)}</div>
                             <div class="label">Paid</div>
                         </div>
                     </div>
-                    
-                    ${parseFloat(payment.discount_amount) > 0 ? `<div class="payment-meta" style="color:#166534;"><i class="bi bi-tag"></i> Discount: ₹${parseFloat(payment.discount_amount).toFixed(2)}</div>` : ''}
-                    ${parseFloat(payment.fine_amount) > 0 ? `<div class="payment-meta" style="color:#dc2626;"><i class="bi bi-exclamation-triangle"></i> Fine: ₹${parseFloat(payment.fine_amount).toFixed(2)}</div>` : ''}
-                    ${parseFloat(payment.previous_pending_amount) > 0 ? `<div class="payment-meta" style="color:#ef4444;"><i class="bi bi-clock-history"></i> Previous Pending: ₹${parseFloat(payment.previous_pending_amount).toFixed(2)}</div>` : ''}
-                    ${parseFloat(payment.current_balance_amount) > 0 && payment.status != 'PENDING' ? `<div class="payment-meta" style="color:#f59e0b;"><i class="bi bi-calendar"></i> Current Balance: ₹${parseFloat(payment.current_balance_amount).toFixed(2)}</div>` : ''}
-                    
+
+                    ${discountAmount > 0 ? `<div class="payment-meta" style="color:#166534;"><i class="bi bi-tag"></i> Discount: ₹${discountAmount.toFixed(2)}</div>` : ''}
+                    ${fineAmount > 0 ? `<div class="payment-meta" style="color:#dc2626;"><i class="bi bi-exclamation-triangle"></i> Fine: ₹${fineAmount.toFixed(2)}</div>` : ''}
+                    ${previousPending > 0 ? `<div class="payment-meta" style="color:#ef4444;"><i class="bi bi-clock-history"></i> Previous Pending: ₹${previousPending.toFixed(2)}</div>` : ''}
+                    ${currentBalance > 0 && payment.status != 'PENDING' ? `<div class="payment-meta" style="color:#f59e0b;"><i class="bi bi-calendar"></i> Current Balance: ₹${currentBalance.toFixed(2)}</div>` : ''}
+
                     ${payment.remark ? `<div class="remark-box"><i class="bi bi-chat-left-text" style="color:var(--sanjay-gold);"></i> <span>${payment.remark}</span></div>` : ''}
-                    
+
                     <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
                         <span style="font-size:0.65rem; color:#6b7280;">
                             <i class="bi bi-clock"></i> ${payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
@@ -1301,7 +1310,7 @@ function updateStats(stats) {
     $('#statPartial').text(stats.partial || 0);
     $('#statPaid').text(stats.paid || 0);
     $('#statUnpaid').text(stats.unpaid || 0);
-    $('#statCollected').text('₹' + (stats.total_collected || 0).toLocaleString());
+    $('#statCollected').text('₹' + (stats.total_collected || 0).toFixed(2));
 }
 
 // ============================================================
@@ -1311,23 +1320,23 @@ function updateStats(stats) {
 function updatePendingAlert(data) {
     var unpaidCount = 0, pendingCount = 0, partialCount = 0, paidCount = 0;
     var totalBalance = 0, currentBalance = 0, previousPending = 0;
-    
+
     $.each(data, function(index, item) {
         if (item.status == 'UNPAID') unpaidCount++;
         else if (item.status == 'PENDING') pendingCount++;
         else if (item.status == 'PARTIAL') partialCount++;
         else if (item.status == 'PAID') paidCount++;
-        
+
         if (['UNPAID', 'PENDING', 'PARTIAL'].includes(item.status)) {
             totalBalance += parseFloat(item.balance_amount) || 0;
             currentBalance += parseFloat(item.current_balance_amount) || 0;
             previousPending += parseFloat(item.previous_pending_amount) || 0;
         }
     });
-    
+
     var alert = $('#pendingAlert');
     var totalPending = unpaidCount + pendingCount + partialCount;
-    
+
     if (totalPending > 0) {
         alert.show();
         // Update counts
@@ -1335,8 +1344,8 @@ function updatePendingAlert(data) {
         alert.find('span:contains("Pending (Previous):")').next('.count').text(pendingCount);
         alert.find('span:contains("Partial:")').next('.count').text(partialCount);
         alert.find('span:contains("Paid:")').next('.count').text(paidCount);
-        
-        // Update amounts
+
+        // Update amounts with 2 decimal places
         alert.find('span:contains("Total Due:")').next('.count').text('₹' + totalBalance.toFixed(2));
         alert.find('span:contains("Current Balance:")').next('.count').text('₹' + currentBalance.toFixed(2));
         alert.find('span:contains("Previous Pending:")').next('.count').text('₹' + previousPending.toFixed(2));
@@ -1352,7 +1361,7 @@ function updatePendingAlert(data) {
 function updateFilterDisplay(month, year, status, hostel, search) {
     $('#filterMonthDisplay').text(month);
     $('#filterYearDisplay').text(year);
-    
+
     if (hostel) {
         $('#filterHostelDisplay').text($('#filterHostel option:selected').text());
         $('#filterHostelDisplay').parent().show();
@@ -1388,14 +1397,14 @@ function filterPending() {
 
 function checkAlreadyPaid(residentId, month, year) {
     var editId = $('#editId').val();
-    
+
     $.ajax({
         url: '/admin/payments/resident/' + residentId + '/check-paid/' + month + '/' + year,
         type: 'GET',
         success: function(response) {
             if (response.success && response.is_paid) {
                 var isEditMode = (editId && editId == response.payment_id);
-                
+
                 if (isEditMode) {
                     $('#alreadyPaidWarning').html(`
                         <div class="mt-2" style="padding:0.75rem 1rem; background:#dbeafe; border:1px solid #93c5fd; border-radius:8px;">
@@ -1484,8 +1493,8 @@ function generateRemarkPreview() {
             if (response.success && response.data) {
                 let data = response.data;
                 let discountStatus = data.discount_eligible ? '✅ Discount ₹' + data.discount.toFixed(2) : '❌ No discount';
-                let remark = discountStatus + ' | Previous: ₹' + data.previous_pending.toFixed(2) + 
-                           ' | Current: ₹' + data.current_due.toFixed(2) + 
+                let remark = discountStatus + ' | Previous: ₹' + data.previous_pending.toFixed(2) +
+                           ' | Current: ₹' + data.current_due.toFixed(2) +
                            ' | Paid: ₹' + data.total_paid.toFixed(2);
 
                 $('#remarkPreviewText').text(remark);
@@ -1502,7 +1511,7 @@ function generateRemarkPreview() {
 function exportWithType(type) {
     var params = getFilterParams();
     var url = '';
-    
+
     switch(type) {
         case 'filtered':
             url = '{{ route("admin.payments.export.filtered") }}';
@@ -1516,22 +1525,22 @@ function exportWithType(type) {
         default:
             url = '{{ route("admin.payments.export.filtered") }}';
     }
-    
+
     window.location.href = url + '?' + params;
 }
 
 function exportPaymentStatus(type) {
     var params = getFilterParams();
-    var url = type === 'csv' 
-        ? '{{ route("admin.payments.export.payment-status") }}' 
+    var url = type === 'csv'
+        ? '{{ route("admin.payments.export.payment-status") }}'
         : '{{ route("admin.payments.export.payment-status-pdf") }}';
     window.location.href = url + '?' + params;
 }
 
 function exportUnpaid(type) {
     var params = getFilterParams();
-    var url = type === 'csv' 
-        ? '{{ route("admin.payments.export.unpaid-summary") }}' 
+    var url = type === 'csv'
+        ? '{{ route("admin.payments.export.unpaid-summary") }}'
         : '{{ route("admin.payments.export.unpaid-pdf") }}';
     window.location.href = url + '?' + params;
 }
@@ -1681,11 +1690,11 @@ function openAddModalForResident(residentId) {
     $('#alreadyPaidWarning').hide();
     $('#pendingWarning').hide();
     $('#remarkPreview').hide();
-    
+
     if (residentId) {
         $('#resident_id').val(residentId).trigger('change');
     }
-    
+
     $('#paymentModal').modal('show');
 }
 
@@ -1730,7 +1739,7 @@ function editPayment(id) {
                 $('#saveBtnText').text('Update');
                 $('#saveBtn').prop('disabled', false);
                 $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
-                
+
                 $('#month').val(data.month);
                 $('#year').val(data.year);
                 $('#rent_amount').val(data.rent_amount);
@@ -1741,35 +1750,35 @@ function editPayment(id) {
                 $('#transaction_id').val(data.transaction_id || '');
                 $('#status').val(data.status || 'PENDING');
                 $('#payment_type').val(data.payment_type || 'both');
-                
+
                 if (data.payment_date) {
                     $('#payment_date').val(data.payment_date.split('T')[0]);
                 }
-                
+
                 let residentId = data.resident_id;
                 let month = data.month;
                 let year = data.year;
-                
+
                 let hostelId = data.resident ? data.resident.hostel_id : null;
                 let roomId = data.resident ? data.resident.room_id : null;
-                
+
                 if (hostelId) {
                     $('#modal_hostel_id').val(hostelId);
-                    
+
                     $.ajax({
                         url: '/admin/rooms/hostel/' + hostelId + '/rooms',
                         type: 'GET',
                         success: function(roomResp) {
                             let roomSelect = $('#modal_room_id');
                             roomSelect.empty().append('<option value="">Select Room</option>').prop('disabled', false);
-                            
+
                             if (roomResp.success && roomResp.data.length > 0) {
                                 $.each(roomResp.data, function(key, room) {
                                     let selected = (room.id == roomId) ? 'selected' : '';
                                     roomSelect.append('<option value="' + room.id + '" ' + selected + '>Room #' + room.room_no + '</option>');
                                 });
                             }
-                            
+
                             if (roomId) {
                                 $.ajax({
                                     url: '/admin/payments/room/' + roomId + '/residents',
@@ -1777,14 +1786,14 @@ function editPayment(id) {
                                     success: function(resResp) {
                                         let residentSelect = $('#resident_id');
                                         residentSelect.empty().append('<option value="">Select Resident</option>').prop('disabled', false);
-                                        
+
                                         if (resResp.success && resResp.data.length > 0) {
                                             $.each(resResp.data, function(key, resident) {
                                                 let selected = (resident.id == residentId) ? 'selected' : '';
                                                 residentSelect.append('<option value="' + resident.id + '" ' + selected + '>' + resident.name + ' (' + resident.resident_code + ')</option>');
                                             });
                                         }
-                                        
+
                                         if (residentId && month && year) {
                                             checkAlreadyPaid(residentId, month, year);
                                             checkPreviousPending(residentId, month, year);
@@ -1796,7 +1805,7 @@ function editPayment(id) {
                         }
                     });
                 }
-                
+
                 $('#paymentModal').modal('show');
             }
         },

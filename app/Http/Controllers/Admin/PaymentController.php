@@ -40,56 +40,56 @@ class PaymentController extends Controller
         }
 
         $pendingPayments = collect([]);
-        
+
         for ($m = 1; $m < $month; $m++) {
             $startDate = date('Y-m-01', strtotime("$year-$m-01"));
             $endDate = date('Y-m-t', strtotime("$year-$m-01"));
-            
-            $wasActive = ($resident->joining_date <= $endDate) && 
+
+            $wasActive = ($resident->joining_date <= $endDate) &&
                          (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
-            
+
             if (!$wasActive) {
                 continue;
             }
-            
+
             $payment = Payment::where('resident_id', $residentId)
                 ->where('month', $m)
                 ->where('year', $year)
                 ->first();
-                
+
             if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
                 $pendingPayments->push($payment);
             }
         }
-        
+
         $maxYearsBack = 3;
         for ($y = $year - 1; $y >= max(2000, $year - $maxYearsBack); $y--) {
             for ($m = 12; $m >= 1; $m--) {
                 if ($y == $year && $m >= $month) {
                     continue;
                 }
-                
+
                 $startDate = date('Y-m-01', strtotime("$y-$m-01"));
                 $endDate = date('Y-m-t', strtotime("$y-$m-01"));
-                
-                $wasActive = ($resident->joining_date <= $endDate) && 
+
+                $wasActive = ($resident->joining_date <= $endDate) &&
                              (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
-                
+
                 if (!$wasActive) {
                     continue;
                 }
-                
+
                 $payment = Payment::where('resident_id', $residentId)
                     ->where('month', $m)
                     ->where('year', $y)
                     ->first();
-                    
+
                 if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
                     $pendingPayments->push($payment);
                 }
             }
         }
-        
+
         return $pendingPayments->sortBy(function($item) {
             return $item->year . '-' . str_pad($item->month, 2, '0', STR_PAD_LEFT);
         })->values();
@@ -107,55 +107,55 @@ class PaymentController extends Controller
 
         $pendingTotal = 0;
         $maxYearsBack = 3;
-        
+
         for ($m = 1; $m < $month; $m++) {
             $payment = Payment::where('resident_id', $residentId)
                 ->where('month', $m)
                 ->where('year', $year)
                 ->first();
-                
+
             $startDate = date('Y-m-01', strtotime("$year-$m-01"));
             $endDate = date('Y-m-t', strtotime("$year-$m-01"));
-            
-            $wasActive = ($resident->joining_date <= $endDate) && 
+
+            $wasActive = ($resident->joining_date <= $endDate) &&
                          (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
-            
+
             if (!$wasActive) {
                 continue;
             }
-            
+
             if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
                 $pendingTotal += $payment->balance_amount;
             }
         }
-        
+
         for ($y = $year - 1; $y >= max(2000, $year - $maxYearsBack); $y--) {
             for ($m = 12; $m >= 1; $m--) {
                 if ($y == $year && $m >= $month) {
                     continue;
                 }
-                
+
                 $payment = Payment::where('resident_id', $residentId)
                     ->where('month', $m)
                     ->where('year', $y)
                     ->first();
-                    
+
                 $startDate = date('Y-m-01', strtotime("$y-$m-01"));
                 $endDate = date('Y-m-t', strtotime("$y-$m-01"));
-                
-                $wasActive = ($resident->joining_date <= $endDate) && 
+
+                $wasActive = ($resident->joining_date <= $endDate) &&
                              (is_null($resident->vacate_date) || $resident->vacate_date >= $startDate);
-                
+
                 if (!$wasActive) {
                     continue;
                 }
-                
+
                 if ($payment && in_array($payment->status, ['PENDING', 'PARTIAL'])) {
                     $pendingTotal += $payment->balance_amount;
                 }
             }
         }
-        
+
         return $pendingTotal;
     }
 
@@ -312,9 +312,9 @@ class PaymentController extends Controller
         foreach ($activeResidents as $resident) {
             $payment = $payments->get($resident->id);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             $previousPending = $this->getPreviousPending($resident->id, $filterMonth, $filterYear);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -322,7 +322,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             // ✅ Status Logic
@@ -370,6 +370,7 @@ class PaymentController extends Controller
                 'upi_paid_amount' => $payment ? $payment->upi_paid_amount : 0,
                 'balance_amount' => $totalDue,
                 'current_balance_amount' => $currentBalance,
+                'previous_pending_amount' => $previousPending,
                 'payment_date' => $payment ? $payment->payment_date : now(),
                 'transaction_id' => $payment ? $payment->transaction_id : null,
                 'status' => $status,
@@ -380,7 +381,6 @@ class PaymentController extends Controller
                 'joining_date' => $resident->joining_date,
                 'vacate_date' => $resident->vacate_date,
                 'has_previous_pending' => $previousPending > 0,
-                'previous_pending_amount' => $previousPending,
                 'is_unpaid' => (!$payment && $previousPending == 0),
             ];
 
@@ -397,7 +397,7 @@ class PaymentController extends Controller
             $stats['total_cash'] += $payment ? $payment->cash_paid_amount : 0;
             $stats['total_upi'] += $payment ? $payment->upi_paid_amount : 0;
             $stats['total_balance'] += $totalDue;
-            
+
             if ($payment) {
                 $stats['total_collected'] += ($payment->cash_paid_amount + $payment->upi_paid_amount);
             }
@@ -436,6 +436,7 @@ class PaymentController extends Controller
 
     /**
      * Filter payments via AJAX - No page refresh
+     * ✅ ALL amounts formatted with 2 decimal places
      */
     public function filter(Request $request)
     {
@@ -492,9 +493,9 @@ class PaymentController extends Controller
         foreach ($activeResidents as $resident) {
             $payment = $payments->get($resident->id);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             $previousPending = $this->getPreviousPending($resident->id, $filterMonth, $filterYear);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -502,7 +503,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             if ($previousPending > 0) {
@@ -535,6 +536,7 @@ class PaymentController extends Controller
                 }
             }
 
+            // ✅ FIX: All amounts formatted with 2 decimal places
             $combinedData[] = [
                 'id' => $payment ? $payment->id : null,
                 'resident_id' => $resident->id,
@@ -554,13 +556,13 @@ class PaymentController extends Controller
                 'balance_amount' => number_format($totalDue, 2),
                 'current_balance_amount' => number_format($currentBalance, 2),
                 'total_paid' => number_format($currentPaid, 2),
+                'previous_pending_amount' => number_format($previousPending, 2),
                 'status' => $status,
                 'status_badge' => strtolower($status),
                 'payment_type' => $payment ? $payment->payment_type : null,
                 'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
                 'payment_date' => $payment ? $payment->payment_date : now(),
                 'has_previous_pending' => $previousPending > 0,
-                'previous_pending_amount' => number_format($previousPending, 2),
                 'previous_pending_cleared' => $payment ? $payment->previous_pending_cleared : 0,
             ];
 
@@ -577,7 +579,7 @@ class PaymentController extends Controller
             $stats['total_cash'] += $payment ? $payment->cash_paid_amount : 0;
             $stats['total_upi'] += $payment ? $payment->upi_paid_amount : 0;
             $stats['total_balance'] += $totalDue;
-            
+
             if ($payment) {
                 $stats['total_collected'] += ($payment->cash_paid_amount + $payment->upi_paid_amount);
             }
@@ -653,7 +655,7 @@ class PaymentController extends Controller
             $fineAmount = (float) ($request->fine_amount ?? 0);
             $cashPaid = (float) $request->cash_paid_amount;
             $upiPaid = (float) $request->upi_paid_amount;
-            $totalPaid = $cashPaid + $upiPaid; // Money actually received
+            $totalPaid = $cashPaid + $upiPaid;
 
             if ($totalPaid <= 0) {
                 return response()->json([
@@ -710,7 +712,7 @@ class PaymentController extends Controller
 
                 $prevBalance = $prevPayment->balance_amount;
                 $payAmount = min($remaining, $prevBalance);
-                
+
                 if ($payAmount > 0) {
                     $prevPayment->cash_paid_amount += $payAmount;
                     $newBalance = $prevBalance - $payAmount;
@@ -718,8 +720,8 @@ class PaymentController extends Controller
                     $prevPayment->status = ($newBalance <= 0) ? 'PAID' : 'PARTIAL';
 
                     if ($request->transaction_id && $payAmount > 0) {
-                        $prevPayment->transaction_id = $prevPayment->transaction_id 
-                            ? $prevPayment->transaction_id . ' / ' . $request->transaction_id 
+                        $prevPayment->transaction_id = $prevPayment->transaction_id
+                            ? $prevPayment->transaction_id . ' / ' . $request->transaction_id
                             : $request->transaction_id;
                     }
 
@@ -741,7 +743,7 @@ class PaymentController extends Controller
             $currentDue = $rentAmount + $fineAmount - $discount;
             $existingCurrentPaid = $existingPayment ? (float) ($existingPayment->cash_paid_amount + $existingPayment->upi_paid_amount) : 0;
             $remainingCurrentDue = max(0, $currentDue - $existingCurrentPaid);
-            
+
             $currentPaidThisTransaction = min($remaining, $remainingCurrentDue);
             $currentPaid = $existingCurrentPaid + $currentPaidThisTransaction;
             $remaining -= $currentPaidThisTransaction;
@@ -765,18 +767,18 @@ class PaymentController extends Controller
             // Build remark
             $monthName = date('F Y', mktime(0,0,0,$month,1,$year));
             $remark = $discountReason . " | ";
-            
+
             if ($fineAmount > 0) {
                 $remark .= "💰 Fine ₹" . number_format($fineAmount, 2) . " | ";
             }
-            
+
             if ($previousPaid > 0) {
                 $remark .= "✅ Previous cleared ₹" . number_format($previousPaid, 2) . " | ";
             }
             if ($previousBalance > 0) {
                 $remark .= "⚠️ Previous remaining ₹" . number_format($previousBalance, 2) . " | ";
             }
-            
+
             if ($currentPaidThisTransaction > 0) {
                 $remark .= ($currentBalance <= 0) ? "✅ {$monthName} paid ₹" . number_format($currentPaidThisTransaction, 2) : "🟡 {$monthName} partial ₹" . number_format($currentPaidThisTransaction, 2);
             } else {
@@ -788,7 +790,7 @@ class PaymentController extends Controller
                     $remark .= "❌ {$monthName} not paid";
                 }
             }
-            
+
             $remark .= $advanceAmount > 0 ? " | 💰 Advance ₹" . number_format($advanceAmount, 2) : "";
             $remark .= $totalBalance > 0 ? " | 📊 Pending ₹" . number_format($totalBalance, 2) : " | ✅ All cleared!";
 
@@ -811,8 +813,8 @@ class PaymentController extends Controller
                     $existingPayment->remark = $remark;
                     $existingPayment->payment_type = $paymentType;
                     if ($request->transaction_id) {
-                        $existingPayment->transaction_id = $existingPayment->transaction_id 
-                            ? $existingPayment->transaction_id . ' / ' . $request->transaction_id 
+                        $existingPayment->transaction_id = $existingPayment->transaction_id
+                            ? $existingPayment->transaction_id . ' / ' . $request->transaction_id
                             : $request->transaction_id;
                     }
                     $existingPayment->save();
@@ -943,7 +945,7 @@ class PaymentController extends Controller
         $fineAmount = (float) ($request->fine_amount ?? 0);
         $discount = (float) ($request->discount_amount ?? 0);
         $rentAmount = (float) $request->rent_amount;
-        
+
         $totalAmount = $rentAmount + $fineAmount - $discount;
         $balanceAmount = max(0, $totalAmount - $totalPaid);
 
@@ -965,7 +967,7 @@ class PaymentController extends Controller
 
         $monthName = date('F Y', mktime(0,0,0,$request->month,1,$request->year));
         $oldRemark = $payment->remark ?? '';
-        
+
         $newRemark = "🔄 Updated on " . date('d M Y H:i') . " | ";
         $newRemark .= "Month: {$monthName} | ";
         $newRemark .= "Rent: ₹" . number_format($rentAmount, 2) . " | ";
@@ -977,7 +979,7 @@ class PaymentController extends Controller
         $newRemark .= $balanceAmount > 0 ? "Balance: ₹" . number_format($balanceAmount, 2) : "✅ Fully Paid";
         $newRemark .= " | Status: " . $status;
         $newRemark .= " | Method: " . strtoupper($paymentType);
-        
+
         $finalRemark = $newRemark;
         if (!empty($oldRemark) && strlen($oldRemark) < 500) {
             $finalRemark .= " | [Previous: " . $oldRemark . "]";
@@ -1147,11 +1149,11 @@ class PaymentController extends Controller
 
             $currentDue = $resident->rent_amount + $fineAmount - $discount;
             $existingCurrentPaid = $existingPayment ? (float) ($existingPayment->cash_paid_amount + $existingPayment->upi_paid_amount) : 0;
-            
+
             $remaining = $totalPaid;
             $previousPaid = min($remaining, $totalPreviousPending);
             $remaining -= $previousPaid;
-            
+
             $remainingCurrentDue = max(0, $currentDue - $existingCurrentPaid);
             $currentPaid = min($remaining, $remainingCurrentDue);
             $remaining -= $currentPaid;
@@ -1377,7 +1379,7 @@ class PaymentController extends Controller
     }
 
     // ============================================================
-    // EXPORT METHODS (All use same logic)
+    // EXPORT METHODS - ALL WITH 2 DECIMAL PLACES
     // ============================================================
 
     /**
@@ -1431,7 +1433,7 @@ class PaymentController extends Controller
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -1439,7 +1441,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             if ($previousPending > 0) {
@@ -1514,6 +1516,9 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
+    /**
+     * Export as PDF
+     */
     public function exportPdf(Request $request)
     {
         $user = auth()->user();
@@ -1572,7 +1577,7 @@ class PaymentController extends Controller
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -1580,7 +1585,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             if ($previousPending > 0) {
@@ -1630,7 +1635,7 @@ class PaymentController extends Controller
             $summary['total_rent'] += $rentAmount;
             $summary['total_collected'] += $currentPaid;
             $summary['total_balance'] += $totalDue;
-            
+
             if ($status === 'PAID') $summary['paid']++;
             elseif ($status === 'PENDING') $summary['pending']++;
             elseif ($status === 'PARTIAL') $summary['partial']++;
@@ -1658,6 +1663,9 @@ class PaymentController extends Controller
         return $pdf->download('payments-' . date('Y-m-d') . '.pdf');
     }
 
+    /**
+     * Export summary PDF
+     */
     public function exportSummary(Request $request)
     {
         $user = auth()->user();
@@ -1714,7 +1722,7 @@ class PaymentController extends Controller
                 $payment = $paymentsByResident->get($resident->id);
                 $previousPending = $this->getPreviousPending($resident->id, $month, $year);
                 $rentAmount = (float) ($resident->rent_amount ?? 0);
-                
+
                 if ($payment) {
                     $currentBalance = (float) $payment->balance_amount;
                     $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -1722,7 +1730,7 @@ class PaymentController extends Controller
                     $currentBalance = $rentAmount;
                     $currentPaid = 0;
                 }
-                
+
                 $totalDue = $previousPending + $currentBalance;
 
                 if ($previousPending > 0) {
@@ -1783,7 +1791,9 @@ class PaymentController extends Controller
             'hostelSummaries' => $hostelSummaries,
             'grandTotal' => $grandTotal,
             'generated_at' => now()->format('d M Y H:i A'),
-            'user' => $user
+            'user' => $user,
+            'month' => date('F', mktime(0,0,0,$month,1)),
+            'year' => $year
         ];
 
         $pdf = PDF::loadView('admin.payments.pdf.payment-summary', $data);
@@ -1792,6 +1802,9 @@ class PaymentController extends Controller
         return $pdf->download('payment-summary-' . date('Y-m-d') . '.pdf');
     }
 
+    /**
+     * Export hostel wise report
+     */
     public function exportHostelWise(Request $request)
     {
         $user = auth()->user();
@@ -1855,7 +1868,7 @@ class PaymentController extends Controller
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -1863,7 +1876,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             if ($previousPending > 0) {
@@ -1922,6 +1935,9 @@ class PaymentController extends Controller
         return $pdf->download('hostel-' . $hostel->hostel_code . '-report-' . date('Y-m-d') . '.pdf');
     }
 
+    /**
+     * Export paid payments CSV
+     */
     public function exportPaid(Request $request)
     {
         $user = auth()->user();
@@ -1991,6 +2007,9 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
+    /**
+     * Export unpaid summary CSV
+     */
     public function exportUnpaidSummary(Request $request)
     {
         $user = auth()->user();
@@ -2036,9 +2055,9 @@ class PaymentController extends Controller
         foreach ($residents as $resident) {
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            
+
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -2046,22 +2065,22 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
-            
+
             if ($totalDue <= 0) {
                 continue;
             }
-            
+
             $hostelName = $resident->hostel->hostel_name ?? 'Unknown Hostel';
-            
+
             if (!isset($hostelData[$hostelName])) {
                 $hostelData[$hostelName] = [
                     'hostel_id' => $resident->hostel_id,
                     'residents' => []
                 ];
             }
-            
+
             if ($previousPending > 0) {
                 $status = 'PENDING';
             } elseif (!$payment && $previousPending == 0) {
@@ -2075,7 +2094,7 @@ class PaymentController extends Controller
             } else {
                 $status = 'PENDING';
             }
-            
+
             $hostelData[$hostelName]['residents'][] = [
                 'name' => $resident->name,
                 'room_no' => $resident->room->room_no ?? 'N/A',
@@ -2089,12 +2108,11 @@ class PaymentController extends Controller
                 'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
                 'has_payment' => $payment ? 'Yes' : 'No'
             ];
-            
+
             $totalOverall += $totalDue;
             $totalUnpaidCount++;
         }
 
-        // Build CSV (same as before)
         $csv = "==================================================\n";
         $csv .= "UNPAID PAYMENTS SUMMARY\n";
         $csv .= "==================================================\n";
@@ -2128,12 +2146,12 @@ class PaymentController extends Controller
                 );
                 $serialNo++;
             }
-            
+
             $subtotal = collect($data['residents'])->sum('total_due');
             $unpaidCount = collect($data['residents'])->filter(function($r) {
                 return $r['status'] == 'UNPAID';
             })->count();
-            
+
             $csv .= str_repeat('-', 110) . "\n";
             $csv .= ",,,,SUBTOTAL,,,₹" . number_format($subtotal, 2) . ",,,\n";
             $csv .= ",,,,Unpaid Residents: " . $unpaidCount . ",,,\n";
@@ -2150,6 +2168,9 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
+    /**
+     * Export unpaid summary PDF
+     */
     public function exportUnpaidPdf(Request $request)
     {
         $user = auth()->user();
@@ -2195,9 +2216,9 @@ class PaymentController extends Controller
         foreach ($residents as $resident) {
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
-            
+
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -2205,22 +2226,22 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
-            
+
             if ($totalDue <= 0) {
                 continue;
             }
 
             $hostelName = $resident->hostel->hostel_name ?? 'Unknown Hostel';
-            
+
             if (!isset($hostelData[$hostelName])) {
                 $hostelData[$hostelName] = [
                     'hostel_id' => $resident->hostel_id,
                     'residents' => []
                 ];
             }
-            
+
             if ($previousPending > 0) {
                 $status = 'PENDING';
             } elseif (!$payment && $previousPending == 0) {
@@ -2234,7 +2255,7 @@ class PaymentController extends Controller
             } else {
                 $status = 'PENDING';
             }
-            
+
             $hostelData[$hostelName]['residents'][] = [
                 'name' => $resident->name,
                 'room_no' => $resident->room->room_no ?? 'N/A',
@@ -2248,7 +2269,7 @@ class PaymentController extends Controller
                 'remark' => $payment ? $payment->remark : ($previousPending > 0 ? 'Previous months pending' : 'No payment recorded'),
                 'has_payment' => $payment ? 'Yes' : 'No'
             ];
-            
+
             $totalOverall += $totalDue;
             $totalUnpaidCount++;
         }
@@ -2272,6 +2293,9 @@ class PaymentController extends Controller
         return $pdf->download('unpaid-summary-' . date('Y-m-d') . '.pdf');
     }
 
+    /**
+     * Export payment status CSV
+     */
     public function exportPaymentStatus(Request $request)
     {
         $user = auth()->user();
@@ -2319,7 +2343,7 @@ class PaymentController extends Controller
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -2327,7 +2351,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             $residentData = [
@@ -2369,7 +2393,6 @@ class PaymentController extends Controller
             }
         }
 
-        // Build CSV (short version - same as before)
         $csv = "==================================================\n";
         $csv .= "PAYMENT STATUS SUMMARY\n";
         $csv .= "==================================================\n";
@@ -2490,6 +2513,9 @@ class PaymentController extends Controller
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
     }
 
+    /**
+     * Export payment status PDF
+     */
     public function exportPaymentStatusPdf(Request $request)
     {
         $user = auth()->user();
@@ -2537,7 +2563,7 @@ class PaymentController extends Controller
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -2545,7 +2571,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             $residentData = [
@@ -2616,6 +2642,9 @@ class PaymentController extends Controller
     // PDF VIEW METHODS
     // ============================================================
 
+    /**
+     * PDF - All Payments
+     */
     public function pdfAllPayments(Request $request)
     {
         $user = auth()->user();
@@ -2674,7 +2703,7 @@ class PaymentController extends Controller
             $payment = $payments->get($resident->id);
             $previousPending = $this->getPreviousPending($resident->id, $month, $year);
             $rentAmount = (float) ($resident->rent_amount ?? 0);
-            
+
             if ($payment) {
                 $currentBalance = (float) $payment->balance_amount;
                 $currentPaid = (float) ($payment->cash_paid_amount + $payment->upi_paid_amount);
@@ -2682,7 +2711,7 @@ class PaymentController extends Controller
                 $currentBalance = $rentAmount;
                 $currentPaid = 0;
             }
-            
+
             $totalDue = $previousPending + $currentBalance;
 
             if ($previousPending > 0) {
@@ -2732,7 +2761,7 @@ class PaymentController extends Controller
             $summary['total_rent'] += $rentAmount;
             $summary['total_collected'] += $currentPaid;
             $summary['total_balance'] += $totalDue;
-            
+
             if ($status === 'PAID') $summary['paid']++;
             elseif ($status === 'PENDING') $summary['pending']++;
             elseif ($status === 'PARTIAL') $summary['partial']++;
@@ -2760,6 +2789,9 @@ class PaymentController extends Controller
         return $pdf->download('all-payments-' . date('Y-m-d') . '.pdf');
     }
 
+    /**
+     * PDF - Single Receipt
+     */
     public function pdfReceipt($id)
     {
         $user = auth()->user();
@@ -2790,6 +2822,9 @@ class PaymentController extends Controller
         return $pdf->download('receipt-' . $payment->receipt_no . '.pdf');
     }
 
+    /**
+     * PDF - Bulk Receipts
+     */
     public function pdfBulkReceipts(Request $request)
     {
         $user = auth()->user();
