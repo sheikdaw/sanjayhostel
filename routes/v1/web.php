@@ -299,6 +299,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/pdf/all', [PaymentController::class, 'pdfAllPayments'])->name('pdf.all');
             Route::get('/pdf/receipt/{id}', [PaymentController::class, 'pdfReceipt'])->name('pdf.receipt');
             Route::post('/pdf/bulk-receipts', [PaymentController::class, 'pdfBulkReceipts'])->name('pdf.bulk-receipts');
+            Route::post('/filter', [PaymentController::class, 'filter'])->name('filter');
         });
 
         // ============================================================

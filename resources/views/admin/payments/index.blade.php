@@ -324,6 +324,63 @@
             grid-template-columns: 1fr;
         }
     }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9998;
+    }
+    .loading-overlay.show {
+        display: flex;
+    }
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid var(--sanjay-gold);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .filter-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.85rem;
+        color: #6b7280;
+        background: #f8fafc;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+    .filter-info .label {
+        font-weight: 600;
+        color: #374151;
+    }
+    .filter-info .badge-filter {
+        background: #e5e7eb;
+        padding: 0.15rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        color: #374151;
+    }
+    .filter-info .count-badge {
+        margin-left: auto;
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
 </style>
 @endpush
 
@@ -334,9 +391,9 @@
         <h1 class="ol-page-title">Payment Management</h1>
         <p class="ol-page-sub">Manage monthly rent payments and receipts</p>
         <div class="d-flex align-items-center gap-3 mt-2">
-            <span class="current-month-badge">
+            <span class="current-month-badge" id="currentMonthBadge">
                 <i class="bi bi-calendar-check"></i>
-                {{ date('F Y') }} - Current Month
+                <span id="currentMonthText">{{ date('F Y') }}</span>
             </span>
         </div>
     </div>
@@ -419,20 +476,19 @@
 </div>
 
 {{-- Pending Alert --}}
-@if($pendingPayments->count() > 0)
-    <div class="pending-alert">
-        <div>
-            <i class="bi bi-exclamation-triangle-fill" style="color:#991b1b;"></i>
-            <span style="font-weight:600; color:#991b1b;">Pending Payments:</span>
-            <span class="count">{{ $pendingPayments->count() }}</span> pending for {{ date('F Y') }}.
-            Total: <span class="count">₹{{ number_format($pendingPayments->sum('balance_amount'), 2) }}</span>
-        </div>
-        <button class="btn btn-sm btn-danger" onclick="filterPending()">View Pending</button>
+<div class="pending-alert" id="pendingAlert" style="{{ $pendingPayments->count() > 0 ? '' : 'display:none;' }}">
+    <div>
+        <i class="bi bi-exclamation-triangle-fill" style="color:#991b1b;"></i>
+        <span style="font-weight:600; color:#991b1b;">Pending Payments:</span>
+        <span class="count" id="pendingCount">{{ $pendingPayments->count() }}</span> pending for
+        <span id="pendingMonthText">{{ date('F Y') }}</span>.
+        Total: <span class="count" id="pendingTotal">₹{{ number_format($pendingPayments->sum('balance_amount'), 2) }}</span>
     </div>
-@endif
+    <button class="btn btn-sm btn-danger" onclick="filterPending()">View Pending</button>
+</div>
 
 {{-- Statistics --}}
-<div class="stats-grid">
+<div class="stats-grid" id="statsGrid">
     <div class="stat-card">
         <div class="number" id="statTotal">{{ $stats['total'] }}</div>
         <div class="label">Total</div>
@@ -460,20 +516,20 @@
 </div>
 
 {{-- Filter Info --}}
-<div class="d-flex align-items-center gap-3 mb-3" style="font-size:0.85rem; color:#6b7280; background:#f8fafc; padding:0.5rem 1rem; border-radius:8px; flex-wrap:wrap;">
-    <span><i class="bi bi-funnel"></i> <strong>Filters:</strong></span>
-    <span><i class="bi bi-calendar3"></i> {{ $filterMonthName }} {{ $filterYear }}</span>
+<div class="filter-info" id="filterInfo">
+    <span><i class="bi bi-funnel"></i> <span class="label">Filters:</span></span>
+    <span><i class="bi bi-calendar3"></i> <span id="filterMonthDisplay">{{ $filterMonthName }}</span> <span id="filterYearDisplay">{{ $filterYear }}</span></span>
     @if($filterHostelId)
-        <span><i class="bi bi-building"></i> {{ $filterHostelName }}</span>
+        <span><i class="bi bi-building"></i> <span id="filterHostelDisplay">{{ $filterHostelName }}</span></span>
     @endif
     @if($filterStatus)
-        <span><i class="bi bi-tag"></i> {{ $filterStatus }}</span>
+        <span><i class="bi bi-tag"></i> <span id="filterStatusDisplay">{{ $filterStatus }}</span></span>
     @endif
     @if($search)
-        <span><i class="bi bi-search"></i> "{{ $search }}"</span>
+        <span><i class="bi bi-search"></i> "<span id="filterSearchDisplay">{{ $search }}</span>"</span>
     @endif
-    <span class="ms-auto" style="font-size:0.75rem;">
-        <i class="bi bi-info-circle"></i> {{ count($combinedData) }} records found
+    <span class="count-badge">
+        <i class="bi bi-info-circle"></i> <span id="recordCount">{{ count($combinedData) }}</span> records found
     </span>
 </div>
 
@@ -492,6 +548,7 @@
     <button class="btn-action" onclick="clearSelection()"><i class="bi bi-x"></i> Clear</button>
 </div>
 
+{{-- Filter Section --}}
 <div class="filter-section">
     <div class="row g-2 w-100">
         <div class="col-md-3">
@@ -538,7 +595,7 @@
             </select>
         </div>
         <div class="col-md-1">
-            <button class="btn btn-sm btn-outline-secondary w-100" onclick="applyFilters()">
+            <button class="btn btn-sm btn-outline-secondary w-100" onclick="applyFiltersAjax()">
                 <i class="bi bi-search"></i>
             </button>
         </div>
@@ -546,10 +603,10 @@
 </div>
 
 {{-- PAYMENT CARDS GRID --}}
-<div class="payments-grid">
+<div class="payments-grid" id="paymentsGrid">
     @if(count($combinedData) > 0)
         @foreach($combinedData as $payment)
-            <div class="payment-card" id="payment-card-{{ $payment->id ?? 'new-' . $loop->index }}">
+            <div class="payment-card" id="payment-card-{{ $payment->id ?? 'new-' . $loop->index }}" data-resident-id="{{ $payment->resident_id }}" data-status="{{ $payment->status }}">
                 <div class="card-checkbox">
                     @if($payment->id)
                         <input type="checkbox" class="payment-checkbox" value="{{ $payment->id }}" onchange="updateBulkActions()">
@@ -622,14 +679,12 @@
                         </div>
                     @endif
 
-                    {{-- 🔥 FIX: Actions - Edit button visible for ALL payments with ID --}}
                     <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
                         <span style="font-size:0.65rem; color:#6b7280;">
                             <i class="bi bi-clock"></i> {{ $payment->payment_date ? date('d M Y', strtotime($payment->payment_date)) : 'N/A' }}
                         </span>
                         <div class="d-flex gap-1">
                             @if($payment->id)
-                                {{-- Edit button - Show for ALL payments --}}
                                 <button class="btn-action text-primary" onclick="editPayment({{ $payment->id }})" title="Edit Payment">
                                     <i class="bi bi-pencil"></i>
                                 </button>
@@ -637,7 +692,6 @@
                                     <i class="bi bi-trash"></i>
                                 </button>
                             @else
-                                {{-- Show "Add Payment" button for unpaid residents --}}
                                 <button class="btn-action text-success" onclick="openAddModalForResident({{ $payment->resident_id }})" title="Add Payment">
                                     <i class="bi bi-plus-circle"></i>
                                 </button>
@@ -654,6 +708,11 @@
             <p style="color: #6b7280;">Try adjusting your filters or create a new payment</p>
         </div>
     @endif
+</div>
+
+{{-- Loading Overlay --}}
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner"></div>
 </div>
 
 {{-- ============================================================ --}}
@@ -992,13 +1051,240 @@ $(document).ready(function() {
         }
     });
 
-    // Filter events
-    $('#filterStatus, #filterHostel, #filterMonth, #filterYear').on('change', applyFilters);
-    $('#searchPayment').on('keyup', debounce(applyFilters, 500));
+    // ✅ AJAX FILTER - No page refresh
+    $('#filterStatus, #filterHostel, #filterMonth, #filterYear').on('change', function() {
+        applyFiltersAjax();
+    });
+    
+    $('#searchPayment').on('keyup', debounce(function() {
+        applyFiltersAjax();
+    }, 500));
 });
 
 // ============================================================
-// CHECK FUNCTIONS - FIXED: Edit mode detection
+// ✅ AJAX FILTER FUNCTION - NO PAGE REFRESH
+// ============================================================
+
+function applyFiltersAjax() {
+    var status = $('#filterStatus').val();
+    var hostel = $('#filterHostel').val();
+    var month = $('#filterMonth').val();
+    var year = $('#filterYear').val();
+    var search = $('#searchPayment').val();
+
+    // Show loading
+    $('#loadingOverlay').addClass('show');
+
+    $.ajax({
+        url: '{{ route("admin.payments.filter") }}',
+        type: 'POST',
+        data: {
+            status: status,
+            hostel_id: hostel,
+            month: month,
+            year: year,
+            search: search,
+            _token: '{{ csrf_token() }}'
+        },
+        success: function(response) {
+            if (response.success) {
+                // 1. Update payment cards
+                renderPaymentCards(response.data);
+                
+                // 2. Update statistics
+                updateStats(response.stats);
+                
+                // 3. Update pending alert
+                updatePendingAlert(response.pending_count, response.filter_month, response.filter_year);
+                
+                // 4. Update filter display
+                updateFilterDisplay(response.filter_month, response.filter_year, status, hostel, search);
+                
+                // 5. Update record count
+                $('#recordCount').text(response.data.length);
+                
+                // 6. Update current month badge
+                $('#currentMonthText').text(response.filter_month + ' ' + response.filter_year);
+                
+                // 7. Clear selection
+                clearSelection();
+            }
+        },
+        error: function(xhr) {
+            showToast('Failed to apply filters', 'error');
+        },
+        complete: function() {
+            $('#loadingOverlay').removeClass('show');
+        }
+    });
+}
+
+// ============================================================
+// RENDER PAYMENT CARDS
+// ============================================================
+
+function renderPaymentCards(data) {
+    var grid = $('#paymentsGrid');
+    grid.empty();
+    
+    if (data.length === 0) {
+        grid.html(`
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <i class="bi bi-inbox"></i>
+                <h4>No payments found</h4>
+                <p style="color: #6b7280;">Try adjusting your filters or create a new payment</p>
+            </div>
+        `);
+        return;
+    }
+    
+    $.each(data, function(index, payment) {
+        var statusColor = payment.status == 'PAID' ? '#22c55e' : 
+                         (payment.status == 'PARTIAL' ? '#f59e0b' : 
+                         (payment.status == 'UNPAID' ? '#6b7280' : '#ef4444'));
+        
+        var card = `
+            <div class="payment-card" id="payment-card-${payment.id || 'new-' + index}" data-resident-id="${payment.resident_id}" data-status="${payment.status}">
+                <div class="card-checkbox">
+                    ${payment.id ? `<input type="checkbox" class="payment-checkbox" value="${payment.id}" onchange="updateBulkActions()">` : ''}
+                </div>
+                <div class="payment-header" style="background: ${statusColor};">
+                    <div>
+                        <strong style="font-size:0.9rem;">${payment.resident_name}</strong>
+                        <div style="font-size:0.65rem; opacity:0.8;">${payment.resident_code || ''} | Room #${payment.room_no}</div>
+                    </div>
+                    <span class="payment-status-badge ${payment.status_badge}">
+                        <span class="dot"></span> ${payment.status}
+                    </span>
+                </div>
+                <div class="payment-body">
+                    <div class="payment-meta">
+                        <i class="bi bi-receipt"></i> Receipt: ${payment.receipt_no}
+                    </div>
+                    <div class="payment-meta">
+                        <i class="bi bi-calendar3"></i> ${payment.month_name || ''} ${payment.year}
+                    </div>
+                    <div class="payment-meta">
+                        <i class="bi bi-building"></i> ${payment.hostel_name}
+                    </div>
+                    ${payment.payment_type ? `<div class="payment-meta"><i class="bi bi-credit-card"></i> Method: ${payment.payment_type.charAt(0).toUpperCase() + payment.payment_type.slice(1)}</div>` : ''}
+                    
+                    <div class="payment-stats">
+                        <div class="payment-stat-item">
+                            <div class="number">₹${parseFloat(payment.rent_amount).toFixed(0)}</div>
+                            <div class="label">Rent</div>
+                        </div>
+                        <div class="payment-stat-item">
+                            <div class="number ${parseFloat(payment.balance_amount) > 0 ? 'balance-due' : 'balance-clear'}">
+                                ₹${parseFloat(payment.balance_amount).toFixed(0)}
+                            </div>
+                            <div class="label">Balance</div>
+                        </div>
+                        <div class="payment-stat-item">
+                            <div class="number">₹${parseFloat(payment.total_paid || 0).toFixed(0)}</div>
+                            <div class="label">Paid</div>
+                        </div>
+                    </div>
+                    
+                    ${parseFloat(payment.discount_amount) > 0 ? `<div class="payment-meta" style="color:#166534;"><i class="bi bi-tag"></i> Discount: ₹${parseFloat(payment.discount_amount).toFixed(2)}</div>` : ''}
+                    ${parseFloat(payment.fine_amount) > 0 ? `<div class="payment-meta" style="color:#dc2626;"><i class="bi bi-exclamation-triangle"></i> Fine: ₹${parseFloat(payment.fine_amount).toFixed(2)}</div>` : ''}
+                    ${parseFloat(payment.previous_pending_amount) > 0 ? `<div class="payment-meta" style="color:#f59e0b;"><i class="bi bi-clock-history"></i> Previous Pending: ₹${parseFloat(payment.previous_pending_amount).toFixed(2)}</div>` : ''}
+                    
+                    ${payment.remark ? `<div class="remark-box"><i class="bi bi-chat-left-text" style="color:var(--sanjay-gold);"></i> <span>${payment.remark}</span></div>` : ''}
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <span style="font-size:0.65rem; color:#6b7280;">
+                            <i class="bi bi-clock"></i> ${payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                        </span>
+                        <div class="d-flex gap-1">
+                            ${payment.id ? `
+                                <button class="btn-action text-primary" onclick="editPayment(${payment.id})" title="Edit Payment">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn-action text-danger" onclick="deletePayment(${payment.id})" title="Delete Payment">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            ` : `
+                                <button class="btn-action text-success" onclick="openAddModalForResident(${payment.resident_id})" title="Add Payment">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        grid.append(card);
+    });
+}
+
+// ============================================================
+// UPDATE STATISTICS
+// ============================================================
+
+function updateStats(stats) {
+    $('#statTotal').text(stats.total || 0);
+    $('#statPending').text(stats.pending || 0);
+    $('#statPartial').text(stats.partial || 0);
+    $('#statPaid').text(stats.paid || 0);
+    $('#statUnpaid').text(stats.unpaid || 0);
+    $('#statCollected').text('₹' + (stats.total_collected || 0).toLocaleString());
+}
+
+// ============================================================
+// UPDATE PENDING ALERT
+// ============================================================
+
+function updatePendingAlert(count, month, year) {
+    var alert = $('#pendingAlert');
+    if (count > 0) {
+        alert.show();
+        $('#pendingCount').text(count);
+        $('#pendingMonthText').text(month + ' ' + year);
+    } else {
+        alert.hide();
+    }
+}
+
+// ============================================================
+// UPDATE FILTER DISPLAY
+// ============================================================
+
+function updateFilterDisplay(month, year, status, hostel, search) {
+    $('#filterMonthDisplay').text(month);
+    $('#filterYearDisplay').text(year);
+    
+    if (hostel) {
+        $('#filterHostelDisplay').text($('#filterHostel option:selected').text());
+        $('#filterHostelDisplay').parent().show();
+    } else {
+        $('#filterHostelDisplay').parent().hide();
+    }
+    if (status) {
+        $('#filterStatusDisplay').text(status);
+        $('#filterStatusDisplay').parent().show();
+    } else {
+        $('#filterStatusDisplay').parent().hide();
+    }
+    if (search) {
+        $('#filterSearchDisplay').text(search);
+        $('#filterSearchDisplay').parent().show();
+    } else {
+        $('#filterSearchDisplay').parent().hide();
+    }
+}
+
+// ============================================================
+// FILTER PENDING
+// ============================================================
+
+function filterPending() {
+    $('#filterStatus').val('PENDING');
+    applyFiltersAjax();
+}
+
+// ============================================================
+// CHECK FUNCTIONS
 // ============================================================
 
 function checkAlreadyPaid(residentId, month, year) {
@@ -1012,7 +1298,6 @@ function checkAlreadyPaid(residentId, month, year) {
                 var isEditMode = (editId && editId == response.payment_id);
                 
                 if (isEditMode) {
-                    // ✅ EDITING THE SAME PAID PAYMENT - Allow editing
                     $('#alreadyPaidWarning').html(`
                         <div class="mt-2" style="padding:0.75rem 1rem; background:#dbeafe; border:1px solid #93c5fd; border-radius:8px;">
                             <strong style="color:#1e40af;">✏️ Editing Mode</strong>
@@ -1025,7 +1310,6 @@ function checkAlreadyPaid(residentId, month, year) {
                     $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
                     $('#saveBtnText').text('Update');
                 } else {
-                    // ❌ DUPLICATE - Already paid, cannot create new
                     $('#alreadyPaidWarning').html(`
                         <div class="mt-2" style="padding:0.75rem 1rem; background:#dcfce7; border:1px solid #86efac; border-radius:8px;">
                             <strong style="color:#166534;">✅ Already Paid!</strong>
@@ -1044,7 +1328,6 @@ function checkAlreadyPaid(residentId, month, year) {
             }
         },
         error: function() {
-            // On error, allow saving
             $('#alreadyPaidWarning').hide();
             $('#saveBtn').prop('disabled', false);
         }
@@ -1114,45 +1397,6 @@ function generateRemarkPreview() {
 }
 
 // ============================================================
-// FILTER FUNCTIONS
-// ============================================================
-
-function applyFilters() {
-    var params = getFilterParams();
-    window.location.href = '{{ route("admin.payments.index") }}?' + params;
-}
-
-function getFilterParams() {
-    var params = new URLSearchParams();
-    var status = $('#filterStatus').val();
-    var hostel = $('#filterHostel').val();
-    var month = $('#filterMonth').val();
-    var year = $('#filterYear').val();
-    var search = $('#searchPayment').val();
-
-    if (status) params.append('status', status);
-    if (hostel) params.append('hostel_id', hostel);
-    if (month) params.append('month', month);
-    if (year) params.append('year', year);
-    if (search) params.append('search', search);
-
-    return params.toString();
-}
-
-function filterPending() {
-    $('#filterStatus').val('PENDING');
-    applyFilters();
-}
-
-function debounce(func, wait) {
-    let timeout;
-    return function() {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, arguments), wait);
-    };
-}
-
-// ============================================================
 // EXPORT FUNCTIONS
 // ============================================================
 
@@ -1203,6 +1447,23 @@ function exportPaid() {
     var params = getFilterParams();
     var url = '{{ route("admin.payments.export.paid") }}?' + params;
     window.location.href = url;
+}
+
+function getFilterParams() {
+    var params = new URLSearchParams();
+    var status = $('#filterStatus').val();
+    var hostel = $('#filterHostel').val();
+    var month = $('#filterMonth').val();
+    var year = $('#filterYear').val();
+    var search = $('#searchPayment').val();
+
+    if (status) params.append('status', status);
+    if (hostel) params.append('hostel_id', hostel);
+    if (month) params.append('month', month);
+    if (year) params.append('year', year);
+    if (search) params.append('search', search);
+
+    return params.toString();
 }
 
 // ============================================================
@@ -1295,17 +1556,17 @@ function bulkDelete() {
 }
 
 // ============================================================
-// MODAL FUNCTIONS - FIXED
+// MODAL FUNCTIONS
 // ============================================================
 
 function openAddModal() {
     resetForm();
     $('#modalTitle').text('Add Payment');
     $('#saveBtnText').text('Save');
-    $('#editId').val('');  // ← CLEAR edit ID
+    $('#editId').val('');
     $('#saveBtn').prop('disabled', false);
     $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
-    $('#alreadyPaidWarning').hide();  // ← HIDE warnings
+    $('#alreadyPaidWarning').hide();
     $('#pendingWarning').hide();
     $('#remarkPreview').hide();
     $('#paymentModal').modal('show');
@@ -1315,7 +1576,7 @@ function openAddModalForResident(residentId) {
     resetForm();
     $('#modalTitle').text('Add Payment');
     $('#saveBtnText').text('Save');
-    $('#editId').val('');  // ← CLEAR edit ID
+    $('#editId').val('');
     $('#saveBtn').prop('disabled', false);
     $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>');
     $('#alreadyPaidWarning').hide();
@@ -1355,7 +1616,7 @@ function resetBulkForm() {
 }
 
 // ============================================================
-// EDIT PAYMENT FUNCTION - FIXED: Set editId before checks
+// EDIT PAYMENT FUNCTION
 // ============================================================
 
 function editPayment(id) {
@@ -1366,12 +1627,11 @@ function editPayment(id) {
             if (response.success) {
                 let data = response.data;
                 $('#modalTitle').text('Edit Payment');
-                $('#editId').val(data.id);  // ← SET editId FIRST
+                $('#editId').val(data.id);
                 $('#saveBtnText').text('Update');
                 $('#saveBtn').prop('disabled', false);
                 $('#saveBtn').html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">Update</span>');
                 
-                // Load payment data into form
                 $('#month').val(data.month);
                 $('#year').val(data.year);
                 $('#rent_amount').val(data.rent_amount);
@@ -1387,19 +1647,16 @@ function editPayment(id) {
                     $('#payment_date').val(data.payment_date.split('T')[0]);
                 }
                 
-                // Now trigger checks with editId set
                 let residentId = data.resident_id;
                 let month = data.month;
                 let year = data.year;
                 
-                // Set cascading selects for edit
                 let hostelId = data.resident ? data.resident.hostel_id : null;
                 let roomId = data.resident ? data.resident.room_id : null;
                 
                 if (hostelId) {
                     $('#modal_hostel_id').val(hostelId);
                     
-                    // Load rooms for this hostel
                     $.ajax({
                         url: '/admin/rooms/hostel/' + hostelId + '/rooms',
                         type: 'GET',
@@ -1415,7 +1672,6 @@ function editPayment(id) {
                             }
                             
                             if (roomId) {
-                                // Load residents for this room
                                 $.ajax({
                                     url: '/admin/payments/room/' + roomId + '/residents',
                                     type: 'GET',
@@ -1430,7 +1686,6 @@ function editPayment(id) {
                                             });
                                         }
                                         
-                                        // Trigger checks after resident is set
                                         if (residentId && month && year) {
                                             checkAlreadyPaid(residentId, month, year);
                                             checkPreviousPending(residentId, month, year);
@@ -1570,6 +1825,18 @@ function submitBulkForm() {
             $('#bulkSaveBtn').prop('disabled', false).html('<i class="bi bi-collection"></i> Create');
         }
     });
+}
+
+// ============================================================
+// DEBOUNCE FUNCTION
+// ============================================================
+
+function debounce(func, wait) {
+    let timeout;
+    return function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, arguments), wait);
+    };
 }
 
 // ============================================================
