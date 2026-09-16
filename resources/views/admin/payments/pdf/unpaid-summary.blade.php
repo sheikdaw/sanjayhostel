@@ -133,12 +133,13 @@
                         <tr>
                             <th style="width:25px;">#</th>
                             <th style="width:20%;">Name</th>
+                             <th style="width:14%;" class="text-right">Previous Pending ()</th>
+                            <th style="width:14%;" class="text-right">Current Balance ()</th>
+                            <th style="width:14%;" class="text-right">Total Due ()</th>
                             <th style="width:10%;">Room</th>
                             <th style="width:13%;">Phone</th>
                             <th style="width:10%;" class="text-right">Rent ()</th>
-                            <th style="width:14%;" class="text-right">Previous Pending ()</th>
-                            <th style="width:14%;" class="text-right">Current Balance ()</th>
-                            <th style="width:14%;" class="text-right">Total Due ()</th>
+
                         </tr>
                     </thead>
                     <tbody>
@@ -148,10 +149,7 @@
                             <tr>
                                 <td class="text-center">{{ $serialNo }}</td>
                                 <td><strong>{{ $resident['name'] }}</strong></td>
-                                <td>{{ $resident['room_no'] }}</td>
-                                <td>{{ $resident['phone'] }}</td>
-                                <td class="text-right">{{ number_format($resident['rent'], 2) }}</td>
-                                <td class="text-right {{ $resident['previous_pending'] > 0 ? 'amount due' : '' }}">
+                                  <td class="text-right {{ $resident['previous_pending'] > 0 ? 'amount due' : '' }}">
                                     {{ number_format($resident['previous_pending'], 2) }}
                                 </td>
                                 <td class="text-right {{ $resident['current_balance'] > 0 ? 'amount due' : '' }}">
@@ -160,6 +158,10 @@
                                 <td class="text-right amount due">
                                     <strong>{{ number_format($resident['total_due'], 2) }}</strong>
                                 </td>
+                                <td>{{ $resident['room_no'] }}</td>
+                                <td>{{ $resident['phone'] }}</td>
+                                <td class="text-right">{{ number_format($resident['rent'], 2) }}</td>
+
                             </tr>
                             @php $serialNo++; @endphp
                         @endforeach
