@@ -22,7 +22,7 @@ use App\Http\Controllers\PhonePeController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\UPIController;
 use Illuminate\Support\Facades\Http;
-
+use App\Http\Controllers\GuestComplaintController;
 Route::get('/test', function () {
     return view('biometric.dashboard');
 });
@@ -280,18 +280,18 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/export/filtered', [PaymentController::class, 'exportFiltered'])->name('export.filtered');
             Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
             Route::get('/export/summary', [PaymentController::class, 'exportSummary'])->name('export.summary');
-            
+
             // Unpaid Summary Exports
             Route::get('/export/unpaid-summary', [PaymentController::class, 'exportUnpaidSummary'])->name('export.unpaid-summary');
             Route::get('/export/unpaid-pdf', [PaymentController::class, 'exportUnpaidPdf'])->name('export.unpaid-pdf');
-            
+
             // Payment Status Exports
             Route::get('/export/payment-status', [PaymentController::class, 'exportPaymentStatus'])->name('export.payment-status');
             Route::get('/export/payment-status-pdf', [PaymentController::class, 'exportPaymentStatusPdf'])->name('export.payment-status-pdf');
-            
+
             // Hostel Wise Export
             Route::get('/export/hostel-wise', [PaymentController::class, 'exportHostelWise'])->name('export.hostel-wise');
-            
+
             // Paid Export
             Route::get('/export/paid', [PaymentController::class, 'exportPaid'])->name('export.paid');
 
@@ -383,7 +383,7 @@ Route::get('/clear-cache', function () {
 Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     // Main page
     Route::get('/{encodedId?}', [GuestPaymentController::class, 'index'])->name('index');
-    
+
     // API endpoints
     Route::post('/resident', [GuestPaymentController::class, 'getResident'])->name('resident');
     Route::post('/create-order', [GuestPaymentController::class, 'createOrder'])->name('create-order');
@@ -392,7 +392,7 @@ Route::prefix('guest/payment')->name('guest.payment.')->group(function () {
     Route::get('/cancel', [GuestPaymentController::class, 'cancel'])->name('cancel');
     Route::get('/status', [GuestPaymentController::class, 'status'])->name('status');
     Route::post('/webhook', [GuestPaymentController::class, 'webhook'])->name('webhook');
-    
+
     // Utility endpoints
     Route::get('/generate-link/{hostelId}', [GuestPaymentController::class, 'generateLink'])->name('generate-link');
     Route::get('/encode/{hostelId}', [GuestPaymentController::class, 'encodeId'])->name('encode');
@@ -424,16 +424,42 @@ Route::get('/check-device-service', [BiometricController::class, 'testConnection
 Route::prefix('guest')->name('guest.')->group(function () {
     // Hostel view
     Route::get('/hostel/{encodedId}', [GuestHostelController::class, 'show'])->name('hostel.show');
-    
+
     // Payment routes
     Route::post('/payment/details', [GuestHostelController::class, 'getResidentDetails'])->name('payment.details');
     Route::post('/payment/manual', [GuestHostelController::class, 'manualPayment'])->name('payment.manual');
     Route::get('/payment/history/{residentId}', [GuestHostelController::class, 'getPaymentHistory'])->name('payment.history');
-    
+
     // Profile Image routes
     Route::post('/resident/profile-image', [GuestHostelController::class, 'updateProfileImage'])->name('resident.update-profile-image');
     Route::post('/resident/profile-image/remove', [GuestHostelController::class, 'removeProfileImage'])->name('resident.remove-profile-image');
-    
+
     // DOB Update route
     Route::post('/resident/update-dob', [GuestHostelController::class, 'updateDob'])->name('resident.update-dob');
 });
+
+
+
+
+// ============================================================
+// GUEST COMPLAINT ROUTES (Hostel-wise)
+// ============================================================
+Route::prefix('guest/complaint')->name('guest.complaint.')->group(function () {
+    Route::get('/{encodedId}', [GuestComplaintController::class, 'index'])->name('index');
+
+    Route::post('/verify-resident', [GuestComplaintController::class, 'verifyResident'])->name('verify-resident');
+    Route::post('/submit',          [GuestComplaintController::class, 'store'])->name('submit');
+    Route::post('/track',           [GuestComplaintController::class, 'track'])->name('track');
+    Route::post('/my-complaints',   [GuestComplaintController::class, 'myComplaints'])->name('my-complaints');
+});
+
+// Admin link generator page
+Route::get('/complaint-links', function () {
+    $hostels = \App\Models\Hostel::where('status', 'ACTIVE')->get();
+    $encodedLinks = [];
+    foreach ($hostels as $hostel) {
+        $encodedLinks[$hostel->id] = url('/guest/complaint/'
+            . \Illuminate\Support\Facades\Crypt::encryptString($hostel->id));
+    }
+    return view('admin.complaint-links', compact('hostels', 'encodedLinks'));
+})->middleware('auth')->name('admin.complaint-links');
