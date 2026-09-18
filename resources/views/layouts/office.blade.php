@@ -256,9 +256,9 @@
                         <span class="ol-nav-label">Notices</span>
                     </a>
                     <a href="{{ route('admin.complaints.index') }}"
-   class="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-700 font-semibold rounded-lg">
-    <i class="fas fa-user-shield"></i> Auth · All Complaints
-</a>
+                        class="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-700 font-semibold rounded-lg">
+                        <i class="fas fa-user-shield"></i> Auth · All Complaints
+                    </a>
 
                     {{-- Resident Menu --}}
                 @elseif(Auth::user()->role == 'stay' || Auth::user()->role == 'resident')

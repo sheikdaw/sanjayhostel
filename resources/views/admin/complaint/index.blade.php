@@ -68,8 +68,8 @@
                     class="border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-red-500 outline-none bg-white">
                     <option value="">All hostels</option>
                     @foreach($hostels as $h)
-                        <option value="{{ $h->id }}">{{ $h->name }}</option>
-                    @endforeach
+    <option value="{{ $h->id }}">{{ $h->hostel_name }}</option>
+@endforeach
                 </select>
 
                 <select id="fStatus" onchange="loadData()"

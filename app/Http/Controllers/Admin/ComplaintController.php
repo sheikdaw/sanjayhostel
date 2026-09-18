@@ -15,21 +15,20 @@ class ComplaintController extends Controller
      * Admin complaints listing page.
      */
     public function index()
-    {
-        $hostels = Hostel::where('status', 'ACTIVE')
-            ->orderBy('name')
-            ->get(['id', 'name']);
+{
+    $hostels = Hostel::where('status', 'ACTIVE')
+        ->orderBy('hostel_name')
+        ->get(['id', 'hostel_name']);
 
-        return view('admin.complaint.index', compact('hostels'));
-    }
-
+    return view('admin.complaint.index', compact('hostels'));
+}
     /**
      * AJAX: Return filtered complaint list.
      * Admin sees ALL hostels (or filtered by hostel_id).
      */
     public function data(Request $request)
     {
-        $q = Complaint::with(['resident:id,name,phone,profile_image', 'hostel:id,name'])
+        $q = Complaint::with(['resident:id,name,phone,profile_image', 'hostel:id,hostel_name'])
             ->orderBy('created_at', 'desc');
 
         // Filter: hostel
@@ -78,7 +77,7 @@ class ComplaintController extends Controller
                 'id'                => $c->id,
                 'complaint_number'  => $c->complaint_number,
                 'hostel_id'         => $c->hostel_id,
-                'hostel_name'       => $c->hostel->name ?? '—',
+                'hostel_name' => $c->hostel->hostel_name ?? '—',
                 'resident_id'       => $c->resident_id,
                 'name'              => $c->name,
                 'phone'             => $c->phone,
@@ -145,7 +144,7 @@ class ComplaintController extends Controller
                 'id'                => $c->id,
                 'complaint_number'  => $c->complaint_number,
                 'hostel_id'         => $c->hostel_id,
-                'hostel_name'       => $c->hostel->name ?? '—',
+                'hostel_name' => $c->hostel->hostel_name ?? '—',
                 'resident_id'       => $c->resident_id,
                 'name'              => $c->name,
                 'phone'             => $c->phone,
