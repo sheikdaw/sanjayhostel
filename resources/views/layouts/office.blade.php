@@ -75,17 +75,21 @@
             margin-top: 0.25rem;
             margin-bottom: 0.25rem;
         }
+
         .ol-nav-sub .ol-nav-item {
             padding: 0.35rem 1rem;
             font-size: 0.8rem;
             border-left: 2px solid transparent;
         }
+
         .ol-nav-sub .ol-nav-item:hover {
             border-left-color: var(--sanjay-gold);
         }
+
         .ol-nav-sub .ol-nav-item.active {
             border-left-color: var(--sanjay-gold);
         }
+
         .ol-nav-label-small {
             font-size: 0.75rem;
             opacity: 0.7;
@@ -122,33 +126,37 @@
             <div class="ol-nav-section">Overview</div>
 
             @auth
-                <a href="{{ route('admin.dashboard') }}" class="ol-nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                <a href="{{ route('admin.dashboard') }}"
+                    class="ol-nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                     <i class="bi bi-grid-1x2"></i>
                     <span class="ol-nav-label">Dashboard</span>
                 </a>
 
                 {{-- Admin & Account Menu - Full Access --}}
-                @if(Auth::user()->role == 'admin' || Auth::user()->role == 'account')
-
+                @if (Auth::user()->role == 'admin' || Auth::user()->role == 'account')
                     {{-- Hostel Management --}}
                     <div class="ol-nav-section">Hostel Management</div>
 
-                    <a href="{{ route('admin.hostels.index') }}" class="ol-nav-item {{ request()->routeIs('admin.hostels.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.hostels.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.hostels.*') ? 'active' : '' }}">
                         <i class="bi bi-building"></i>
                         <span class="ol-nav-label">Hostels</span>
                     </a>
 
-                    <a href="{{ route('admin.room-types.index') }}" class="ol-nav-item {{ request()->routeIs('admin.room-types.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.room-types.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.room-types.*') ? 'active' : '' }}">
                         <i class="bi bi-tags"></i>
                         <span class="ol-nav-label">Room Types</span>
                     </a>
 
-                    <a href="{{ route('admin.rooms.index') }}" class="ol-nav-item {{ request()->routeIs('admin.rooms.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.rooms.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.rooms.*') ? 'active' : '' }}">
                         <i class="bi bi-door-open"></i>
                         <span class="ol-nav-label">Rooms</span>
                     </a>
 
-                    <a href="{{ route('admin.beds.index') }}" class="ol-nav-item {{ request()->routeIs('admin.beds.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.beds.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.beds.*') ? 'active' : '' }}">
                         <i class="bi bi-bed"></i>
                         <span class="ol-nav-label">Beds</span>
                     </a>
@@ -156,7 +164,8 @@
                     {{-- Resident Management --}}
                     <div class="ol-nav-section">Resident Management</div>
 
-                    <a href="{{ route('admin.residents.index') }}" class="ol-nav-item {{ request()->routeIs('admin.residents.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.residents.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.residents.*') ? 'active' : '' }}">
                         <i class="bi bi-people"></i>
                         <span class="ol-nav-label">Residents</span>
                     </a>
@@ -164,7 +173,8 @@
                     {{-- Financial Management --}}
                     <div class="ol-nav-section">Financial Management</div>
 
-                    <a href="{{ route('admin.payments.index') }}" class="ol-nav-item {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.payments.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
                         <i class="bi bi-credit-card"></i>
                         <span class="ol-nav-label">Payments</span>
                     </a>
@@ -190,38 +200,43 @@
                     {{-- System Management --}}
                     <div class="ol-nav-section">System</div>
 
-                    <a href="{{ route('admin.users.index') }}" class="ol-nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.users.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                         <i class="bi bi-person-badge"></i>
                         <span class="ol-nav-label">Users</span>
                     </a>
-                
-        <!-- Employees -->
-        <a href="{{ route('admin.employees.index') }}" class="ol-nav-item {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
-            <i class="bi bi-person-badge"></i>
-            <span class="ol-nav-label">Employees</span>
-            <span class="ol-nav-badge">{{ \App\Models\Employee::count() }}</span>
-        </a>
 
-        <!-- Attendance -->
-        <a href="{{ route('admin.attendances.index') }}" class="ol-nav-item {{ request()->routeIs('admin.attendances.*') ? 'active' : '' }}">
-            <i class="bi bi-calendar-check"></i>
-            <span class="ol-nav-label">Attendance</span>
-            <span class="ol-nav-badge">{{ \App\Models\Attendance::where('attendance_date', now()->toDateString())->count() }}</span>
-        </a>
+                    <!-- Employees -->
+                    <a href="{{ route('admin.employees.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
+                        <i class="bi bi-person-badge"></i>
+                        <span class="ol-nav-label">Employees</span>
+                        <span class="ol-nav-badge">{{ \App\Models\Employee::count() }}</span>
+                    </a>
 
-        <!-- Advances -->
-        <a href="{{ route('admin.advances.index') }}" class="ol-nav-item {{ request()->routeIs('admin.advances.*') ? 'active' : '' }}">
-            <i class="bi bi-currency-rupee"></i>
-            <span class="ol-nav-label">Advances</span>
-            @php
-                $outstandingEmployees = \App\Models\Employee::where('advance_amount', '>', 0)
-                    ->where('advance_amount', '>', \DB::raw('advance_deduct'))
-                    ->count();
-            @endphp
-            @if($outstandingEmployees > 0)
-                <span class="ol-nav-badge" style="background:#dc2626;">{{ $outstandingEmployees }}</span>
-            @endif
-        </a>
+                    <!-- Attendance -->
+                    <a href="{{ route('admin.attendances.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.attendances.*') ? 'active' : '' }}">
+                        <i class="bi bi-calendar-check"></i>
+                        <span class="ol-nav-label">Attendance</span>
+                        <span
+                            class="ol-nav-badge">{{ \App\Models\Attendance::where('attendance_date', now()->toDateString())->count() }}</span>
+                    </a>
+
+                    <!-- Advances -->
+                    <a href="{{ route('admin.advances.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.advances.*') ? 'active' : '' }}">
+                        <i class="bi bi-currency-rupee"></i>
+                        <span class="ol-nav-label">Advances</span>
+                        @php
+                            $outstandingEmployees = \App\Models\Employee::where('advance_amount', '>', 0)
+                                ->where('advance_amount', '>', \DB::raw('advance_deduct'))
+                                ->count();
+                        @endphp
+                        @if ($outstandingEmployees > 0)
+                            <span class="ol-nav-badge" style="background:#dc2626;">{{ $outstandingEmployees }}</span>
+                        @endif
+                    </a>
 
                     <a href="#" class="ol-nav-item">
                         <i class="bi bi-gear"></i>
@@ -240,8 +255,12 @@
                         <i class="bi bi-megaphone"></i>
                         <span class="ol-nav-label">Notices</span>
                     </a>
+                    <a href="{{ route('admin.complaints.index') }}"
+   class="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-700 font-semibold rounded-lg">
+    <i class="fas fa-user-shield"></i> Auth · All Complaints
+</a>
 
-                {{-- Resident Menu --}}
+                    {{-- Resident Menu --}}
                 @elseif(Auth::user()->role == 'stay' || Auth::user()->role == 'resident')
                     <a href="#" class="ol-nav-item">
                         <i class="bi bi-door-open"></i>
@@ -280,7 +299,7 @@
                         <span class="ol-nav-label">Notices</span>
                     </a>
 
-                {{-- Staff/Warden Menu --}}
+                    {{-- Staff/Warden Menu --}}
                 @elseif(Auth::user()->role == 'staff' || Auth::user()->role == 'warden')
                     <a href="#" class="ol-nav-item">
                         <i class="bi bi-people"></i>
@@ -307,7 +326,7 @@
                         <span class="ol-nav-label">Visitors Log</span>
                     </a>
 
-                {{-- Owner/Manager Menu --}}
+                    {{-- Owner/Manager Menu --}}
                 @elseif(Auth::user()->role == 'owner' || Auth::user()->role == 'manager')
                     <a href="#" class="ol-nav-item">
                         <i class="bi bi-people"></i>
@@ -624,7 +643,7 @@
             if (query.length < 2) {
                 resultsDiv.html(
                     '<p class="text-muted mb-0" style="font-size:0.8rem;">Type at least 2 characters to search…</p>'
-                    );
+                );
                 return;
             }
 
