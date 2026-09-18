@@ -1,5 +1,5 @@
 {{-- resources/views/admin/complaint/index.blade.php --}}
-@extends('layouts.admin') {{-- change to your admin layout --}}
+@extends('layouts.office') {{-- change to your admin layout --}}
 
 @section('title', 'Complaint Management')
 
