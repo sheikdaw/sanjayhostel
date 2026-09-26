@@ -7,7 +7,7 @@
 @push('styles')
     <style>
         /* ============================================
-           GLOBAL STYLES (matches Hostel page)
+           GLOBAL STYLES
         ============================================ */
         :root {
             --primary: #1a3a6b;
@@ -214,7 +214,6 @@
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
         }
 
-        /* Card Header (complaint number + status) */
         .complaint-card .card-header {
             padding: 0.75rem 1rem;
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
@@ -239,7 +238,7 @@
             margin-top: 2px;
         }
 
-        /* Image block on the card */
+        /* Image block */
         .complaint-image {
             position: relative;
             height: 160px;
@@ -275,7 +274,6 @@
             font-weight: 600;
         }
 
-        /* Status overlay pill on image */
         .complaint-image .overlay-status {
             position: absolute;
             top: 8px;
@@ -308,7 +306,6 @@
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
-        /* Priority colors */
         .prio-text.low    { color: #64748b; }
         .prio-text.medium { color: #0284c7; }
         .prio-text.high   { color: #ea580c; }
@@ -322,7 +319,6 @@
             flex-direction: column;
         }
 
-        /* Resident row */
         .resident-row {
             display: flex;
             align-items: center;
@@ -371,7 +367,6 @@
             text-overflow: ellipsis;
         }
 
-        /* Description */
         .complaint-desc {
             font-size: 0.8rem;
             color: #4b5563;
@@ -384,7 +379,6 @@
             flex: 1;
         }
 
-        /* Meta chips */
         .meta-row {
             display: flex;
             align-items: center;
@@ -412,7 +406,6 @@
             font-size: 0.65rem;
         }
 
-        /* Admin remark callout */
         .admin-remark {
             font-size: 0.72rem;
             color: #92400e;
@@ -428,7 +421,6 @@
             margin-right: 4px;
         }
 
-        /* Actions */
         .complaint-actions {
             display: flex;
             gap: 0.4rem;
@@ -501,7 +493,7 @@
         .status-badge.status-rejected .dot { background: #ef4444; }
 
         /* ============================================
-           MODAL (matches hostel design)
+           MODAL
         ============================================ */
         .modal-content {
             border-radius: 16px;
@@ -543,7 +535,7 @@
         .modal-body::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
 
         /* ============================================
-           FORM (matches hostel modal design)
+           FORM
         ============================================ */
         .rv-input-box {
             position: relative;
@@ -607,7 +599,7 @@
         }
 
         /* ============================================
-           BUTTONS (matches hostel design)
+           BUTTONS
         ============================================ */
         .btn-primary-custom {
             background: var(--primary);
@@ -727,7 +719,6 @@
         .no-results-state h5 { color: #374151; margin-bottom: 0.5rem; }
         .no-results-state p { color: #6b7280; font-size: 0.9rem; margin-bottom: 1rem; }
 
-        /* Skeleton loading card */
         .skeleton-card {
             background: white;
             border: 1px solid #e5e7eb;
@@ -782,9 +773,7 @@
 @section('content')
     <div class="complaint-container">
 
-        {{-- ============================================
-        HEADER
-        ============================================ --}}
+        {{-- HEADER --}}
         <div class="complaint-header no-print">
             <div>
                 <h1><i class="bi bi-clipboard-check"></i> Complaint Management</h1>
@@ -800,9 +789,7 @@
             </div>
         </div>
 
-        {{-- ============================================
-        STATISTICS
-        ============================================ --}}
+        {{-- STATS --}}
         <div class="stats-grid">
             <div class="stat-card total">
                 <span class="icon">📋</span>
@@ -831,9 +818,7 @@
             </div>
         </div>
 
-        {{-- ============================================
-        FILTERS
-        ============================================ --}}
+        {{-- FILTERS --}}
         <div class="filter-section no-print">
             <div class="filter-group">
                 <label style="font-size:0.8rem; font-weight:600;">Filter:</label>
@@ -887,13 +872,10 @@
             <span class="result-count" id="resultCount"></span>
         </div>
 
-        {{-- ============================================
-        COMPLAINTS GRID
-        ============================================ --}}
+        {{-- COMPLAINTS GRID --}}
         <div id="complaintsContainer">
             <div class="row g-4" id="complaintsGrid"></div>
 
-            {{-- No Results --}}
             <div id="noResults" class="no-results-state" style="display:none;">
                 <i class="bi bi-inbox"></i>
                 <h5>No complaints found</h5>
@@ -904,9 +886,7 @@
             </div>
         </div>
 
-        {{-- ============================================
-        PAGINATION
-        ============================================ --}}
+        {{-- PAGINATION --}}
         <div id="pagination" class="d-flex justify-content-center mt-4"></div>
     </div>
 
@@ -939,7 +919,7 @@
                         {{-- Complaint image --}}
                         <div id="eImageWrap" style="display:none; margin-bottom:1rem;">
                             <div style="font-size:0.75rem; font-weight:600; color:#374151; margin-bottom:0.4rem;">
-                                <i class="bi bi-image text-gold"></i> Attached Photo
+                                <i class="bi bi-image" style="color:var(--gold);"></i> Attached Photo
                             </div>
                             <img id="eImage" style="width:100%; max-height:260px; object-fit:cover; border-radius:10px; border:1px solid #e5e7eb;">
                         </div>
@@ -1065,9 +1045,9 @@
 // ============================================
 const CSRF = '{{ csrf_token() }}';
 const ROUTES = {
-    data:         "{{ route('admin.complaints.data') }}",
-    stats:        "{{ route('admin.complaints.stats') }}",
-    base:         "{{ url('admin/complaints') }}",
+    data:  "{{ route('admin.complaints.data') }}",
+    stats: "{{ route('admin.complaints.stats') }}",
+    base:  "{{ url('admin/complaints') }}",
 };
 const PER_PAGE = 20;
 
@@ -1190,7 +1170,6 @@ function loadComplaints(page) {
 
             $grid.html(items.map(renderCard).join(''));
 
-            // Result count
             const total = res.data.total;
             const from = res.data.from || 0;
             const to = res.data.to || 0;
@@ -1347,14 +1326,12 @@ function renderPagination(p) {
 
     let html = '<nav><ul class="pagination pagination-sm mb-0">';
 
-    // Prev
     html += `<li class="page-item ${p.current_page === 1 ? 'disabled' : ''}">
         <a class="page-link" href="javascript:void(0)" onclick="loadComplaints(${p.current_page - 1})">
             <i class="bi bi-chevron-left"></i>
         </a>
     </li>`;
 
-    // Numbers
     for (let i = 1; i <= p.last_page; i++) {
         if (i === 1 || i === p.last_page || Math.abs(i - p.current_page) <= 1) {
             html += `<li class="page-item ${i === p.current_page ? 'active' : ''}">
@@ -1365,7 +1342,6 @@ function renderPagination(p) {
         }
     }
 
-    // Next
     html += `<li class="page-item ${p.current_page === p.last_page ? 'disabled' : ''}">
         <a class="page-link" href="javascript:void(0)" onclick="loadComplaints(${p.current_page + 1})">
             <i class="bi bi-chevron-right"></i>

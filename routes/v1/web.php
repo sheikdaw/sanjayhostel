@@ -362,50 +362,15 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/take', [AdvanceController::class, 'takeAdvance'])->name('take');
             Route::post('/deduct', [AdvanceController::class, 'deductAdvance'])->name('deduct');
         });
-        // ============================================================
-        // 11. COMPLAINT MANAGEMENT (Admin)
-        // ============================================================
-        Route::prefix('complaints')->name('complaints.')->group(function () {
-            // List all complaints (with filters)
-            Route::get('/', [ComplaintController::class, 'index'])
-                ->name('index');
-
-            // Data endpoint (AJAX) — all hostel complaints, filters applied
-            Route::get('/data', [ComplaintController::class, 'data'])
-                ->name('data');
-
-            // Stats for dashboard cards
-            Route::get('/stats', [ComplaintController::class, 'stats'])
-                ->name('stats');
-
-            // Show single complaint (full details)
-            Route::get('/{id}', [ComplaintController::class, 'show'])
-                ->name('show');
-
-            // Full update (category, priority, description, status, admin_remark)
-            Route::put('/{id}', [ComplaintController::class, 'update'])
-                ->name('update');
-
-            // Quick status change
-            Route::patch('/{id}/status', [ComplaintController::class, 'changeStatus'])
-                ->name('status');
-
-            // Delete
-            Route::delete('/{id}', [ComplaintController::class, 'destroy'])
-                ->name('destroy');
-
-            // Bulk status (optional)
-            Route::post('/bulk-status', [ComplaintController::class, 'bulkStatus'])
-                ->name('bulk-status');
-
-            // Bulk delete (optional)
-            Route::post('/bulk-delete', [ComplaintController::class, 'bulkDelete'])
-                ->name('bulk-delete');
-
-            // Export (optional)
-            Route::get('/export', [ComplaintController::class, 'export'])
-                ->name('export');
-        });
+       Route::prefix('complaints')->name('complaints.')->group(function () {
+    Route::get('/', [ComplaintController::class, 'index'])->name('index');
+    Route::get('/data', [ComplaintController::class, 'data'])->name('data');
+    Route::get('/stats', [ComplaintController::class, 'stats'])->name('stats');
+    Route::get('/{id}', [ComplaintController::class, 'show'])->name('show');
+    Route::put('/{id}', [ComplaintController::class, 'update'])->name('update');
+    Route::patch('/{id}/status', [ComplaintController::class, 'changeStatus'])->name('status');
+    Route::delete('/{id}', [ComplaintController::class, 'destroy'])->name('destroy');
+});
     });
 });
 

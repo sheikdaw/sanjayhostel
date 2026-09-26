@@ -8,8 +8,10 @@ use App\Models\Hostel;
 use App\Models\Resident;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class GuestComplaintController extends Controller
 {
@@ -66,140 +68,94 @@ class GuestComplaintController extends Controller
     }
 
     /**
-     * VERIFY RESIDENT BY PHONE
-     * Only ACTIVE residents of THIS hostel can verify
+     * VERIFY RESIDENT BY PHONE — strict exact match
      */
-   public function verifyResident(Request $request)
-{
-    // Debug log
-    \Log::info('verifyResident called', [
-        'encoded_id' => $request->encoded_id,
-        'phone'      => $request->phone,
-    ]);
-
-    $validator = Validator::make($request->all(), [
-        'encoded_id' => 'required',
-        'phone'      => 'required|string|min:10|max:15',
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'message' => $validator->errors()->first()
-        ], 422);
-    }
-
-    $hostelId = self::decodeId($request->encoded_id);
-    if (!$hostelId) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Invalid hostel link'
-        ], 400);
-    }
-
-    // 🔥 Clean phone: keep only digits, use LAST 10 digits
-    $phone = preg_replace('/[^0-9]/', '', $request->phone);
-    $phone = substr($phone, -10);
-
-    \Log::info('Cleaned phone', ['phone' => $phone, 'length' => strlen($phone)]);
-
-    if (strlen($phone) !== 10) {
-        return response()->json([
-            'success'  => false,
-            'message'  => '❌ Enter a valid 10-digit mobile number.',
-            'verified' => false
-        ], 422);
-    }
-
-    // ================================================
-    // 🔥 FETCH ALL ACTIVE RESIDENTS OF THIS HOSTEL
-    // Then match in PHP — 100% reliable
-    // ================================================
-    $residents = Resident::with(['room', 'hostel'])
-        ->where('hostel_id', $hostelId)
-        ->where('status', 'ACTIVE')
-        ->get();
-
-    \Log::info('Total active residents in hostel', [
-        'hostel_id' => $hostelId,
-        'count'     => $residents->count(),
-    ]);
-
-    // 🔥 EXACT match on last 10 digits
-    $resident = null;
-    $debugPhones = [];
-
-    foreach ($residents as $r) {
-        $storedPhone = preg_replace('/[^0-9]/', '', $r->phone ?? '');
-        $storedLast10 = substr($storedPhone, -10);
-
-        $debugPhones[] = [
-            'id' => $r->id,
-            'name' => $r->name,
-            'stored_phone' => $r->phone,
-            'last_10' => $storedLast10,
-        ];
-
-        if ($storedLast10 === $phone) {
-            $resident = $r;
-            break; // Found exact match
-        }
-    }
-
-    \Log::info('Matching result', [
-        'input_phone' => $phone,
-        'match_found' => $resident ? true : false,
-        'matched_id'  => $resident?->id,
-        'all_phones'  => $debugPhones,
-    ]);
-
-    // If no exact match → BLOCK
-    if (!$resident) {
-        return response()->json([
-            'success'  => false,
-            'message'  => '❌ This phone number is not registered as an active resident in this hostel. Only residents can register complaints.',
-            'verified' => false
-        ], 404);
-    }
-
-    // 🔥 FINAL SANITY CHECK — verify returned phone matches input
-    $residentPhoneCheck = preg_replace('/[^0-9]/', '', $resident->phone);
-    if (substr($residentPhoneCheck, -10) !== $phone) {
-        \Log::error('Phone mismatch after match', [
-            'input'    => $phone,
-            'resident' => $resident->phone,
+    public function verifyResident(Request $request)
+    {
+        Log::info('verifyResident called', [
+            'encoded_id' => $request->encoded_id,
+            'phone'      => $request->phone,
         ]);
-        return response()->json([
-            'success'  => false,
-            'message'  => '❌ Verification mismatch. Please try again.',
-            'verified' => false
-        ], 400);
-    }
 
-    return response()->json([
-        'success'  => true,
-        'verified' => true,
-        'message'  => '✓ Resident verified successfully',
-        'data' => [
-            'resident_id' => $resident->id,
-            'name'        => $resident->name,
-            'phone'       => $resident->phone,
-            'email'       => $resident->email,
-            'room_number' => $resident->room->room_number ?? $resident->room->room_no ?? null,
-            'room_id'     => $resident->room_id,
-            'hostel_id'   => $resident->hostel_id,
-            'hostel_name' => $resident->hostel->hostel_name ?? $resident->hostel->name ?? null,
-            'photo'       => $resident->profile_image
-                                ? asset('storage/' . $resident->profile_image)
-                                : null,
-        ]
-    ]);
-}
+        $validator = Validator::make($request->all(), [
+            'encoded_id' => 'required',
+            'phone'      => 'required|string|min:10|max:15',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        $hostelId = self::decodeId($request->encoded_id);
+        if (!$hostelId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid hostel link'
+            ], 400);
+        }
+
+        $phone = preg_replace('/[^0-9]/', '', $request->phone);
+        $phone = substr($phone, -10);
+
+        if (strlen($phone) !== 10) {
+            return response()->json([
+                'success'  => false,
+                'message'  => '❌ Enter a valid 10-digit mobile number.',
+                'verified' => false
+            ], 422);
+        }
+
+        // Fetch all active residents of this hostel & exact match
+        $residents = Resident::with(['room', 'hostel'])
+            ->where('hostel_id', $hostelId)
+            ->where('status', 'ACTIVE')
+            ->get();
+
+        $resident = null;
+        foreach ($residents as $r) {
+            $storedPhone = preg_replace('/[^0-9]/', '', $r->phone ?? '');
+            if (substr($storedPhone, -10) === $phone) {
+                $resident = $r;
+                break;
+            }
+        }
+
+        if (!$resident) {
+            Log::info('verifyResident — no match', ['phone' => $phone, 'hostel_id' => $hostelId]);
+
+            return response()->json([
+                'success'  => false,
+                'message'  => '❌ This phone number is not registered as an active resident in this hostel. Only residents can register complaints.',
+                'verified' => false
+            ], 404);
+        }
+
+        return response()->json([
+            'success'  => true,
+            'verified' => true,
+            'message'  => '✓ Resident verified successfully',
+            'data' => [
+                'resident_id' => $resident->id,
+                'name'        => $resident->name,
+                'phone'       => $resident->phone,
+                'email'       => $resident->email,
+                'room_number' => $resident->room->room_number ?? $resident->room->room_no ?? null,
+                'room_id'     => $resident->room_id,
+                'hostel_id'   => $resident->hostel_id,
+                'hostel_name' => $resident->hostel->hostel_name ?? $resident->hostel->name ?? null,
+                'photo'       => $resident->profile_image
+                                    ? asset('storage/' . $resident->profile_image)
+                                    : null,
+            ]
+        ]);
+    }
 
     /**
      * STORE COMPLAINT
-     * 🔥 Verifies resident by PHONE ONLY (not by resident_id)
-     * Server-side strict verification — cannot be bypassed
+     * 🔥 Image saved to public/complaints/
      */
     public function store(Request $request)
     {
@@ -219,7 +175,6 @@ class GuestComplaintController extends Controller
             ], 422);
         }
 
-        // Decode hostel
         $hostelId = self::decodeId($request->encoded_id);
         if (!$hostelId) {
             return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
@@ -231,12 +186,12 @@ class GuestComplaintController extends Controller
         }
 
         // ================================================
-        // 🔥 RESIDENT VERIFICATION BY PHONE (single source of truth)
+        // RESIDENT VERIFICATION BY PHONE
         // ================================================
         $phone = preg_replace('/[^0-9]/', '', $request->phone);
         $phone = substr($phone, -10);
 
-        if (strlen($phone) < 10) {
+        if (strlen($phone) !== 10) {
             return response()->json([
                 'success' => false,
                 'message' => '❌ Invalid phone number.',
@@ -244,18 +199,20 @@ class GuestComplaintController extends Controller
             ], 422);
         }
 
-        // Match resident by phone in THIS hostel, ACTIVE only
-        $resident = Resident::with('room')
+        $residents = Resident::with('room')
             ->where('hostel_id', $hostelId)
             ->where('status', 'ACTIVE')
-            ->where(function ($q) use ($phone) {
-                $q->where('phone', $phone)
-                  ->orWhere('phone', 'LIKE', "%{$phone}")
-                  ->orWhere('phone', 'LIKE', "{$phone}%");
-            })
-            ->first();
+            ->get();
 
-        // If resident NOT found → BLOCK complaint
+        $resident = null;
+        foreach ($residents as $r) {
+            $storedPhone = preg_replace('/[^0-9]/', '', $r->phone ?? '');
+            if (substr($storedPhone, -10) === $phone) {
+                $resident = $r;
+                break;
+            }
+        }
+
         if (!$resident) {
             Log::warning('Complaint blocked — resident not found', [
                 'hostel_id' => $hostelId,
@@ -270,13 +227,44 @@ class GuestComplaintController extends Controller
             ], 403);
         }
 
-        // Handle image upload
+        // ================================================
+        // 🔥 IMAGE UPLOAD → public/complaints/
+        // ================================================
         $imagePath = null;
+
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('complaints', 'public');
+            $file = $request->file('image');
+
+            if (!$file->isValid()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '❌ Invalid image file uploaded.'
+                ], 422);
+            }
+
+            $filename = 'complaint_' . time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
+
+            // Target directory: public/complaints/
+            $destinationPath = public_path('complaints');
+
+            if (!File::isDirectory($destinationPath)) {
+                File::makeDirectory($destinationPath, 0755, true);
+            }
+
+            $file->move($destinationPath, $filename);
+
+            // Save relative path from public root
+            $imagePath = 'complaints/' . $filename;
+
+            Log::info('Complaint image saved', [
+                'filename' => $filename,
+                'path'     => $imagePath,
+            ]);
         }
 
-        // Create complaint — data from VERIFIED resident
+        // ================================================
+        // CREATE COMPLAINT
+        // ================================================
         $complaint = Complaint::create([
             'hostel_id'   => $hostelId,
             'resident_id' => $resident->id,
@@ -343,7 +331,7 @@ class GuestComplaintController extends Controller
                 'admin_remark'     => $complaint->admin_remark,
                 'created_at'       => $complaint->created_at->format('d M Y, h:i A'),
                 'resolved_at'      => $complaint->resolved_at?->format('d M Y, h:i A'),
-                'image'            => $complaint->image ? asset('storage/' . $complaint->image) : null,
+                'image'            => $complaint->image ? asset($complaint->image) : null,
                 'resident_photo'   => $complaint->resident?->profile_image
                                         ? asset('storage/' . $complaint->resident->profile_image)
                                         : null,

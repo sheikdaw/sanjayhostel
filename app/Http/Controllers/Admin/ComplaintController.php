@@ -1,177 +1,202 @@
 <?php
+// app/Http/Controllers/Admin/ComplaintController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Complaint;
-use App\Models\Hostel;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class ComplaintController extends Controller
 {
     /**
-     * Admin complaints listing page.
+     * List page
      */
     public function index()
-{
-    $hostels = Hostel::where('status', 'ACTIVE')
-        ->orderBy('hostel_name')
-        ->get(['id', 'hostel_name']);
+    {
+        $user = auth()->user();
 
-    return view('admin.complaint.index', compact('hostels'));
-}
+        if ($user->role === 'admin') {
+            $hostels = \App\Models\Hostel::where('status', 'ACTIVE')->get();
+        } else {
+            $hostelIds = $user->hostel_ids ?? [];
+            $hostels = \App\Models\Hostel::whereIn('id', $hostelIds)
+                ->where('status', 'ACTIVE')
+                ->get();
+        }
+
+        return view('admin.complaint.index', compact('hostels'));
+    }
+
     /**
-     * AJAX: Return filtered complaint list.
-     * Admin sees ALL hostels (or filtered by hostel_id).
+     * Data endpoint (AJAX)
      */
     public function data(Request $request)
     {
-        $q = Complaint::with(['resident:id,name,phone,profile_image', 'hostel:id,hostel_name'])
+        $user = auth()->user();
+
+        $query = Complaint::with(['resident', 'hostel'])
             ->orderBy('created_at', 'desc');
 
-        // Filter: hostel
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $query->whereIn('hostel_id', $hostelIds);
+        }
+
         if ($request->filled('hostel_id')) {
-            $q->where('hostel_id', $request->hostel_id);
+            $query->where('hostel_id', $request->hostel_id);
         }
-
-        // Filter: status
         if ($request->filled('status')) {
-            $q->where('status', $request->status);
+            $query->where('status', $request->status);
         }
-
-        // Filter: priority
         if ($request->filled('priority')) {
-            $q->where('priority', $request->priority);
+            $query->where('priority', $request->priority);
         }
-
-        // Filter: category
         if ($request->filled('category')) {
-            $q->where('category', $request->category);
+            $query->where('category', $request->category);
         }
-
-        // Filter: date range
-        if ($request->filled('from')) {
-            $q->whereDate('created_at', '>=', $request->from);
-        }
-        if ($request->filled('to')) {
-            $q->whereDate('created_at', '<=', $request->to);
-        }
-
-        // Search: complaint no, name, phone, room
         if ($request->filled('search')) {
             $s = $request->search;
-            $q->where(function ($w) use ($s) {
-                $w->where('complaint_number', 'like', "%{$s}%")
-                  ->orWhere('name', 'like', "%{$s}%")
-                  ->orWhere('phone', 'like', "%{$s}%")
-                  ->orWhere('room_number', 'like', "%{$s}%");
+            $query->where(function ($q) use ($s) {
+                $q->where('complaint_number', 'LIKE', "%{$s}%")
+                  ->orWhere('name', 'LIKE', "%{$s}%")
+                  ->orWhere('phone', 'LIKE', "%{$s}%")
+                  ->orWhere('room_number', 'LIKE', "%{$s}%");
             });
         }
 
-        $complaints = $q->paginate(20);
+        $complaints = $query->paginate(20);
 
         $complaints->getCollection()->transform(function ($c) {
             return [
-                'id'                => $c->id,
-                'complaint_number'  => $c->complaint_number,
-                'hostel_id'         => $c->hostel_id,
-                'hostel_name' => $c->hostel->hostel_name ?? '—',
-                'resident_id'       => $c->resident_id,
-                'name'              => $c->name,
-                'phone'             => $c->phone,
-                'email'             => $c->email,
-                'room_number'       => $c->room_number,
-                'category'          => $c->category,
-                'priority'          => $c->priority,
-                'description'       => $c->description,
-                'status'            => $c->status,
-                'admin_remark'      => $c->admin_remark,
-                'image'             => $c->image ? asset('storage/' . $c->image) : null,
-                'resident_photo'    => $c->resident?->profile_image
+                'id'               => $c->id,
+                'complaint_number' => $c->complaint_number,
+                'name'             => $c->name,
+                'phone'            => $c->phone,
+                'room_number'      => $c->room_number,
+                'hostel_name'      => $c->hostel->hostel_name ?? 'N/A',
+                'category'         => $c->category,
+                'priority'         => $c->priority,
+                'status'           => $c->status,
+                'description'      => $c->description,
+                'admin_remark'     => $c->admin_remark,
+                'image'            => $c->image ? asset($c->image) : null,   // 🔥 Fixed
+                'resident_photo'   => $c->resident?->profile_image
                                         ? asset('storage/' . $c->resident->profile_image)
                                         : null,
-                'created_at'        => optional($c->created_at)->format('d M Y, h:i A'),
-                'updated_at'        => optional($c->updated_at)->format('d M Y, h:i A'),
-                'resolved_at'       => optional($c->resolved_at)->format('d M Y, h:i A'),
+                'created_at'       => $c->created_at->format('d M Y, h:i A'),
+                'resolved_at'      => $c->resolved_at?->format('d M Y, h:i A'),
             ];
         });
 
         return response()->json([
             'success' => true,
-            'data'    => $complaints,
+            'data'    => $complaints
         ]);
     }
 
     /**
-     * Stats for dashboard cards.
+     * Stats for dashboard cards
      */
     public function stats(Request $request)
     {
-        $q = Complaint::query();
+        $user = auth()->user();
 
-        if ($request->filled('hostel_id')) {
-            $q->where('hostel_id', $request->hostel_id);
+        $query = Complaint::query();
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            $query->whereIn('hostel_id', $hostelIds);
         }
 
-        $total      = (clone $q)->count();
-        $pending    = (clone $q)->where('status', 'pending')->count();
-        $inProgress = (clone $q)->where('status', 'in_progress')->count();
-        $resolved   = (clone $q)->where('status', 'resolved')->count();
-        $rejected   = (clone $q)->where('status', 'rejected')->count();
-        $urgent     = (clone $q)->where('priority', 'urgent')
-                                ->whereIn('status', ['pending', 'in_progress'])
-                                ->count();
+        if ($request->filled('hostel_id')) {
+            $query->where('hostel_id', $request->hostel_id);
+        }
 
-        return response()->json([
-            'success' => true,
-            'data' => compact('total', 'pending', 'inProgress', 'resolved', 'rejected', 'urgent'),
-        ]);
-    }
-
-    /**
-     * Show single complaint.
-     */
-    public function show($id)
-    {
-        $c = Complaint::with(['resident:id,name,phone,email,profile_image', 'hostel:id,name'])
-            ->findOrFail($id);
+        $total = (clone $query)->count();
+        $pending = (clone $query)->where('status', 'pending')->count();
+        $inProgress = (clone $query)->where('status', 'in_progress')->count();
+        $resolved = (clone $query)->where('status', 'resolved')->count();
+        $rejected = (clone $query)->where('status', 'rejected')->count();
 
         return response()->json([
             'success' => true,
             'data' => [
-                'id'                => $c->id,
-                'complaint_number'  => $c->complaint_number,
-                'hostel_id'         => $c->hostel_id,
-                'hostel_name' => $c->hostel->hostel_name ?? '—',
-                'resident_id'       => $c->resident_id,
-                'name'              => $c->name,
-                'phone'             => $c->phone,
-                'email'             => $c->email,
-                'room_number'       => $c->room_number,
-                'category'          => $c->category,
-                'priority'          => $c->priority,
-                'description'       => $c->description,
-                'status'            => $c->status,
-                'admin_remark'      => $c->admin_remark,
-                'image'             => $c->image ? asset('storage/' . $c->image) : null,
-                'resident_photo'    => $c->resident?->profile_image
-                                        ? asset('storage/' . $c->resident->profile_image)
-                                        : null,
-                'created_at'        => optional($c->created_at)->format('d M Y, h:i A'),
-                'resolved_at'       => optional($c->resolved_at)->format('d M Y, h:i A'),
-            ],
+                'total'      => $total,
+                'pending'    => $pending,
+                'inProgress' => $inProgress,
+                'resolved'   => $resolved,
+                'rejected'   => $rejected,
+            ]
         ]);
     }
 
     /**
-     * Full update of a complaint.
-     * Editable: category, priority, description, status, admin_remark.
+     * Show single complaint
+     */
+    public function show($id)
+    {
+        try {
+            $user = auth()->user();
+            $complaint = Complaint::with(['resident', 'hostel'])->findOrFail($id);
+
+            if ($user->role !== 'admin') {
+                $hostelIds = $user->hostel_ids ?? [];
+                if (!in_array($complaint->hostel_id, $hostelIds)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to view this complaint!'
+                    ], 403);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id'               => $complaint->id,
+                    'complaint_number' => $complaint->complaint_number,
+                    'name'             => $complaint->name,
+                    'phone'            => $complaint->phone,
+                    'email'            => $complaint->email,
+                    'room_number'      => $complaint->room_number,
+                    'hostel_name'      => $complaint->hostel->hostel_name ?? 'N/A',
+                    'category'         => $complaint->category,
+                    'priority'         => $complaint->priority,
+                    'status'           => $complaint->status,
+                    'description'      => $complaint->description,
+                    'admin_remark'     => $complaint->admin_remark,
+                    'image'            => $complaint->image ? asset($complaint->image) : null,   // 🔥 Fixed
+                    'created_at'       => $complaint->created_at->format('d M Y, h:i A'),
+                    'resolved_at'      => $complaint->resolved_at?->format('d M Y, h:i A'),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Complaint not found'
+            ], 404);
+        }
+    }
+
+    /**
+     * Full update
      */
     public function update(Request $request, $id)
     {
-        $c = Complaint::findOrFail($id);
+        $user = auth()->user();
+        $complaint = Complaint::findOrFail($id);
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!in_array($complaint->hostel_id, $hostelIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to update this complaint!'
+                ], 403);
+            }
+        }
 
         $validator = Validator::make($request->all(), [
             'category'     => 'required|in:electrical,plumbing,furniture,cleaning,wifi,food,security,other',
@@ -184,135 +209,190 @@ class ComplaintController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors'  => $validator->errors()
             ], 422);
         }
 
-        // Auto-manage resolved_at
-        $resolvedAt = $c->resolved_at;
-        if ($request->status === 'resolved' && !$resolvedAt) {
-            $resolvedAt = now();
-        } elseif ($request->status !== 'resolved') {
-            $resolvedAt = null;
-        }
+        $oldStatus = $complaint->status;
 
-        $c->update([
+        $complaint->update([
             'category'     => $request->category,
             'priority'     => $request->priority,
             'description'  => $request->description,
             'status'       => $request->status,
             'admin_remark' => $request->admin_remark,
-            'resolved_at'  => $resolvedAt,
+            'resolved_at'  => $request->status === 'resolved' && $oldStatus !== 'resolved'
+                                ? now()
+                                : ($request->status !== 'resolved' ? null : $complaint->resolved_at),
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => '✓ Complaint updated successfully',
-            'data'    => [
-                'id'         => $c->id,
-                'status'     => $c->status,
-                'updated_at' => $c->updated_at->format('d M Y, h:i A'),
-            ],
+            'message' => 'Complaint updated successfully!',
+            'data'    => $complaint->fresh(['resident', 'hostel'])
         ]);
     }
 
     /**
-     * Quick status change.
+     * Quick status change
      */
     public function changeStatus(Request $request, $id)
     {
+        $user = auth()->user();
+        $complaint = Complaint::findOrFail($id);
+
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!in_array($complaint->hostel_id, $hostelIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permission denied!'
+                ], 403);
+            }
+        }
+
         $validator = Validator::make($request->all(), [
-            'status'       => 'required|in:pending,in_progress,resolved,rejected',
-            'admin_remark' => 'nullable|string|max:1000',
+            'status' => 'required|in:pending,in_progress,resolved,rejected',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors(),
+                'errors'  => $validator->errors()
             ], 422);
         }
 
-        $c = Complaint::findOrFail($id);
-
-        $resolvedAt = $c->resolved_at;
-        if ($request->status === 'resolved' && !$resolvedAt) {
-            $resolvedAt = now();
+        $complaint->status = $request->status;
+        if ($request->status === 'resolved') {
+            $complaint->resolved_at = now();
         } elseif ($request->status !== 'resolved') {
-            $resolvedAt = null;
+            $complaint->resolved_at = null;
         }
-
-        $c->update([
-            'status'       => $request->status,
-            'admin_remark' => $request->admin_remark ?? $c->admin_remark,
-            'resolved_at'  => $resolvedAt,
-        ]);
+        $complaint->save();
 
         return response()->json([
             'success' => true,
-            'message' => "✓ Status updated to {$c->status}",
-            'data'    => ['id' => $c->id, 'status' => $c->status],
+            'message' => 'Status updated to ' . $request->status,
+            'data'    => $complaint
         ]);
     }
 
     /**
-     * Delete a complaint.
+     * Delete complaint
      */
     public function destroy($id)
     {
-        $c = Complaint::findOrFail($id);
+        $user = auth()->user();
+        $complaint = Complaint::findOrFail($id);
 
-        // Delete image file if present
-        if ($c->image && \Storage::disk('public')->exists($c->image)) {
-            \Storage::disk('public')->delete($c->image);
+        if ($user->role !== 'admin') {
+            $hostelIds = $user->hostel_ids ?? [];
+            if (!in_array($complaint->hostel_id, $hostelIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permission denied!'
+                ], 403);
+            }
         }
 
-        $number = $c->complaint_number;
-        $c->delete();
+        // Delete image file if exists in public/complaints
+        if ($complaint->image && file_exists(public_path($complaint->image))) {
+            @unlink(public_path($complaint->image));
+        }
+
+        $complaint->delete();
 
         return response()->json([
             'success' => true,
-            'message' => "✓ Complaint {$number} deleted",
+            'message' => 'Complaint deleted successfully!'
         ]);
     }
 
     /**
-     * Bulk status update.
+     * Bulk status update
      */
     public function bulkStatus(Request $request)
     {
-        $request->validate([
+        $user = auth()->user();
+
+        $validator = Validator::make($request->all(), [
             'ids'    => 'required|array',
-            'ids.*'  => 'integer|exists:complaints,id',
+            'ids.*'  => 'exists:complaints,id',
             'status' => 'required|in:pending,in_progress,resolved,rejected',
         ]);
 
-        Complaint::whereIn('id', $request->ids)->update([
-            'status'     => $request->status,
-            'updated_at' => now(),
-        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        $complaints = Complaint::whereIn('id', $request->ids)->get();
+        $updated = 0;
+
+        foreach ($complaints as $complaint) {
+            if ($user->role !== 'admin') {
+                $hostelIds = $user->hostel_ids ?? [];
+                if (!in_array($complaint->hostel_id, $hostelIds)) continue;
+            }
+
+            $complaint->status = $request->status;
+            if ($request->status === 'resolved') {
+                $complaint->resolved_at = now();
+            } elseif ($request->status !== 'resolved') {
+                $complaint->resolved_at = null;
+            }
+            $complaint->save();
+            $updated++;
+        }
 
         return response()->json([
             'success' => true,
-            'message' => '✓ Bulk status updated',
+            'message' => "{$updated} complaints updated successfully!"
         ]);
     }
 
     /**
-     * Bulk delete.
+     * Bulk delete
      */
     public function bulkDelete(Request $request)
     {
-        $request->validate([
+        $user = auth()->user();
+
+        $validator = Validator::make($request->all(), [
             'ids'   => 'required|array',
-            'ids.*' => 'integer|exists:complaints,id',
+            'ids.*' => 'exists:complaints,id',
         ]);
 
-        Complaint::whereIn('id', $request->ids)->delete();
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        $complaints = Complaint::whereIn('id', $request->ids)->get();
+        $deleted = 0;
+
+        foreach ($complaints as $complaint) {
+            if ($user->role !== 'admin') {
+                $hostelIds = $user->hostel_ids ?? [];
+                if (!in_array($complaint->hostel_id, $hostelIds)) continue;
+            }
+
+            // Delete image
+            if ($complaint->image && file_exists(public_path($complaint->image))) {
+                @unlink(public_path($complaint->image));
+            }
+
+            $complaint->delete();
+            $deleted++;
+        }
 
         return response()->json([
             'success' => true,
-            'message' => '✓ Complaints deleted',
+            'message' => "{$deleted} complaints deleted successfully!"
         ]);
     }
 }
