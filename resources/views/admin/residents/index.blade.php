@@ -72,6 +72,16 @@
         .stat-card.food .number { color: #166534; }
         .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
 
+        /* Stats pulse animation */
+        @keyframes statPulse {
+            0%   { transform: scale(1);   background: white; }
+            50%  { transform: scale(1.05); background: #fef3c7; }
+            100% { transform: scale(1);   background: white; }
+        }
+        .stat-card.updated {
+            animation: statPulse 0.5s ease;
+        }
+
         .filter-section {
             display: flex;
             gap: 0.75rem;
@@ -92,6 +102,12 @@
             font-size: 0.8rem;
             background: white;
             min-width: 120px;
+        }
+        .filter-section select:focus,
+        .filter-section input:focus {
+            border-color: var(--gold);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
         }
         .search-box { position: relative; flex: 1; min-width: 200px; }
         .search-box input {
@@ -317,7 +333,6 @@
         }
         .btn-purple-custom:hover { background: #6d28d9; }
 
-        /* MODALS */
         .modal-content {
             border-radius: 16px;
             border: none;
@@ -350,7 +365,6 @@
         .modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
         .modal-body::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
 
-        /* FORM */
         .rv-input-box {
             position: relative;
             border: 1px solid #d1d5db;
@@ -438,7 +452,6 @@
             color: #166534;
         }
 
-        /* TOAST */
         .toast-container {
             position: fixed;
             top: 80px;
@@ -521,7 +534,7 @@
         </div>
 
         {{-- STATS --}}
-        <div class="stats-grid">
+        <div class="stats-grid" id="statsGrid">
             <div class="stat-card total">
                 <span class="icon">🏠</span>
                 <div class="number">{{ $stats['total'] }}</div>
@@ -552,7 +565,7 @@
                 <div class="number">{{ $stats['with_food'] ?? 0 }}</div>
                 <div class="label">With Food</div>
             </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb);">
+            <div class="stat-card" id="withoutFoodCard" style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb);">
                 <span class="icon">🍞</span>
                 <div class="number" style="color: #4b5563;">{{ $stats['without_food'] ?? 0 }}</div>
                 <div class="label">Without Food</div>
@@ -639,6 +652,7 @@
                 <i class="bi bi-arrow-counterclockwise"></i> Clear
             </button>
             <span class="result-count" id="resultCount"></span>
+            <span class="result-count" id="rentTotal" style="background:#fef3c7; color:#92400e; margin-left:8px; display:none;"></span>
         </div>
 
         {{-- RESIDENTS GRID --}}
@@ -657,7 +671,8 @@
                              data-code="{{ strtolower($resident->resident_code) }}"
                              data-phone="{{ $resident->phone }}"
                              data-email="{{ strtolower($resident->email ?? '') }}"
-                             data-room-no="{{ strtolower($resident->room->room_no ?? '') }}">
+                             data-room-no="{{ strtolower($resident->room->room_no ?? '') }}"
+                             data-rent="{{ $resident->rent_amount ?? 0 }}">
 
                             <div class="resident-card">
                                 <div class="card-checkbox no-print">
@@ -906,9 +921,7 @@
                                 <div class="invalid-feedback" id="address_error"></div>
                             </div>
 
-                            {{-- ============================================
-                                PROFILE IMAGE with CAMERA + FILE
-                            ============================================ --}}
+                            {{-- PROFILE IMAGE with CAMERA + FILE --}}
                             <div class="col-md-4">
                                 <label class="form-label">Profile Image</label>
                                 <div class="rv-input-box file-input-box">
@@ -1162,9 +1175,7 @@
         </div>
     </div>
 
-    {{-- ============================================
-    CAMERA MODAL
-    ============================================ --}}
+    {{-- CAMERA MODAL --}}
     <div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -1213,6 +1224,9 @@ let cameraStream = null;
 let cameraModalInstance = null;
 let capturedImageData = null;
 
+// Store original stats so Clear button can restore them
+let originalStats = null;
+
 $(document).ready(function() {
     console.log('✅ Document ready!');
 
@@ -1228,6 +1242,20 @@ $(document).ready(function() {
     cameraModalInstance = new bootstrap.Modal(document.getElementById('cameraModal'), {
         backdrop: 'static', keyboard: false
     });
+
+    // Save original stats from blade
+    originalStats = {
+        total: parseInt($('.stat-card.total .number').text()) || 0,
+        active: parseInt($('.stat-card.active .number').text()) || 0,
+        vacated: parseInt($('.stat-card.vacated .number').text()) || 0,
+        male: parseInt($('.stat-card.male .number').text()) || 0,
+        female: parseInt($('.stat-card.female .number').text()) || 0,
+        with_food: parseInt($('.stat-card.food .number').text()) || 0,
+        without_food: parseInt($('#withoutFoodCard .number').text()) || 0,
+        total_rent: parseFloat($('.stat-card.rent .number').text().replace(/[₹,]/g, '')) || 0,
+        biometric_active: parseInt($('.stat-card.biometric .number').text()) || 0
+    };
+    console.log('📊 Original stats saved:', originalStats);
 
     // Search
     let searchTimeout;
@@ -1321,6 +1349,7 @@ $(document).ready(function() {
         capturedImageData = null;
     });
 
+    // Run initial filter (which will also compute stats from visible items)
     applyFilters();
 });
 
@@ -1532,7 +1561,7 @@ function loadBedsForRoom(roomId, selectedBedId) {
 }
 
 // ============================================
-// FILTERS
+// 🔥 FILTERS + DYNAMIC STATS
 // ============================================
 function applyFilters() {
     var status = $('#filterStatus').val() || '';
@@ -1588,6 +1617,73 @@ function applyFilters() {
 
     if (visibleCount === 0 && totalCount > 0) $('#noSearchResults').show();
     else $('#noSearchResults').hide();
+
+    // 🔥 UPDATE STATS based on filtered residents
+    updateStatsFromFilters();
+}
+
+// ============================================
+// 🔥 UPDATE STATS FROM FILTERED ITEMS
+// ============================================
+function updateStatsFromFilters() {
+    let stats = {
+        total: 0,
+        active: 0,
+        vacated: 0,
+        male: 0,
+        female: 0,
+        with_food: 0,
+        without_food: 0,
+        total_rent: 0,
+        biometric_active: 0
+    };
+
+    $('.resident-item:visible').each(function() {
+        const $item = $(this);
+        const status = $item.attr('data-status') || '';
+        const gender = $item.attr('data-gender') || '';
+        const food = $item.attr('data-food') || '';
+        const biometric = $item.attr('data-biometric') || '';
+        const rent = parseFloat($item.attr('data-rent') || 0);
+
+        stats.total++;
+
+        if (status === 'ACTIVE') {
+            stats.active++;
+            if (food === 'WITH_FOOD') stats.with_food++;
+            else if (food === 'WITHOUT_FOOD') stats.without_food++;
+            stats.total_rent += rent;
+        } else if (status === 'VACATED') {
+            stats.vacated++;
+        }
+
+        if (gender === 'MEN') stats.male++;
+        else if (gender === 'WOMEN') stats.female++;
+
+        if (biometric === 'enabled') stats.biometric_active++;
+    });
+
+    // Update DOM
+    $('.stat-card.total .number').text(stats.total);
+    $('.stat-card.active .number').text(stats.active);
+    $('.stat-card.vacated .number').text(stats.vacated);
+    $('.stat-card.male .number').text(stats.male);
+    $('.stat-card.female .number').text(stats.female);
+    $('.stat-card.food .number').text(stats.with_food);
+    $('#withoutFoodCard .number').text(stats.without_food);
+    $('.stat-card.rent .number').text('₹' + stats.total_rent.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
+    $('.stat-card.biometric .number').text(stats.biometric_active);
+
+    // Flash animation
+    $('.stat-card').addClass('updated');
+    setTimeout(() => $('.stat-card').removeClass('updated'), 500);
+
+    // Show rent total in filter bar
+    if (stats.total_rent > 0) {
+        $('#rentTotal').text('💰 Rent: ₹' + stats.total_rent.toLocaleString('en-IN', { maximumFractionDigits: 0 })).show();
+    } else {
+        $('#rentTotal').hide();
+    }
 }
 
 function clearFilters() {
@@ -1788,7 +1884,7 @@ function renderDetails(data) {
             <div class="col-lg-8">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <div class="detail-card" style="background:#f8fafc; padding:12px; border-radius:8px;">
+                        <div style="background:#f8fafc; padding:12px; border-radius:8px;">
                             <strong>Personal Info</strong>
                             <div class="mt-2 small">
                                 <div><strong>Phone:</strong> ${data.phone}</div>
@@ -1798,7 +1894,7 @@ function renderDetails(data) {
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="detail-card" style="background:#f8fafc; padding:12px; border-radius:8px;">
+                        <div style="background:#f8fafc; padding:12px; border-radius:8px;">
                             <strong>Accommodation</strong>
                             <div class="mt-2 small">
                                 <div><strong>Hostel:</strong> ${data.hostel.name}</div>
@@ -2087,7 +2183,7 @@ function submitForm() {
     let url = "{{ route('admin.residents.store') }}";
     let formData = new FormData(document.getElementById('residentForm'));
 
-    // Convert camera base64 to Blob and append as file
+    // Convert camera base64 to Blob
     const cameraData = document.getElementById('camera_image').value;
     if (cameraData && cameraData.startsWith('data:image')) {
         const blob = dataURLtoBlob(cameraData);
