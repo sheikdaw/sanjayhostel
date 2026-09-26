@@ -4,1282 +4,1057 @@
 @section('page_title', 'Resident Management')
 
 @push('styles')
-    <style>
-        /* ============================================
-           GLOBAL STYLES
-        ============================================ */
-        :root {
-            --primary: #1a3a6b;
-            --primary-light: #2a5a9b;
-            --gold: #c5a028;
-            --gold-light: #f5e6b8;
-            --success: #22c55e;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --info: #3b82f6;
-        }
+<style>
+    :root {
+        --primary: #1a3a6b;
+        --primary-light: #2a5a9b;
+        --gold: #c5a028;
+        --success: #22c55e;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --info: #3b82f6;
+    }
 
-        .resident-container { max-width: 100%; padding: 0 15px; }
-        .modal-content form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .resident-container { max-width: 100%; padding: 0 15px; }
+    .modal-content form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 
-        .resident-header {
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            color: white;
-            padding: 1.5rem 2rem;
-            border-radius: 12px;
-            margin-bottom: 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        .resident-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; }
-        .resident-header p { opacity: 0.8; margin: 0; font-size: 0.9rem; }
-        .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .resident-header {
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .resident-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; }
+    .resident-header p { opacity: 0.8; margin: 0; font-size: 0.9rem; }
+    .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
-        }
-        .stat-card {
-            background: white;
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
-            text-align: center;
-            transition: all 0.3s;
-        }
-        .stat-card:hover {
-            border-color: var(--gold);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            transform: translateY(-2px);
-        }
-        .stat-card .number { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
-        .stat-card .label { font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-card .icon { font-size: 1.2rem; display: block; margin-bottom: 0.25rem; }
-        .stat-card.male .number { color: #3b82f6; }
-        .stat-card.female .number { color: #ec4899; }
-        .stat-card.active .number { color: var(--success); }
-        .stat-card.vacated .number { color: var(--danger); }
-        .stat-card.total .number { color: var(--primary); }
-        .stat-card.rent .number { color: #92400e; }
-        .stat-card.rent { background: linear-gradient(135deg, #fef3c7, #fde68a); }
-        .stat-card.biometric .number { color: #7c3aed; }
-        .stat-card.biometric { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
-        .stat-card.food .number { color: #166534; }
-        .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: white;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        text-align: center;
+        transition: all 0.3s;
+    }
+    .stat-card:hover { border-color: var(--gold); box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-2px); }
+    .stat-card .number { font-size: 1.3rem; font-weight: 700; color: var(--primary); transition: all 0.3s; }
+    .stat-card .label { font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .icon { font-size: 1.2rem; display: block; margin-bottom: 0.25rem; }
+    .stat-card.male .number { color: #3b82f6; }
+    .stat-card.female .number { color: #ec4899; }
+    .stat-card.active .number { color: var(--success); }
+    .stat-card.vacated .number { color: var(--danger); }
+    .stat-card.total .number { color: var(--primary); }
+    .stat-card.rent .number { color: #92400e; }
+    .stat-card.rent { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+    .stat-card.biometric .number { color: #7c3aed; }
+    .stat-card.biometric { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+    .stat-card.food .number { color: #166534; }
+    .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
+    .stat-card.no-food { background: linear-gradient(135deg, #f3f4f6, #e5e7eb); }
+    .stat-card.no-food .number { color: #4b5563; }
 
-        /* Stats pulse animation */
-        @keyframes statPulse {
-            0%   { transform: scale(1);   background: white; }
-            50%  { transform: scale(1.05); background: #fef3c7; }
-            100% { transform: scale(1);   background: white; }
-        }
-        .stat-card.updated {
-            animation: statPulse 0.5s ease;
-        }
+    /* Stat update pulse animation */
+    @keyframes statPulse {
+        0%   { transform: scale(1); }
+        50%  { transform: scale(1.08); box-shadow: 0 4px 12px rgba(197, 160, 40, 0.3); }
+        100% { transform: scale(1); }
+    }
+    .stat-card.updated .number {
+        animation: statPulse 0.5s ease;
+        color: var(--gold) !important;
+    }
 
-        .filter-section {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            align-items: center;
-            background: white;
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
-            margin-bottom: 1rem;
-        }
-        .filter-section .filter-group { display: flex; align-items: center; gap: 0.5rem; }
-        .filter-section select,
-        .filter-section input {
-            padding: 0.35rem 0.8rem;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            font-size: 0.8rem;
-            background: white;
-            min-width: 120px;
-        }
-        .filter-section select:focus,
-        .filter-section input:focus {
-            border-color: var(--gold);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
-        }
-        .search-box { position: relative; flex: 1; min-width: 200px; }
-        .search-box input {
-            width: 100%;
-            padding: 0.35rem 0.8rem 0.35rem 2rem;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            font-size: 0.8rem;
-        }
-        .search-box i { position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
-        .result-count {
-            font-size: 0.75rem;
-            color: #6b7280;
-            padding: 0.25rem 0.5rem;
-            background: #f3f4f6;
-            border-radius: 4px;
-            margin-left: auto;
-        }
-        .btn-clear-filters {
-            padding: 0.35rem 1rem;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            background: white;
-            font-size: 0.8rem;
-            cursor: pointer;
-        }
-        .btn-clear-filters:hover { background: #f3f4f6; }
+    .filter-section {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        align-items: center;
+        background: white;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 1rem;
+    }
+    .filter-section .filter-group { display: flex; align-items: center; gap: 0.5rem; }
+    .filter-section select,
+    .filter-section input {
+        padding: 0.35rem 0.8rem;
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+        font-size: 0.8rem;
+        background: white;
+        min-width: 120px;
+    }
+    .filter-section select:focus,
+    .filter-section input:focus {
+        border-color: var(--gold);
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
+    }
+    .search-box { position: relative; flex: 1; min-width: 200px; }
+    .search-box input { width: 100%; padding: 0.35rem 0.8rem 0.35rem 2rem; border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.8rem; }
+    .search-box i { position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+    .result-count {
+        font-size: 0.75rem;
+        color: #6b7280;
+        padding: 0.25rem 0.5rem;
+        background: #f3f4f6;
+        border-radius: 4px;
+        margin-left: auto;
+    }
+    .btn-clear-filters {
+        padding: 0.35rem 1rem;
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+        background: white;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    .btn-clear-filters:hover { background: #f3f4f6; }
 
-        .bulk-actions {
-            display: none;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-        .bulk-actions.show { display: flex; }
-        .bulk-actions .count { font-weight: 600; color: var(--primary); }
+    .bulk-actions {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .bulk-actions.show { display: flex; }
+    .bulk-actions .count { font-weight: 600; color: var(--primary); }
 
-        .resident-card {
-            transition: all 0.3s ease;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            overflow: hidden;
-            background: white;
-            position: relative;
-            height: 100%;
-        }
-        .resident-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08); }
-        .resident-card .card-checkbox { position: absolute; top: 12px; left: 12px; z-index: 2; }
-        .resident-card .card-checkbox input { width: 16px; height: 16px; cursor: pointer; }
+    .resident-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        background: white;
+        position: relative;
+        height: 100%;
+    }
+    .resident-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.08); }
+    .resident-card .card-checkbox { position: absolute; top: 12px; left: 12px; z-index: 2; }
+    .resident-card .card-checkbox input { width: 16px; height: 16px; cursor: pointer; }
 
-        .resident-header-card {
-            padding: 1rem 1.25rem;
-            padding-left: 3rem;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        .resident-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: var(--gold);
-            color: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            font-weight: 700;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        .resident-avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .resident-code {
-            font-size: 0.65rem;
-            font-family: monospace;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 2px 8px;
-            border-radius: 4px;
-        }
-        .resident-body { padding: 1rem 1.25rem; }
-        .resident-detail {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-bottom: 0.25rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .resident-detail i { width: 16px; color: var(--gold); }
-        .resident-detail .label { color: #6b7280; }
-        .resident-detail .value { color: #1f2937; font-weight: 500; }
+    .resident-header-card {
+        padding: 1rem 1.25rem;
+        padding-left: 3rem;
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .resident-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: var(--gold);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+    .resident-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .resident-code { font-size: 0.65rem; font-family: monospace; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px; }
+    .resident-body { padding: 1rem 1.25rem; }
+    .resident-detail { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 4px; }
+    .resident-detail i { width: 16px; color: var(--gold); }
+    .resident-detail .label { color: #6b7280; }
+    .resident-detail .value { color: #1f2937; font-weight: 500; }
 
-        .resident-room-info {
-            background: #f8fafc;
-            padding: 0.5rem;
-            border-radius: 6px;
-            margin: 0.5rem 0;
-            font-size: 0.75rem;
-        }
-        .resident-rent {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: #92400e;
-            background: #fef3c7;
-            padding: 2px 10px;
-            border-radius: 12px;
-            display: inline-block;
-        }
+    .resident-room-info { background: #f8fafc; padding: 0.5rem; border-radius: 6px; margin: 0.5rem 0; font-size: 0.75rem; }
+    .resident-rent { font-size: 0.8rem; font-weight: 700; color: #92400e; background: #fef3c7; padding: 2px 10px; border-radius: 12px; display: inline-block; }
 
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-        }
-        .status-badge.active { background: #dcfce7; color: #166534; }
-        .status-badge.vacated { background: #fee2e2; color: #991b1b; }
-        .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-        .status-badge.active .dot { background: var(--success); }
-        .status-badge.vacated .dot { background: var(--danger); }
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+    }
+    .status-badge.active { background: #dcfce7; color: #166534; }
+    .status-badge.vacated { background: #fee2e2; color: #991b1b; }
+    .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .status-badge.active .dot { background: var(--success); }
+    .status-badge.vacated .dot { background: var(--danger); }
 
-        .food-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 0.6rem;
-            font-weight: 600;
-        }
-        .food-badge.with-food { background: #dcfce7; color: #166534; }
-        .food-badge.without-food { background: #f3f4f6; color: #4b5563; }
+    .food-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; }
+    .food-badge.with-food { background: #dcfce7; color: #166534; }
+    .food-badge.without-food { background: #f3f4f6; color: #4b5563; }
 
-        .biometric-badge-small {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            padding: 1px 8px;
-            border-radius: 12px;
-            font-size: 0.6rem;
-            font-weight: 600;
-        }
-        .biometric-badge-small.enabled { background: #dcfce7; color: #166534; }
-        .biometric-badge-small.disabled { background: #fee2e2; color: #991b1b; }
-        .biometric-badge-small.not-synced { background: #f3f4f6; color: #6b7280; }
+    .biometric-badge-small { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border-radius: 12px; font-size: 0.6rem; font-weight: 600; }
+    .biometric-badge-small.enabled { background: #dcfce7; color: #166534; }
+    .biometric-badge-small.disabled { background: #fee2e2; color: #991b1b; }
+    .biometric-badge-small.not-synced { background: #f3f4f6; color: #6b7280; }
 
-        .document-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            padding: 1px 6px;
-            border-radius: 4px;
-            font-size: 0.6rem;
-            background: #e3f2fd;
-            color: #1565c0;
-            cursor: pointer;
-        }
-        .document-badge.has-doc { background: #dcfce7; color: #166534; }
+    .document-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 4px; font-size: 0.6rem; background: #e3f2fd; color: #1565c0; cursor: pointer; }
+    .document-badge.has-doc { background: #dcfce7; color: #166534; }
 
-        .btn-action {
-            padding: 0.2rem 0.5rem;
-            border-radius: 6px;
-            border: 1px solid #e5e7eb;
-            background: white;
-            font-size: 0.75rem;
-            cursor: pointer;
-        }
-        .btn-action:hover { background: #f3f4f6; }
-        .btn-action.text-danger:hover { background: #fee2e2; border-color: #fca5a5; }
-        .btn-action.text-primary:hover { background: #e3f2fd; border-color: #90caf9; }
-        .btn-action.text-success:hover { background: #dcfce7; border-color: #86efac; }
-        .btn-action.text-warning:hover { background: #fef3c7; border-color: #fcd34d; }
+    .btn-action { padding: 0.2rem 0.5rem; border-radius: 6px; border: 1px solid #e5e7eb; background: white; font-size: 0.75rem; cursor: pointer; }
+    .btn-action:hover { background: #f3f4f6; }
+    .btn-action.text-danger:hover { background: #fee2e2; border-color: #fca5a5; }
+    .btn-action.text-primary:hover { background: #e3f2fd; border-color: #90caf9; }
+    .btn-action.text-success:hover { background: #dcfce7; border-color: #86efac; }
+    .btn-action.text-warning:hover { background: #fef3c7; border-color: #fcd34d; }
 
-        .btn-primary-custom {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .btn-primary-custom:hover { background: var(--primary-light); }
-        .btn-secondary-custom {
-            background: #6b7280;
-            color: white;
-            border: none;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .btn-secondary-custom:hover { background: #4b5563; }
-        .btn-purple-custom {
-            background: #7c3aed;
-            color: white;
-            border: none;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .btn-purple-custom:hover { background: #6d28d9; }
+    .btn-primary-custom {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.5rem 1.2rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .btn-primary-custom:hover { background: var(--primary-light); }
+    .btn-secondary-custom { background: #6b7280; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; }
+    .btn-secondary-custom:hover { background: #4b5563; }
+    .btn-purple-custom { background: #7c3aed; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; }
+    .btn-purple-custom:hover { background: #6d28d9; }
 
-        .modal-content {
-            border-radius: 16px;
-            border: none;
-            max-height: 95vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .modal-header {
-            background: var(--primary);
-            color: white;
-            border-radius: 16px 16px 0 0;
-            padding: 1rem 1.5rem;
-            flex-shrink: 0;
-        }
-        .modal-header .btn-close { filter: brightness(0) invert(1); }
-        .modal-body {
-            padding: 1.5rem;
-            overflow-y: auto;
-            flex: 1;
-            max-height: calc(95vh - 130px);
-        }
-        .modal-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid #e5e7eb;
-            flex-shrink: 0;
-            background: #f8fafc;
-            border-radius: 0 0 16px 16px;
-        }
-        .modal-body::-webkit-scrollbar { width: 6px; }
-        .modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
-        .modal-body::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+    .modal-content { border-radius: 16px; border: none; max-height: 95vh; display: flex; flex-direction: column; }
+    .modal-header { background: var(--primary); color: white; border-radius: 16px 16px 0 0; padding: 1rem 1.5rem; flex-shrink: 0; }
+    .modal-header .btn-close { filter: brightness(0) invert(1); }
+    .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; max-height: calc(95vh - 130px); }
+    .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb; flex-shrink: 0; background: #f8fafc; border-radius: 0 0 16px 16px; }
+    .modal-body::-webkit-scrollbar { width: 6px; }
+    .modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+    .modal-body::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
 
-        .rv-input-box {
-            position: relative;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            background: #fafafa;
-            transition: all 0.2s;
-        }
-        .rv-input-box:focus-within {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
-            background: white;
-        }
-        .rv-input-box.is-invalid { border-color: var(--danger); }
-        .rv-input-icon {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-            font-size: 0.9rem;
-            pointer-events: none;
-        }
-        .rv-input-icon.textarea-icon { top: 16px; transform: none; }
-        .rv-input {
-            width: 100%;
-            padding: 0.6rem 0.8rem 0.6rem 2.4rem;
-            border: none;
-            background: transparent;
-            outline: none;
-            font-size: 0.85rem;
-            color: #1f2937;
-        }
-        .rv-input.textarea-input { min-height: 60px; resize: vertical; }
-        select.rv-input { appearance: none; padding-right: 2rem; cursor: pointer; }
-        .form-label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.3rem;
-        }
-        .form-label .required { color: var(--danger); margin-left: 2px; }
-        .invalid-feedback { font-size: 0.75rem; color: var(--danger); margin-top: 0.25rem; }
-        .file-input-box { padding: 0.5rem; }
-        .file-input-box input[type="file"] {
-            padding: 0.3rem;
-            border: none;
-            background: transparent;
-            width: 100%;
-            font-size: 0.8rem;
-        }
-        .file-input-box input[type="file"]::-webkit-file-upload-button {
-            padding: 0.3rem 0.8rem;
-            border-radius: 4px;
-            border: 1px solid #d1d5db;
-            background: white;
-            cursor: pointer;
-            font-size: 0.75rem;
-        }
-        .file-preview-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            background: #f8fafc;
-            border-radius: 6px;
-            border: 1px solid #e5e7eb;
-        }
-        .file-preview-container img {
-            max-width: 60px;
-            max-height: 60px;
-            border-radius: 4px;
-            object-fit: cover;
-        }
-        .file-preview-container .file-info { flex: 1; font-size: 0.75rem; }
-        .file-preview-container .file-info .filename { font-weight: 600; color: #1f2937; }
-        .file-preview-container .file-info .filesize { color: #6b7280; }
-        .existing-doc-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.6rem;
-            background: #dcfce7;
-            color: #166534;
-        }
+    .rv-input-box { position: relative; border: 1px solid #d1d5db; border-radius: 8px; background: #fafafa; transition: all 0.2s; }
+    .rv-input-box:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(197,160,40,0.1); background: white; }
+    .rv-input-box.is-invalid { border-color: var(--danger); }
+    .rv-input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 0.9rem; pointer-events: none; }
+    .rv-input-icon.textarea-icon { top: 16px; transform: none; }
+    .rv-input { width: 100%; padding: 0.6rem 0.8rem 0.6rem 2.4rem; border: none; background: transparent; outline: none; font-size: 0.85rem; color: #1f2937; }
+    .rv-input.textarea-input { min-height: 60px; resize: vertical; }
+    select.rv-input { appearance: none; padding-right: 2rem; cursor: pointer; }
+    .form-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
+    .form-label .required { color: var(--danger); margin-left: 2px; }
+    .invalid-feedback { font-size: 0.75rem; color: var(--danger); margin-top: 0.25rem; }
+    .file-input-box { padding: 0.5rem; }
+    .file-input-box input[type="file"] { padding: 0.3rem; border: none; background: transparent; width: 100%; font-size: 0.8rem; }
+    .file-input-box input[type="file"]::-webkit-file-upload-button { padding: 0.3rem 0.8rem; border-radius: 4px; border: 1px solid #d1d5db; background: white; cursor: pointer; font-size: 0.75rem; }
+    .file-preview-container { display: flex; align-items: center; gap: 8px; padding: 8px; background: #f8fafc; border-radius: 6px; border: 1px solid #e5e7eb; }
+    .file-preview-container img { max-width: 60px; max-height: 60px; border-radius: 4px; object-fit: cover; }
+    .file-preview-container .file-info { flex: 1; font-size: 0.75rem; }
+    .file-preview-container .file-info .filename { font-weight: 600; color: #1f2937; }
+    .file-preview-container .file-info .filesize { color: #6b7280; }
+    .existing-doc-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.6rem; background: #dcfce7; color: #166534; }
 
-        .toast-container {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-        }
-        .toast-custom {
-            background: white;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-            border-left: 4px solid var(--success);
-            margin-bottom: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        .toast-custom.error { border-left-color: var(--danger); }
-        .toast-custom .message { flex: 1; font-size: 0.85rem; color: #1f2937; }
-        .toast-custom .close-btn {
-            background: none;
-            border: none;
-            color: #9ca3af;
-            cursor: pointer;
-            font-size: 1.2rem;
-        }
+    .toast-container { position: fixed; top: 80px; right: 20px; z-index: 9999; max-width: 400px; }
+    .toast-custom { background: white; border-radius: 12px; padding: 1rem 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.12); border-left: 4px solid var(--success); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.75rem; }
+    .toast-custom.error { border-left-color: var(--danger); }
+    .toast-custom .message { flex: 1; font-size: 0.85rem; color: #1f2937; }
+    .toast-custom .close-btn { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 1.2rem; }
 
-        .empty-state { text-align: center; padding: 4rem 2rem; }
-        .empty-state i { font-size: 4rem; color: #d1d5db; margin-bottom: 1rem; }
-        .no-results-state {
-            text-align: center;
-            padding: 3rem 1.5rem;
-            background: white;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            margin-top: 1rem;
-        }
-        .no-results-state i { font-size: 3rem; color: #d1d5db; margin-bottom: 0.75rem; }
+    .empty-state { text-align: center; padding: 4rem 2rem; }
+    .empty-state i { font-size: 4rem; color: #d1d5db; margin-bottom: 1rem; }
+    .no-results-state { text-align: center; padding: 3rem 1.5rem; background: white; border-radius: 12px; border: 1px solid #e5e7eb; margin-top: 1rem; }
+    .no-results-state i { font-size: 3rem; color: #d1d5db; margin-bottom: 0.75rem; }
 
-        @media (max-width: 768px) {
-            .resident-header { flex-direction: column; text-align: center; padding: 1rem; }
-            .header-actions { justify-content: center; }
-            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; }
-            .filter-section { flex-direction: column; align-items: stretch; }
-            .search-box { min-width: 100%; }
-            .modal-body { max-height: calc(90vh - 130px); padding: 1rem; }
-        }
-        @media (max-width: 480px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-    </style>
+    @media (max-width: 768px) {
+        .resident-header { flex-direction: column; text-align: center; padding: 1rem; }
+        .header-actions { justify-content: center; }
+        .stats-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; }
+        .filter-section { flex-direction: column; align-items: stretch; }
+        .search-box { min-width: 100%; }
+        .modal-body { max-height: calc(90vh - 130px); padding: 1rem; }
+    }
+    @media (max-width: 480px) {
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
 @endpush
 
 @section('content')
-    <div class="resident-container">
+<div class="resident-container">
 
-        {{-- HEADER --}}
-        <div class="resident-header no-print">
-            <div>
-                <h1><i class="bi bi-people-fill"></i> Resident Management</h1>
-                <p>Manage all residents, their accommodations, biometric access, and documents</p>
-                @if ($user->role != 'admin')
-                    <p style="color: var(--gold); font-size:0.8rem; margin-top:4px;">
-                        <i class="bi bi-info-circle"></i> You have access to {{ $hostels->count() }} hostel(s)
-                    </p>
-                @endif
-            </div>
-            <div class="header-actions">
-                <button type="button" class="btn-secondary-custom" onclick="exportFilteredData()">
-                    <i class="bi bi-download"></i> Export Filtered
-                </button>
-                <button type="button" class="btn-purple-custom" onclick="syncAllBiometric()">
-                    <i class="bi bi-cloud-upload"></i> Sync Biometric
-                </button>
-                <button type="button" class="btn-primary-custom" id="addResidentBtn">
-                    <i class="bi bi-plus-circle"></i> Add Resident
-                </button>
-            </div>
+    {{-- HEADER --}}
+    <div class="resident-header no-print">
+        <div>
+            <h1><i class="bi bi-people-fill"></i> Resident Management</h1>
+            <p>Manage all residents, their accommodations, biometric access, and documents</p>
+            @if ($user->role != 'admin')
+                <p style="color: var(--gold); font-size:0.8rem; margin-top:4px;">
+                    <i class="bi bi-info-circle"></i> You have access to {{ $hostels->count() }} hostel(s)
+                </p>
+            @endif
         </div>
-
-        {{-- STATS --}}
-        <div class="stats-grid" id="statsGrid">
-            <div class="stat-card total">
-                <span class="icon">🏠</span>
-                <div class="number">{{ $stats['total'] }}</div>
-                <div class="label">Total</div>
-            </div>
-            <div class="stat-card active">
-                <span class="icon">✅</span>
-                <div class="number">{{ $stats['active'] }}</div>
-                <div class="label">Active</div>
-            </div>
-            <div class="stat-card vacated">
-                <span class="icon">❌</span>
-                <div class="number">{{ $stats['vacated'] }}</div>
-                <div class="label">Vacated</div>
-            </div>
-            <div class="stat-card male">
-                <span class="icon">👨</span>
-                <div class="number">{{ $stats['male'] }}</div>
-                <div class="label">Men</div>
-            </div>
-            <div class="stat-card female">
-                <span class="icon">👩</span>
-                <div class="number">{{ $stats['female'] }}</div>
-                <div class="label">Women</div>
-            </div>
-            <div class="stat-card food">
-                <span class="icon">🍽️</span>
-                <div class="number">{{ $stats['with_food'] ?? 0 }}</div>
-                <div class="label">With Food</div>
-            </div>
-            <div class="stat-card" id="withoutFoodCard" style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb);">
-                <span class="icon">🍞</span>
-                <div class="number" style="color: #4b5563;">{{ $stats['without_food'] ?? 0 }}</div>
-                <div class="label">Without Food</div>
-            </div>
-            <div class="stat-card rent">
-                <span class="icon">💰</span>
-                <div class="number">₹{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
-                <div class="label">Monthly Rent</div>
-            </div>
-            <div class="stat-card biometric">
-                <span class="icon">🔒</span>
-                <div class="number">{{ $biometricStats['access_enabled'] ?? 0 }}</div>
-                <div class="label">Biometric Active</div>
-            </div>
+        <div class="header-actions">
+            <button type="button" class="btn-secondary-custom" onclick="exportFilteredData()">
+                <i class="bi bi-download"></i> Export Filtered
+            </button>
+            <button type="button" class="btn-purple-custom" onclick="syncAllBiometric()">
+                <i class="bi bi-cloud-upload"></i> Sync Biometric
+            </button>
+            <button type="button" class="btn-primary-custom" id="addResidentBtn">
+                <i class="bi bi-plus-circle"></i> Add Resident
+            </button>
         </div>
+    </div>
 
-        {{-- BULK ACTIONS --}}
-        <div class="bulk-actions no-print" id="bulkActions">
-            <span><i class="bi bi-check-square"></i> <span class="count" id="selectedCount">0</span> selected</span>
-            <span style="color:#6b7280;">|</span>
-            <select id="bulkStatusSelect">
-                <option value="">Change Status</option>
+    {{-- STATS --}}
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-card total" data-stat="total">
+            <span class="icon">🏠</span>
+            <div class="number">{{ $stats['total'] }}</div>
+            <div class="label">Total</div>
+        </div>
+        <div class="stat-card active" data-stat="active">
+            <span class="icon">✅</span>
+            <div class="number">{{ $stats['active'] }}</div>
+            <div class="label">Active</div>
+        </div>
+        <div class="stat-card vacated" data-stat="vacated">
+            <span class="icon">❌</span>
+            <div class="number">{{ $stats['vacated'] }}</div>
+            <div class="label">Vacated</div>
+        </div>
+        <div class="stat-card male" data-stat="male">
+            <span class="icon">👨</span>
+            <div class="number">{{ $stats['male'] }}</div>
+            <div class="label">Men</div>
+        </div>
+        <div class="stat-card female" data-stat="female">
+            <span class="icon">👩</span>
+            <div class="number">{{ $stats['female'] }}</div>
+            <div class="label">Women</div>
+        </div>
+        <div class="stat-card food" data-stat="with_food">
+            <span class="icon">🍽️</span>
+            <div class="number">{{ $stats['with_food'] ?? 0 }}</div>
+            <div class="label">With Food</div>
+        </div>
+        <div class="stat-card no-food" data-stat="without_food">
+            <span class="icon">🍞</span>
+            <div class="number">{{ $stats['without_food'] ?? 0 }}</div>
+            <div class="label">Without Food</div>
+        </div>
+        <div class="stat-card rent" data-stat="total_rent">
+            <span class="icon">💰</span>
+            <div class="number">₹{{ number_format($stats['total_rent'] ?? 0, 0) }}</div>
+            <div class="label">Monthly Rent</div>
+        </div>
+        <div class="stat-card biometric" data-stat="biometric_active">
+            <span class="icon">🔒</span>
+            <div class="number">{{ $biometricStats['access_enabled'] ?? 0 }}</div>
+            <div class="label">Biometric Active</div>
+        </div>
+    </div>
+
+    {{-- BULK ACTIONS --}}
+    <div class="bulk-actions no-print" id="bulkActions">
+        <span><i class="bi bi-check-square"></i> <span class="count" id="selectedCount">0</span> selected</span>
+        <span style="color:#6b7280;">|</span>
+        <select id="bulkStatusSelect">
+            <option value="">Change Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="VACATED">Vacated</option>
+        </select>
+        <button class="btn-action text-primary" onclick="bulkStatusUpdate()">
+            <i class="bi bi-check-circle"></i> Apply
+        </button>
+        <button class="btn-action text-danger" onclick="bulkDelete()">
+            <i class="bi bi-trash"></i> Delete
+        </button>
+        <button class="btn-action" onclick="clearSelection()">
+            <i class="bi bi-x"></i> Clear
+        </button>
+    </div>
+
+    {{-- FILTERS --}}
+    <div class="filter-section no-print">
+        <div class="filter-group">
+            <label style="font-size:0.8rem; font-weight:600;">Filter:</label>
+        </div>
+        <div class="filter-group">
+            <select id="filterStatus">
+                <option value="">All Status</option>
                 <option value="ACTIVE">Active</option>
                 <option value="VACATED">Vacated</option>
             </select>
-            <button class="btn-action text-primary" onclick="bulkStatusUpdate()">
-                <i class="bi bi-check-circle"></i> Apply
-            </button>
-            <button class="btn-action text-danger" onclick="bulkDelete()">
-                <i class="bi bi-trash"></i> Delete
-            </button>
-            <button class="btn-action" onclick="clearSelection()">
-                <i class="bi bi-x"></i> Clear
-            </button>
         </div>
-
-        {{-- FILTERS --}}
-        <div class="filter-section no-print">
-            <div class="filter-group">
-                <label style="font-size:0.8rem; font-weight:600;">Filter:</label>
-            </div>
-            <div class="filter-group">
-                <select id="filterStatus">
-                    <option value="">All Status</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="VACATED">Vacated</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <select id="filterHostel">
-                    <option value="">All Hostels</option>
-                    @foreach ($hostels as $hostel)
-                        <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="filter-group">
-                <select id="filterGender">
-                    <option value="">All Gender</option>
-                    <option value="MEN">👨 Men</option>
-                    <option value="WOMEN">👩 Women</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <select id="filterFood">
-                    <option value="">All Food</option>
-                    <option value="WITH_FOOD">🍽️ With Food</option>
-                    <option value="WITHOUT_FOOD">🍞 Without Food</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <select id="filterBiometric">
-                    <option value="">All Biometric</option>
-                    <option value="enabled">✅ Enabled</option>
-                    <option value="disabled">❌ Disabled</option>
-                    <option value="not_synced">⏳ Not Synced</option>
-                </select>
-            </div>
-            <div class="search-box">
-                <i class="bi bi-search"></i>
-                <input type="text" id="searchResident" placeholder="Search by name, code, phone...">
-            </div>
-            <button class="btn-clear-filters" onclick="clearFilters()">
-                <i class="bi bi-arrow-counterclockwise"></i> Clear
-            </button>
-            <span class="result-count" id="resultCount"></span>
-            <span class="result-count" id="rentTotal" style="background:#fef3c7; color:#92400e; margin-left:8px; display:none;"></span>
+        <div class="filter-group">
+            <select id="filterHostel">
+                <option value="">All Hostels</option>
+                @foreach ($hostels as $hostel)
+                    <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
+                @endforeach
+            </select>
         </div>
+        <div class="filter-group">
+            <select id="filterGender">
+                <option value="">All Gender</option>
+                <option value="MEN">👨 Men</option>
+                <option value="WOMEN">👩 Women</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <select id="filterFood">
+                <option value="">All Food</option>
+                <option value="WITH_FOOD">🍽️ With Food</option>
+                <option value="WITHOUT_FOOD">🍞 Without Food</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <select id="filterBiometric">
+                <option value="">All Biometric</option>
+                <option value="enabled">✅ Enabled</option>
+                <option value="disabled">❌ Disabled</option>
+                <option value="not_synced">⏳ Not Synced</option>
+            </select>
+        </div>
+        <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input type="text" id="searchResident" placeholder="Search by name, code, phone...">
+        </div>
+        <button class="btn-clear-filters" onclick="clearFilters()">
+            <i class="bi bi-arrow-counterclockwise"></i> Clear
+        </button>
+        <span class="result-count" id="resultCount"></span>
+        <span class="result-count" id="rentTotal" style="background:#fef3c7; color:#92400e; margin-left:8px; display:none;"></span>
+    </div>
 
-        {{-- RESIDENTS GRID --}}
-        <div id="residentsContainer">
-            @if ($residents->count() > 0)
-                <div class="row g-4" id="residentsGrid">
-                    @foreach ($residents as $resident)
-                        <div class="col-xl-3 col-lg-4 col-md-6 resident-item"
-                             data-id="{{ $resident->id }}"
-                             data-status="{{ $resident->status }}"
-                             data-hostel="{{ $resident->hostel_id }}"
-                             data-gender="{{ $resident->hostel->hostel_type ?? '' }}"
-                             data-food="{{ $resident->food_status }}"
-                             data-biometric="{{ $resident->employee_code ? ($resident->biometric_access ? 'enabled' : 'disabled') : 'not_synced' }}"
-                             data-name="{{ strtolower($resident->name) }}"
-                             data-code="{{ strtolower($resident->resident_code) }}"
-                             data-phone="{{ $resident->phone }}"
-                             data-email="{{ strtolower($resident->email ?? '') }}"
-                             data-room-no="{{ strtolower($resident->room->room_no ?? '') }}"
-                             data-rent="{{ $resident->rent_amount ?? 0 }}">
+    {{-- RESIDENTS GRID --}}
+    <div id="residentsContainer">
+        @if ($residents->count() > 0)
+            <div class="row g-4" id="residentsGrid">
+                @foreach ($residents as $resident)
+                    <div class="col-xl-3 col-lg-4 col-md-6 resident-item"
+                         data-id="{{ $resident->id }}"
+                         data-status="{{ $resident->status }}"
+                         data-hostel="{{ $resident->hostel_id }}"
+                         data-gender="{{ $resident->hostel->hostel_type ?? '' }}"
+                         data-food="{{ $resident->food_status }}"
+                         data-biometric="{{ $resident->employee_code ? ($resident->biometric_access ? 'enabled' : 'disabled') : 'not_synced' }}"
+                         data-name="{{ strtolower($resident->name) }}"
+                         data-code="{{ strtolower($resident->resident_code) }}"
+                         data-phone="{{ $resident->phone }}"
+                         data-email="{{ strtolower($resident->email ?? '') }}"
+                         data-room-no="{{ strtolower($resident->room->room_no ?? '') }}"
+                         data-rent="{{ $resident->rent_amount ?? 0 }}">
 
-                            <div class="resident-card">
-                                <div class="card-checkbox no-print">
-                                    <input type="checkbox" class="resident-checkbox" value="{{ $resident->id }}"
-                                           onclick="updateBulkActions()">
-                                </div>
+                        <div class="resident-card">
+                            <div class="card-checkbox no-print">
+                                <input type="checkbox" class="resident-checkbox" value="{{ $resident->id }}"
+                                       onclick="updateBulkActions()">
+                            </div>
 
-                                <div class="resident-header-card">
-                                    <div class="resident-avatar">
-                                        @if ($resident->profile_image)
-                                            <img src="{{ asset($resident->profile_image) }}" alt="{{ $resident->name }}">
-                                        @else
-                                            {{ strtoupper(substr($resident->name, 0, 2)) }}
-                                        @endif
-                                    </div>
-                                    <div style="flex:1; min-width:0;">
-                                        <div style="font-weight:600; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                            {{ $resident->name }}
-                                        </div>
-                                        <div style="font-size:0.7rem; opacity:0.8;">
-                                            <span class="resident-code">{{ $resident->resident_code }}</span>
-                                            @if($resident->employee_code)
-                                                <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
-                                                    Emp: {{ $resident->employee_code }}
-                                                </span>
-                                            @else
-                                                <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
-                                                    ⚠️ Not Synced
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="resident-body">
-                                    <div class="resident-detail">
-                                        <i class="bi bi-phone"></i>
-                                        <span class="value">{{ $resident->phone }}</span>
-                                    </div>
-                                    @if($resident->parentsphone)
-                                        <div class="resident-detail">
-                                            <i class="bi bi-person-lines-fill"></i>
-                                            <span class="label">Parents:</span>
-                                            <span class="value">{{ $resident->parentsphone }}</span>
-                                        </div>
+                            <div class="resident-header-card">
+                                <div class="resident-avatar">
+                                    @if ($resident->profile_image)
+                                        <img src="{{ asset($resident->profile_image) }}" alt="{{ $resident->name }}">
+                                    @else
+                                        {{ strtoupper(substr($resident->name, 0, 2)) }}
                                     @endif
-                                    @if ($resident->email)
-                                        <div class="resident-detail">
-                                            <i class="bi bi-envelope"></i>
-                                            <span class="value">{{ Str::limit($resident->email, 25) }}</span>
-                                        </div>
-                                    @endif
-
-                                    <div class="resident-detail" style="margin-top:4px;">
-                                        <i class="bi bi-fingerprint"></i>
-                                        <span class="label">Biometric:</span>
+                                </div>
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-weight:600; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                        {{ $resident->name }}
+                                    </div>
+                                    <div style="font-size:0.7rem; opacity:0.8;">
+                                        <span class="resident-code">{{ $resident->resident_code }}</span>
                                         @if($resident->employee_code)
-                                            <span class="biometric-badge-small {{ $resident->biometric_access ? 'enabled' : 'disabled' }}">
-                                                <i class="bi {{ $resident->biometric_access ? 'bi-check-circle' : 'bi-x-circle' }}"></i>
-                                                {{ $resident->biometric_access ? 'Enabled' : 'Disabled' }}
+                                            <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
+                                                Emp: {{ $resident->employee_code }}
                                             </span>
                                         @else
-                                            <span class="biometric-badge-small not-synced">
-                                                <i class="bi bi-clock"></i> Not Synced
+                                            <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
+                                                ⚠️ Not Synced
                                             </span>
                                         @endif
                                     </div>
+                                </div>
+                            </div>
 
-                                    <div class="resident-detail" style="margin-top:4px;">
-                                        <i class="bi bi-files"></i>
-                                        <span class="label">Docs:</span>
-                                        @if ($resident->profile_image)
-                                            <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->profile_image) }}', 'Profile Image')">
-                                                <i class="bi bi-image"></i> Profile
-                                            </span>
-                                        @endif
-                                        @if ($resident->aadhar_document)
-                                            <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->aadhar_document) }}', 'Aadhar Document')">
-                                                <i class="bi bi-file-earmark-pdf"></i> Aadhar
-                                            </span>
-                                        @endif
-                                        @if ($resident->application_document)
-                                            <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->application_document) }}', 'Application')">
-                                                <i class="bi bi-file-earmark-text"></i> App
-                                            </span>
-                                        @endif
-                                        @if (!$resident->profile_image && !$resident->aadhar_document && !$resident->application_document)
-                                            <span style="font-size:0.65rem; color:#9ca3af;">No docs</span>
-                                        @endif
+                            <div class="resident-body">
+                                <div class="resident-detail">
+                                    <i class="bi bi-phone"></i>
+                                    <span class="value">{{ $resident->phone }}</span>
+                                </div>
+                                @if($resident->parentsphone)
+                                    <div class="resident-detail">
+                                        <i class="bi bi-person-lines-fill"></i>
+                                        <span class="label">Parents:</span>
+                                        <span class="value">{{ $resident->parentsphone }}</span>
                                     </div>
-
-                                    <div class="resident-room-info">
-                                        <div class="d-flex justify-content-between">
-                                            <span>
-                                                <span class="label">Room:</span>
-                                                <span class="value">#{{ $resident->room->room_no ?? 'N/A' }}</span>
-                                            </span>
-                                            <span>
-                                                <span class="label">Bed:</span>
-                                                <span class="value">#{{ $resident->bed->bed_no ?? 'N/A' }}</span>
-                                            </span>
-                                        </div>
-                                        <div class="d-flex justify-content-between mt-1">
-                                            <div style="font-size:0.7rem; color:#6b7280;">
-                                                {{ $resident->hostel->hostel_name ?? 'N/A' }}
-                                                @if($resident->hostel)
-                                                    <span>{{ $resident->hostel->hostel_type == 'MEN' ? '👨' : '👩' }}</span>
-                                                @endif
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="food-badge {{ $resident->food_status == 'WITH_FOOD' ? 'with-food' : 'without-food' }}">
-                                                    {{ $resident->food_status == 'WITH_FOOD' ? '🍽️' : '🍞' }}
-                                                </span>
-                                                <span class="resident-rent">
-                                                    ₹{{ number_format($resident->rent_amount ?? 0, 0) }}
-                                                </span>
-                                            </div>
-                                        </div>
+                                @endif
+                                @if ($resident->email)
+                                    <div class="resident-detail">
+                                        <i class="bi bi-envelope"></i>
+                                        <span class="value">{{ Str::limit($resident->email, 25) }}</span>
                                     </div>
+                                @endif
 
-                                    <div class="d-flex justify-content-between align-items-center mt-2">
-                                        <button class="status-badge {{ strtolower($resident->status) }}" onclick="toggleStatus({{ $resident->id }})">
-                                            <span class="dot"></span>
-                                            {{ $resident->status }}
-                                        </button>
-                                        <div class="d-flex gap-1 no-print">
-                                            <button class="btn-action text-primary" onclick="viewResidentDetails({{ $resident->id }})" title="View">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                            @if($resident->employee_code)
-                                                <button class="btn-action text-warning" onclick="toggleBiometricAccess({{ $resident->id }})" title="Toggle Biometric">
-                                                    <i class="bi bi-fingerprint"></i>
-                                                </button>
-                                            @else
-                                                <button class="btn-action text-success" onclick="syncSingleBiometric({{ $resident->id }})" title="Sync Biometric">
-                                                    <i class="bi bi-cloud-upload"></i>
-                                                </button>
+                                <div class="resident-detail" style="margin-top:4px;">
+                                    <i class="bi bi-fingerprint"></i>
+                                    <span class="label">Biometric:</span>
+                                    @if($resident->employee_code)
+                                        <span class="biometric-badge-small {{ $resident->biometric_access ? 'enabled' : 'disabled' }}">
+                                            <i class="bi {{ $resident->biometric_access ? 'bi-check-circle' : 'bi-x-circle' }}"></i>
+                                            {{ $resident->biometric_access ? 'Enabled' : 'Disabled' }}
+                                        </span>
+                                    @else
+                                        <span class="biometric-badge-small not-synced">
+                                            <i class="bi bi-clock"></i> Not Synced
+                                        </span>
+                                    @endif
+                                </div>
+
+                                <div class="resident-detail" style="margin-top:4px;">
+                                    <i class="bi bi-files"></i>
+                                    <span class="label">Docs:</span>
+                                    @if ($resident->profile_image)
+                                        <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->profile_image) }}', 'Profile Image')">
+                                            <i class="bi bi-image"></i> Profile
+                                        </span>
+                                    @endif
+                                    @if ($resident->aadhar_document)
+                                        <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->aadhar_document) }}', 'Aadhar Document')">
+                                            <i class="bi bi-file-earmark-pdf"></i> Aadhar
+                                        </span>
+                                    @endif
+                                    @if ($resident->application_document)
+                                        <span class="document-badge has-doc" onclick="viewDocument('{{ asset($resident->application_document) }}', 'Application')">
+                                            <i class="bi bi-file-earmark-text"></i> App
+                                        </span>
+                                    @endif
+                                    @if (!$resident->profile_image && !$resident->aadhar_document && !$resident->application_document)
+                                        <span style="font-size:0.65rem; color:#9ca3af;">No docs</span>
+                                    @endif
+                                </div>
+
+                                <div class="resident-room-info">
+                                    <div class="d-flex justify-content-between">
+                                        <span>
+                                            <span class="label">Room:</span>
+                                            <span class="value">#{{ $resident->room->room_no ?? 'N/A' }}</span>
+                                        </span>
+                                        <span>
+                                            <span class="label">Bed:</span>
+                                            <span class="value">#{{ $resident->bed->bed_no ?? 'N/A' }}</span>
+                                        </span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-1">
+                                        <div style="font-size:0.7rem; color:#6b7280;">
+                                            {{ $resident->hostel->hostel_name ?? 'N/A' }}
+                                            @if($resident->hostel)
+                                                <span>{{ $resident->hostel->hostel_type == 'MEN' ? '👨' : '👩' }}</span>
                                             @endif
-                                            <button class="btn-action text-primary" onclick="editResident({{ $resident->id }})" title="Edit">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button class="btn-action text-danger" onclick="deleteResident({{ $resident->id }})" title="Delete">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
                                         </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="food-badge {{ $resident->food_status == 'WITH_FOOD' ? 'with-food' : 'without-food' }}">
+                                                {{ $resident->food_status == 'WITH_FOOD' ? '🍽️' : '🍞' }}
+                                            </span>
+                                            <span class="resident-rent">
+                                                ₹{{ number_format($resident->rent_amount ?? 0, 0) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <button class="status-badge {{ strtolower($resident->status) }}" onclick="toggleStatus({{ $resident->id }})">
+                                        <span class="dot"></span>
+                                        {{ $resident->status }}
+                                    </button>
+                                    <div class="d-flex gap-1 no-print">
+                                        <button class="btn-action text-primary" onclick="viewResidentDetails({{ $resident->id }})" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        @if($resident->employee_code)
+                                            <button class="btn-action text-warning" onclick="toggleBiometricAccess({{ $resident->id }})" title="Toggle Biometric">
+                                                <i class="bi bi-fingerprint"></i>
+                                            </button>
+                                        @else
+                                            <button class="btn-action text-success" onclick="syncSingleBiometric({{ $resident->id }})" title="Sync Biometric">
+                                                <i class="bi bi-cloud-upload"></i>
+                                            </button>
+                                        @endif
+                                        <button class="btn-action text-primary" onclick="editResident({{ $resident->id }})" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn-action text-danger" onclick="deleteResident({{ $resident->id }})" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    @endforeach
-                </div>
+                    </div>
+                @endforeach
+            </div>
 
-                <div id="noSearchResults" class="no-results-state" style="display:none;">
-                    <i class="bi bi-search"></i>
+            <div id="noSearchResults" class="no-results-state" style="display:none;">
+                <i class="bi bi-search"></i>
+                <h5>No residents found</h5>
+                <p>No residents match your search criteria. Try adjusting your filters.</p>
+                <button class="btn-clear-filters" onclick="clearFilters()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Clear All Filters
+                </button>
+            </div>
+        @else
+            <div class="ds-card">
+                <div class="empty-state">
+                    <i class="bi bi-people"></i>
                     <h5>No residents found</h5>
-                    <p>No residents match your search criteria. Try adjusting your filters.</p>
-                    <button class="btn-clear-filters" onclick="clearFilters()">
-                        <i class="bi bi-arrow-counterclockwise"></i> Clear All Filters
+                    <p class="text-muted">Register residents and allocate rooms.</p>
+                    <button type="button" class="btn-primary-custom" onclick="openAddModal()">
+                        <i class="bi bi-plus-circle"></i> Add Resident
                     </button>
                 </div>
-            @else
-                <div class="ds-card">
-                    <div class="empty-state">
-                        <i class="bi bi-people"></i>
-                        <h5>No residents found</h5>
-                        <p class="text-muted">Register residents and allocate rooms.</p>
-                        <button type="button" class="btn-primary-custom" onclick="openAddModal()">
-                            <i class="bi bi-plus-circle"></i> Add Resident
-                        </button>
-                    </div>
-                </div>
-            @endif
-        </div>
+            </div>
+        @endif
     </div>
+</div>
 
-    {{-- ============================================
-    ADD/EDIT MODAL
-    ============================================ --}}
-    <div class="modal fade" id="residentModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle"><i class="bi bi-person-plus"></i> Add Resident</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="residentForm" enctype="multipart/form-data">
-                    @csrf
-                    <input type="hidden" id="editId" name="edit_id">
-                    <div class="modal-body">
-                        <div class="row g-3">
+{{-- ADD/EDIT MODAL --}}
+<div class="modal fade" id="residentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle"><i class="bi bi-person-plus"></i> Add Resident</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="residentForm" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" id="editId" name="edit_id">
+                <div class="modal-body">
+                    <div class="row g-3">
 
-                            <div class="col-md-6">
-                                <label class="form-label">Name <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-person rv-input-icon"></i>
-                                    <input type="text" name="name" id="name" class="rv-input" placeholder="Full name" required>
-                                </div>
-                                <div class="invalid-feedback" id="name_error"></div>
+                        <div class="col-md-6">
+                            <label class="form-label">Name <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-person rv-input-icon"></i>
+                                <input type="text" name="name" id="name" class="rv-input" placeholder="Full name" required>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Phone <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-phone rv-input-icon"></i>
-                                    <input type="text" name="phone" id="phone" class="rv-input" placeholder="+91 98765 43210" required>
-                                </div>
-                                <div class="invalid-feedback" id="phone_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Parents Phone</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-person-lines-fill rv-input-icon"></i>
-                                    <input type="text" name="parentsphone" id="parentsphone" class="rv-input" placeholder="+91 98765 43210">
-                                </div>
-                                <div class="invalid-feedback" id="parentsphone_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Email</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-envelope rv-input-icon"></i>
-                                    <input type="email" name="email" id="email" class="rv-input" placeholder="resident@email.com">
-                                </div>
-                                <div class="invalid-feedback" id="email_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Aadhaar No</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-credit-card rv-input-icon"></i>
-                                    <input type="text" name="aadhaar_no" id="aadhaar_no" class="rv-input" placeholder="XXXX XXXX XXXX">
-                                </div>
-                                <div class="invalid-feedback" id="aadhaar_no_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Date of Birth</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-calendar-heart rv-input-icon"></i>
-                                    <input type="date" name="dob" id="dob" class="rv-input" max="{{ date('Y-m-d') }}">
-                                </div>
-                                <div class="invalid-feedback" id="dob_error"></div>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Address</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-geo-alt rv-input-icon textarea-icon"></i>
-                                    <textarea name="address" id="address" class="rv-input textarea-input" placeholder="Complete address"></textarea>
-                                </div>
-                                <div class="invalid-feedback" id="address_error"></div>
-                            </div>
-
-                            {{-- PROFILE IMAGE with CAMERA + FILE --}}
-                            <div class="col-md-4">
-                                <label class="form-label">Profile Image</label>
-                                <div class="rv-input-box file-input-box">
-                                    <div class="d-flex gap-2 align-items-center">
-                                        <input type="file" name="profile_image" id="profile_image" accept="image/*" style="flex: 1;">
-                                        <button type="button" class="btn-action text-primary" onclick="openCamera()" title="Take Photo" style="white-space: nowrap; padding: 0.4rem 0.8rem;">
-                                            <i class="bi bi-camera"></i> Camera
-                                        </button>
-                                    </div>
-                                    <small class="text-muted" style="display:block; font-size:0.65rem;">JPG, PNG (Max 2MB)</small>
-                                </div>
-                                <input type="hidden" name="camera_image" id="camera_image" value="">
-                                <div id="profile_image_preview" style="display:none; margin-top:6px;">
-                                    <div class="file-preview-container">
-                                        <img id="profile_preview_img" src="" alt="Preview">
-                                        <div class="file-info">
-                                            <div class="filename" id="profile_filename">File</div>
-                                            <div class="filesize" id="profile_filesize">0 KB</div>
-                                        </div>
-                                        <button type="button" class="btn-action text-danger" onclick="removeFile('profile_image')">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="profile_image_existing" style="display:none; margin-top:6px;">
-                                    <div class="file-preview-container">
-                                        <img id="profile_existing_img" src="" alt="Existing">
-                                        <div class="file-info">
-                                            <div class="filename">Current Profile</div>
-                                        </div>
-                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
-                                    </div>
-                                </div>
-                                <div class="invalid-feedback" id="profile_image_error"></div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Aadhar Document</label>
-                                <div class="rv-input-box file-input-box">
-                                    <input type="file" name="aadhar_document" id="aadhar_document" accept=".pdf,.jpg,.jpeg,.png">
-                                    <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max 5MB)</small>
-                                </div>
-                                <div id="aadhar_document_preview" style="display:none; margin-top:6px;">
-                                    <div class="file-preview-container">
-                                        <i class="bi bi-file-earmark-pdf" style="font-size:2rem; color:#dc2626;"></i>
-                                        <div class="file-info">
-                                            <div class="filename" id="aadhar_document_filename">File</div>
-                                            <div class="filesize" id="aadhar_document_filesize">0 KB</div>
-                                        </div>
-                                        <button type="button" class="btn-action text-danger" onclick="removeFile('aadhar_document')">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="aadhar_document_existing" style="display:none; margin-top:6px;">
-                                    <div class="file-preview-container">
-                                        <i class="bi bi-file-earmark-pdf" style="font-size:2rem; color:#dc2626;"></i>
-                                        <div class="file-info">
-                                            <div class="filename">Current Aadhar</div>
-                                        </div>
-                                        <a id="aadhar_existing_link" href="#" target="_blank" class="btn-action text-primary">
-                                            <i class="bi bi-eye"></i> View
-                                        </a>
-                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
-                                    </div>
-                                </div>
-                                <div class="invalid-feedback" id="aadhar_document_error"></div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Application Document</label>
-                                <div class="rv-input-box file-input-box">
-                                    <input type="file" name="application_document" id="application_document" accept=".pdf,.jpg,.jpeg,.png">
-                                    <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max 5MB)</small>
-                                </div>
-                                <div id="application_document_preview" style="display:none; margin-top:6px;">
-                                    <div class="file-preview-container">
-                                        <i class="bi bi-file-earmark-text" style="font-size:2rem; color:#2563eb;"></i>
-                                        <div class="file-info">
-                                            <div class="filename" id="application_document_filename">File</div>
-                                            <div class="filesize" id="application_document_filesize">0 KB</div>
-                                        </div>
-                                        <button type="button" class="btn-action text-danger" onclick="removeFile('application_document')">
-                                            <i class="bi bi-x"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div id="application_document_existing" style="display:none; margin-top:6px;">
-                                    <div class="file-preview-container">
-                                        <i class="bi bi-file-earmark-text" style="font-size:2rem; color:#2563eb;"></i>
-                                        <div class="file-info">
-                                            <div class="filename">Current Application</div>
-                                        </div>
-                                        <a id="application_existing_link" href="#" target="_blank" class="btn-action text-primary">
-                                            <i class="bi bi-eye"></i> View
-                                        </a>
-                                        <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
-                                    </div>
-                                </div>
-                                <div class="invalid-feedback" id="application_document_error"></div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Hostel <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-building rv-input-icon"></i>
-                                    <select name="hostel_id" id="hostel_id" class="rv-input" required>
-                                        <option value="">Select Hostel</option>
-                                        @foreach ($hostels as $hostel)
-                                            <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }} ({{ $hostel->hostel_code }})</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="invalid-feedback" id="hostel_id_error"></div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Room <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-door-open rv-input-icon"></i>
-                                    <select name="room_id" id="room_id" class="rv-input" required>
-                                        <option value="">Select Room</option>
-                                    </select>
-                                </div>
-                                <div class="invalid-feedback" id="room_id_error"></div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Bed <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-bed rv-input-icon"></i>
-                                    <select name="bed_id" id="bed_id" class="rv-input" required>
-                                        <option value="">Select Bed</option>
-                                    </select>
-                                </div>
-                                <div class="invalid-feedback" id="bed_id_error"></div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label">Food Status <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-egg-fried rv-input-icon"></i>
-                                    <select name="food_status" id="food_status" class="rv-input" required>
-                                        <option value="">Select</option>
-                                        <option value="WITH_FOOD">🍽️ With Food</option>
-                                        <option value="WITHOUT_FOOD">🍞 Without Food</option>
-                                    </select>
-                                </div>
-                                <div class="invalid-feedback" id="food_status_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Rent (₹) <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-currency-rupee rv-input-icon"></i>
-                                    <input type="number" name="rent_amount" id="rent_amount" class="rv-input" placeholder="0.00" step="0.01" min="0" required>
-                                </div>
-                                <div class="invalid-feedback" id="rent_amount_error"></div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label">Deposit (₹)</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-currency-rupee rv-input-icon"></i>
-                                    <input type="number" name="deposit_amount" id="deposit_amount" class="rv-input" placeholder="0.00" step="0.01" min="0">
-                                </div>
-                                <div class="invalid-feedback" id="deposit_amount_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Joining Date <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-calendar3 rv-input-icon"></i>
-                                    <input type="date" name="joining_date" id="joining_date" class="rv-input" required>
-                                </div>
-                                <div class="invalid-feedback" id="joining_date_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Status <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-toggle-on rv-input-icon"></i>
-                                    <select name="status" id="status" class="rv-input" required>
-                                        <option value="ACTIVE">✅ Active</option>
-                                        <option value="VACATED">❌ Vacated</option>
-                                    </select>
-                                </div>
-                                <div class="invalid-feedback" id="status_error"></div>
-                            </div>
-                            <div class="col-md-6" id="vacateDateDiv" style="display:none;">
-                                <label class="form-label">Vacate Date</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-calendar-x rv-input-icon"></i>
-                                    <input type="date" name="vacate_date" id="vacate_date" class="rv-input">
-                                </div>
-                                <div class="invalid-feedback" id="vacate_date_error"></div>
-                            </div>
-
+                            <div class="invalid-feedback" id="name_error"></div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn-primary-custom" id="saveBtn">
-                            <i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-phone rv-input-icon"></i>
+                                <input type="text" name="phone" id="phone" class="rv-input" placeholder="+91 98765 43210" required>
+                            </div>
+                            <div class="invalid-feedback" id="phone_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Parents Phone</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-person-lines-fill rv-input-icon"></i>
+                                <input type="text" name="parentsphone" id="parentsphone" class="rv-input" placeholder="+91 98765 43210">
+                            </div>
+                            <div class="invalid-feedback" id="parentsphone_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-envelope rv-input-icon"></i>
+                                <input type="email" name="email" id="email" class="rv-input" placeholder="resident@email.com">
+                            </div>
+                            <div class="invalid-feedback" id="email_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Aadhaar No</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-credit-card rv-input-icon"></i>
+                                <input type="text" name="aadhaar_no" id="aadhaar_no" class="rv-input" placeholder="XXXX XXXX XXXX">
+                            </div>
+                            <div class="invalid-feedback" id="aadhaar_no_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Date of Birth</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-heart rv-input-icon"></i>
+                                <input type="date" name="dob" id="dob" class="rv-input" max="{{ date('Y-m-d') }}">
+                            </div>
+                            <div class="invalid-feedback" id="dob_error"></div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-geo-alt rv-input-icon textarea-icon"></i>
+                                <textarea name="address" id="address" class="rv-input textarea-input" placeholder="Complete address"></textarea>
+                            </div>
+                            <div class="invalid-feedback" id="address_error"></div>
+                        </div>
 
-    {{-- DETAILS VIEW MODAL --}}
-    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-person-badge"></i> Resident Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="detailsBody">
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2 text-muted">Loading details...</p>
+                        {{-- PROFILE IMAGE with CAMERA --}}
+                        <div class="col-md-4">
+                            <label class="form-label">Profile Image</label>
+                            <div class="rv-input-box file-input-box">
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="file" name="profile_image" id="profile_image" accept="image/*" style="flex: 1;">
+                                    <button type="button" class="btn-action text-primary" onclick="openCamera()" title="Take Photo" style="white-space: nowrap; padding: 0.4rem 0.8rem;">
+                                        <i class="bi bi-camera"></i> Camera
+                                    </button>
+                                </div>
+                                <small class="text-muted" style="display:block; font-size:0.65rem;">JPG, PNG (Max 2MB)</small>
+                            </div>
+                            <input type="hidden" name="camera_image" id="camera_image" value="">
+                            <div id="profile_image_preview" style="display:none; margin-top:6px;">
+                                <div class="file-preview-container">
+                                    <img id="profile_preview_img" src="" alt="Preview">
+                                    <div class="file-info">
+                                        <div class="filename" id="profile_filename">File</div>
+                                        <div class="filesize" id="profile_filesize">0 KB</div>
+                                    </div>
+                                    <button type="button" class="btn-action text-danger" onclick="removeFile('profile_image')">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="profile_image_existing" style="display:none; margin-top:6px;">
+                                <div class="file-preview-container">
+                                    <img id="profile_existing_img" src="" alt="Existing">
+                                    <div class="file-info">
+                                        <div class="filename">Current Profile</div>
+                                    </div>
+                                    <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
+                                </div>
+                            </div>
+                            <div class="invalid-feedback" id="profile_image_error"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Aadhar Document</label>
+                            <div class="rv-input-box file-input-box">
+                                <input type="file" name="aadhar_document" id="aadhar_document" accept=".pdf,.jpg,.jpeg,.png">
+                                <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max 5MB)</small>
+                            </div>
+                            <div id="aadhar_document_preview" style="display:none; margin-top:6px;">
+                                <div class="file-preview-container">
+                                    <i class="bi bi-file-earmark-pdf" style="font-size:2rem; color:#dc2626;"></i>
+                                    <div class="file-info">
+                                        <div class="filename" id="aadhar_document_filename">File</div>
+                                        <div class="filesize" id="aadhar_document_filesize">0 KB</div>
+                                    </div>
+                                    <button type="button" class="btn-action text-danger" onclick="removeFile('aadhar_document')">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="aadhar_document_existing" style="display:none; margin-top:6px;">
+                                <div class="file-preview-container">
+                                    <i class="bi bi-file-earmark-pdf" style="font-size:2rem; color:#dc2626;"></i>
+                                    <div class="file-info">
+                                        <div class="filename">Current Aadhar</div>
+                                    </div>
+                                    <a id="aadhar_existing_link" href="#" target="_blank" class="btn-action text-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                    <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
+                                </div>
+                            </div>
+                            <div class="invalid-feedback" id="aadhar_document_error"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Application Document</label>
+                            <div class="rv-input-box file-input-box">
+                                <input type="file" name="application_document" id="application_document" accept=".pdf,.jpg,.jpeg,.png">
+                                <small class="text-muted" style="display:block; font-size:0.65rem;">PDF, JPG, PNG (Max 5MB)</small>
+                            </div>
+                            <div id="application_document_preview" style="display:none; margin-top:6px;">
+                                <div class="file-preview-container">
+                                    <i class="bi bi-file-earmark-text" style="font-size:2rem; color:#2563eb;"></i>
+                                    <div class="file-info">
+                                        <div class="filename" id="application_document_filename">File</div>
+                                        <div class="filesize" id="application_document_filesize">0 KB</div>
+                                    </div>
+                                    <button type="button" class="btn-action text-danger" onclick="removeFile('application_document')">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="application_document_existing" style="display:none; margin-top:6px;">
+                                <div class="file-preview-container">
+                                    <i class="bi bi-file-earmark-text" style="font-size:2rem; color:#2563eb;"></i>
+                                    <div class="file-info">
+                                        <div class="filename">Current Application</div>
+                                    </div>
+                                    <a id="application_existing_link" href="#" target="_blank" class="btn-action text-primary">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                    <span class="existing-doc-badge"><i class="bi bi-check-circle"></i> Uploaded</span>
+                                </div>
+                            </div>
+                            <div class="invalid-feedback" id="application_document_error"></div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Hostel <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-building rv-input-icon"></i>
+                                <select name="hostel_id" id="hostel_id" class="rv-input" required>
+                                    <option value="">Select Hostel</option>
+                                    @foreach ($hostels as $hostel)
+                                        <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }} ({{ $hostel->hostel_code }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="hostel_id_error"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Room <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-door-open rv-input-icon"></i>
+                                <select name="room_id" id="room_id" class="rv-input" required>
+                                    <option value="">Select Room</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="room_id_error"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Bed <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-bed rv-input-icon"></i>
+                                <select name="bed_id" id="bed_id" class="rv-input" required>
+                                    <option value="">Select Bed</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="bed_id_error"></div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Food Status <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-egg-fried rv-input-icon"></i>
+                                <select name="food_status" id="food_status" class="rv-input" required>
+                                    <option value="">Select</option>
+                                    <option value="WITH_FOOD">🍽️ With Food</option>
+                                    <option value="WITHOUT_FOOD">🍞 Without Food</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="food_status_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rent (₹) <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-currency-rupee rv-input-icon"></i>
+                                <input type="number" name="rent_amount" id="rent_amount" class="rv-input" placeholder="0.00" step="0.01" min="0" required>
+                            </div>
+                            <div class="invalid-feedback" id="rent_amount_error"></div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Deposit (₹)</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-currency-rupee rv-input-icon"></i>
+                                <input type="number" name="deposit_amount" id="deposit_amount" class="rv-input" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                            <div class="invalid-feedback" id="deposit_amount_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Joining Date <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar3 rv-input-icon"></i>
+                                <input type="date" name="joining_date" id="joining_date" class="rv-input" required>
+                            </div>
+                            <div class="invalid-feedback" id="joining_date_error"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status <span class="required">*</span></label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-toggle-on rv-input-icon"></i>
+                                <select name="status" id="status" class="rv-input" required>
+                                    <option value="ACTIVE">✅ Active</option>
+                                    <option value="VACATED">❌ Vacated</option>
+                                </select>
+                            </div>
+                            <div class="invalid-feedback" id="status_error"></div>
+                        </div>
+                        <div class="col-md-6" id="vacateDateDiv" style="display:none;">
+                            <label class="form-label">Vacate Date</label>
+                            <div class="rv-input-box">
+                                <i class="bi bi-calendar-x rv-input-icon"></i>
+                                <input type="date" name="vacate_date" id="vacate_date" class="rv-input">
+                            </div>
+                            <div class="invalid-feedback" id="vacate_date_error"></div>
+                        </div>
+
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn-primary-custom" onclick="window.print()">
-                        <i class="bi bi-printer"></i> Print
+                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn-primary-custom" id="saveBtn">
+                        <i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>
                     </button>
                 </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- DETAILS MODAL --}}
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-badge"></i> Resident Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detailsBody">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Loading details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn-primary-custom" onclick="window.print()">
+                    <i class="bi bi-printer"></i> Print
+                </button>
             </div>
         </div>
     </div>
+</div>
 
-    {{-- DOCUMENT VIEWER MODAL --}}
-    <div class="modal fade" id="documentViewerModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="documentViewerTitle">Document Viewer</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+{{-- DOCUMENT VIEWER --}}
+<div class="modal fade" id="documentViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="documentViewerTitle">Document Viewer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center" id="documentViewerBody">
+                <div id="documentViewerContent">
+                    <p class="text-muted">No document selected</p>
                 </div>
-                <div class="modal-body text-center" id="documentViewerBody">
-                    <div id="documentViewerContent">
-                        <p class="text-muted">No document selected</p>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Close</button>
-                    <a href="#" id="documentDownloadLink" target="_blank" class="btn-primary-custom" style="text-decoration:none;">
-                        <i class="bi bi-download"></i> Download
-                    </a>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="documentDownloadLink" target="_blank" class="btn-primary-custom" style="text-decoration:none;">
+                    <i class="bi bi-download"></i> Download
+                </a>
             </div>
         </div>
     </div>
+</div>
 
-    {{-- CAMERA MODAL --}}
-    <div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-camera"></i> Take Photo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="stopCamera()"></button>
+{{-- CAMERA MODAL --}}
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-camera"></i> Take Photo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="stopCamera()"></button>
+            </div>
+            <div class="modal-body text-center" style="background: #000; padding: 0; position: relative;">
+                <div style="position: relative; width: 100%; max-height: 70vh; overflow: hidden; background: #000;">
+                    <video id="cameraVideo" autoplay playsinline muted style="width: 100%; max-height: 70vh; object-fit: contain; display: block;"></video>
+                    <canvas id="cameraCanvas" style="display: none;"></canvas>
+                    <img id="capturedPhoto" style="display: none; width: 100%; max-height: 70vh; object-fit: contain;" />
                 </div>
-                <div class="modal-body text-center" style="background: #000; padding: 0; position: relative;">
-                    <div style="position: relative; width: 100%; max-height: 70vh; overflow: hidden; background: #000;">
-                        <video id="cameraVideo" autoplay playsinline muted style="width: 100%; max-height: 70vh; object-fit: contain; display: block;"></video>
-                        <canvas id="cameraCanvas" style="display: none;"></canvas>
-                        <img id="capturedPhoto" style="display: none; width: 100%; max-height: 70vh; object-fit: contain;" />
-                    </div>
-                    <div id="cameraError" class="text-danger p-3" style="display: none; background: #1a1a1a;">
-                        <i class="bi bi-exclamation-triangle"></i> <span id="cameraErrorMsg">Camera access denied or not available</span>
-                    </div>
+                <div id="cameraError" class="text-danger p-3" style="display: none; background: #1a1a1a;">
+                    <i class="bi bi-exclamation-triangle"></i> <span id="cameraErrorMsg">Camera access denied or not available</span>
                 </div>
-                <div class="modal-footer" style="justify-content: center; gap: 10px; flex-wrap: wrap;">
-                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" onclick="stopCamera()">
-                        <i class="bi bi-x-circle"></i> Cancel
-                    </button>
-                    <button type="button" class="btn-primary-custom" id="captureBtn" onclick="capturePhoto()">
-                        <i class="bi bi-camera"></i> Capture Photo
-                    </button>
-                    <button type="button" id="retakeBtn" onclick="retakePhoto()" style="display: none; background: #f59e0b; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; cursor: pointer;">
-                        <i class="bi bi-arrow-clockwise"></i> Retake
-                    </button>
-                    <button type="button" id="usePhotoBtn" onclick="usePhoto()" style="display: none; background: #22c55e; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; cursor: pointer;">
-                        <i class="bi bi-check-circle"></i> Use This Photo
-                    </button>
-                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" onclick="stopCamera()">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <button type="button" class="btn-primary-custom" id="captureBtn" onclick="capturePhoto()">
+                    <i class="bi bi-camera"></i> Capture Photo
+                </button>
+                <button type="button" id="retakeBtn" onclick="retakePhoto()" style="display: none; background: #f59e0b; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; cursor: pointer;">
+                    <i class="bi bi-arrow-clockwise"></i> Retake
+                </button>
+                <button type="button" id="usePhotoBtn" onclick="usePhoto()" style="display: none; background: #22c55e; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; cursor: pointer;">
+                    <i class="bi bi-check-circle"></i> Use This Photo
+                </button>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="toast-container" id="flashMessageContainer"></div>
+<div class="toast-container" id="flashMessageContainer"></div>
 @endsection
 
 @push('scripts')
 <script>
 // ============================================
-// VARIABLES
+// GLOBAL VARIABLES
 // ============================================
 let residentModal, detailsModal, documentViewerModal;
 let cameraStream = null;
 let cameraModalInstance = null;
 let capturedImageData = null;
 
-// Store original stats so Clear button can restore them
-let originalStats = null;
-
+// ============================================
+// DOCUMENT READY
+// ============================================
 $(document).ready(function() {
     console.log('✅ Document ready!');
 
-    residentModal = new bootstrap.Modal(document.getElementById('residentModal'), {
-        backdrop: 'static', keyboard: true
-    });
-    detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
-        backdrop: 'static', keyboard: true
-    });
-    documentViewerModal = new bootstrap.Modal(document.getElementById('documentViewerModal'), {
-        backdrop: 'static', keyboard: true
-    });
-    cameraModalInstance = new bootstrap.Modal(document.getElementById('cameraModal'), {
-        backdrop: 'static', keyboard: false
-    });
+    // Init Modals
+    residentModal = new bootstrap.Modal(document.getElementById('residentModal'), { backdrop: 'static', keyboard: true });
+    detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), { backdrop: 'static', keyboard: true });
+    documentViewerModal = new bootstrap.Modal(document.getElementById('documentViewerModal'), { backdrop: 'static', keyboard: true });
+    cameraModalInstance = new bootstrap.Modal(document.getElementById('cameraModal'), { backdrop: 'static', keyboard: false });
 
-    // Save original stats from blade
-    originalStats = {
-        total: parseInt($('.stat-card.total .number').text()) || 0,
-        active: parseInt($('.stat-card.active .number').text()) || 0,
-        vacated: parseInt($('.stat-card.vacated .number').text()) || 0,
-        male: parseInt($('.stat-card.male .number').text()) || 0,
-        female: parseInt($('.stat-card.female .number').text()) || 0,
-        with_food: parseInt($('.stat-card.food .number').text()) || 0,
-        without_food: parseInt($('#withoutFoodCard .number').text()) || 0,
-        total_rent: parseFloat($('.stat-card.rent .number').text().replace(/[₹,]/g, '')) || 0,
-        biometric_active: parseInt($('.stat-card.biometric .number').text()) || 0
-    };
-    console.log('📊 Original stats saved:', originalStats);
-
-    // Search
+    // ============================================
+    // FILTER BINDINGS - all filters trigger applyFilters()
+    // ============================================
     let searchTimeout;
     $('#searchResident').on('keyup', function() {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => applyFilters(), 300);
     });
 
-    $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', applyFilters);
+    $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', function() {
+        console.log('🔔 Filter changed:', this.id, '=', this.value);
+        applyFilters();
+    });
 
+    // Add resident button
     $('#addResidentBtn').on('click', function(e) {
         e.preventDefault();
         openAddModal();
     });
 
+    // Modal hidden reset
     $('#residentModal').on('hidden.bs.modal', function() {
         resetForm();
     });
 
+    // Form submit
     $('#residentForm').on('submit', function(e) {
         e.preventDefault();
         submitForm();
     });
 
+    // Hostel -> Room
     $('#hostel_id').on('change', function() {
         let hostelId = $(this).val();
         if (hostelId) {
@@ -1293,17 +1068,12 @@ $(document).ready(function() {
                     if (response.success && response.data.length > 0) {
                         $.each(response.data, function(key, room) {
                             let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
-                            select.append('<option value="' + room.id + '" data-beds="' + room.available_beds + '">Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
+                            select.append('<option value="' + room.id + '">Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
                         });
                     } else {
                         select.append('<option value="">No rooms available</option>');
                     }
                     $('#bed_id').empty().append('<option value="">Select Bed</option>');
-                },
-                error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    }
                 }
             });
         } else {
@@ -1312,15 +1082,14 @@ $(document).ready(function() {
         }
     });
 
+    // Room -> Bed
     $('#room_id').on('change', function() {
         let roomId = $(this).val();
-        if (roomId) {
-            loadBedsForRoom(roomId, null);
-        } else {
-            $('#bed_id').empty().append('<option value="">Select Bed</option>');
-        }
+        if (roomId) loadBedsForRoom(roomId, null);
+        else $('#bed_id').empty().append('<option value="">Select Bed</option>');
     });
 
+    // Status -> Vacate Date
     $('#status').on('change', function() {
         if ($(this).val() === 'VACATED') {
             $('#vacateDateDiv').show();
@@ -1333,11 +1102,12 @@ $(document).ready(function() {
 
     $('#joining_date').val(new Date().toISOString().split('T')[0]);
 
+    // File inputs
     setupFileInput('profile_image', 'image');
     setupFileInput('aadhar_document', 'document');
     setupFileInput('application_document', 'document');
 
-    // Camera modal hidden event
+    // Camera modal hidden
     document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function() {
         stopCamera();
         document.getElementById('cameraVideo').style.display = 'block';
@@ -1349,12 +1119,162 @@ $(document).ready(function() {
         capturedImageData = null;
     });
 
-    // Run initial filter (which will also compute stats from visible items)
+    // Initial run
     applyFilters();
 });
 
 // ============================================
-// CAMERA FUNCTIONS
+// 🔥 APPLY FILTERS + UPDATE STATS
+// ============================================
+function applyFilters() {
+    var status = $('#filterStatus').val() || '';
+    var hostel = $('#filterHostel').val() || '';
+    var gender = $('#filterGender').val() || '';
+    var food = $('#filterFood').val() || '';
+    var biometric = $('#filterBiometric').val() || '';
+    var search = $('#searchResident').val().toLowerCase().trim() || '';
+
+    var visibleCount = 0;
+    var totalCount = $('.resident-item').length;
+
+    // STEP 1: Show/hide items
+    $('.resident-item').each(function() {
+        var show = true;
+        var $item = $(this);
+
+        var resStatus = $item.attr('data-status') || '';
+        var resHostel = $item.attr('data-hostel') || '';
+        var resGender = $item.attr('data-gender') || '';
+        var resFood = $item.attr('data-food') || '';
+        var resBiometric = $item.attr('data-biometric') || '';
+        var resName = ($item.attr('data-name') || '').toLowerCase();
+        var resCode = ($item.attr('data-code') || '').toLowerCase();
+        var resPhone = ($item.attr('data-phone') || '').toLowerCase();
+        var resEmail = ($item.attr('data-email') || '').toLowerCase();
+        var resId = String($item.attr('data-id') || '');
+        var resRoomNo = ($item.attr('data-room-no') || '').toLowerCase();
+
+        if (status && resStatus !== status) show = false;
+        if (hostel && show && resHostel !== String(hostel)) show = false;
+        if (gender && show && resGender !== gender) show = false;
+        if (food && show && resFood !== food) show = false;
+        if (biometric && show && resBiometric !== biometric) show = false;
+
+        if (search && show) {
+            var searchMatch = false;
+            if (resName.includes(search)) searchMatch = true;
+            if (resPhone.includes(search)) searchMatch = true;
+            if (resEmail.includes(search)) searchMatch = true;
+            if (resCode === search || resCode.startsWith(search)) searchMatch = true;
+            if (resRoomNo === search) searchMatch = true;
+            if (resId === search) searchMatch = true;
+            if (!searchMatch) show = false;
+        }
+
+        if (show) {
+            $item.show();
+            visibleCount++;
+        } else {
+            $item.hide();
+        }
+    });
+
+    // STEP 2: Update result count
+    if (visibleCount === totalCount) {
+        $('#resultCount').text('');
+    } else {
+        $('#resultCount').text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
+    }
+
+    if (visibleCount === 0 && totalCount > 0) $('#noSearchResults').show();
+    else $('#noSearchResults').hide();
+
+    // STEP 3: UPDATE STATS based on visible items
+    updateStatsFromFilters();
+}
+
+// ============================================
+// 🔥 UPDATE STATS FROM VISIBLE ITEMS
+// ============================================
+function updateStatsFromFilters() {
+    let stats = {
+        total: 0,
+        active: 0,
+        vacated: 0,
+        male: 0,
+        female: 0,
+        with_food: 0,
+        without_food: 0,
+        total_rent: 0,
+        biometric_active: 0
+    };
+
+    // Loop through VISIBLE items only
+    $('.resident-item:visible').each(function() {
+        const $item = $(this);
+        const status = $item.attr('data-status') || '';
+        const gender = $item.attr('data-gender') || '';
+        const food = $item.attr('data-food') || '';
+        const biometric = $item.attr('data-biometric') || '';
+        const rent = parseFloat($item.attr('data-rent') || 0);
+
+        stats.total++;
+
+        if (status === 'ACTIVE') {
+            stats.active++;
+            if (food === 'WITH_FOOD') stats.with_food++;
+            else if (food === 'WITHOUT_FOOD') stats.without_food++;
+            stats.total_rent += rent;
+        } else if (status === 'VACATED') {
+            stats.vacated++;
+        }
+
+        if (gender === 'MEN') stats.male++;
+        else if (gender === 'WOMEN') stats.female++;
+
+        if (biometric === 'enabled') stats.biometric_active++;
+    });
+
+    // Update DOM using data-stat attributes
+    $('.stat-card[data-stat="total"] .number').text(stats.total);
+    $('.stat-card[data-stat="active"] .number').text(stats.active);
+    $('.stat-card[data-stat="vacated"] .number').text(stats.vacated);
+    $('.stat-card[data-stat="male"] .number').text(stats.male);
+    $('.stat-card[data-stat="female"] .number').text(stats.female);
+    $('.stat-card[data-stat="with_food"] .number').text(stats.with_food);
+    $('.stat-card[data-stat="without_food"] .number').text(stats.without_food);
+    $('.stat-card[data-stat="total_rent"] .number').text('₹' + stats.total_rent.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
+    $('.stat-card[data-stat="biometric_active"] .number').text(stats.biometric_active);
+
+    // Flash animation on stat cards
+    $('.stat-card').addClass('updated');
+    setTimeout(() => $('.stat-card').removeClass('updated'), 500);
+
+    // Rent total badge
+    if (stats.total_rent > 0) {
+        $('#rentTotal').text('💰 Rent: ₹' + stats.total_rent.toLocaleString('en-IN', { maximumFractionDigits: 0 })).show();
+    } else {
+        $('#rentTotal').hide();
+    }
+}
+
+// ============================================
+// CLEAR FILTERS
+// ============================================
+function clearFilters() {
+    $('#filterStatus').val('');
+    $('#filterHostel').val('');
+    $('#filterGender').val('');
+    $('#filterFood').val('');
+    $('#filterBiometric').val('');
+    $('#searchResident').val('');
+    $('#resultCount').text('');
+    $('#noSearchResults').hide();
+    applyFilters();
+}
+
+// ============================================
+// CAMERA
 // ============================================
 function openCamera() {
     document.getElementById('cameraError').style.display = 'none';
@@ -1377,18 +1297,12 @@ function openCamera() {
 
 function startCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showCameraError('Camera not supported in this browser. Please use file upload.');
+        showCameraError('Camera not supported in this browser.');
         return;
     }
-
     stopCamera();
-
     navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: 'user',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-        },
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
     })
     .then(function(stream) {
@@ -1396,18 +1310,12 @@ function startCamera() {
         const video = document.getElementById('cameraVideo');
         video.srcObject = stream;
         video.play();
-        console.log('✅ Camera started');
     })
     .catch(function(error) {
-        console.error('❌ Camera error:', error);
         let msg = 'Camera access denied.';
-        if (error.name === 'NotAllowedError') {
-            msg = 'Camera permission denied. Please allow camera access.';
-        } else if (error.name === 'NotFoundError') {
-            msg = 'No camera found on this device.';
-        } else if (error.name === 'NotReadableError') {
-            msg = 'Camera is already in use by another application.';
-        }
+        if (error.name === 'NotAllowedError') msg = 'Camera permission denied. Please allow camera access.';
+        else if (error.name === 'NotFoundError') msg = 'No camera found on this device.';
+        else if (error.name === 'NotReadableError') msg = 'Camera is already in use.';
         showCameraError(msg);
     });
 }
@@ -1457,26 +1365,20 @@ function retakePhoto() {
     document.getElementById('cameraVideo').style.display = 'block';
     document.getElementById('capturedPhoto').style.display = 'none';
     capturedImageData = null;
-
     document.getElementById('captureBtn').style.display = 'inline-flex';
     document.getElementById('retakeBtn').style.display = 'none';
     document.getElementById('usePhotoBtn').style.display = 'none';
-
     if (!cameraStream) startCamera();
 }
 
 function usePhoto() {
-    if (!capturedImageData) {
-        showToast('No photo captured', 'error');
-        return;
-    }
+    if (!capturedImageData) return showToast('No photo captured', 'error');
 
     document.getElementById('camera_image').value = capturedImageData;
     document.getElementById('profile_image').value = '';
 
     const previewDiv = document.getElementById('profile_image_preview');
-    const previewImg = document.getElementById('profile_preview_img');
-    previewImg.src = capturedImageData;
+    document.getElementById('profile_preview_img').src = capturedImageData;
     document.getElementById('profile_filename').textContent = 'Camera Photo';
     document.getElementById('profile_filesize').textContent = 'Captured';
     previewDiv.style.display = 'block';
@@ -1488,7 +1390,6 @@ function usePhoto() {
 
     stopCamera();
     cameraModalInstance.hide();
-
     showToast('Photo captured successfully!', 'success');
 }
 
@@ -1506,192 +1407,41 @@ function dataURLtoBlob(dataURL) {
 // LOAD BEDS
 // ============================================
 function loadBedsForRoom(roomId, selectedBedId) {
-    if (roomId) {
-        $.ajax({
-            url: '/admin/residents/room/' + roomId + '/beds',
-            type: 'GET',
-            success: function(response) {
-                let select = $('#bed_id');
-                select.empty().append('<option value="">Select Bed</option>');
+    if (!roomId) return $('#bed_id').empty().append('<option value="">Select Bed</option>');
 
-                if (response.success && response.data.length > 0) {
-                    let foundBed = false;
-                    let bedOptions = '';
-
-                    $.each(response.data, function(key, bed) {
-                        let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
-                        let disabled = bed.status === 'OCCUPIED' && bed.id != selectedBedId ? 'disabled' : '';
-                        let selected = (selectedBedId && bed.id == selectedBedId) ? 'selected' : '';
-
-                        if (selectedBedId && bed.id == selectedBedId) foundBed = true;
-
-                        bedOptions += '<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>';
-                    });
-
-                    select.append(bedOptions);
-
-                    if (!foundBed && selectedBedId) {
-                        select.prepend('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
-                    }
-                } else {
-                    if (selectedBedId) {
-                        select.append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
-                    } else {
-                        select.append('<option value="">No vacant beds</option>');
-                    }
+    $.ajax({
+        url: '/admin/residents/room/' + roomId + '/beds',
+        type: 'GET',
+        success: function(response) {
+            let select = $('#bed_id');
+            select.empty().append('<option value="">Select Bed</option>');
+            if (response.success && response.data.length > 0) {
+                let foundBed = false;
+                let bedOptions = '';
+                $.each(response.data, function(key, bed) {
+                    let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
+                    let disabled = bed.status === 'OCCUPIED' && bed.id != selectedBedId ? 'disabled' : '';
+                    let selected = (selectedBedId && bed.id == selectedBedId) ? 'selected' : '';
+                    if (selectedBedId && bed.id == selectedBedId) foundBed = true;
+                    bedOptions += '<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>';
+                });
+                select.append(bedOptions);
+                if (!foundBed && selectedBedId) {
+                    select.prepend('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current)</option>');
                 }
-
-                if (selectedBedId) select.val(selectedBedId);
-            },
-            error: function(xhr) {
-                if (selectedBedId) {
-                    let select = $('#bed_id');
-                    select.empty().append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
-                } else {
-                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
-                }
-                if (xhr.status === 403) {
-                    showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                }
+            } else if (selectedBedId) {
+                select.append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current)</option>');
             }
-        });
-    } else {
-        $('#bed_id').empty().append('<option value="">Select Bed</option>');
-    }
-}
-
-// ============================================
-// 🔥 FILTERS + DYNAMIC STATS
-// ============================================
-function applyFilters() {
-    var status = $('#filterStatus').val() || '';
-    var hostel = $('#filterHostel').val() || '';
-    var gender = $('#filterGender').val() || '';
-    var food = $('#filterFood').val() || '';
-    var biometric = $('#filterBiometric').val() || '';
-    var search = $('#searchResident').val().toLowerCase().trim() || '';
-
-    var visibleCount = 0;
-    var totalCount = $('.resident-item').length;
-
-    $('.resident-item').each(function() {
-        var show = true;
-        var $item = $(this);
-
-        var resStatus = $item.attr('data-status') || '';
-        var resHostel = $item.attr('data-hostel') || '';
-        var resGender = $item.attr('data-gender') || '';
-        var resFood = $item.attr('data-food') || '';
-        var resBiometric = $item.attr('data-biometric') || '';
-        var resName = ($item.attr('data-name') || '').toLowerCase();
-        var resCode = ($item.attr('data-code') || '').toLowerCase();
-        var resPhone = ($item.attr('data-phone') || '').toLowerCase();
-        var resEmail = ($item.attr('data-email') || '').toLowerCase();
-        var resId = String($item.attr('data-id') || '');
-        var resRoomNo = ($item.attr('data-room-no') || '').toLowerCase();
-
-        if (status && resStatus !== status) show = false;
-        if (hostel && show && resHostel !== String(hostel)) show = false;
-        if (gender && show && resGender !== gender) show = false;
-        if (food && show && resFood !== food) show = false;
-        if (biometric && show && resBiometric !== biometric) show = false;
-
-        if (search && show) {
-            var searchMatch = false;
-            if (resName.includes(search)) searchMatch = true;
-            if (resPhone.includes(search)) searchMatch = true;
-            if (resEmail.includes(search)) searchMatch = true;
-            if (resCode === search || resCode.startsWith(search)) searchMatch = true;
-            if (resRoomNo === search) searchMatch = true;
-            if (resId === search) searchMatch = true;
-            if (!searchMatch) show = false;
+            if (selectedBedId) select.val(selectedBedId);
+        },
+        error: function() {
+            if (selectedBedId) {
+                $('#bed_id').empty().append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + '</option>');
+            } else {
+                $('#bed_id').empty().append('<option value="">Select Bed</option>');
+            }
         }
-
-        if (show) { $item.show(); visibleCount++; }
-        else { $item.hide(); }
     });
-
-    var resultCountEl = $('#resultCount');
-    if (visibleCount === totalCount) resultCountEl.text('');
-    else resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
-
-    if (visibleCount === 0 && totalCount > 0) $('#noSearchResults').show();
-    else $('#noSearchResults').hide();
-
-    // 🔥 UPDATE STATS based on filtered residents
-    updateStatsFromFilters();
-}
-
-// ============================================
-// 🔥 UPDATE STATS FROM FILTERED ITEMS
-// ============================================
-function updateStatsFromFilters() {
-    let stats = {
-        total: 0,
-        active: 0,
-        vacated: 0,
-        male: 0,
-        female: 0,
-        with_food: 0,
-        without_food: 0,
-        total_rent: 0,
-        biometric_active: 0
-    };
-
-    $('.resident-item:visible').each(function() {
-        const $item = $(this);
-        const status = $item.attr('data-status') || '';
-        const gender = $item.attr('data-gender') || '';
-        const food = $item.attr('data-food') || '';
-        const biometric = $item.attr('data-biometric') || '';
-        const rent = parseFloat($item.attr('data-rent') || 0);
-
-        stats.total++;
-
-        if (status === 'ACTIVE') {
-            stats.active++;
-            if (food === 'WITH_FOOD') stats.with_food++;
-            else if (food === 'WITHOUT_FOOD') stats.without_food++;
-            stats.total_rent += rent;
-        } else if (status === 'VACATED') {
-            stats.vacated++;
-        }
-
-        if (gender === 'MEN') stats.male++;
-        else if (gender === 'WOMEN') stats.female++;
-
-        if (biometric === 'enabled') stats.biometric_active++;
-    });
-
-    // Update DOM
-    $('.stat-card.total .number').text(stats.total);
-    $('.stat-card.active .number').text(stats.active);
-    $('.stat-card.vacated .number').text(stats.vacated);
-    $('.stat-card.male .number').text(stats.male);
-    $('.stat-card.female .number').text(stats.female);
-    $('.stat-card.food .number').text(stats.with_food);
-    $('#withoutFoodCard .number').text(stats.without_food);
-    $('.stat-card.rent .number').text('₹' + stats.total_rent.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
-    $('.stat-card.biometric .number').text(stats.biometric_active);
-
-    // Flash animation
-    $('.stat-card').addClass('updated');
-    setTimeout(() => $('.stat-card').removeClass('updated'), 500);
-
-    // Show rent total in filter bar
-    if (stats.total_rent > 0) {
-        $('#rentTotal').text('💰 Rent: ₹' + stats.total_rent.toLocaleString('en-IN', { maximumFractionDigits: 0 })).show();
-    } else {
-        $('#rentTotal').hide();
-    }
-}
-
-function clearFilters() {
-    $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
-    $('#searchResident').val('');
-    $('#resultCount').text('');
-    $('#noSearchResults').hide();
-    applyFilters();
 }
 
 // ============================================
@@ -1699,32 +1449,23 @@ function clearFilters() {
 // ============================================
 function exportFilteredData() {
     var params = new URLSearchParams();
-    var status = $('#filterStatus').val() || '';
-    var hostel = $('#filterHostel').val() || '';
-    var gender = $('#filterGender').val() || '';
-    var food = $('#filterFood').val() || '';
-    var biometric = $('#filterBiometric').val() || '';
-    var search = $('#searchResident').val() || '';
-
-    if (status) params.append('status', status);
-    if (hostel) params.append('hostel_id', hostel);
-    if (gender) params.append('gender', gender);
-    if (food) params.append('food_status', food);
-    if (biometric) params.append('biometric_status', biometric);
-    if (search) params.append('search', search);
-
+    if ($('#filterStatus').val()) params.append('status', $('#filterStatus').val());
+    if ($('#filterHostel').val()) params.append('hostel_id', $('#filterHostel').val());
+    if ($('#filterGender').val()) params.append('gender', $('#filterGender').val());
+    if ($('#filterFood').val()) params.append('food_status', $('#filterFood').val());
+    if ($('#filterBiometric').val()) params.append('biometric_status', $('#filterBiometric').val());
+    if ($('#searchResident').val()) params.append('search', $('#searchResident').val());
     window.location.href = "{{ route('admin.residents.export') }}?" + params.toString();
 }
 
 // ============================================
-// FILE INPUT HANDLERS
+// FILE INPUTS
 // ============================================
 function setupFileInput(inputId, type) {
     $('#' + inputId).on('change', function() {
         const file = this.files[0];
         const previewId = inputId + '_preview';
         const existingId = inputId + '_existing';
-
         $('#' + existingId).hide();
 
         if (file) {
@@ -1740,8 +1481,6 @@ function setupFileInput(inputId, type) {
                     $('#' + previewId).show();
                 };
                 reader.readAsDataURL(file);
-
-                // Clear camera data if user picks file instead
                 $('#camera_image').val('');
                 capturedImageData = null;
             } else {
@@ -1762,15 +1501,12 @@ function setupFileInput(inputId, type) {
 function removeFile(inputId) {
     $('#' + inputId).val('');
     $('#' + inputId + '_preview').hide();
-
     if (inputId === 'profile_image') {
         $('#camera_image').val('');
         capturedImageData = null;
     }
-
-    const existingId = inputId + '_existing';
-    if ($('#' + existingId).data('has-file') === true) {
-        $('#' + existingId).show();
+    if ($('#' + inputId + '_existing').data('has-file') === true) {
+        $('#' + inputId + '_existing').show();
     }
 }
 
@@ -1780,12 +1516,12 @@ function removeFile(inputId) {
 function syncAllBiometric() {
     Swal.fire({
         title: 'Sync All Residents?',
-        text: "This will sync all residents to the biometric system.",
+        text: "Sync all residents to biometric system.",
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#7c3aed',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, sync them!'
+        confirmButtonText: 'Yes!'
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
@@ -1794,14 +1530,14 @@ function syncAllBiometric() {
                 data: { _token: '{{ csrf_token() }}' },
                 success: function(response) {
                     if (response.success) {
-                        showToast('Synced ' + response.success_count + ' residents successfully!', 'success');
+                        showToast('Synced ' + response.success_count + ' residents!', 'success');
                         setTimeout(() => location.reload(), 2000);
                     } else {
-                        showToast(response.message || 'Failed to sync residents', 'error');
+                        showToast(response.message || 'Failed', 'error');
                     }
                 },
                 error: function(xhr) {
-                    showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
+                    showToast(xhr.responseJSON?.error || 'Failed!', 'error');
                 }
             });
         }
@@ -1815,14 +1551,14 @@ function syncSingleBiometric(id) {
         data: { _token: '{{ csrf_token() }}' },
         success: function(response) {
             if (response.success) {
-                showToast('Resident synced! Emp Code: ' + response.data.employee_code, 'success');
+                showToast('Synced! Code: ' + response.data.employee_code, 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showToast(response.message || 'Failed to sync!', 'error');
+                showToast(response.message || 'Failed!', 'error');
             }
         },
         error: function(xhr) {
-            showToast(xhr.responseJSON?.error || 'Failed to sync!', 'error');
+            showToast(xhr.responseJSON?.error || 'Failed!', 'error');
         }
     });
 }
@@ -1851,17 +1587,17 @@ function toggleBiometricAccess(id) {
 // ============================================
 function viewResidentDetails(id) {
     detailsModal.show();
-    $('#detailsBody').html(`<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Loading...</p></div>`);
+    $('#detailsBody').html('<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Loading...</p></div>');
 
     $.ajax({
         url: '/admin/residents/' + id + '/details',
         type: 'GET',
         success: function(response) {
             if (response.success) renderDetails(response.data);
-            else $('#detailsBody').html(`<div class="text-center py-5 text-danger"><p>${response.error || 'Failed'}</p></div>`);
+            else $('#detailsBody').html('<div class="text-center py-5 text-danger"><p>' + (response.error || 'Failed') + '</p></div>');
         },
         error: function() {
-            $('#detailsBody').html(`<div class="text-center py-5 text-danger"><p>Failed to load</p></div>`);
+            $('#detailsBody').html('<div class="text-center py-5 text-danger"><p>Failed to load</p></div>');
         }
     });
 }
@@ -1870,10 +1606,9 @@ function renderDetails(data) {
     let html = `
         <div class="row g-4">
             <div class="col-lg-4">
-                <div class="text-center p-3" style="background: #f8fafc; border-radius:12px;">
-                    <div style="width:150px; height:150px; border-radius:50%; margin:0 auto; overflow:hidden; border:4px solid var(--gold);">
-                        <img src="${data.profile_image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=c5a028&color=fff&size=150'}"
-                             style="width:100%; height:100%; object-fit:cover;">
+                <div class="text-center p-3" style="background:#f8fafc; border-radius:12px;">
+                    <div style="width:150px;height:150px;border-radius:50%;margin:0 auto;overflow:hidden;border:4px solid var(--gold);">
+                        <img src="${data.profile_image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=c5a028&color=fff&size=150'}" style="width:100%;height:100%;object-fit:cover;">
                     </div>
                     <h3 class="mt-3 mb-1">${data.name}</h3>
                     <p class="text-muted small">${data.resident_code}</p>
@@ -1884,17 +1619,17 @@ function renderDetails(data) {
             <div class="col-lg-8">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <div style="background:#f8fafc; padding:12px; border-radius:8px;">
+                        <div style="background:#f8fafc;padding:12px;border-radius:8px;">
                             <strong>Personal Info</strong>
                             <div class="mt-2 small">
                                 <div><strong>Phone:</strong> ${data.phone}</div>
-                                ${data.email ? `<div><strong>Email:</strong> ${data.email}</div>` : ''}
-                                ${data.aadhaar_no ? `<div><strong>Aadhaar:</strong> ${data.aadhaar_no}</div>` : ''}
+                                ${data.email ? '<div><strong>Email:</strong> ' + data.email + '</div>' : ''}
+                                ${data.aadhaar_no ? '<div><strong>Aadhaar:</strong> ' + data.aadhaar_no + '</div>' : ''}
                             </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div style="background:#f8fafc; padding:12px; border-radius:8px;">
+                        <div style="background:#f8fafc;padding:12px;border-radius:8px;">
                             <strong>Accommodation</strong>
                             <div class="mt-2 small">
                                 <div><strong>Hostel:</strong> ${data.hostel.name}</div>
@@ -1905,8 +1640,7 @@ function renderDetails(data) {
                     </div>
                 </div>
             </div>
-        </div>
-    `;
+        </div>`;
     $('#detailsBody').html(html);
 }
 
@@ -1915,15 +1649,13 @@ function renderDetails(data) {
 // ============================================
 function viewDocument(url, title) {
     if (!url) return showToast('Document not found!', 'error');
-
     document.getElementById('documentViewerTitle').textContent = title;
     document.getElementById('documentDownloadLink').href = url;
-
     const content = document.getElementById('documentViewerContent');
     if (url.match(/\.(jpeg|jpg|png|gif)$/i)) {
-        content.innerHTML = `<img src="${url}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
+        content.innerHTML = '<img src="' + url + '" style="max-width:100%;max-height:70vh;border-radius:8px;">';
     } else {
-        content.innerHTML = `<iframe src="${url}" style="width:100%; height:70vh; border:none;"></iframe>`;
+        content.innerHTML = '<iframe src="' + url + '" style="width:100%;height:70vh;border:none;"></iframe>';
     }
     documentViewerModal.show();
 }
@@ -1955,7 +1687,7 @@ function getSelectedIds() {
 function bulkStatusUpdate() {
     var ids = getSelectedIds();
     var status = $('#bulkStatusSelect').val();
-    if (ids.length === 0 || !status) return showToast('Please select residents and a status', 'error');
+    if (ids.length === 0 || !status) return showToast('Please select residents and status', 'error');
 
     Swal.fire({
         title: 'Update Status?',
@@ -1977,9 +1709,7 @@ function bulkStatusUpdate() {
                         setTimeout(() => location.reload(), 1500);
                     }
                 },
-                error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed!', 'error');
-                }
+                error: function(xhr) { showToast(xhr.responseJSON?.message || 'Failed!', 'error'); }
             });
         }
     });
@@ -1991,12 +1721,12 @@ function bulkDelete() {
 
     Swal.fire({
         title: 'Delete Residents?',
-        text: "Delete " + ids.length + " residents? Cannot be undone!",
+        text: "Delete " + ids.length + " residents?",
         icon: 'error',
         showCancelButton: true,
         confirmButtonColor: '#dc2626',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, delete!'
+        confirmButtonText: 'Yes!'
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
@@ -2009,9 +1739,7 @@ function bulkDelete() {
                         setTimeout(() => location.reload(), 1500);
                     }
                 },
-                error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed!', 'error');
-                }
+                error: function(xhr) { showToast(xhr.responseJSON?.message || 'Failed!', 'error'); }
             });
         }
     });
@@ -2037,8 +1765,7 @@ function openAddModal() {
 }
 
 function resetForm() {
-    const form = document.getElementById('residentForm');
-    form.reset();
+    document.getElementById('residentForm').reset();
     $('#room_id').empty().append('<option value="">Select Room</option>');
     $('#bed_id').empty().append('<option value="">Select Bed</option>');
     $('#vacateDateDiv').hide();
@@ -2049,11 +1776,9 @@ function resetForm() {
     document.getElementById('modalTitle').textContent = 'Add Resident';
     document.getElementById('joining_date').value = new Date().toISOString().split('T')[0];
     document.getElementById('dob').value = '';
-
     $('[id$="_preview"]').hide();
     $('[id$="_existing"]').hide();
     $('[id$="_existing"]').data('has-file', false);
-
     $('#camera_image').val('');
     capturedImageData = null;
     stopCamera();
@@ -2063,114 +1788,107 @@ function resetForm() {
 // EDIT RESIDENT
 // ============================================
 function editResident(id) {
-    Swal.fire({
-        title: 'Loading...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
+    Swal.fire({ title: 'Loading...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
     $.ajax({
         url: "{{ url('admin/residents') }}/" + id + "/edit",
         type: 'GET',
         success: function(response) {
             Swal.close();
-            if (response.success) {
-                let data = response.data;
+            if (!response.success) return;
 
-                document.getElementById('modalTitle').textContent = 'Edit Resident';
-                document.getElementById('editId').value = data.id;
-                document.getElementById('saveBtnText').textContent = 'Update';
+            let data = response.data;
+            document.getElementById('modalTitle').textContent = 'Edit Resident';
+            document.getElementById('editId').value = data.id;
+            document.getElementById('saveBtnText').textContent = 'Update';
 
-                document.getElementById('name').value = data.name || '';
-                document.getElementById('phone').value = data.phone || '';
-                document.getElementById('parentsphone').value = data.parentsphone || '';
-                document.getElementById('email').value = data.email || '';
-                document.getElementById('aadhaar_no').value = data.aadhaar_no || '';
-                document.getElementById('address').value = data.address || '';
+            document.getElementById('name').value = data.name || '';
+            document.getElementById('phone').value = data.phone || '';
+            document.getElementById('parentsphone').value = data.parentsphone || '';
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('aadhaar_no').value = data.aadhaar_no || '';
+            document.getElementById('address').value = data.address || '';
 
-                if (data.dob) {
-                    const dob = new Date(data.dob);
-                    document.getElementById('dob').value = dob.toISOString().split('T')[0];
-                }
+            if (data.dob) {
+                const dob = new Date(data.dob);
+                document.getElementById('dob').value = dob.toISOString().split('T')[0];
+            }
 
-                document.getElementById('food_status').value = data.food_status || '';
-                document.getElementById('rent_amount').value = data.rent_amount || 0;
-                document.getElementById('deposit_amount').value = data.deposit_amount || 0;
-                document.getElementById('status').value = data.status || 'ACTIVE';
+            document.getElementById('food_status').value = data.food_status || '';
+            document.getElementById('rent_amount').value = data.rent_amount || 0;
+            document.getElementById('deposit_amount').value = data.deposit_amount || 0;
+            document.getElementById('status').value = data.status || 'ACTIVE';
 
-                if (data.joining_date) {
-                    const joinDate = new Date(data.joining_date);
-                    document.getElementById('joining_date').value = joinDate.toISOString().split('T')[0];
-                }
+            if (data.joining_date) {
+                const joinDate = new Date(data.joining_date);
+                document.getElementById('joining_date').value = joinDate.toISOString().split('T')[0];
+            }
 
-                if (data.status === 'VACATED' && data.vacate_date) {
-                    const vacateDate = new Date(data.vacate_date);
-                    document.getElementById('vacate_date').value = vacateDate.toISOString().split('T')[0];
-                    $('#vacateDateDiv').show();
-                } else {
-                    $('#vacateDateDiv').hide();
-                }
+            if (data.status === 'VACATED' && data.vacate_date) {
+                const vacateDate = new Date(data.vacate_date);
+                document.getElementById('vacate_date').value = vacateDate.toISOString().split('T')[0];
+                $('#vacateDateDiv').show();
+            } else {
+                $('#vacateDateDiv').hide();
+            }
 
-                if (data.hostel_id) {
-                    $('#hostel_id').val(data.hostel_id);
-
-                    $.ajax({
-                        url: "{{ route('admin.residents.get-rooms') }}",
-                        type: 'POST',
-                        data: { hostel_id: data.hostel_id, _token: '{{ csrf_token() }}' },
-                        success: function(roomResponse) {
-                            let roomSelect = $('#room_id');
-                            roomSelect.empty().append('<option value="">Select Room</option>');
-                            if (roomResponse.success && roomResponse.data.length > 0) {
-                                let foundRoom = false;
-                                $.each(roomResponse.data, function(key, room) {
-                                    let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
-                                    let selected = (room.id == data.room_id) ? 'selected' : '';
-                                    if (room.id == data.room_id) foundRoom = true;
-                                    roomSelect.append('<option value="' + room.id + '" ' + selected + '>Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
-                                });
-                                if (!foundRoom && data.room) {
-                                    roomSelect.append('<option value="' + data.room.id + '" selected>Room #' + data.room.room_no + '</option>');
-                                }
-                            }
-                            if (data.room_id) {
-                                $('#room_id').val(data.room_id);
-                                loadBedsForRoom(data.room_id, data.bed_id);
+            if (data.hostel_id) {
+                $('#hostel_id').val(data.hostel_id);
+                $.ajax({
+                    url: "{{ route('admin.residents.get-rooms') }}",
+                    type: 'POST',
+                    data: { hostel_id: data.hostel_id, _token: '{{ csrf_token() }}' },
+                    success: function(roomResponse) {
+                        let roomSelect = $('#room_id');
+                        roomSelect.empty().append('<option value="">Select Room</option>');
+                        if (roomResponse.success && roomResponse.data.length > 0) {
+                            let foundRoom = false;
+                            $.each(roomResponse.data, function(key, room) {
+                                let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
+                                let selected = (room.id == data.room_id) ? 'selected' : '';
+                                if (room.id == data.room_id) foundRoom = true;
+                                roomSelect.append('<option value="' + room.id + '" ' + selected + '>Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
+                            });
+                            if (!foundRoom && data.room) {
+                                roomSelect.append('<option value="' + data.room.id + '" selected>Room #' + data.room.room_no + '</option>');
                             }
                         }
-                    });
-                }
-
-                if (data.profile_image) {
-                    $('#profile_image_existing').data('has-file', true).show();
-                    $('#profile_existing_img').attr('src', data.profile_image);
-                } else {
-                    $('#profile_image_existing').hide();
-                }
-
-                if (data.aadhar_document) {
-                    $('#aadhar_document_existing').data('has-file', true).show();
-                    $('#aadhar_existing_link').attr('href', data.aadhar_document);
-                } else {
-                    $('#aadhar_document_existing').hide();
-                }
-
-                if (data.application_document) {
-                    $('#application_document_existing').data('has-file', true).show();
-                    $('#application_existing_link').attr('href', data.application_document);
-                } else {
-                    $('#application_document_existing').hide();
-                }
-
-                $('.invalid-feedback').text('');
-                $('.rv-input-box').removeClass('is-invalid');
-
-                residentModal.show();
+                        if (data.room_id) {
+                            $('#room_id').val(data.room_id);
+                            loadBedsForRoom(data.room_id, data.bed_id);
+                        }
+                    }
+                });
             }
+
+            if (data.profile_image) {
+                $('#profile_image_existing').data('has-file', true).show();
+                $('#profile_existing_img').attr('src', data.profile_image);
+            } else {
+                $('#profile_image_existing').hide();
+            }
+
+            if (data.aadhar_document) {
+                $('#aadhar_document_existing').data('has-file', true).show();
+                $('#aadhar_existing_link').attr('href', data.aadhar_document);
+            } else {
+                $('#aadhar_document_existing').hide();
+            }
+
+            if (data.application_document) {
+                $('#application_document_existing').data('has-file', true).show();
+                $('#application_existing_link').attr('href', data.application_document);
+            } else {
+                $('#application_document_existing').hide();
+            }
+
+            $('.invalid-feedback').text('');
+            $('.rv-input-box').removeClass('is-invalid');
+            residentModal.show();
         },
-        error: function(xhr) {
+        error: function() {
             Swal.close();
-            showToast('Failed to load resident data!', 'error');
+            showToast('Failed to load resident!', 'error');
         }
     });
 }
@@ -2183,7 +1901,6 @@ function submitForm() {
     let url = "{{ route('admin.residents.store') }}";
     let formData = new FormData(document.getElementById('residentForm'));
 
-    // Convert camera base64 to Blob
     const cameraData = document.getElementById('camera_image').value;
     if (cameraData && cameraData.startsWith('data:image')) {
         const blob = dataURLtoBlob(cameraData);
@@ -2220,17 +1937,14 @@ function submitForm() {
                 showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
             } else if (xhr.status === 422) {
                 let errors = xhr.responseJSON.errors;
-                if (xhr.responseJSON.message) {
-                    showToast(xhr.responseJSON.message, 'error');
-                } else {
+                if (xhr.responseJSON.message) showToast(xhr.responseJSON.message, 'error');
+                else {
                     $.each(errors, function(field, messages) {
                         let fieldElement = $('#' + field);
                         if (fieldElement.length) {
                             fieldElement.closest('.rv-input-box').addClass('is-invalid');
                             $('#' + field + '_error').text(messages[0]);
-                        } else {
-                            showToast(messages[0], 'error');
-                        }
+                        } else showToast(messages[0], 'error');
                     });
                 }
             } else {
@@ -2269,9 +1983,7 @@ function deleteResident(id) {
                         setTimeout(() => location.reload(), 1500);
                     }
                 },
-                error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
-                }
+                error: function(xhr) { showToast(xhr.responseJSON?.message || 'Failed!', 'error'); }
             });
         }
     });
@@ -2298,9 +2010,7 @@ function toggleStatus(id) {
                         setTimeout(() => location.reload(), 1500);
                     }
                 },
-                error: function(xhr) {
-                    showToast(xhr.responseJSON?.message || 'Failed!', 'error');
-                }
+                error: function(xhr) { showToast(xhr.responseJSON?.message || 'Failed!', 'error'); }
             });
         }
     });
@@ -2323,11 +2033,7 @@ function showToast(message, type = 'success') {
 
     const toast = document.createElement('div');
     toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
-    toast.innerHTML = `
-        <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
-        <div class="message">${message}</div>
-        <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
-    `;
+    toast.innerHTML = '<i class="bi ' + icon + '" style="color:' + color + ';font-size:1.25rem;"></i><div class="message">' + message + '</div><button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>';
     container.appendChild(toast);
 
     setTimeout(() => {
