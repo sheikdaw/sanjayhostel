@@ -69,78 +69,132 @@ class GuestComplaintController extends Controller
      * VERIFY RESIDENT BY PHONE
      * Only ACTIVE residents of THIS hostel can verify
      */
-    public function verifyResident(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'encoded_id' => 'required',
-            'phone'      => 'required|string|min:10|max:15',
-        ]);
+   public function verifyResident(Request $request)
+{
+    // Debug log
+    \Log::info('verifyResident called', [
+        'encoded_id' => $request->encoded_id,
+        'phone'      => $request->phone,
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => $validator->errors()->first()
-            ], 422);
-        }
+    $validator = Validator::make($request->all(), [
+        'encoded_id' => 'required',
+        'phone'      => 'required|string|min:10|max:15',
+    ]);
 
-        $hostelId = self::decodeId($request->encoded_id);
-        if (!$hostelId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid hostel link'
-            ], 400);
-        }
-
-        // Clean phone: keep only digits, use LAST 10 digits
-        $phone = preg_replace('/[^0-9]/', '', $request->phone);
-        $phone = substr($phone, -10);
-
-        if (strlen($phone) < 10) {
-            return response()->json([
-                'success'  => false,
-                'message'  => '❌ Enter a valid 10-digit mobile number.',
-                'verified' => false
-            ], 422);
-        }
-
-        // STRICT MATCH — resident must exist in this hostel & be ACTIVE
-        $resident = Resident::with(['room', 'hostel'])
-            ->where('hostel_id', $hostelId)
-            ->where('status', 'ACTIVE')
-            ->where(function ($q) use ($phone) {
-                $q->where('phone', $phone)
-                  ->orWhere('phone', 'LIKE', "%{$phone}")
-                  ->orWhere('phone', 'LIKE', "{$phone}%");
-            })
-            ->first();
-
-        if (!$resident) {
-            return response()->json([
-                'success'  => false,
-                'message'  => '❌ This phone number is not registered as an active resident in this hostel. Only residents can register complaints.',
-                'verified' => false
-            ], 404);
-        }
-
+    if ($validator->fails()) {
         return response()->json([
-            'success'  => true,
-            'verified' => true,
-            'message'  => '✓ Resident verified successfully',
-            'data' => [
-                'resident_id' => $resident->id,
-                'name'        => $resident->name,
-                'phone'       => $resident->phone,
-                'email'       => $resident->email,
-                'room_number' => $resident->room->room_number ?? $resident->room->room_no ?? null,
-                'room_id'     => $resident->room_id,
-                'hostel_id'   => $resident->hostel_id,
-                'hostel_name' => $resident->hostel->hostel_name ?? $resident->hostel->name ?? null,
-                'photo'       => $resident->profile_image
-                                    ? asset('storage/' . $resident->profile_image)
-                                    : null,
-            ]
-        ]);
+            'success' => false,
+            'message' => $validator->errors()->first()
+        ], 422);
     }
+
+    $hostelId = self::decodeId($request->encoded_id);
+    if (!$hostelId) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Invalid hostel link'
+        ], 400);
+    }
+
+    // 🔥 Clean phone: keep only digits, use LAST 10 digits
+    $phone = preg_replace('/[^0-9]/', '', $request->phone);
+    $phone = substr($phone, -10);
+
+    \Log::info('Cleaned phone', ['phone' => $phone, 'length' => strlen($phone)]);
+
+    if (strlen($phone) !== 10) {
+        return response()->json([
+            'success'  => false,
+            'message'  => '❌ Enter a valid 10-digit mobile number.',
+            'verified' => false
+        ], 422);
+    }
+
+    // ================================================
+    // 🔥 FETCH ALL ACTIVE RESIDENTS OF THIS HOSTEL
+    // Then match in PHP — 100% reliable
+    // ================================================
+    $residents = Resident::with(['room', 'hostel'])
+        ->where('hostel_id', $hostelId)
+        ->where('status', 'ACTIVE')
+        ->get();
+
+    \Log::info('Total active residents in hostel', [
+        'hostel_id' => $hostelId,
+        'count'     => $residents->count(),
+    ]);
+
+    // 🔥 EXACT match on last 10 digits
+    $resident = null;
+    $debugPhones = [];
+
+    foreach ($residents as $r) {
+        $storedPhone = preg_replace('/[^0-9]/', '', $r->phone ?? '');
+        $storedLast10 = substr($storedPhone, -10);
+
+        $debugPhones[] = [
+            'id' => $r->id,
+            'name' => $r->name,
+            'stored_phone' => $r->phone,
+            'last_10' => $storedLast10,
+        ];
+
+        if ($storedLast10 === $phone) {
+            $resident = $r;
+            break; // Found exact match
+        }
+    }
+
+    \Log::info('Matching result', [
+        'input_phone' => $phone,
+        'match_found' => $resident ? true : false,
+        'matched_id'  => $resident?->id,
+        'all_phones'  => $debugPhones,
+    ]);
+
+    // If no exact match → BLOCK
+    if (!$resident) {
+        return response()->json([
+            'success'  => false,
+            'message'  => '❌ This phone number is not registered as an active resident in this hostel. Only residents can register complaints.',
+            'verified' => false
+        ], 404);
+    }
+
+    // 🔥 FINAL SANITY CHECK — verify returned phone matches input
+    $residentPhoneCheck = preg_replace('/[^0-9]/', '', $resident->phone);
+    if (substr($residentPhoneCheck, -10) !== $phone) {
+        \Log::error('Phone mismatch after match', [
+            'input'    => $phone,
+            'resident' => $resident->phone,
+        ]);
+        return response()->json([
+            'success'  => false,
+            'message'  => '❌ Verification mismatch. Please try again.',
+            'verified' => false
+        ], 400);
+    }
+
+    return response()->json([
+        'success'  => true,
+        'verified' => true,
+        'message'  => '✓ Resident verified successfully',
+        'data' => [
+            'resident_id' => $resident->id,
+            'name'        => $resident->name,
+            'phone'       => $resident->phone,
+            'email'       => $resident->email,
+            'room_number' => $resident->room->room_number ?? $resident->room->room_no ?? null,
+            'room_id'     => $resident->room_id,
+            'hostel_id'   => $resident->hostel_id,
+            'hostel_name' => $resident->hostel->hostel_name ?? $resident->hostel->name ?? null,
+            'photo'       => $resident->profile_image
+                                ? asset('storage/' . $resident->profile_image)
+                                : null,
+        ]
+    ]);
+}
 
     /**
      * STORE COMPLAINT
