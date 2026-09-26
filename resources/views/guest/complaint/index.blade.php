@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="csrf-token" content="sample-token">
-  <title>Sanjay & Harini Hostel · Complaint Portal</title>
-  <!-- Tailwind + Font Awesome 6 -->
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{{ $hostel->name ?? 'Hostel' }} · Complaint Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Font Inter for a subtle upgrade -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
   <style>
     * { font-family: 'Inter', system-ui, sans-serif; }
@@ -23,14 +21,13 @@
 </head>
 <body class="min-h-screen antialiased text-gray-800">
 
-<!-- header with brand -->
 <header class="glass-header text-white shadow-lg">
   <div class="max-w-5xl mx-auto px-5 py-7 flex flex-wrap items-center justify-between">
     <div>
       <div class="flex items-center gap-3">
         <i class="fas fa-building text-3xl opacity-90"></i>
         <div>
-          <h1 class="text-3xl font-extrabold tracking-tight">Sanjay <span class="text-blue-200">&</span> Harini</h1>
+          <h1 class="text-3xl font-extrabold tracking-tight">{{ $hostel->name ?? 'Hostel' }}</h1>
           <p class="text-blue-100 text-sm font-medium mt-0.5">
             <i class="fas fa-tools mr-1"></i> Complaint & Management Portal
           </p>
@@ -44,7 +41,6 @@
   </div>
 </header>
 
-<!-- subtle wave / divider -->
 <div class="h-4 bg-gradient-to-b from-blue-700/10 to-transparent"></div>
 
 <!-- Tabs -->
@@ -65,25 +61,22 @@
   </div>
 </div>
 
-<!-- main content area -->
 <div class="max-w-5xl mx-auto px-5 py-7">
-  <!-- alert box -->
   <div id="alertBox" class="hidden mb-6 rounded-xl p-4 shadow-sm"></div>
 
-  <!-- ========== NEW COMPLAINT ========== -->
+  <!-- NEW COMPLAINT -->
   <div id="content-new" class="tab-content">
     <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8">
       <h2 class="text-2xl font-bold text-gray-800 mb-5 flex items-center gap-2">
         <i class="fas fa-pen-to-square text-blue-600"></i> Register a new complaint
       </h2>
 
-      <!-- STEP 1: phone verification -->
       <div id="step-verify" class="border-2 border-dashed border-blue-300 rounded-xl p-5 bg-blue-50/60 mb-6">
         <div class="flex items-start gap-3">
           <div class="bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold shrink-0">1</div>
           <div class="flex-1">
             <p class="text-sm text-blue-900 font-medium mb-3">
-              Enter your <strong>registered mobile number</strong> to verify as an active resident of Sanjay & Harini Hostel.
+              Enter your <strong>registered mobile number</strong> to verify as an active resident.
             </p>
             <div class="flex flex-col sm:flex-row gap-3">
               <input type="text" id="verifyPhone" inputmode="numeric" maxlength="15"
@@ -99,11 +92,9 @@
         </div>
       </div>
 
-      <!-- STEP 2: complaint form (hidden until verified) -->
       <div id="step-form" class="hidden">
-        <!-- resident card -->
         <div id="residentCard" class="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-4 mb-6 flex items-center gap-4">
-          <div id="residentPhoto" class="w-14 h-14 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-2xl shadow-inner">
+          <div id="residentPhoto" class="w-14 h-14 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 text-2xl shadow-inner overflow-hidden">
             <i class="fas fa-user"></i>
           </div>
           <div class="flex-1">
@@ -118,9 +109,8 @@
           </div>
         </div>
 
-        <!-- complaint form -->
         <form id="complaintForm" enctype="multipart/form-data">
-          <input type="hidden" name="encoded_id" value="sample-encoded-id">
+          <input type="hidden" name="encoded_id" value="{{ $encodedId }}">
           <input type="hidden" name="phone" id="verifiedPhone">
           <input type="hidden" name="resident_id" id="verifiedResidentId">
 
@@ -129,21 +119,17 @@
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Category <span class="text-red-500">*</span></label>
               <select name="category" required class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white">
                 <option value="">— Select category —</option>
-                <option value="plumbing">Plumbing / Water</option>
-                <option value="electrical">Electrical</option>
-                <option value="wifi">Wi-Fi / Internet</option>
-                <option value="cleaning">Cleaning / Housekeeping</option>
-                <option value="food">Food / Mess</option>
-                <option value="other">Other</option>
+                @foreach($categories as $key => $label)
+                  <option value="{{ $key }}">{{ $label }}</option>
+                @endforeach
               </select>
             </div>
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1.5">Priority <span class="text-red-500">*</span></label>
               <select name="priority" required class="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white">
-                <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
+                @foreach($priorities as $key => $label)
+                  <option value="{{ $key }}" @selected($key === 'medium')>{{ $label }}</option>
+                @endforeach
               </select>
             </div>
           </div>
@@ -180,7 +166,7 @@
     </div>
   </div>
 
-  <!-- ========== TRACK ========== -->
+  <!-- TRACK -->
   <div id="content-track" class="tab-content hidden">
     <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8">
       <h2 class="text-2xl font-bold text-gray-800 mb-5 flex items-center gap-2">
@@ -189,7 +175,7 @@
       <div class="flex flex-col sm:flex-row gap-3">
         <input type="text" id="trackNumber"
           class="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          placeholder="Enter complaint number (e.g., CMP-2025-001)">
+          placeholder="Enter complaint number (e.g., CMP-2025-0001)">
         <button onclick="trackComplaint()"
           class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2">
           <i class="fas fa-search"></i> Track
@@ -199,7 +185,7 @@
     </div>
   </div>
 
-  <!-- ========== MY COMPLAINTS ========== -->
+  <!-- MY COMPLAINTS -->
   <div id="content-my" class="tab-content hidden">
     <div class="bg-white rounded-2xl shadow-md border border-gray-100 p-6 md:p-8">
       <h2 class="text-2xl font-bold text-gray-800 mb-5 flex items-center gap-2">
@@ -219,16 +205,35 @@
   </div>
 </div>
 
-<!-- footer -->
 <footer class="text-center text-gray-400 text-sm py-8 border-t border-gray-200/70 max-w-5xl mx-auto">
-  <i class="fas fa-helmet-safety mr-1"></i> Sanjay & Harini Hostel · Complaint Management System
+  <i class="fas fa-helmet-safety mr-1"></i> {{ $hostel->name ?? 'Hostel' }} · Complaint Management System
 </footer>
 
 <script>
-// ---------- config (replaced with static/demo values for preview) ----------
-const encodedId = "sample-encoded-id";
-const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+// ---------- config ----------
+const encodedId  = @json($encodedId);
+const csrfToken  = document.querySelector('meta[name="csrf-token"]').content;
+const API_BASE   = '/guest/complaint';
 let verifiedResident = null;
+
+const api = async (path, body, isForm = false) => {
+  const opts = {
+    method: 'POST',
+    headers: {
+      'X-CSRF-TOKEN': csrfToken,
+      'Accept': 'application/json',
+    },
+  };
+  if (isForm) {
+    opts.body = body;
+  } else {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(API_BASE + path, opts);
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+};
 
 // ---------- tab switching ----------
 function switchTab(tab) {
@@ -248,8 +253,8 @@ function showAlert(type, msg) {
   const box = document.getElementById('alertBox');
   const styles = {
     success: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
-    error: 'bg-rose-50 text-rose-800 border border-rose-200',
-    info: 'bg-blue-50 text-blue-800 border border-blue-200'
+    error:   'bg-rose-50 text-rose-800 border border-rose-200',
+    info:    'bg-blue-50 text-blue-800 border border-blue-200'
   };
   box.className = 'mb-6 rounded-xl p-4 shadow-sm ' + styles[type];
   box.innerHTML = msg;
@@ -258,46 +263,38 @@ function showAlert(type, msg) {
   if (type === 'success') setTimeout(() => box.classList.add('hidden'), 8000);
 }
 
-// ---------- verify resident (demo) ----------
+// ---------- verify resident ----------
 async function verifyResident() {
   const phone = document.getElementById('verifyPhone').value.trim();
-  const msg = document.getElementById('verifyMsg');
-  const btn = document.getElementById('verifyBtn');
+  const msg   = document.getElementById('verifyMsg');
+  const btn   = document.getElementById('verifyBtn');
 
-  if (!phone || phone.length < 10) {
+  if (!phone || phone.replace(/\D/g,'').length < 10) {
     msg.innerHTML = '<span class="text-rose-600 flex items-center gap-1"><i class="fas fa-circle-exclamation"></i> Enter a valid 10-digit mobile number</span>';
     return;
   }
 
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-  msg.innerHTML = '<span class="text-blue-600 flex items-center gap-1"><i class="fas fa-spinner fa-spin"></i> Verifying resident...</span>';
+  msg.innerHTML = '<span class="text-blue-600"><i class="fas fa-spinner fa-spin"></i> Verifying resident...</span>';
 
-  // Demo: simulate verification based on phone number length or any number >= 10 digits
-  // In real app this would be an API call.
   try {
-    // fake network delay
-    await new Promise(r => setTimeout(r, 600));
+    const { ok, data } = await api('/verify-resident', { encoded_id: encodedId, phone });
 
-    // Demo logic: accept any 10+ digit number as verified (for preview)
-    // In production, this would check against the backend.
-    if (phone.length >= 10) {
-      // simulate resident data
-      verifiedResident = {
-        name: 'Ananya Sharma',
-        phone: phone,
-        room_number: 'B-204',
-        resident_id: 'RES-1001',
-        photo: null
-      };
-
-      document.getElementById('rName').textContent = verifiedResident.name;
+    if (ok && data.success) {
+      verifiedResident = data.data;
+      document.getElementById('rName').textContent  = verifiedResident.name;
       document.getElementById('rPhone').textContent = verifiedResident.phone;
-      document.getElementById('rRoom').textContent = verifiedResident.room_number;
+      document.getElementById('rRoom').textContent  = verifiedResident.room_number || 'N/A';
       document.getElementById('verifiedPhone').value = verifiedResident.phone;
       document.getElementById('verifiedResidentId').value = verifiedResident.resident_id;
 
-      // (no photo for demo)
+      if (verifiedResident.photo) {
+        document.getElementById('residentPhoto').innerHTML =
+          `<img src="${verifiedResident.photo}" class="w-full h-full object-cover">`;
+      } else {
+        document.getElementById('residentPhoto').innerHTML = '<i class="fas fa-user"></i>';
+      }
 
       document.getElementById('step-verify').classList.add('hidden');
       document.getElementById('step-form').classList.remove('hidden');
@@ -309,7 +306,7 @@ async function verifyResident() {
       document.getElementById('step-form').classList.add('hidden');
       document.getElementById('step-verify').classList.remove('hidden');
       msg.innerHTML = '<span class="text-rose-600 font-semibold"><i class="fas fa-circle-xmark"></i> Not a resident</span>';
-      showAlert('error', '<strong>❌ Access Denied!</strong><br>This phone number is not registered as an active resident in Sanjay & Harini Hostel.<br><small>Only residents can register complaints.</small>');
+      showAlert('error', data.message || '❌ Access denied. Only registered residents can complain.');
     }
   } catch (e) {
     msg.innerHTML = '<span class="text-rose-600">Network error</span>';
@@ -319,7 +316,6 @@ async function verifyResident() {
   }
 }
 
-// Enter key on phone verify
 document.getElementById('verifyPhone').addEventListener('keypress', e => {
   if (e.key === 'Enter') { e.preventDefault(); verifyResident(); }
 });
@@ -336,12 +332,13 @@ document.getElementById('imageInput').addEventListener('change', function(e) {
   reader.readAsDataURL(file);
 });
 
-// ---------- submit complaint (demo) ----------
+// ---------- submit complaint ----------
 document.getElementById('complaintForm').addEventListener('submit', async function(e) {
   e.preventDefault();
 
+  // 🔥 HARD CHECK: must be verified
   if (!verifiedResident) {
-    showAlert('error', 'Please verify your phone number first.');
+    showAlert('error', '❌ Please verify your phone number first.');
     return;
   }
 
@@ -349,30 +346,45 @@ document.getElementById('complaintForm').addEventListener('submit', async functi
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
 
-  // DEMO: simulate successful complaint submission
-  setTimeout(() => {
-    // show success with fake complaint number
-    const fakeNumber = 'CMP-' + Math.floor(Math.random() * 9000 + 1000);
-    showAlert('success',
-      `<strong>✓ Complaint registered!</strong><br>
-       Complaint No: <span class="font-mono font-bold text-lg bg-white/60 px-2 py-0.5 rounded">${fakeNumber}</span><br>
-       <small>Please save this number to track your complaint.</small>`);
+  const fd = new FormData(this);
+  fd.set('encoded_id', encodedId);
+  fd.set('phone', verifiedResident.phone);              // 🔥 from VERIFIED data
+  fd.set('resident_id', verifiedResident.resident_id);  // 🔥 from VERIFIED data
 
-    // reset form
-    this.reset();
-    document.getElementById('imagePreview').classList.add('hidden');
-    document.getElementById('step-verify').classList.remove('hidden');
-    document.getElementById('step-form').classList.add('hidden');
-    document.getElementById('verifyPhone').value = '';
-    document.getElementById('verifyMsg').innerHTML = '';
-    verifiedResident = null;
+  try {
+    const { ok, data } = await api('/submit', fd, true);
 
+    if (ok && data.success) {
+      showAlert('success',
+        `<strong>✓ Complaint registered!</strong><br>
+         Complaint No: <span class="font-mono font-bold text-lg bg-white/60 px-2 py-0.5 rounded">${data.data.complaint_number}</span><br>
+         <small>Please save this number to track your complaint.</small>`);
+
+      // Reset
+      this.reset();
+      document.getElementById('imagePreview').classList.add('hidden');
+      document.getElementById('step-verify').classList.remove('hidden');
+      document.getElementById('step-form').classList.add('hidden');
+      document.getElementById('verifyPhone').value = '';
+      document.getElementById('verifyMsg').innerHTML = '';
+      document.getElementById('verifiedPhone').value = '';
+      document.getElementById('verifiedResidentId').value = '';
+      verifiedResident = null;
+    } else {
+      const firstErr = data.errors
+        ? Object.values(data.errors)[0][0]
+        : (data.message || 'Submission failed');
+      showAlert('error', '❌ ' + firstErr);
+    }
+  } catch (err) {
+    showAlert('error', 'Network error while submitting.');
+  } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit complaint';
-  }, 700);
+  }
 });
 
-// ---------- track complaint (demo) ----------
+// ---------- track complaint ----------
 async function trackComplaint() {
   const num = document.getElementById('trackNumber').value.trim();
   if (!num) return alert('Please enter a complaint number');
@@ -380,26 +392,19 @@ async function trackComplaint() {
   const result = document.getElementById('trackResult');
   result.innerHTML = '<div class="text-center py-6"><i class="fas fa-spinner fa-spin text-3xl text-blue-600"></i></div>';
 
-  // Demo: return a sample complaint card
-  setTimeout(() => {
-    const demoComplaint = {
-      complaint_number: num || 'CMP-2025-042',
-      created_at: '2025-03-15 10:30',
-      status: 'in_progress',
-      name: 'Ananya Sharma',
-      room_number: 'B-204',
-      category: 'Plumbing',
-      priority: 'High',
-      description: 'Leaking tap in bathroom, water wastage. Needs urgent fix.',
-      image: null,
-      admin_remark: 'Plumber assigned, will visit by 5 PM today.',
-      resolved_at: null
-    };
-    result.innerHTML = renderComplaintCard(demoComplaint);
-  }, 500);
+  try {
+    const { ok, data } = await api('/track', { encoded_id: encodedId, complaint_number: num });
+    if (ok && data.success) {
+      result.innerHTML = renderComplaintCard(data.data);
+    } else {
+      result.innerHTML = `<div class="text-center text-rose-600 py-6"><i class="fas fa-circle-xmark text-3xl mb-2"></i><br>${data.message || 'Complaint not found'}</div>`;
+    }
+  } catch (err) {
+    result.innerHTML = '<div class="text-center text-rose-600 py-6">Network error</div>';
+  }
 }
 
-// ---------- my complaints (demo) ----------
+// ---------- my complaints ----------
 async function loadMyComplaints() {
   const phone = document.getElementById('myPhone').value.trim();
   if (!phone) return alert('Please enter your phone number');
@@ -407,31 +412,10 @@ async function loadMyComplaints() {
   const list = document.getElementById('myComplaintsList');
   list.innerHTML = '<div class="text-center py-6"><i class="fas fa-spinner fa-spin text-3xl text-blue-600"></i></div>';
 
-  // Demo: return two sample complaints
-  setTimeout(() => {
-    const demoList = [
-      {
-        complaint_number: 'CMP-2025-042',
-        created_at: '2025-03-15 10:30',
-        status: 'in_progress',
-        category: 'Plumbing',
-        priority: 'High',
-        description: 'Leaking tap in bathroom, water wastage...',
-        admin_remark: 'Plumber assigned'
-      },
-      {
-        complaint_number: 'CMP-2025-038',
-        created_at: '2025-03-12 08:15',
-        status: 'resolved',
-        category: 'Wi-Fi / Internet',
-        priority: 'Medium',
-        description: 'Wi-Fi not working in room B-204...',
-        admin_remark: 'Router replaced, issue fixed'
-      }
-    ];
-
-    if (demoList.length) {
-      list.innerHTML = demoList.map(c => `
+  try {
+    const { ok, data } = await api('/my-complaints', { encoded_id: encodedId, phone });
+    if (ok && data.success && data.data.length) {
+      list.innerHTML = data.data.map(c => `
         <div class="complaint-card border border-gray-200 rounded-xl p-5 bg-white hover:shadow-md transition">
           <div class="flex justify-between items-start mb-3">
             <div>
@@ -444,7 +428,7 @@ async function loadMyComplaints() {
             <span><i class="fas fa-tag text-gray-400 mr-1"></i>${c.category}</span>
             <span><i class="fas fa-flag text-gray-400 mr-1"></i>${c.priority}</span>
           </div>
-          <div class="text-sm text-gray-600 line-clamp-2">${c.description}</div>
+          <div class="text-sm text-gray-600">${c.description}</div>
           ${c.admin_remark ? `<div class="mt-3 text-xs bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg">
             <i class="fas fa-comment-dots text-amber-600 mr-1"></i><strong>Admin:</strong> ${c.admin_remark}</div>` : ''}
         </div>
@@ -452,7 +436,9 @@ async function loadMyComplaints() {
     } else {
       list.innerHTML = '<div class="text-center text-gray-400 py-8"><i class="fas fa-inbox text-4xl mb-2 opacity-40"></i><br>No complaints found</div>';
     }
-  }, 500);
+  } catch (err) {
+    list.innerHTML = '<div class="text-center text-rose-600 py-8">Network error</div>';
+  }
 }
 
 // ---------- helpers ----------
@@ -463,7 +449,7 @@ function statusBadge(status) {
     resolved:    'bg-emerald-100 text-emerald-800 border border-emerald-200',
     rejected:    'bg-rose-100 text-rose-800 border border-rose-200'
   };
-  const label = status.replace('_',' ').toUpperCase();
+  const label = (status || '').replace('_',' ').toUpperCase();
   return `<span class="badge-status px-3 py-1 rounded-full font-semibold ${map[status] || 'bg-gray-100'}">${label}</span>`;
 }
 

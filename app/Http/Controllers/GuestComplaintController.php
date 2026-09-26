@@ -8,6 +8,7 @@ use App\Models\Hostel;
 use App\Models\Resident;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class GuestComplaintController extends Controller
@@ -66,8 +67,7 @@ class GuestComplaintController extends Controller
 
     /**
      * VERIFY RESIDENT BY PHONE
-     * Phone number hostel-la iruntha resident-a check pannum
-     * Resident illa na → error return
+     * Only ACTIVE residents of THIS hostel can verify
      */
     public function verifyResident(Request $request)
     {
@@ -91,42 +91,51 @@ class GuestComplaintController extends Controller
             ], 400);
         }
 
-        // Clean phone (remove spaces, +, -)
+        // Clean phone: keep only digits, use LAST 10 digits
         $phone = preg_replace('/[^0-9]/', '', $request->phone);
-        $phone = substr($phone, -10); // last 10 digits
+        $phone = substr($phone, -10);
 
-        // STRICT CHECK — resident MUST exist in this hostel
+        if (strlen($phone) < 10) {
+            return response()->json([
+                'success'  => false,
+                'message'  => '❌ Enter a valid 10-digit mobile number.',
+                'verified' => false
+            ], 422);
+        }
+
+        // STRICT MATCH — resident must exist in this hostel & be ACTIVE
         $resident = Resident::with(['room', 'hostel'])
             ->where('hostel_id', $hostelId)
-            ->where(function ($q) use ($phone) {
-                $q->where('phone', 'LIKE', "%{$phone}%")
-                  ->orWhere('phone', $phone);
-            })
             ->where('status', 'ACTIVE')
+            ->where(function ($q) use ($phone) {
+                $q->where('phone', $phone)
+                  ->orWhere('phone', 'LIKE', "%{$phone}")
+                  ->orWhere('phone', 'LIKE', "{$phone}%");
+            })
             ->first();
 
         if (!$resident) {
             return response()->json([
-                'success' => false,
-                'message' => '❌ This phone number is not registered as an active resident in this hostel. Only residents can register complaints.',
+                'success'  => false,
+                'message'  => '❌ This phone number is not registered as an active resident in this hostel. Only residents can register complaints.',
                 'verified' => false
             ], 404);
         }
 
-        // Return resident details
         return response()->json([
             'success'  => true,
             'verified' => true,
             'message'  => '✓ Resident verified successfully',
             'data' => [
-                'resident_id'  => $resident->id,
-                'name'         => $resident->name,
-                'phone'        => $resident->phone,
-                'email'        => $resident->email,
-                'room_number'  => $resident->room->room_number ?? null,
-                'room_id'      => $resident->room_id,
-                'hostel_name'  => $resident->hostel->name ?? null,
-                'photo'        => $resident->profile_image
+                'resident_id' => $resident->id,
+                'name'        => $resident->name,
+                'phone'       => $resident->phone,
+                'email'       => $resident->email,
+                'room_number' => $resident->room->room_number ?? $resident->room->room_no ?? null,
+                'room_id'     => $resident->room_id,
+                'hostel_id'   => $resident->hostel_id,
+                'hostel_name' => $resident->hostel->hostel_name ?? $resident->hostel->name ?? null,
+                'photo'       => $resident->profile_image
                                     ? asset('storage/' . $resident->profile_image)
                                     : null,
             ]
@@ -135,18 +144,18 @@ class GuestComplaintController extends Controller
 
     /**
      * STORE COMPLAINT
-     * Server-side-la inum oru dhadavai resident verify pannum
-     * (Frontend bypass panna mudiyathu)
+     * 🔥 Verifies resident by PHONE ONLY (not by resident_id)
+     * Server-side strict verification — cannot be bypassed
      */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'encoded_id'  => 'required',
-            'phone'       => 'required',
+            'phone'       => 'required|string|min:10|max:15',
             'category'    => 'required|in:electrical,plumbing,furniture,cleaning,wifi,food,security,other',
             'priority'    => 'required|in:low,medium,high,urgent',
             'description' => 'required|string|min:10|max:2000',
-            'image'       => 'nullable|image|max:5120', // 5MB
+            'image'       => 'nullable|image|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -156,36 +165,50 @@ class GuestComplaintController extends Controller
             ], 422);
         }
 
+        // Decode hostel
         $hostelId = self::decodeId($request->encoded_id);
         if (!$hostelId) {
             return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
         }
 
-        $hostel = Hostel::where('id', $hostelId)
-                        ->where('status', 'ACTIVE')
-                        ->first();
-
+        $hostel = Hostel::where('id', $hostelId)->where('status', 'ACTIVE')->first();
         if (!$hostel) {
             return response()->json(['success' => false, 'message' => 'Hostel not found'], 404);
         }
 
         // ================================================
-        // SERVER-SIDE STRICT RESIDENT VERIFICATION
+        // 🔥 RESIDENT VERIFICATION BY PHONE (single source of truth)
         // ================================================
         $phone = preg_replace('/[^0-9]/', '', $request->phone);
         $phone = substr($phone, -10);
 
+        if (strlen($phone) < 10) {
+            return response()->json([
+                'success' => false,
+                'message' => '❌ Invalid phone number.',
+                'code'    => 'INVALID_PHONE'
+            ], 422);
+        }
+
+        // Match resident by phone in THIS hostel, ACTIVE only
         $resident = Resident::with('room')
             ->where('hostel_id', $hostelId)
-            ->where(function ($q) use ($phone) {
-                $q->where('phone', 'LIKE', "%{$phone}%")
-                  ->orWhere('phone', $phone);
-            })
             ->where('status', 'ACTIVE')
+            ->where(function ($q) use ($phone) {
+                $q->where('phone', $phone)
+                  ->orWhere('phone', 'LIKE', "%{$phone}")
+                  ->orWhere('phone', 'LIKE', "{$phone}%");
+            })
             ->first();
 
         // If resident NOT found → BLOCK complaint
         if (!$resident) {
+            Log::warning('Complaint blocked — resident not found', [
+                'hostel_id' => $hostelId,
+                'phone'     => $phone,
+                'ip'        => $request->ip(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => '❌ Complaint registration failed. Only registered active residents of this hostel can submit complaints.',
@@ -199,19 +222,19 @@ class GuestComplaintController extends Controller
             $imagePath = $request->file('image')->store('complaints', 'public');
         }
 
-        // Create complaint with verified resident_id
+        // Create complaint — data from VERIFIED resident
         $complaint = Complaint::create([
-            'hostel_id'      => $hostelId,
-            'resident_id'    => $resident->id,   // ← from DB, not from user input
-            'name'           => $resident->name, // ← snapshot from DB
-            'phone'          => $resident->phone,
-            'email'          => $resident->email,
-            'room_number'    => $resident->room->room_number ?? null,
-            'category'       => $request->category,
-            'priority'       => $request->priority,
-            'description'    => $request->description,
-            'image'          => $imagePath,
-            'status'         => 'pending',
+            'hostel_id'   => $hostelId,
+            'resident_id' => $resident->id,
+            'name'        => $resident->name,
+            'phone'       => $resident->phone,
+            'email'       => $resident->email,
+            'room_number' => $resident->room->room_number ?? $resident->room->room_no ?? null,
+            'category'    => $request->category,
+            'priority'    => $request->priority,
+            'description' => $request->description,
+            'image'       => $imagePath,
+            'status'      => 'pending',
         ]);
 
         return response()->json([
