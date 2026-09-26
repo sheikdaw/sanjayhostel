@@ -19,22 +19,9 @@
             --info: #3b82f6;
         }
 
-        /* ============================================
-           LAYOUT
-        ============================================ */
-        .resident-container {
-            max-width: 100%;
-            padding: 0 15px;
-        }
-        .modal-content form {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-height: 0;
-        }
-        /* ============================================
-           HEADER
-        ============================================ */
+        .resident-container { max-width: 100%; padding: 0 15px; }
+        .modal-content form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
         .resident-header {
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
             color: white;
@@ -47,35 +34,16 @@
             flex-wrap: wrap;
             gap: 1rem;
         }
+        .resident-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; }
+        .resident-header p { opacity: 0.8; margin: 0; font-size: 0.9rem; }
+        .header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
-        .resident-header h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 0;
-        }
-
-        .resident-header p {
-            opacity: 0.8;
-            margin: 0;
-            font-size: 0.9rem;
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        /* ============================================
-           STATS GRID
-        ============================================ */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 0.75rem;
             margin-bottom: 1.5rem;
         }
-
         .stat-card {
             background: white;
             padding: 0.75rem 1rem;
@@ -84,32 +52,14 @@
             text-align: center;
             transition: all 0.3s;
         }
-
         .stat-card:hover {
             border-color: var(--gold);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             transform: translateY(-2px);
         }
-
-        .stat-card .number {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .stat-card .label {
-            font-size: 0.6rem;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stat-card .icon {
-            font-size: 1.2rem;
-            display: block;
-            margin-bottom: 0.25rem;
-        }
-
+        .stat-card .number { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
+        .stat-card .label { font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-card .icon { font-size: 1.2rem; display: block; margin-bottom: 0.25rem; }
         .stat-card.male .number { color: #3b82f6; }
         .stat-card.female .number { color: #ec4899; }
         .stat-card.active .number { color: var(--success); }
@@ -122,9 +72,6 @@
         .stat-card.food .number { color: #166534; }
         .stat-card.food { background: linear-gradient(135deg, #dcfce7, #bbf7d0); }
 
-        /* ============================================
-           FILTER SECTION
-        ============================================ */
         .filter-section {
             display: flex;
             gap: 0.75rem;
@@ -136,13 +83,7 @@
             border: 1px solid #e5e7eb;
             margin-bottom: 1rem;
         }
-
-        .filter-section .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
+        .filter-section .filter-group { display: flex; align-items: center; gap: 0.5rem; }
         .filter-section select,
         .filter-section input {
             padding: 0.35rem 0.8rem;
@@ -152,37 +93,15 @@
             background: white;
             min-width: 120px;
         }
-
-        .filter-section select:focus,
-        .filter-section input:focus {
-            border-color: var(--gold);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
-        }
-
-        .search-box {
-            position: relative;
-            flex: 1;
-            min-width: 200px;
-        }
-
+        .search-box { position: relative; flex: 1; min-width: 200px; }
         .search-box input {
             width: 100%;
             padding: 0.35rem 0.8rem 0.35rem 2rem;
             border-radius: 6px;
             border: 1px solid #d1d5db;
             font-size: 0.8rem;
-            background: white;
         }
-
-        .search-box i {
-            position: absolute;
-            left: 0.6rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-        }
-
+        .search-box i { position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%); color: #9ca3af; }
         .result-count {
             font-size: 0.75rem;
             color: #6b7280;
@@ -191,7 +110,6 @@
             border-radius: 4px;
             margin-left: auto;
         }
-
         .btn-clear-filters {
             padding: 0.35rem 1rem;
             border-radius: 6px;
@@ -199,16 +117,9 @@
             background: white;
             font-size: 0.8rem;
             cursor: pointer;
-            transition: all 0.2s;
         }
+        .btn-clear-filters:hover { background: #f3f4f6; }
 
-        .btn-clear-filters:hover {
-            background: #f3f4f6;
-        }
-
-        /* ============================================
-           BULK ACTIONS
-        ============================================ */
         .bulk-actions {
             display: none;
             align-items: center;
@@ -220,26 +131,9 @@
             margin-bottom: 1rem;
             flex-wrap: wrap;
         }
+        .bulk-actions.show { display: flex; }
+        .bulk-actions .count { font-weight: 600; color: var(--primary); }
 
-        .bulk-actions.show {
-            display: flex;
-        }
-
-        .bulk-actions .count {
-            font-weight: 600;
-            color: var(--primary);
-        }
-
-        .bulk-actions select {
-            padding: 0.2rem 0.5rem;
-            border-radius: 4px;
-            border: 1px solid #d1d5db;
-            font-size: 0.75rem;
-        }
-
-        /* ============================================
-           RESIDENT CARD
-        ============================================ */
         .resident-card {
             transition: all 0.3s ease;
             border: 1px solid #e5e7eb;
@@ -249,24 +143,9 @@
             position: relative;
             height: 100%;
         }
-
-        .resident-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-        }
-
-        .resident-card .card-checkbox {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            z-index: 2;
-        }
-
-        .resident-card .card-checkbox input {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
-        }
+        .resident-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08); }
+        .resident-card .card-checkbox { position: absolute; top: 12px; left: 12px; z-index: 2; }
+        .resident-card .card-checkbox input { width: 16px; height: 16px; cursor: pointer; }
 
         .resident-header-card {
             padding: 1rem 1.25rem;
@@ -277,7 +156,6 @@
             align-items: center;
             gap: 1rem;
         }
-
         .resident-avatar {
             width: 48px;
             height: 48px;
@@ -292,26 +170,15 @@
             flex-shrink: 0;
             overflow: hidden;
         }
-
-        .resident-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
+        .resident-avatar img { width: 100%; height: 100%; object-fit: cover; }
         .resident-code {
             font-size: 0.65rem;
             font-family: monospace;
             background: rgba(255, 255, 255, 0.2);
             padding: 2px 8px;
             border-radius: 4px;
-            color: rgba(255, 255, 255, 0.9);
         }
-
-        .resident-body {
-            padding: 1rem 1.25rem;
-        }
-
+        .resident-body { padding: 1rem 1.25rem; }
         .resident-detail {
             font-size: 0.75rem;
             color: #6b7280;
@@ -320,20 +187,9 @@
             align-items: center;
             gap: 4px;
         }
-
-        .resident-detail i {
-            width: 16px;
-            color: var(--gold);
-        }
-
-        .resident-detail .label {
-            color: #6b7280;
-        }
-
-        .resident-detail .value {
-            color: #1f2937;
-            font-weight: 500;
-        }
+        .resident-detail i { width: 16px; color: var(--gold); }
+        .resident-detail .label { color: #6b7280; }
+        .resident-detail .value { color: #1f2937; font-weight: 500; }
 
         .resident-room-info {
             background: #f8fafc;
@@ -342,16 +198,6 @@
             margin: 0.5rem 0;
             font-size: 0.75rem;
         }
-
-        .resident-room-info .label {
-            color: #6b7280;
-        }
-
-        .resident-room-info .value {
-            font-weight: 600;
-            color: var(--primary);
-        }
-
         .resident-rent {
             font-size: 0.8rem;
             font-weight: 700;
@@ -362,9 +208,6 @@
             display: inline-block;
         }
 
-        /* ============================================
-           BADGES
-        ============================================ */
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -374,39 +217,13 @@
             font-size: 0.65rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
             border: none;
         }
-
-        .status-badge:hover {
-            opacity: 0.8;
-            transform: scale(1.05);
-        }
-
-        .status-badge.active {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .status-badge.vacated {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .status-badge .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .status-badge.active .dot {
-            background: var(--success);
-        }
-
-        .status-badge.vacated .dot {
-            background: var(--danger);
-        }
+        .status-badge.active { background: #dcfce7; color: #166534; }
+        .status-badge.vacated { background: #fee2e2; color: #991b1b; }
+        .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+        .status-badge.active .dot { background: var(--success); }
+        .status-badge.vacated .dot { background: var(--danger); }
 
         .food-badge {
             display: inline-flex;
@@ -417,16 +234,8 @@
             font-size: 0.6rem;
             font-weight: 600;
         }
-
-        .food-badge.with-food {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .food-badge.without-food {
-            background: #f3f4f6;
-            color: #4b5563;
-        }
+        .food-badge.with-food { background: #dcfce7; color: #166534; }
+        .food-badge.without-food { background: #f3f4f6; color: #4b5563; }
 
         .biometric-badge-small {
             display: inline-flex;
@@ -437,21 +246,9 @@
             font-size: 0.6rem;
             font-weight: 600;
         }
-
-        .biometric-badge-small.enabled {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .biometric-badge-small.disabled {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .biometric-badge-small.not-synced {
-            background: #f3f4f6;
-            color: #6b7280;
-        }
+        .biometric-badge-small.enabled { background: #dcfce7; color: #166534; }
+        .biometric-badge-small.disabled { background: #fee2e2; color: #991b1b; }
+        .biometric-badge-small.not-synced { background: #f3f4f6; color: #6b7280; }
 
         .document-badge {
             display: inline-flex;
@@ -463,79 +260,22 @@
             background: #e3f2fd;
             color: #1565c0;
             cursor: pointer;
-            transition: all 0.2s;
         }
+        .document-badge.has-doc { background: #dcfce7; color: #166534; }
 
-        .document-badge:hover {
-            background: #bbdefb;
-        }
-
-        .document-badge.has-doc {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .rv-input-box .bi-calendar-heart {
-            color: #ec4899;
-        }
-
-        .dob-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            background: #fce7f3;
-            color: #831843;
-        }
-
-        .dob-badge i {
-            color: #ec4899;
-        }
-
-        /* ============================================
-           BUTTONS
-        ============================================ */
         .btn-action {
             padding: 0.2rem 0.5rem;
             border-radius: 6px;
             border: 1px solid #e5e7eb;
             background: white;
             font-size: 0.75rem;
-            transition: all 0.2s;
             cursor: pointer;
         }
-
-        .btn-action:hover {
-            background: #f3f4f6;
-        }
-
-        .btn-action.text-danger:hover {
-            background: #fee2e2;
-            border-color: #fca5a5;
-        }
-
-        .btn-action.text-primary:hover {
-            background: #e3f2fd;
-            border-color: #90caf9;
-        }
-
-        .btn-action.text-success:hover {
-            background: #dcfce7;
-            border-color: #86efac;
-        }
-
-        .btn-action.text-info:hover {
-            background: #cff4fc;
-            border-color: #81d4fa;
-        }
-
-        .btn-action.text-warning:hover {
-            background: #fef3c7;
-            border-color: #fcd34d;
-        }
+        .btn-action:hover { background: #f3f4f6; }
+        .btn-action.text-danger:hover { background: #fee2e2; border-color: #fca5a5; }
+        .btn-action.text-primary:hover { background: #e3f2fd; border-color: #90caf9; }
+        .btn-action.text-success:hover { background: #dcfce7; border-color: #86efac; }
+        .btn-action.text-warning:hover { background: #fef3c7; border-color: #fcd34d; }
 
         .btn-primary-custom {
             background: var(--primary);
@@ -545,18 +285,11 @@
             border-radius: 8px;
             font-size: 0.85rem;
             cursor: pointer;
-            transition: all 0.3s;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
         }
-
-        .btn-primary-custom:hover {
-            background: var(--primary-light);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(26, 58, 107, 0.3);
-        }
-
+        .btn-primary-custom:hover { background: var(--primary-light); }
         .btn-secondary-custom {
             background: #6b7280;
             color: white;
@@ -565,16 +298,11 @@
             border-radius: 8px;
             font-size: 0.85rem;
             cursor: pointer;
-            transition: all 0.3s;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
         }
-
-        .btn-secondary-custom:hover {
-            background: #4b5563;
-        }
-
+        .btn-secondary-custom:hover { background: #4b5563; }
         .btn-purple-custom {
             background: #7c3aed;
             color: white;
@@ -583,19 +311,13 @@
             border-radius: 8px;
             font-size: 0.85rem;
             cursor: pointer;
-            transition: all 0.3s;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
         }
+        .btn-purple-custom:hover { background: #6d28d9; }
 
-        .btn-purple-custom:hover {
-            background: #6d28d9;
-        }
-
-        /* ============================================
-           MODAL - SCROLLABLE FIX
-        ============================================ */
+        /* MODALS */
         .modal-content {
             border-radius: 16px;
             border: none;
@@ -603,7 +325,6 @@
             display: flex;
             flex-direction: column;
         }
-
         .modal-header {
             background: var(--primary);
             color: white;
@@ -611,18 +332,13 @@
             padding: 1rem 1.5rem;
             flex-shrink: 0;
         }
-
-        .modal-header .btn-close {
-            filter: brightness(0) invert(1);
-        }
-
+        .modal-header .btn-close { filter: brightness(0) invert(1); }
         .modal-body {
             padding: 1.5rem;
             overflow-y: auto;
             flex: 1;
             max-height: calc(95vh - 130px);
         }
-
         .modal-footer {
             padding: 1rem 1.5rem;
             border-top: 1px solid #e5e7eb;
@@ -630,29 +346,11 @@
             background: #f8fafc;
             border-radius: 0 0 16px 16px;
         }
+        .modal-body::-webkit-scrollbar { width: 6px; }
+        .modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        .modal-body::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
 
-        /* Modal Scrollbar Styling */
-        .modal-body::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .modal-body::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-
-        .modal-body::-webkit-scrollbar-thumb {
-            background: var(--gold);
-            border-radius: 3px;
-        }
-
-        .modal-body::-webkit-scrollbar-thumb:hover {
-            background: #b8941a;
-        }
-
-        /* ============================================
-           FORM STYLES
-        ============================================ */
+        /* FORM */
         .rv-input-box {
             position: relative;
             border: 1px solid #d1d5db;
@@ -660,17 +358,12 @@
             background: #fafafa;
             transition: all 0.2s;
         }
-
         .rv-input-box:focus-within {
             border-color: var(--gold);
             box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
             background: white;
         }
-
-        .rv-input-box.is-invalid {
-            border-color: var(--danger);
-        }
-
+        .rv-input-box.is-invalid { border-color: var(--danger); }
         .rv-input-icon {
             position: absolute;
             left: 12px;
@@ -680,12 +373,7 @@
             font-size: 0.9rem;
             pointer-events: none;
         }
-
-        .rv-input-icon.textarea-icon {
-            top: 16px;
-            transform: none;
-        }
-
+        .rv-input-icon.textarea-icon { top: 16px; transform: none; }
         .rv-input {
             width: 100%;
             padding: 0.6rem 0.8rem 0.6rem 2.4rem;
@@ -695,40 +383,17 @@
             font-size: 0.85rem;
             color: #1f2937;
         }
-
-        .rv-input.textarea-input {
-            min-height: 60px;
-            resize: vertical;
-        }
-
-        select.rv-input {
-            appearance: none;
-            padding-right: 2rem;
-            cursor: pointer;
-        }
-
+        .rv-input.textarea-input { min-height: 60px; resize: vertical; }
+        select.rv-input { appearance: none; padding-right: 2rem; cursor: pointer; }
         .form-label {
             font-size: 0.8rem;
             font-weight: 600;
             color: #374151;
             margin-bottom: 0.3rem;
         }
-
-        .form-label .required {
-            color: var(--danger);
-            margin-left: 2px;
-        }
-
-        .invalid-feedback {
-            font-size: 0.75rem;
-            color: var(--danger);
-            margin-top: 0.25rem;
-        }
-
-        .file-input-box {
-            padding: 0.5rem;
-        }
-
+        .form-label .required { color: var(--danger); margin-left: 2px; }
+        .invalid-feedback { font-size: 0.75rem; color: var(--danger); margin-top: 0.25rem; }
+        .file-input-box { padding: 0.5rem; }
         .file-input-box input[type="file"] {
             padding: 0.3rem;
             border: none;
@@ -736,7 +401,6 @@
             width: 100%;
             font-size: 0.8rem;
         }
-
         .file-input-box input[type="file"]::-webkit-file-upload-button {
             padding: 0.3rem 0.8rem;
             border-radius: 4px;
@@ -745,11 +409,6 @@
             cursor: pointer;
             font-size: 0.75rem;
         }
-
-        .file-input-box input[type="file"]::-webkit-file-upload-button:hover {
-            background: #f3f4f6;
-        }
-
         .file-preview-container {
             display: flex;
             align-items: center;
@@ -759,28 +418,15 @@
             border-radius: 6px;
             border: 1px solid #e5e7eb;
         }
-
         .file-preview-container img {
             max-width: 60px;
             max-height: 60px;
             border-radius: 4px;
             object-fit: cover;
         }
-
-        .file-preview-container .file-info {
-            flex: 1;
-            font-size: 0.75rem;
-        }
-
-        .file-preview-container .file-info .filename {
-            font-weight: 600;
-            color: #1f2937;
-        }
-
-        .file-preview-container .file-info .filesize {
-            color: #6b7280;
-        }
-
+        .file-preview-container .file-info { flex: 1; font-size: 0.75rem; }
+        .file-preview-container .file-info .filename { font-weight: 600; color: #1f2937; }
+        .file-preview-container .file-info .filesize { color: #6b7280; }
         .existing-doc-badge {
             display: inline-flex;
             align-items: center;
@@ -792,9 +438,7 @@
             color: #166534;
         }
 
-        /* ============================================
-           TOAST
-        ============================================ */
+        /* TOAST */
         .toast-container {
             position: fixed;
             top: 80px;
@@ -802,7 +446,6 @@
             z-index: 9999;
             max-width: 400px;
         }
-
         .toast-custom {
             background: white;
             border-radius: 12px;
@@ -810,55 +453,22 @@
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
             border-left: 4px solid var(--success);
             margin-bottom: 0.75rem;
-            animation: slideInRight 0.3s ease;
             display: flex;
             align-items: center;
             gap: 0.75rem;
         }
-
-        .toast-custom.error {
-            border-left-color: var(--danger);
-        }
-
-        .toast-custom .message {
-            flex: 1;
-            font-size: 0.85rem;
-            color: #1f2937;
-        }
-
+        .toast-custom.error { border-left-color: var(--danger); }
+        .toast-custom .message { flex: 1; font-size: 0.85rem; color: #1f2937; }
         .toast-custom .close-btn {
             background: none;
             border: none;
             color: #9ca3af;
             cursor: pointer;
-            padding: 0 0.25rem;
             font-size: 1.2rem;
         }
 
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-
-        /* ============================================
-           EMPTY STATE
-        ============================================ */
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-        }
-
-        .empty-state i {
-            font-size: 4rem;
-            color: #d1d5db;
-            margin-bottom: 1rem;
-        }
-
+        .empty-state { text-align: center; padding: 4rem 2rem; }
+        .empty-state i { font-size: 4rem; color: #d1d5db; margin-bottom: 1rem; }
         .no-results-state {
             text-align: center;
             padding: 3rem 1.5rem;
@@ -867,130 +477,18 @@
             border: 1px solid #e5e7eb;
             margin-top: 1rem;
         }
+        .no-results-state i { font-size: 3rem; color: #d1d5db; margin-bottom: 0.75rem; }
 
-        .no-results-state i {
-            font-size: 3rem;
-            color: #d1d5db;
-            margin-bottom: 0.75rem;
-        }
-
-        .no-results-state h5 {
-            color: #374151;
-            margin-bottom: 0.5rem;
-        }
-
-        .no-results-state p {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-        }
-
-        /* ============================================
-           RESPONSIVE
-        ============================================ */
         @media (max-width: 768px) {
-            .resident-header {
-                flex-direction: column;
-                align-items: stretch;
-                text-align: center;
-                padding: 1rem;
-            }
-
-            .header-actions {
-                justify-content: center;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-                gap: 0.5rem;
-            }
-
-            .stat-card .number {
-                font-size: 1rem;
-            }
-
-            .filter-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .filter-section .filter-group {
-                flex-wrap: wrap;
-            }
-
-            .filter-section select,
-            .filter-section input {
-                min-width: 100%;
-            }
-
-            .search-box {
-                min-width: 100%;
-            }
-
-            .result-count {
-                margin-left: 0;
-                text-align: center;
-            }
-
-            .bulk-actions {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-
-            .resident-header-card {
-                padding: 0.75rem 1rem;
-                padding-left: 2.5rem;
-                flex-wrap: wrap;
-            }
-
-            .resident-avatar {
-                width: 40px;
-                height: 40px;
-                font-size: 0.9rem;
-            }
-
-            .resident-body {
-                padding: 0.75rem 1rem;
-            }
-
-            .resident-detail {
-                font-size: 0.7rem;
-            }
-
-            .modal-body {
-                max-height: calc(90vh - 130px);
-                padding: 1rem;
-            }
+            .resident-header { flex-direction: column; text-align: center; padding: 1rem; }
+            .header-actions { justify-content: center; }
+            .stats-grid { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 0.5rem; }
+            .filter-section { flex-direction: column; align-items: stretch; }
+            .search-box { min-width: 100%; }
+            .modal-body { max-height: calc(90vh - 130px); padding: 1rem; }
         }
-
         @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .resident-header h1 {
-                font-size: 1.2rem;
-            }
-
-            .header-actions .btn-primary-custom,
-            .header-actions .btn-secondary-custom,
-            .header-actions .btn-purple-custom {
-                padding: 0.35rem 0.8rem;
-                font-size: 0.75rem;
-            }
-        }
-
-        /* ============================================
-           PRINT STYLES
-        ============================================ */
-        @media print {
-            .no-print {
-                display: none !important;
-            }
-            .resident-card {
-                break-inside: avoid;
-                border: 1px solid #ddd !important;
-            }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 @endpush
@@ -998,9 +496,7 @@
 @section('content')
     <div class="resident-container">
 
-        {{-- ============================================
-        HEADER
-        ============================================ --}}
+        {{-- HEADER --}}
         <div class="resident-header no-print">
             <div>
                 <h1><i class="bi bi-people-fill"></i> Resident Management</h1>
@@ -1024,9 +520,7 @@
             </div>
         </div>
 
-        {{-- ============================================
-        STATISTICS
-        ============================================ --}}
+        {{-- STATS --}}
         <div class="stats-grid">
             <div class="stat-card total">
                 <span class="icon">🏠</span>
@@ -1075,9 +569,7 @@
             </div>
         </div>
 
-        {{-- ============================================
-        BULK ACTIONS
-        ============================================ --}}
+        {{-- BULK ACTIONS --}}
         <div class="bulk-actions no-print" id="bulkActions">
             <span><i class="bi bi-check-square"></i> <span class="count" id="selectedCount">0</span> selected</span>
             <span style="color:#6b7280;">|</span>
@@ -1097,9 +589,7 @@
             </button>
         </div>
 
-        {{-- ============================================
-        FILTERS
-        ============================================ --}}
+        {{-- FILTERS --}}
         <div class="filter-section no-print">
             <div class="filter-group">
                 <label style="font-size:0.8rem; font-weight:600;">Filter:</label>
@@ -1151,9 +641,7 @@
             <span class="result-count" id="resultCount"></span>
         </div>
 
-        {{-- ============================================
-        RESIDENTS GRID
-        ============================================ --}}
+        {{-- RESIDENTS GRID --}}
         <div id="residentsContainer">
             @if ($residents->count() > 0)
                 <div class="row g-4" id="residentsGrid">
@@ -1172,13 +660,11 @@
                              data-room-no="{{ strtolower($resident->room->room_no ?? '') }}">
 
                             <div class="resident-card">
-                                {{-- Checkbox --}}
                                 <div class="card-checkbox no-print">
                                     <input type="checkbox" class="resident-checkbox" value="{{ $resident->id }}"
                                            onclick="updateBulkActions()">
                                 </div>
 
-                                {{-- Header --}}
                                 <div class="resident-header-card">
                                     <div class="resident-avatar">
                                         @if ($resident->profile_image)
@@ -1206,9 +692,7 @@
                                     </div>
                                 </div>
 
-                                {{-- Body --}}
                                 <div class="resident-body">
-                                    {{-- Contact --}}
                                     <div class="resident-detail">
                                         <i class="bi bi-phone"></i>
                                         <span class="value">{{ $resident->phone }}</span>
@@ -1227,7 +711,6 @@
                                         </div>
                                     @endif
 
-                                    {{-- Biometric Status --}}
                                     <div class="resident-detail" style="margin-top:4px;">
                                         <i class="bi bi-fingerprint"></i>
                                         <span class="label">Biometric:</span>
@@ -1236,11 +719,6 @@
                                                 <i class="bi {{ $resident->biometric_access ? 'bi-check-circle' : 'bi-x-circle' }}"></i>
                                                 {{ $resident->biometric_access ? 'Enabled' : 'Disabled' }}
                                             </span>
-                                            @if($resident->last_sync_at)
-                                                <span style="font-size:0.6rem; color:#6b7280; margin-left:4px;">
-                                                    ({{ $resident->last_sync_at->format('d M Y') }})
-                                                </span>
-                                            @endif
                                         @else
                                             <span class="biometric-badge-small not-synced">
                                                 <i class="bi bi-clock"></i> Not Synced
@@ -1248,7 +726,6 @@
                                         @endif
                                     </div>
 
-                                    {{-- Documents --}}
                                     <div class="resident-detail" style="margin-top:4px;">
                                         <i class="bi bi-files"></i>
                                         <span class="label">Docs:</span>
@@ -1272,7 +749,6 @@
                                         @endif
                                     </div>
 
-                                    {{-- Room Info --}}
                                     <div class="resident-room-info">
                                         <div class="d-flex justify-content-between">
                                             <span>
@@ -1302,22 +778,21 @@
                                         </div>
                                     </div>
 
-                                    {{-- Actions --}}
                                     <div class="d-flex justify-content-between align-items-center mt-2">
                                         <button class="status-badge {{ strtolower($resident->status) }}" onclick="toggleStatus({{ $resident->id }})">
                                             <span class="dot"></span>
                                             {{ $resident->status }}
                                         </button>
                                         <div class="d-flex gap-1 no-print">
-                                            <button class="btn-action text-primary" onclick="viewResidentDetails({{ $resident->id }})" title="View Full Details">
+                                            <button class="btn-action text-primary" onclick="viewResidentDetails({{ $resident->id }})" title="View">
                                                 <i class="bi bi-eye"></i>
                                             </button>
                                             @if($resident->employee_code)
-                                                <button class="btn-action text-warning" onclick="toggleBiometricAccess({{ $resident->id }})" title="Toggle Biometric Access">
+                                                <button class="btn-action text-warning" onclick="toggleBiometricAccess({{ $resident->id }})" title="Toggle Biometric">
                                                     <i class="bi bi-fingerprint"></i>
                                                 </button>
                                             @else
-                                                <button class="btn-action text-success" onclick="syncSingleBiometric({{ $resident->id }})" title="Sync to Biometric">
+                                                <button class="btn-action text-success" onclick="syncSingleBiometric({{ $resident->id }})" title="Sync Biometric">
                                                     <i class="bi bi-cloud-upload"></i>
                                                 </button>
                                             @endif
@@ -1335,7 +810,6 @@
                     @endforeach
                 </div>
 
-                {{-- No Results --}}
                 <div id="noSearchResults" class="no-results-state" style="display:none;">
                     <i class="bi bi-search"></i>
                     <h5>No residents found</h5>
@@ -1344,9 +818,7 @@
                         <i class="bi bi-arrow-counterclockwise"></i> Clear All Filters
                     </button>
                 </div>
-
             @else
-                {{-- Empty State --}}
                 <div class="ds-card">
                     <div class="empty-state">
                         <i class="bi bi-people"></i>
@@ -1377,7 +849,6 @@
                     <div class="modal-body">
                         <div class="row g-3">
 
-                            {{-- Personal Information --}}
                             <div class="col-md-6">
                                 <label class="form-label">Name <span class="required">*</span></label>
                                 <div class="rv-input-box">
@@ -1422,12 +893,9 @@
                                 <label class="form-label">Date of Birth</label>
                                 <div class="rv-input-box">
                                     <i class="bi bi-calendar-heart rv-input-icon"></i>
-                                    <input type="date" name="dob" id="dob" class="rv-input" placeholder="Select Date of Birth" max="{{ date('Y-m-d') }}">
+                                    <input type="date" name="dob" id="dob" class="rv-input" max="{{ date('Y-m-d') }}">
                                 </div>
                                 <div class="invalid-feedback" id="dob_error"></div>
-                                <small class="text-muted" style="font-size:0.65rem;">
-                                    <i class="bi bi-info-circle"></i> Resident's date of birth
-                                </small>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Address</label>
@@ -1438,13 +906,21 @@
                                 <div class="invalid-feedback" id="address_error"></div>
                             </div>
 
-                            {{-- Documents Upload --}}
+                            {{-- ============================================
+                                PROFILE IMAGE with CAMERA + FILE
+                            ============================================ --}}
                             <div class="col-md-4">
                                 <label class="form-label">Profile Image</label>
                                 <div class="rv-input-box file-input-box">
-                                    <input type="file" name="profile_image" id="profile_image" accept="image/*">
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <input type="file" name="profile_image" id="profile_image" accept="image/*" style="flex: 1;">
+                                        <button type="button" class="btn-action text-primary" onclick="openCamera()" title="Take Photo" style="white-space: nowrap; padding: 0.4rem 0.8rem;">
+                                            <i class="bi bi-camera"></i> Camera
+                                        </button>
+                                    </div>
                                     <small class="text-muted" style="display:block; font-size:0.65rem;">JPG, PNG (Max 2MB)</small>
                                 </div>
+                                <input type="hidden" name="camera_image" id="camera_image" value="">
                                 <div id="profile_image_preview" style="display:none; margin-top:6px;">
                                     <div class="file-preview-container">
                                         <img id="profile_preview_img" src="" alt="Preview">
@@ -1479,8 +955,8 @@
                                     <div class="file-preview-container">
                                         <i class="bi bi-file-earmark-pdf" style="font-size:2rem; color:#dc2626;"></i>
                                         <div class="file-info">
-                                            <div class="filename" id="aadhar_filename">File</div>
-                                            <div class="filesize" id="aadhar_filesize">0 KB</div>
+                                            <div class="filename" id="aadhar_document_filename">File</div>
+                                            <div class="filesize" id="aadhar_document_filesize">0 KB</div>
                                         </div>
                                         <button type="button" class="btn-action text-danger" onclick="removeFile('aadhar_document')">
                                             <i class="bi bi-x"></i>
@@ -1512,8 +988,8 @@
                                     <div class="file-preview-container">
                                         <i class="bi bi-file-earmark-text" style="font-size:2rem; color:#2563eb;"></i>
                                         <div class="file-info">
-                                            <div class="filename" id="application_filename">File</div>
-                                            <div class="filesize" id="application_filesize">0 KB</div>
+                                            <div class="filename" id="application_document_filename">File</div>
+                                            <div class="filesize" id="application_document_filesize">0 KB</div>
                                         </div>
                                         <button type="button" class="btn-action text-danger" onclick="removeFile('application_document')">
                                             <i class="bi bi-x"></i>
@@ -1535,7 +1011,6 @@
                                 <div class="invalid-feedback" id="application_document_error"></div>
                             </div>
 
-                            {{-- Accommodation Details --}}
                             <div class="col-md-4">
                                 <label class="form-label">Hostel <span class="required">*</span></label>
                                 <div class="rv-input-box">
@@ -1570,7 +1045,6 @@
                                 <div class="invalid-feedback" id="bed_id_error"></div>
                             </div>
 
-                            {{-- Food & Rent --}}
                             <div class="col-md-6">
                                 <label class="form-label">Food Status <span class="required">*</span></label>
                                 <div class="rv-input-box">
@@ -1587,19 +1061,16 @@
                                 <label class="form-label">Rent (₹) <span class="required">*</span></label>
                                 <div class="rv-input-box">
                                     <i class="bi bi-currency-rupee rv-input-icon"></i>
-                                    <input type="number" name="rent_amount" id="rent_amount" class="rv-input"
-                                           placeholder="0.00" step="0.01" min="0" required>
+                                    <input type="number" name="rent_amount" id="rent_amount" class="rv-input" placeholder="0.00" step="0.01" min="0" required>
                                 </div>
                                 <div class="invalid-feedback" id="rent_amount_error"></div>
                             </div>
 
-                            {{-- Financial & Dates --}}
                             <div class="col-md-6">
                                 <label class="form-label">Deposit (₹)</label>
                                 <div class="rv-input-box">
                                     <i class="bi bi-currency-rupee rv-input-icon"></i>
-                                    <input type="number" name="deposit_amount" id="deposit_amount" class="rv-input"
-                                           placeholder="0.00" step="0.01" min="0">
+                                    <input type="number" name="deposit_amount" id="deposit_amount" class="rv-input" placeholder="0.00" step="0.01" min="0">
                                 </div>
                                 <div class="invalid-feedback" id="deposit_amount_error"></div>
                             </div>
@@ -1634,7 +1105,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Cancel</button>
+                        <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn-primary-custom" id="saveBtn">
                             <i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>
                         </button>
@@ -1644,9 +1115,7 @@
         </div>
     </div>
 
-    {{-- ============================================
-    DETAILS VIEW MODAL
-    ============================================ --}}
+    {{-- DETAILS VIEW MODAL --}}
     <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-xl">
             <div class="modal-content">
@@ -1661,7 +1130,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Close</button>
+                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Close</button>
                     <button type="button" class="btn-primary-custom" onclick="window.print()">
                         <i class="bi bi-printer"></i> Print
                     </button>
@@ -1670,9 +1139,7 @@
         </div>
     </div>
 
-    {{-- ============================================
-    DOCUMENT VIEWER MODAL
-    ============================================ --}}
+    {{-- DOCUMENT VIEWER MODAL --}}
     <div class="modal fade" id="documentViewerModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
@@ -1686,7 +1153,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Close</button>
+                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal">Close</button>
                     <a href="#" id="documentDownloadLink" target="_blank" class="btn-primary-custom" style="text-decoration:none;">
                         <i class="bi bi-download"></i> Download
                     </a>
@@ -1695,74 +1162,96 @@
         </div>
     </div>
 
-    {{-- Toast Container --}}
+    {{-- ============================================
+    CAMERA MODAL
+    ============================================ --}}
+    <div class="modal fade" id="cameraModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-camera"></i> Take Photo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="stopCamera()"></button>
+                </div>
+                <div class="modal-body text-center" style="background: #000; padding: 0; position: relative;">
+                    <div style="position: relative; width: 100%; max-height: 70vh; overflow: hidden; background: #000;">
+                        <video id="cameraVideo" autoplay playsinline muted style="width: 100%; max-height: 70vh; object-fit: contain; display: block;"></video>
+                        <canvas id="cameraCanvas" style="display: none;"></canvas>
+                        <img id="capturedPhoto" style="display: none; width: 100%; max-height: 70vh; object-fit: contain;" />
+                    </div>
+                    <div id="cameraError" class="text-danger p-3" style="display: none; background: #1a1a1a;">
+                        <i class="bi bi-exclamation-triangle"></i> <span id="cameraErrorMsg">Camera access denied or not available</span>
+                    </div>
+                </div>
+                <div class="modal-footer" style="justify-content: center; gap: 10px; flex-wrap: wrap;">
+                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" onclick="stopCamera()">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="button" class="btn-primary-custom" id="captureBtn" onclick="capturePhoto()">
+                        <i class="bi bi-camera"></i> Capture Photo
+                    </button>
+                    <button type="button" id="retakeBtn" onclick="retakePhoto()" style="display: none; background: #f59e0b; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; cursor: pointer;">
+                        <i class="bi bi-arrow-clockwise"></i> Retake
+                    </button>
+                    <button type="button" id="usePhotoBtn" onclick="usePhoto()" style="display: none; background: #22c55e; color: white; border: none; padding: 0.5rem 1.2rem; border-radius: 8px; cursor: pointer;">
+                        <i class="bi bi-check-circle"></i> Use This Photo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast-container" id="flashMessageContainer"></div>
 @endsection
 
-{{-- ============================================
-JAVASCRIPT
-============================================ --}}
 @push('scripts')
-
 <script>
 // ============================================
 // VARIABLES
 // ============================================
 let residentModal, detailsModal, documentViewerModal;
+let cameraStream = null;
+let cameraModalInstance = null;
+let capturedImageData = null;
 
 $(document).ready(function() {
     console.log('✅ Document ready!');
 
-    // Initialize Modals
     residentModal = new bootstrap.Modal(document.getElementById('residentModal'), {
-        backdrop: 'static',
-        keyboard: true
+        backdrop: 'static', keyboard: true
     });
     detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
-        backdrop: 'static',
-        keyboard: true
+        backdrop: 'static', keyboard: true
     });
     documentViewerModal = new bootstrap.Modal(document.getElementById('documentViewerModal'), {
-        backdrop: 'static',
-        keyboard: true
+        backdrop: 'static', keyboard: true
+    });
+    cameraModalInstance = new bootstrap.Modal(document.getElementById('cameraModal'), {
+        backdrop: 'static', keyboard: false
     });
 
-    // ============================================
-    // FILTER BINDING
-    // ============================================
-
-    // Search with debounce
+    // Search
     let searchTimeout;
     $('#searchResident').on('keyup', function() {
         clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(function() {
-            applyFilters();
-        }, 300);
+        searchTimeout = setTimeout(() => applyFilters(), 300);
     });
 
-    // All filter dropdowns
-    $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', function() {
-        applyFilters();
-    });
+    $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', applyFilters);
 
-    // Add Resident Button
     $('#addResidentBtn').on('click', function(e) {
         e.preventDefault();
         openAddModal();
     });
 
-    // Modal hidden event
     $('#residentModal').on('hidden.bs.modal', function() {
         resetForm();
     });
 
-    // Form submit
     $('#residentForm').on('submit', function(e) {
         e.preventDefault();
         submitForm();
     });
 
-    // Hostel -> Room
     $('#hostel_id').on('change', function() {
         let hostelId = $(this).val();
         if (hostelId) {
@@ -1795,7 +1284,6 @@ $(document).ready(function() {
         }
     });
 
-    // Room -> Bed
     $('#room_id').on('change', function() {
         let roomId = $(this).val();
         if (roomId) {
@@ -1805,7 +1293,6 @@ $(document).ready(function() {
         }
     });
 
-    // Status -> Vacate Date
     $('#status').on('change', function() {
         if ($(this).val() === 'VACATED') {
             $('#vacateDateDiv').show();
@@ -1816,81 +1303,218 @@ $(document).ready(function() {
         }
     });
 
-    // Set joining date
     $('#joining_date').val(new Date().toISOString().split('T')[0]);
 
-    // File input handlers
     setupFileInput('profile_image', 'image');
     setupFileInput('aadhar_document', 'document');
     setupFileInput('application_document', 'document');
 
-    // Run initial filter
+    // Camera modal hidden event
+    document.getElementById('cameraModal').addEventListener('hidden.bs.modal', function() {
+        stopCamera();
+        document.getElementById('cameraVideo').style.display = 'block';
+        document.getElementById('capturedPhoto').style.display = 'none';
+        document.getElementById('captureBtn').style.display = 'inline-flex';
+        document.getElementById('retakeBtn').style.display = 'none';
+        document.getElementById('usePhotoBtn').style.display = 'none';
+        document.getElementById('cameraError').style.display = 'none';
+        capturedImageData = null;
+    });
+
     applyFilters();
 });
 
 // ============================================
-// LOAD BEDS FOR ROOM (Helper Function)
+// CAMERA FUNCTIONS
+// ============================================
+function openCamera() {
+    document.getElementById('cameraError').style.display = 'none';
+    document.getElementById('captureBtn').style.display = 'inline-flex';
+    document.getElementById('retakeBtn').style.display = 'none';
+    document.getElementById('usePhotoBtn').style.display = 'none';
+    document.getElementById('cameraVideo').style.display = 'block';
+    document.getElementById('capturedPhoto').style.display = 'none';
+    capturedImageData = null;
+
+    cameraModalInstance.show();
+
+    const modalEl = document.getElementById('cameraModal');
+    const handler = function() {
+        startCamera();
+        modalEl.removeEventListener('shown.bs.modal', handler);
+    };
+    modalEl.addEventListener('shown.bs.modal', handler);
+}
+
+function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showCameraError('Camera not supported in this browser. Please use file upload.');
+        return;
+    }
+
+    stopCamera();
+
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+        },
+        audio: false
+    })
+    .then(function(stream) {
+        cameraStream = stream;
+        const video = document.getElementById('cameraVideo');
+        video.srcObject = stream;
+        video.play();
+        console.log('✅ Camera started');
+    })
+    .catch(function(error) {
+        console.error('❌ Camera error:', error);
+        let msg = 'Camera access denied.';
+        if (error.name === 'NotAllowedError') {
+            msg = 'Camera permission denied. Please allow camera access.';
+        } else if (error.name === 'NotFoundError') {
+            msg = 'No camera found on this device.';
+        } else if (error.name === 'NotReadableError') {
+            msg = 'Camera is already in use by another application.';
+        }
+        showCameraError(msg);
+    });
+}
+
+function showCameraError(message) {
+    document.getElementById('cameraErrorMsg').textContent = message;
+    document.getElementById('cameraError').style.display = 'block';
+    document.getElementById('captureBtn').style.display = 'none';
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    const video = document.getElementById('cameraVideo');
+    if (video) video.srcObject = null;
+}
+
+function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+
+    if (!video || !video.videoWidth) {
+        showToast('Camera not ready. Please wait...', 'error');
+        return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    capturedImageData = canvas.toDataURL('image/jpeg', 0.85);
+
+    const capturedImg = document.getElementById('capturedPhoto');
+    capturedImg.src = capturedImageData;
+    capturedImg.style.display = 'block';
+    video.style.display = 'none';
+
+    document.getElementById('captureBtn').style.display = 'none';
+    document.getElementById('retakeBtn').style.display = 'inline-flex';
+    document.getElementById('usePhotoBtn').style.display = 'inline-flex';
+}
+
+function retakePhoto() {
+    document.getElementById('cameraVideo').style.display = 'block';
+    document.getElementById('capturedPhoto').style.display = 'none';
+    capturedImageData = null;
+
+    document.getElementById('captureBtn').style.display = 'inline-flex';
+    document.getElementById('retakeBtn').style.display = 'none';
+    document.getElementById('usePhotoBtn').style.display = 'none';
+
+    if (!cameraStream) startCamera();
+}
+
+function usePhoto() {
+    if (!capturedImageData) {
+        showToast('No photo captured', 'error');
+        return;
+    }
+
+    document.getElementById('camera_image').value = capturedImageData;
+    document.getElementById('profile_image').value = '';
+
+    const previewDiv = document.getElementById('profile_image_preview');
+    const previewImg = document.getElementById('profile_preview_img');
+    previewImg.src = capturedImageData;
+    document.getElementById('profile_filename').textContent = 'Camera Photo';
+    document.getElementById('profile_filesize').textContent = 'Captured';
+    previewDiv.style.display = 'block';
+
+    document.getElementById('profile_image_existing').style.display = 'none';
+    document.getElementById('profile_image_error').textContent = '';
+    const imgBox = document.getElementById('profile_image').closest('.rv-input-box');
+    if (imgBox) imgBox.classList.remove('is-invalid');
+
+    stopCamera();
+    cameraModalInstance.hide();
+
+    showToast('Photo captured successfully!', 'success');
+}
+
+function dataURLtoBlob(dataURL) {
+    const parts = dataURL.split(',');
+    const mime = parts[0].match(/:(.*?);/)[1];
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new Blob([u8arr], { type: mime });
+}
+
+// ============================================
+// LOAD BEDS
 // ============================================
 function loadBedsForRoom(roomId, selectedBedId) {
-    console.log('🛏️ Loading beds for room:', roomId, 'selected bed:', selectedBedId);
-    
     if (roomId) {
         $.ajax({
             url: '/admin/residents/room/' + roomId + '/beds',
             type: 'GET',
             success: function(response) {
-                console.log('🟢 Beds response:', response);
                 let select = $('#bed_id');
                 select.empty().append('<option value="">Select Bed</option>');
-                
+
                 if (response.success && response.data.length > 0) {
                     let foundBed = false;
                     let bedOptions = '';
-                    
+
                     $.each(response.data, function(key, bed) {
                         let statusLabel = bed.status === 'OCCUPIED' ? ' (Occupied)' : ' (Vacant)';
                         let disabled = bed.status === 'OCCUPIED' && bed.id != selectedBedId ? 'disabled' : '';
                         let selected = (selectedBedId && bed.id == selectedBedId) ? 'selected' : '';
-                        
-                        if (selectedBedId && bed.id == selectedBedId) {
-                            foundBed = true;
-                        }
-                        
+
+                        if (selectedBedId && bed.id == selectedBedId) foundBed = true;
+
                         bedOptions += '<option value="' + bed.id + '" ' + disabled + ' ' + selected + '>Bed #' + bed.bed_no + ' (' + bed.bed_type + ')' + statusLabel + '</option>';
                     });
-                    
+
                     select.append(bedOptions);
-                    
-                    // If the bed wasn't found in the list, add it manually (for editing)
+
                     if (!foundBed && selectedBedId) {
-                        // Try to get bed info from the global data or add a placeholder
                         select.prepend('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
                     }
-                    
-                    // IMPORTANT: Force set the selected value
-                    if (selectedBedId) {
-                        select.val(selectedBedId);
-                        console.log('✅ Bed set to:', selectedBedId);
-                    }
-                    
                 } else {
-                    // If no beds from API, but we have a selected bed ID, add it manually
                     if (selectedBedId) {
                         select.append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
                     } else {
                         select.append('<option value="">No vacant beds</option>');
                     }
                 }
-                
-                // Double-check that the bed value is set
-                if (selectedBedId && select.val() != selectedBedId) {
-                    select.val(selectedBedId);
-                    console.log('🔄 Bed value forced to:', selectedBedId);
-                }
+
+                if (selectedBedId) select.val(selectedBedId);
             },
             error: function(xhr) {
-                console.log('🔴 Error loading beds:', xhr);
-                // Fallback: create a bed option from the selected bed ID
                 if (selectedBedId) {
                     let select = $('#bed_id');
                     select.empty().append('<option value="' + selectedBedId + '" selected>Bed #' + selectedBedId + ' (Current Bed)</option>');
@@ -1903,10 +1527,13 @@ function loadBedsForRoom(roomId, selectedBedId) {
             }
         });
     } else {
-        // If no room ID, clear the bed dropdown
         $('#bed_id').empty().append('<option value="">Select Bed</option>');
     }
 }
+
+// ============================================
+// FILTERS
+// ============================================
 function applyFilters() {
     var status = $('#filterStatus').val() || '';
     var hostel = $('#filterHostel').val() || '';
@@ -1918,7 +1545,7 @@ function applyFilters() {
     var visibleCount = 0;
     var totalCount = $('.resident-item').length;
 
-    $('.resident-item').each(function(index) {
+    $('.resident-item').each(function() {
         var show = true;
         var $item = $(this);
 
@@ -1932,7 +1559,7 @@ function applyFilters() {
         var resPhone = ($item.attr('data-phone') || '').toLowerCase();
         var resEmail = ($item.attr('data-email') || '').toLowerCase();
         var resId = String($item.attr('data-id') || '');
-        var resRoomNo = ($item.attr('data-room-no') || '').toLowerCase(); // ADD THIS
+        var resRoomNo = ($item.attr('data-room-no') || '').toLowerCase();
 
         if (status && resStatus !== status) show = false;
         if (hostel && show && resHostel !== String(hostel)) show = false;
@@ -1940,56 +1567,29 @@ function applyFilters() {
         if (food && show && resFood !== food) show = false;
         if (biometric && show && resBiometric !== biometric) show = false;
 
-        // 🔥 IMPROVED SEARCH: Don't search entire HTML
         if (search && show) {
             var searchMatch = false;
-            
-            // 1. Search by Name
             if (resName.includes(search)) searchMatch = true;
-            
-            // 2. Search by Phone
             if (resPhone.includes(search)) searchMatch = true;
-            
-            // 3. Search by Email
             if (resEmail.includes(search)) searchMatch = true;
-            
-            // 4. Search by Resident Code - EXACT or PREFIX only (not random part)
-            if (resCode === search) searchMatch = true;
-            if (resCode.startsWith(search)) searchMatch = true;
-            
-            // 5. Search by Room Number - EXACT MATCH ONLY
+            if (resCode === search || resCode.startsWith(search)) searchMatch = true;
             if (resRoomNo === search) searchMatch = true;
-            
-            // 6. Search by ID (useful for admin)
             if (resId === search) searchMatch = true;
-            
             if (!searchMatch) show = false;
         }
 
-        if (show) {
-            $item.show();
-            visibleCount++;
-        } else {
-            $item.hide();
-        }
+        if (show) { $item.show(); visibleCount++; }
+        else { $item.hide(); }
     });
 
     var resultCountEl = $('#resultCount');
-    if (visibleCount === totalCount) {
-        resultCountEl.text('');
-    } else {
-        resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
-    }
+    if (visibleCount === totalCount) resultCountEl.text('');
+    else resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' residents');
 
-    if (visibleCount === 0 && totalCount > 0) {
-        $('#noSearchResults').show();
-    } else {
-        $('#noSearchResults').hide();
-    }
+    if (visibleCount === 0 && totalCount > 0) $('#noSearchResults').show();
+    else $('#noSearchResults').hide();
 }
-// ============================================
-// CLEAR FILTERS
-// ============================================
+
 function clearFilters() {
     $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').val('');
     $('#searchResident').val('');
@@ -1999,39 +1599,25 @@ function clearFilters() {
 }
 
 // ============================================
-// EXPORT FILTERED DATA
+// EXPORT
 // ============================================
 function exportFilteredData() {
+    var params = new URLSearchParams();
     var status = $('#filterStatus').val() || '';
     var hostel = $('#filterHostel').val() || '';
     var gender = $('#filterGender').val() || '';
     var food = $('#filterFood').val() || '';
     var biometric = $('#filterBiometric').val() || '';
     var search = $('#searchResident').val() || '';
-    
-    var params = new URLSearchParams();
+
     if (status) params.append('status', status);
     if (hostel) params.append('hostel_id', hostel);
     if (gender) params.append('gender', gender);
     if (food) params.append('food_status', food);
     if (biometric) params.append('biometric_status', biometric);
     if (search) params.append('search', search);
-    
-    var exportBtn = document.querySelector('.btn-secondary-custom');
-    if (exportBtn) {
-        var originalText = exportBtn.innerHTML;
-        exportBtn.innerHTML = '<i class="bi bi-spinner bi-spin"></i> Exporting...';
-        exportBtn.disabled = true;
-        
-        window.location.href = "{{ route('admin.residents.export') }}?" + params.toString();
-        
-        setTimeout(function() {
-            exportBtn.innerHTML = originalText;
-            exportBtn.disabled = false;
-        }, 3000);
-    } else {
-        window.location.href = "{{ route('admin.residents.export') }}?" + params.toString();
-    }
+
+    window.location.href = "{{ route('admin.residents.export') }}?" + params.toString();
 }
 
 // ============================================
@@ -2058,6 +1644,10 @@ function setupFileInput(inputId, type) {
                     $('#' + previewId).show();
                 };
                 reader.readAsDataURL(file);
+
+                // Clear camera data if user picks file instead
+                $('#camera_image').val('');
+                capturedImageData = null;
             } else {
                 const iconClass = file.type === 'application/pdf' ? 'bi-file-earmark-pdf' : 'bi-file-earmark-text';
                 const iconColor = file.type === 'application/pdf' ? '#dc2626' : '#2563eb';
@@ -2076,6 +1666,12 @@ function setupFileInput(inputId, type) {
 function removeFile(inputId) {
     $('#' + inputId).val('');
     $('#' + inputId + '_preview').hide();
+
+    if (inputId === 'profile_image') {
+        $('#camera_image').val('');
+        capturedImageData = null;
+    }
+
     const existingId = inputId + '_existing';
     if ($('#' + existingId).data('has-file') === true) {
         $('#' + existingId).show();
@@ -2083,7 +1679,7 @@ function removeFile(inputId) {
 }
 
 // ============================================
-// BIOMETRIC FUNCTIONS
+// BIOMETRIC
 // ============================================
 function syncAllBiometric() {
     Swal.fire({
@@ -2103,9 +1699,6 @@ function syncAllBiometric() {
                 success: function(response) {
                     if (response.success) {
                         showToast('Synced ' + response.success_count + ' residents successfully!', 'success');
-                        if (response.failure_count > 0) {
-                            showToast(response.failure_count + ' residents failed to sync.', 'error');
-                        }
                         setTimeout(() => location.reload(), 2000);
                     } else {
                         showToast(response.message || 'Failed to sync residents', 'error');
@@ -2126,7 +1719,7 @@ function syncSingleBiometric(id) {
         data: { _token: '{{ csrf_token() }}' },
         success: function(response) {
             if (response.success) {
-                showToast('Resident synced successfully! Employee Code: ' + response.data.employee_code, 'success');
+                showToast('Resident synced! Emp Code: ' + response.data.employee_code, 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
                 showToast(response.message || 'Failed to sync!', 'error');
@@ -2148,49 +1741,31 @@ function toggleBiometricAccess(id) {
                 showToast(response.message, 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showToast(response.message || 'Failed to toggle biometric access!', 'error');
+                showToast(response.message || 'Failed!', 'error');
             }
         },
         error: function(xhr) {
-            showToast(xhr.responseJSON?.error || 'Failed to toggle biometric access!', 'error');
+            showToast(xhr.responseJSON?.error || 'Failed!', 'error');
         }
     });
 }
 
 // ============================================
-// VIEW RESIDENT DETAILS
+// VIEW DETAILS
 // ============================================
 function viewResidentDetails(id) {
     detailsModal.show();
-    $('#detailsBody').html(`
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted">Loading resident details...</p>
-        </div>
-    `);
+    $('#detailsBody').html(`<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">Loading...</p></div>`);
 
     $.ajax({
         url: '/admin/residents/' + id + '/details',
         type: 'GET',
         success: function(response) {
-            if (response.success) {
-                renderDetails(response.data);
-            } else {
-                $('#detailsBody').html(`
-                    <div class="text-center py-5 text-danger">
-                        <i class="bi bi-exclamation-triangle" style="font-size:3rem;"></i>
-                        <p class="mt-2">${response.error || 'Failed to load details'}</p>
-                    </div>
-                `);
-            }
+            if (response.success) renderDetails(response.data);
+            else $('#detailsBody').html(`<div class="text-center py-5 text-danger"><p>${response.error || 'Failed'}</p></div>`);
         },
         error: function() {
-            $('#detailsBody').html(`
-                <div class="text-center py-5 text-danger">
-                    <i class="bi bi-exclamation-triangle" style="font-size:3rem;"></i>
-                    <p class="mt-2">Failed to load resident details</p>
-                </div>
-            `);
+            $('#detailsBody').html(`<div class="text-center py-5 text-danger"><p>Failed to load</p></div>`);
         }
     });
 }
@@ -2200,77 +1775,36 @@ function renderDetails(data) {
         <div class="row g-4">
             <div class="col-lg-4">
                 <div class="text-center p-3" style="background: #f8fafc; border-radius:12px;">
-                    <div style="width:150px; height:150px; border-radius:50%; margin:0 auto; overflow:hidden; border:4px solid var(--gold); background:var(--primary);">
+                    <div style="width:150px; height:150px; border-radius:50%; margin:0 auto; overflow:hidden; border:4px solid var(--gold);">
                         <img src="${data.profile_image || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(data.name) + '&background=c5a028&color=fff&size=150'}"
-                             alt="${data.name}" style="width:100%; height:100%; object-fit:cover;">
+                             style="width:100%; height:100%; object-fit:cover;">
                     </div>
                     <h3 class="mt-3 mb-1">${data.name}</h3>
                     <p class="text-muted small">${data.resident_code}</p>
-                    ${data.dob ? `
-                        <div class="mt-2">
-                            <span class="badge bg-info text-dark">
-                                <i class="bi bi-calendar-heart"></i> 
-                                ${data.dob_formatted} 
-                                ${data.age ? `(Age: ${data.age})` : ''}
-                            </span>
-                        </div>
-                    ` : ''}
-                    <div class="mt-2">
-                        <span class="biometric-badge-small ${data.biometric.access_enabled ? 'enabled' : 'disabled'}">
-                            <i class="bi ${data.biometric.access_enabled ? 'bi-check-circle' : 'bi-x-circle'}"></i>
-                            ${data.biometric.access_status}
-                        </span>
-                        ${data.biometric.employee_code ? `<span class="ms-2 badge bg-secondary">${data.biometric.employee_code}</span>` : ''}
-                    </div>
-                    <div class="mt-2 d-flex justify-content-center gap-2 flex-wrap">
-                        <span class="badge-custom ${data.status.badge}">${data.status.label}</span>
-                        <span class="food-badge ${data.financial.food_status_badge}">
-                            ${data.financial.food_status_icon} ${data.financial.food_status_label}
-                        </span>
-                    </div>
-                    <div class="mt-2">
-                        <span class="resident-rent">${data.financial.rent_formatted} / month</span>
-                    </div>
+                    <div class="mt-2"><span class="badge bg-secondary">${data.status.label}</span></div>
+                    <div class="mt-2"><span class="resident-rent">${data.financial.rent_formatted} / month</span></div>
                 </div>
             </div>
             <div class="col-lg-8">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <div class="detail-card">
-                            <div class="card-title"><i class="bi bi-person"></i> Personal Info</div>
-                            <div class="detail-item"><span class="label">Phone</span><span class="value">${data.phone}</span></div>
-                            ${data.parents_phone ? `<div class="detail-item"><span class="label">Parents Phone</span><span class="value">${data.parents_phone}</span></div>` : ''}
-                            ${data.email ? `<div class="detail-item"><span class="label">Email</span><span class="value">${data.email}</span></div>` : ''}
-                            ${data.aadhaar_no ? `<div class="detail-item"><span class="label">Aadhaar</span><span class="value">${data.aadhaar_no}</span></div>` : ''}
-                            ${data.dob ? `<div class="detail-item"><span class="label">Date of Birth</span><span class="value">${data.dob_formatted} ${data.age ? `(${data.age} years)` : ''}</span></div>` : ''}
-                            ${data.address ? `<div class="detail-item"><span class="label">Address</span><span class="value" style="text-align:left;">${data.address}</span></div>` : ''}
+                        <div class="detail-card" style="background:#f8fafc; padding:12px; border-radius:8px;">
+                            <strong>Personal Info</strong>
+                            <div class="mt-2 small">
+                                <div><strong>Phone:</strong> ${data.phone}</div>
+                                ${data.email ? `<div><strong>Email:</strong> ${data.email}</div>` : ''}
+                                ${data.aadhaar_no ? `<div><strong>Aadhaar:</strong> ${data.aadhaar_no}</div>` : ''}
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="detail-card">
-                            <div class="card-title"><i class="bi bi-building"></i> Accommodation</div>
-                            <div class="detail-item"><span class="label">Hostel</span><span class="value">${data.hostel.name}</span></div>
-                            <div class="detail-item"><span class="label">Room</span><span class="value">#${data.room.room_no} (${data.room.room_type})</span></div>
-                            <div class="detail-item"><span class="label">Bed</span><span class="value">#${data.bed.bed_no} (${data.bed.bed_type})</span></div>
-                            <div class="detail-item"><span class="label">Joined</span><span class="value">${data.joining_date_formatted}</span></div>
-                            ${data.vacate_date ? `<div class="detail-item"><span class="label">Vacated</span><span class="value">${data.vacate_date_formatted}</span></div>` : ''}
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="detail-card">
-                            <div class="card-title"><i class="bi bi-currency-rupee"></i> Financial</div>
-                            <div class="detail-item"><span class="label">Monthly Rent</span><span class="value">${data.financial.rent_formatted}</span></div>
-                            <div class="detail-item"><span class="label">Deposit</span><span class="value">${data.financial.deposit_formatted}</span></div>
-                            <div class="detail-item"><span class="label">Food Status</span><span class="value">${data.financial.food_status_icon} ${data.financial.food_status_label}</span></div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="detail-card">
-                            <div class="card-title"><i class="bi bi-files"></i> Documents</div>
-                            ${data.documents.profile_image ? `<div class="detail-item"><span class="label">Profile</span><span class="value"><a href="${data.documents.profile_image}" target="_blank">View</a></span></div>` : ''}
-                            ${data.documents.aadhar_document ? `<div class="detail-item"><span class="label">Aadhar</span><span class="value"><a href="${data.documents.aadhar_document}" target="_blank">View</a></span></div>` : ''}
-                            ${data.documents.application_document ? `<div class="detail-item"><span class="label">Application</span><span class="value"><a href="${data.documents.application_document}" target="_blank">View</a></span></div>` : ''}
-                            ${!data.documents.profile_image && !data.documents.aadhar_document && !data.documents.application_document ? '<p class="text-muted small mb-0">No documents uploaded</p>' : ''}
+                        <div class="detail-card" style="background:#f8fafc; padding:12px; border-radius:8px;">
+                            <strong>Accommodation</strong>
+                            <div class="mt-2 small">
+                                <div><strong>Hostel:</strong> ${data.hostel.name}</div>
+                                <div><strong>Room:</strong> #${data.room.number}</div>
+                                <div><strong>Bed:</strong> #${data.bed.number}</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2284,28 +1818,17 @@ function renderDetails(data) {
 // DOCUMENT VIEWER
 // ============================================
 function viewDocument(url, title) {
-    if (!url) {
-        showToast('Document not found!', 'error');
-        return;
-    }
+    if (!url) return showToast('Document not found!', 'error');
 
     document.getElementById('documentViewerTitle').textContent = title;
     document.getElementById('documentDownloadLink').href = url;
 
     const content = document.getElementById('documentViewerContent');
-
     if (url.match(/\.(jpeg|jpg|png|gif)$/i)) {
-        content.innerHTML = `<img src="${url}" alt="${title}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
+        content.innerHTML = `<img src="${url}" style="max-width:100%; max-height:70vh; border-radius:8px;">`;
     } else {
-        content.innerHTML = `
-            <iframe src="${url}" style="width:100%; height:70vh; border:none; border-radius:8px;"></iframe>
-            <p class="text-muted mt-2" style="font-size:0.8rem;">
-                <i class="bi bi-info-circle"></i> If the document doesn't load,
-                <a href="${url}" target="_blank">click here to open it directly</a>
-            </p>
-        `;
+        content.innerHTML = `<iframe src="${url}" style="width:100%; height:70vh; border:none;"></iframe>`;
     }
-
     documentViewerModal.show();
 }
 
@@ -2313,9 +1836,7 @@ function viewDocument(url, title) {
 // BULK ACTIONS
 // ============================================
 function updateBulkActions() {
-    var checked = $('.resident-checkbox:checked');
-    var count = checked.length;
-
+    var count = $('.resident-checkbox:checked').length;
     if (count > 0) {
         $('#bulkActions').addClass('show');
         $('#selectedCount').text(count);
@@ -2331,29 +1852,23 @@ function clearSelection() {
 
 function getSelectedIds() {
     var ids = [];
-    $('.resident-checkbox:checked').each(function() {
-        ids.push($(this).val());
-    });
+    $('.resident-checkbox:checked').each(function() { ids.push($(this).val()); });
     return ids;
 }
 
 function bulkStatusUpdate() {
     var ids = getSelectedIds();
     var status = $('#bulkStatusSelect').val();
-
-    if (ids.length === 0 || !status) {
-        showToast('Please select residents and a status', 'error');
-        return;
-    }
+    if (ids.length === 0 || !status) return showToast('Please select residents and a status', 'error');
 
     Swal.fire({
         title: 'Update Status?',
-        text: "Are you sure you want to update " + ids.length + " residents to " + status + "?",
+        text: "Update " + ids.length + " residents to " + status + "?",
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#c5a028',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, update them!'
+        confirmButtonText: 'Yes!'
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
@@ -2367,11 +1882,7 @@ function bulkStatusUpdate() {
                     }
                 },
                 error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to update!', 'error');
-                    }
+                    showToast(xhr.responseJSON?.message || 'Failed!', 'error');
                 }
             });
         }
@@ -2384,12 +1895,12 @@ function bulkDelete() {
 
     Swal.fire({
         title: 'Delete Residents?',
-        text: "Are you sure you want to delete " + ids.length + " residents? This action cannot be undone!",
+        text: "Delete " + ids.length + " residents? Cannot be undone!",
         icon: 'error',
         showCancelButton: true,
         confirmButtonColor: '#dc2626',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, delete them!'
+        confirmButtonText: 'Yes, delete!'
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
@@ -2403,11 +1914,7 @@ function bulkDelete() {
                     }
                 },
                 error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
-                    }
+                    showToast(xhr.responseJSON?.message || 'Failed!', 'error');
                 }
             });
         }
@@ -2450,70 +1957,56 @@ function resetForm() {
     $('[id$="_preview"]').hide();
     $('[id$="_existing"]').hide();
     $('[id$="_existing"]').data('has-file', false);
+
+    $('#camera_image').val('');
+    capturedImageData = null;
+    stopCamera();
 }
+
 // ============================================
-// EDIT RESIDENT - FIXED VERSION WITH PROPER ROOM & BED LOADING
+// EDIT RESIDENT
 // ============================================
 function editResident(id) {
-    console.log('🟢 Edit Resident called with ID:', id);
-    
-    // Show loading
     Swal.fire({
         title: 'Loading...',
-        text: 'Fetching resident data',
         allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
+        didOpen: () => Swal.showLoading()
     });
 
     $.ajax({
         url: "{{ url('admin/residents') }}/" + id + "/edit",
         type: 'GET',
         success: function(response) {
-            console.log('🟢 Response received:', response);
             Swal.close();
-
             if (response.success) {
                 let data = response.data;
-                console.log('📋 Resident data:', data);
-                
-                // Set modal title and edit ID
+
                 document.getElementById('modalTitle').textContent = 'Edit Resident';
                 document.getElementById('editId').value = data.id;
                 document.getElementById('saveBtnText').textContent = 'Update';
-                
-                // Personal Information
+
                 document.getElementById('name').value = data.name || '';
                 document.getElementById('phone').value = data.phone || '';
                 document.getElementById('parentsphone').value = data.parentsphone || '';
                 document.getElementById('email').value = data.email || '';
                 document.getElementById('aadhaar_no').value = data.aadhaar_no || '';
                 document.getElementById('address').value = data.address || '';
-                
-                // DOB
+
                 if (data.dob) {
                     const dob = new Date(data.dob);
                     document.getElementById('dob').value = dob.toISOString().split('T')[0];
-                } else {
-                    document.getElementById('dob').value = '';
                 }
-                
-                // Food & Rent
+
                 document.getElementById('food_status').value = data.food_status || '';
                 document.getElementById('rent_amount').value = data.rent_amount || 0;
                 document.getElementById('deposit_amount').value = data.deposit_amount || 0;
-                
-                // Status
                 document.getElementById('status').value = data.status || 'ACTIVE';
-                
-                // Joining Date
+
                 if (data.joining_date) {
                     const joinDate = new Date(data.joining_date);
                     document.getElementById('joining_date').value = joinDate.toISOString().split('T')[0];
                 }
-                
-                // Vacate Date (if vacated)
+
                 if (data.status === 'VACATED' && data.vacate_date) {
                     const vacateDate = new Date(data.vacate_date);
                     document.getElementById('vacate_date').value = vacateDate.toISOString().split('T')[0];
@@ -2521,157 +2014,87 @@ function editResident(id) {
                 } else {
                     $('#vacateDateDiv').hide();
                 }
-                
-                // Set Hostel
-                let hostelId = data.hostel_id;
-                console.log('🏢 Hostel ID:', hostelId);
-                console.log('🛏️ Room ID:', data.room_id);
-                console.log('🛏️ Bed ID:', data.bed_id);
-                
-                if (hostelId) {
-                    $('#hostel_id').val(hostelId);
-                    
-                    // Load rooms for this hostel
+
+                if (data.hostel_id) {
+                    $('#hostel_id').val(data.hostel_id);
+
                     $.ajax({
                         url: "{{ route('admin.residents.get-rooms') }}",
                         type: 'POST',
-                        data: { hostel_id: hostelId, _token: '{{ csrf_token() }}' },
+                        data: { hostel_id: data.hostel_id, _token: '{{ csrf_token() }}' },
                         success: function(roomResponse) {
-                            console.log('🟢 Rooms response:', roomResponse);
                             let roomSelect = $('#room_id');
                             roomSelect.empty().append('<option value="">Select Room</option>');
-                            
                             if (roomResponse.success && roomResponse.data.length > 0) {
                                 let foundRoom = false;
                                 $.each(roomResponse.data, function(key, room) {
                                     let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
                                     let selected = (room.id == data.room_id) ? 'selected' : '';
-                                    if (room.id == data.room_id) {
-                                        foundRoom = true;
-                                    }
-                                    roomSelect.append('<option value="' + room.id + '" data-beds="' + room.available_beds + '" ' + selected + '>Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
+                                    if (room.id == data.room_id) foundRoom = true;
+                                    roomSelect.append('<option value="' + room.id + '" ' + selected + '>Room #' + room.room_no + ' - ' + room.room_type.room_type_name + bedInfo + '</option>');
                                 });
-                                
-                                // If the room wasn't found in the list, add it manually
                                 if (!foundRoom && data.room) {
-                                    let room = data.room;
-                                    let bedInfo = room.available_beds > 0 ? ' (Beds: ' + room.available_beds + ')' : ' (Full)';
-                                    roomSelect.append('<option value="' + room.id + '" data-beds="' + (room.available_beds || 0) + '" selected>Room #' + room.room_no + ' - ' + (room.room_type?.room_type_name || 'Unknown') + bedInfo + '</option>');
-                                }
-                            } else {
-                                // If no rooms from API, try to use the room data from the response
-                                if (data.room) {
-                                    let room = data.room;
-                                    roomSelect.append('<option value="' + room.id + '" selected>Room #' + room.room_no + ' - ' + (room.room_type?.room_type_name || 'Unknown') + '</option>');
-                                } else {
-                                    roomSelect.append('<option value="">No rooms available</option>');
+                                    roomSelect.append('<option value="' + data.room.id + '" selected>Room #' + data.room.room_no + '</option>');
                                 }
                             }
-                            
-                            // Set the room value
                             if (data.room_id) {
                                 $('#room_id').val(data.room_id);
-                                console.log('✅ Room set to:', data.room_id);
-                            }
-                            
-                            // IMPORTANT: Load beds for the selected room
-                            if (data.room_id) {
                                 loadBedsForRoom(data.room_id, data.bed_id);
-                            } else {
-                                // If no room_id, show empty bed dropdown
-                                $('#bed_id').empty().append('<option value="">Select Bed</option>');
-                            }
-                        },
-                        error: function(xhr) {
-                            console.log('🔴 Error loading rooms:', xhr);
-                            // Fallback: use the room data from the response
-                            if (data.room) {
-                                let roomSelect = $('#room_id');
-                                roomSelect.empty().append('<option value="' + data.room.id + '" selected>Room #' + data.room.room_no + ' - ' + (data.room.room_type?.room_type_name || 'Unknown') + '</option>');
-                                
-                                // Also load beds from the response data
-                                if (data.bed) {
-                                    let bedSelect = $('#bed_id');
-                                    bedSelect.empty().append('<option value="' + data.bed.id + '" selected>Bed #' + data.bed.bed_no + ' (' + data.bed.bed_type + ')</option>');
-                                } else {
-                                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
-                                }
-                            }
-                            if (xhr.status === 403) {
-                                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
                             }
                         }
                     });
-                } else {
-                    // If no hostel, clear room and bed dropdowns
-                    $('#room_id').empty().append('<option value="">Select Room</option>');
-                    $('#bed_id').empty().append('<option value="">Select Bed</option>');
                 }
-                
-                // Handle existing documents preview
+
                 if (data.profile_image) {
                     $('#profile_image_existing').data('has-file', true).show();
                     $('#profile_existing_img').attr('src', data.profile_image);
                 } else {
                     $('#profile_image_existing').hide();
                 }
-                
+
                 if (data.aadhar_document) {
                     $('#aadhar_document_existing').data('has-file', true).show();
                     $('#aadhar_existing_link').attr('href', data.aadhar_document);
                 } else {
                     $('#aadhar_document_existing').hide();
                 }
-                
+
                 if (data.application_document) {
                     $('#application_document_existing').data('has-file', true).show();
                     $('#application_existing_link').attr('href', data.application_document);
                 } else {
                     $('#application_document_existing').hide();
                 }
-                
-                // Clear any previous validation errors
+
                 $('.invalid-feedback').text('');
                 $('.rv-input-box').removeClass('is-invalid');
-                
-                // Show the modal
-                console.log('🟢 Opening modal...');
+
                 residentModal.show();
-                console.log('✅ Modal should be open now');
-                
-            } else {
-                showToast(response.message || 'Failed to load resident data', 'error');
             }
         },
         error: function(xhr) {
-            console.log('🔴 AJAX Error:', xhr);
             Swal.close();
-            
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            } else if (xhr.status === 404) {
-                showToast('Resident not found!', 'error');
-            } else {
-                showToast('Failed to load resident data!', 'error');
-            }
+            showToast('Failed to load resident data!', 'error');
         }
     });
 }
+
 // ============================================
-// FORM SUBMISSION
+// SUBMIT FORM
 // ============================================
 function submitForm() {
     let id = document.getElementById('editId').value;
     let url = "{{ route('admin.residents.store') }}";
     let formData = new FormData(document.getElementById('residentForm'));
 
-    // Log the form data for debugging
-    console.log('📤 Submitting form with:');
-    console.log('Name:', document.getElementById('name').value);
-    console.log('Phone:', document.getElementById('phone').value);
-    console.log('Hostel:', document.getElementById('hostel_id').value);
-    console.log('Room:', document.getElementById('room_id').value);
-    console.log('Bed:', document.getElementById('bed_id').value);
+    // Convert camera base64 to Blob and append as file
+    const cameraData = document.getElementById('camera_image').value;
+    if (cameraData && cameraData.startsWith('data:image')) {
+        const blob = dataURLtoBlob(cameraData);
+        const file = new File([blob], 'camera_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+        formData.delete('profile_image');
+        formData.append('profile_image', file);
+    }
 
     if (id) {
         url = "{{ url('admin/residents') }}/" + id;
@@ -2697,7 +2120,6 @@ function submitForm() {
             }
         },
         error: function(xhr) {
-            console.log('🔴 Submit error:', xhr);
             if (xhr.status === 403) {
                 showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
             } else if (xhr.status === 422) {
@@ -2706,18 +2128,14 @@ function submitForm() {
                     showToast(xhr.responseJSON.message, 'error');
                 } else {
                     $.each(errors, function(field, messages) {
-                        // Find the field and show error
                         let fieldElement = $('#' + field);
                         if (fieldElement.length) {
                             fieldElement.closest('.rv-input-box').addClass('is-invalid');
                             $('#' + field + '_error').text(messages[0]);
                         } else {
-                            // If field not found, show general error
                             showToast(messages[0], 'error');
                         }
                     });
-                    // Show a general toast for validation errors
-                    showToast('Please fix validation errors', 'error');
                 }
             } else {
                 showToast(xhr.responseJSON?.message || 'Something went wrong!', 'error');
@@ -2730,13 +2148,14 @@ function submitForm() {
         }
     });
 }
+
 // ============================================
-// CRUD OPERATIONS
+// CRUD
 // ============================================
 function deleteResident(id) {
     Swal.fire({
         title: 'Are you sure?',
-        text: "This action cannot be undone! All associated documents will also be deleted.",
+        text: "This action cannot be undone!",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc2626',
@@ -2755,11 +2174,7 @@ function deleteResident(id) {
                     }
                 },
                 error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
-                    }
+                    showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
                 }
             });
         }
@@ -2774,7 +2189,7 @@ function toggleStatus(id) {
         showCancelButton: true,
         confirmButtonColor: '#c5a028',
         cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, change it!'
+        confirmButtonText: 'Yes!'
     }).then((result) => {
         if (result.isConfirmed) {
             $.ajax({
@@ -2788,11 +2203,7 @@ function toggleStatus(id) {
                     }
                 },
                 error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to update status!', 'error');
-                    }
+                    showToast(xhr.responseJSON?.message || 'Failed!', 'error');
                 }
             });
         }
@@ -2800,16 +2211,15 @@ function toggleStatus(id) {
 }
 
 // ============================================
-// TOAST NOTIFICATIONS
+// TOAST
 // ============================================
 function showToast(message, type = 'success') {
     let container = document.getElementById('flashMessageContainer');
     if (!container) {
-        const newContainer = document.createElement('div');
-        newContainer.id = 'flashMessageContainer';
-        newContainer.className = 'toast-container';
-        document.body.appendChild(newContainer);
-        container = newContainer;
+        container = document.createElement('div');
+        container.id = 'flashMessageContainer';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
     }
 
     const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
@@ -2826,7 +2236,8 @@ function showToast(message, type = 'success') {
 
     setTimeout(() => {
         if (toast.parentElement) {
-            toast.style.animation = 'slideOutRight 0.3s ease forwards';
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
             setTimeout(() => toast.remove(), 300);
         }
     }, 5000);
