@@ -108,20 +108,7 @@ class GuestComplaintController extends Controller
             ], 422);
         }
 
-        // Fetch all active residents of this hostel & exact match
-        $residents = Resident::with(['room', 'hostel'])
-            ->where('hostel_id', $hostelId)
-            ->where('status', 'ACTIVE')
-            ->get();
-
-        $resident = null;
-        foreach ($residents as $r) {
-            $storedPhone = preg_replace('/[^0-9]/', '', $r->phone ?? '');
-            if (substr($storedPhone, -10) === $phone) {
-                $resident = $r;
-                break;
-            }
-        }
+        $resident = $this->findActiveResident($hostelId, $phone, ['room', 'hostel']);
 
         if (!$resident) {
             Log::info('verifyResident — no match', ['phone' => $phone, 'hostel_id' => $hostelId]);
@@ -146,16 +133,14 @@ class GuestComplaintController extends Controller
                 'room_id'     => $resident->room_id,
                 'hostel_id'   => $resident->hostel_id,
                 'hostel_name' => $resident->hostel->hostel_name ?? $resident->hostel->name ?? null,
-                'photo'       => $resident->profile_image
-                                    ? asset('storage/' . $resident->profile_image)
-                                    : null,
+                'photo'       => $this->residentPhoto($resident->profile_image),
             ]
         ]);
     }
 
     /**
      * STORE COMPLAINT
-     * 🔥 Image saved to public/complaints/
+     * Image saved to public/complaints/
      */
     public function store(Request $request)
     {
@@ -199,19 +184,7 @@ class GuestComplaintController extends Controller
             ], 422);
         }
 
-        $residents = Resident::with('room')
-            ->where('hostel_id', $hostelId)
-            ->where('status', 'ACTIVE')
-            ->get();
-
-        $resident = null;
-        foreach ($residents as $r) {
-            $storedPhone = preg_replace('/[^0-9]/', '', $r->phone ?? '');
-            if (substr($storedPhone, -10) === $phone) {
-                $resident = $r;
-                break;
-            }
-        }
+        $resident = $this->findActiveResident($hostelId, $phone, ['room']);
 
         if (!$resident) {
             Log::warning('Complaint blocked — resident not found', [
@@ -228,7 +201,7 @@ class GuestComplaintController extends Controller
         }
 
         // ================================================
-        // 🔥 IMAGE UPLOAD → public/complaints/
+        // IMAGE UPLOAD → public/complaints/
         // ================================================
         $imagePath = null;
 
@@ -244,7 +217,6 @@ class GuestComplaintController extends Controller
 
             $filename = 'complaint_' . time() . '_' . Str::random(8) . '.' . $file->getClientOriginalExtension();
 
-            // Target directory: public/complaints/
             $destinationPath = public_path('complaints');
 
             if (!File::isDirectory($destinationPath)) {
@@ -253,7 +225,7 @@ class GuestComplaintController extends Controller
 
             $file->move($destinationPath, $filename);
 
-            // Save relative path from public root
+            // Relative path from public root
             $imagePath = 'complaints/' . $filename;
 
             Log::info('Complaint image saved', [
@@ -331,10 +303,8 @@ class GuestComplaintController extends Controller
                 'admin_remark'     => $complaint->admin_remark,
                 'created_at'       => $complaint->created_at->format('d M Y, h:i A'),
                 'resolved_at'      => $complaint->resolved_at?->format('d M Y, h:i A'),
-                'image'            => $complaint->image ? asset($complaint->image) : null,
-                'resident_photo'   => $complaint->resident?->profile_image
-                                        ? asset('storage/' . $complaint->resident->profile_image)
-                                        : null,
+                'image'            => $this->complaintImage($complaint->image),
+                'resident_photo'   => $this->residentPhoto($complaint->resident?->profile_image),
             ]
         ]);
     }
@@ -357,6 +327,13 @@ class GuestComplaintController extends Controller
         $phone = preg_replace('/[^0-9]/', '', $request->phone);
         $phone = substr($phone, -10);
 
+        if (strlen($phone) !== 10) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Enter a valid 10-digit mobile number.'
+            ], 422);
+        }
+
         $complaints = Complaint::where('hostel_id', $hostelId)
             ->where('phone', 'LIKE', "%{$phone}%")
             ->orderBy('created_at', 'desc')
@@ -368,7 +345,7 @@ class GuestComplaintController extends Controller
                     'category'         => $c->category,
                     'priority'         => $c->priority,
                     'status'           => $c->status,
-                    'description'      => substr($c->description, 0, 100),
+                    'description'      => mb_substr($c->description, 0, 100),
                     'created_at'       => $c->created_at->format('d M Y'),
                     'admin_remark'     => $c->admin_remark,
                 ];
@@ -378,5 +355,79 @@ class GuestComplaintController extends Controller
             'success' => true,
             'data'    => $complaints
         ]);
+    }
+
+    // ============================================
+    // HELPER METHODS
+    // ============================================
+
+    /**
+     * Find ACTIVE resident of a hostel by last 10 digits of phone
+     */
+    private function findActiveResident($hostelId, string $phone, array $with = []): ?Resident
+    {
+        $residents = Resident::with($with)
+            ->where('hostel_id', $hostelId)
+            ->where('status', 'ACTIVE')
+            ->get();
+
+        foreach ($residents as $r) {
+            $storedPhone = preg_replace('/[^0-9]/', '', $r->phone ?? '');
+            if (substr($storedPhone, -10) === $phone) {
+                return $r;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resident profile image URL.
+     * ResidentController saves to: public/uploads/residents/profile/xxx.jpg
+     */
+    private function residentPhoto(?string $path): ?string
+    {
+        if (!$path) return null;
+
+        if (preg_match('#^https?://#i', $path)) {
+            return $path;
+        }
+
+        $path = ltrim($path, '/');
+
+        // 1. public folder (new uploads)
+        if (file_exists(public_path($path))) {
+            return asset($path);
+        }
+
+        // 2. public/storage symlink (old records)
+        $clean = preg_replace('#^storage/#', '', $path);
+        if (file_exists(public_path('storage/' . $clean))) {
+            return asset('storage/' . $clean);
+        }
+
+        // 3. only filename stored
+        $alt = 'uploads/residents/profile/' . basename($path);
+        if (file_exists(public_path($alt))) {
+            return asset($alt);
+        }
+
+        return null;
+    }
+
+    /**
+     * Complaint image URL (public/complaints/xxx)
+     */
+    private function complaintImage(?string $path): ?string
+    {
+        if (!$path) return null;
+
+        if (preg_match('#^https?://#i', $path)) {
+            return $path;
+        }
+
+        $path = ltrim($path, '/');
+
+        return file_exists(public_path($path)) ? asset($path) : null;
     }
 }

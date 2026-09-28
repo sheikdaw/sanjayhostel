@@ -5,110 +5,7 @@
 @section('meta_description', "Single, double and triple sharing rooms, AC/non-AC options, WiFi, CCTV and daily home-style meals at Sanjay Boys Hostel and Harini Girls Hostel, Chennai.")
 
 @section('content')
-<style>
-    /* Pricing Section */
-.pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 30px;
-    margin-top: 40px;
-}
-
-.pricing-card {
-    background: #fff;
-    border-radius: 16px;
-    padding: 30px 25px;
-    text-align: center;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-    border: 1px solid #eee;
-    position: relative;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.pricing-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.10);
-}
-
-.pricing-card.featured {
-    border-color: #c9a84c;
-    background: #fcf9f0;
-}
-
-.pricing-badge {
-    position: absolute;
-    top: -12px;
-    right: 20px;
-    background: #c9a84c;
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 4px 16px;
-    border-radius: 20px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-}
-
-.pricing-card h3 {
-    font-size: 1.4rem;
-    margin-bottom: 10px;
-    color: #2d2d2d;
-}
-
-.price {
-    font-size: 2.4rem;
-    font-weight: 700;
-    color: #c9a84c;
-    margin: 10px 0 15px;
-}
-
-.price span {
-    font-size: 1rem;
-    font-weight: 400;
-    color: #888;
-}
-
-.pricing-features {
-    list-style: none;
-    padding: 0;
-    margin: 15px 0 25px;
-    text-align: left;
-}
-
-.pricing-features li {
-    padding: 6px 0;
-    color: #555;
-    font-size: 0.95rem;
-    border-bottom: 1px solid #f5f5f5;
-}
-
-.pricing-features li:last-child {
-    border-bottom: none;
-}
-
-.pricing-card .btn-primary {
-    display: inline-block;
-    background: #c9a84c;
-    color: #fff;
-    padding: 10px 32px;
-    border-radius: 30px;
-    text-decoration: none;
-    font-weight: 600;
-    transition: background 0.3s ease;
-}
-
-.pricing-card .btn-primary:hover {
-    background: #b0943d;
-}
-
-/* Price tags in facility cards */
-.fac-card p {
-    font-size: 0.9rem;
-    color: #888;
-    margin-top: 2px;
-}
-</style>
-    <div class="page-hero panel-ivory">
+<div class="page-hero panel-ivory">
         <div class="wrap">
             <span class="eyebrow">Rooms & Facilities</span>
             <h1>Rooms & Facilities at Sanjay & Harini Hostels</h1>
@@ -178,7 +75,7 @@
                     <a href="{{ route('contact') }}" class="btn-primary">Book Now</a>
                 </div>
             </div>
-            <p style="text-align:center;color:var(--stone);margin-top:20px;font-size:0.9rem;">
+            <p class="price-note" style="margin-top:20px;">
                 * Prices are per person per month. All rates are inclusive of meals, WiFi, housekeeping & security.
                 <br>Security deposit: ₹2,000 (refundable). Minimum stay: 1 month.
             </p>
@@ -186,7 +83,7 @@
     </section>
 
     <!-- FACILITIES -->
-    <section class="panel-ivory" id="facilities">
+    <section id="facilities">
         <div class="wrap">
             <div class="section-head reveal">
                 <span class="eyebrow">Amenities</span>
@@ -240,7 +137,7 @@
             </div>
             <div class="food-grid reveal">
                 <div>
-                    <h3 style="font-size:1.3rem;">4 Meals a Day</h3>
+                    <h3 style="font-size:1.4rem;">4 meals a day</h3>
                     <div class="meal-tags">
                         <div class="meal-tag">Breakfast</div>
                         <div class="meal-tag">Lunch</div>

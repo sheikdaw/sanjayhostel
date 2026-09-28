@@ -5,160 +5,7 @@
 @section('meta_description', 'Read the Terms and Conditions for Sanjay Boys Hostel and Harini Girls Hostel. Learn about our policies, user responsibilities, and governing laws.')
 
 @section('content')
-<style>
-    /* Terms & Conditions Page Styles */
-.terms-content {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 20px 0;
-}
-
-.terms-intro {
-    background: #f9f6f0;
-    padding: 30px;
-    border-radius: 12px;
-    margin-bottom: 40px;
-    border-left: 4px solid #c9a84c;
-}
-
-.terms-intro .last-updated {
-    color: #888;
-    font-size: 0.9rem;
-    margin-bottom: 10px;
-}
-
-.terms-intro p {
-    font-size: 1.05rem;
-    line-height: 1.8;
-    color: #444;
-    margin: 0;
-}
-
-.terms-section {
-    margin-bottom: 35px;
-    padding-bottom: 30px;
-    border-bottom: 1px solid #eee;
-}
-
-.terms-section:last-of-type {
-    border-bottom: none;
-}
-
-.terms-section h2 {
-    font-size: 1.4rem;
-    color: #2d2d2d;
-    margin-bottom: 15px;
-    font-weight: 600;
-}
-
-.terms-section h2::before {
-    content: "";
-    display: inline-block;
-    width: 4px;
-    height: 24px;
-    background: #c9a84c;
-    margin-right: 12px;
-    vertical-align: middle;
-    border-radius: 2px;
-}
-
-.terms-section ul {
-    padding-left: 20px;
-    margin: 10px 0;
-}
-
-.terms-section ul li {
-    padding: 8px 0;
-    color: #555;
-    line-height: 1.7;
-    font-size: 1rem;
-}
-
-.terms-section ul li::marker {
-    color: #c9a84c;
-}
-
-.contact-section {
-    background: #f9f6f0;
-    padding: 30px;
-    border-radius: 12px;
-    margin-top: 20px;
-}
-
-.contact-section h2 {
-    margin-top: 0;
-}
-
-.contact-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    margin-top: 15px;
-}
-
-.contact-details p {
-    margin: 5px 0;
-    line-height: 1.8;
-    color: #555;
-}
-
-.contact-details p strong {
-    color: #2d2d2d;
-    display: block;
-    margin-bottom: 5px;
-}
-
-.terms-footer {
-    margin-top: 50px;
-    padding: 25px 30px;
-    background: #2d2d2d;
-    color: #f5f0e0;
-    border-radius: 12px;
-    text-align: center;
-}
-
-.terms-footer p {
-    margin: 8px 0;
-    font-size: 1rem;
-}
-
-.terms-footer .business-name {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255,255,255,0.1);
-    font-size: 0.95rem;
-    color: #c9a84c;
-}
-
-.back-to-top {
-    transition: color 0.3s ease;
-}
-
-.back-to-top:hover {
-    color: #b0943d !important;
-}
-
-/* Mobile Responsive */
-@media (max-width: 768px) {
-    .contact-details {
-        grid-template-columns: 1fr;
-        gap: 15px;
-    }
-    
-    .terms-section h2 {
-        font-size: 1.2rem;
-    }
-    
-    .terms-intro {
-        padding: 20px;
-    }
-    
-    .contact-section {
-        padding: 20px;
-    }
-}
-</style>
-    <div class="page-hero panel-ivory">
+<div class="page-hero panel-ivory">
         <div class="wrap">
             <span class="eyebrow">Legal</span>
             <h1>Terms & Conditions</h1>
@@ -166,7 +13,7 @@
         </div>
     </div>
 
-    <section class="panel-ivory" id="terms">
+    <section id="terms">
         <div class="wrap">
             <div class="terms-content reveal">
                 <div class="terms-intro">
@@ -286,10 +133,5 @@
         </div>
     </section>
 
-    <!-- Back to Top Button -->
-    <div style="text-align:center;padding:20px 0 40px;">
-        <a href="#top" class="back-to-top" style="display:inline-block;color:#c9a84c;text-decoration:none;font-weight:600;">
-            ↑ Back to Top
-        </a>
-    </div>
+    <div class="back-top"><a href="#top">Back to top</a></div>
 @endsection

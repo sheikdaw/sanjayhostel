@@ -362,15 +362,15 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/take', [AdvanceController::class, 'takeAdvance'])->name('take');
             Route::post('/deduct', [AdvanceController::class, 'deductAdvance'])->name('deduct');
         });
-       Route::prefix('complaints')->name('complaints.')->group(function () {
-    Route::get('/', [ComplaintController::class, 'index'])->name('index');
-    Route::get('/data', [ComplaintController::class, 'data'])->name('data');
-    Route::get('/stats', [ComplaintController::class, 'stats'])->name('stats');
-    Route::get('/{id}', [ComplaintController::class, 'show'])->name('show');
-    Route::put('/{id}', [ComplaintController::class, 'update'])->name('update');
-    Route::patch('/{id}/status', [ComplaintController::class, 'changeStatus'])->name('status');
-    Route::delete('/{id}', [ComplaintController::class, 'destroy'])->name('destroy');
-});
+        Route::prefix('complaints')->name('complaints.')->group(function () {
+            Route::get('/', [ComplaintController::class, 'index'])->name('index');
+            Route::get('/data', [ComplaintController::class, 'data'])->name('data');
+            Route::get('/stats', [ComplaintController::class, 'stats'])->name('stats');
+            Route::get('/{id}', [ComplaintController::class, 'show'])->name('show');
+            Route::put('/{id}', [ComplaintController::class, 'update'])->name('update');
+            Route::patch('/{id}/status', [ComplaintController::class, 'changeStatus'])->name('status');
+            Route::delete('/{id}', [ComplaintController::class, 'destroy'])->name('destroy');
+        });
     });
 });
 

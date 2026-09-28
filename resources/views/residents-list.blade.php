@@ -4,19 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registered Residents</title>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #F3F6F9;
             min-height: 100vh;
             padding: 20px;
         }
         .container {
             background: white;
             padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            border-radius: 16px;
+            box-shadow: 0 1px 2px rgba(15,43,70,.06), 0 8px 24px rgba(15,43,70,.08); border: 1px solid #DCE3EA;
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -28,7 +29,7 @@
             flex-wrap: wrap;
             gap: 10px;
         }
-        .back-link { color: #667eea; text-decoration: none; }
+        .back-link { color: #1F5FA8; text-decoration: none; }
         .back-link:hover { text-decoration: underline; }
         h2 { color: #333; }
         .stats-grid {
@@ -38,12 +39,12 @@
             margin-bottom: 30px;
         }
         .stat-card {
-            background: #f8f9fa;
+            background: #F3F6F9;
             padding: 15px;
             border-radius: 10px;
             text-align: center;
         }
-        .stat-number { font-size: 2rem; font-weight: bold; color: #667eea; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #1F5FA8; }
         .stat-label { color: #666; font-size: 0.85rem; }
         .resident-grid {
             display: grid;
@@ -51,22 +52,21 @@
             gap: 20px;
         }
         .resident-card {
-            background: #f8f9fa;
-            border-radius: 15px;
+            background: #fff;
+            border-radius: 12px;
             padding: 20px;
-            border: 2px solid transparent;
+            border: 1px solid #DCE3EA;
             transition: all 0.3s ease;
         }
         .resident-card:hover {
-            border-color: #667eea;
-            transform: translateY(-3px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            border-color: #1F5FA8;
+            box-shadow: 0 8px 24px rgba(15,43,70,.10);
         }
         .resident-avatar {
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0F2B46;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -78,7 +78,7 @@
         }
         .resident-avatar img { width: 100%; height: 100%; object-fit: cover; }
         .resident-name { text-align: center; font-weight: 600; color: #333; font-size: 1.1rem; }
-        .resident-code { text-align: center; color: #667eea; font-size: 0.85rem; }
+        .resident-code { text-align: center; color: #1F5FA8; font-size: 0.85rem; }
         .resident-details {
             margin-top: 15px;
             padding-top: 15px;
@@ -141,11 +141,11 @@
             </div>
             <a href="{{ route('face.register.form') }}" style="
                 padding: 10px 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: #0F2B46;
                 color: white;
                 border: none;
-                border-radius: 10px;
-                text-decoration: none;
+                border-radius: 8px;
+                text-decoration: none; font-weight: 600;
                 display: inline-block;
             ">+ Register New</a>
         </div>
@@ -229,7 +229,7 @@
                 <span class="icon">📭</span>
                 <p>No residents have registered faces yet</p>
                 <p style="font-size: 0.9rem; margin-top: 10px;">
-                    <a href="{{ route('face.register.form') }}" style="color: #667eea;">Register a face</a> to get started
+                    <a href="{{ route('face.register.form') }}" style="color: #1F5FA8;">Register a face</a> to get started
                 </p>
             </div>
         @endif

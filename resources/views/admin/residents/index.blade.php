@@ -66,7 +66,6 @@
     .stat-card.no-food { background: linear-gradient(135deg, #f3f4f6, #e5e7eb); }
     .stat-card.no-food .number { color: #4b5563; }
 
-    /* Stat update pulse animation */
     @keyframes statPulse {
         0%   { transform: scale(1); }
         50%  { transform: scale(1.08); box-shadow: 0 4px 12px rgba(197, 160, 40, 0.3); }
@@ -1011,6 +1010,61 @@ let cameraStream = null;
 let cameraModalInstance = null;
 let capturedImageData = null;
 
+// 🔥 Filter persistence key
+const FILTER_STORAGE_KEY = 'resident_filters_v1';
+
+// ============================================
+// 🔥 FILTER PERSISTENCE HELPERS
+// ============================================
+function saveFiltersToStorage() {
+    const filters = {
+        status:    $('#filterStatus').val() || '',
+        hostel:    $('#filterHostel').val() || '',
+        gender:    $('#filterGender').val() || '',
+        food:      $('#filterFood').val() || '',
+        biometric: $('#filterBiometric').val() || '',
+        search:    $('#searchResident').val() || ''
+    };
+    try {
+        localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+    } catch (e) {
+        console.warn('Could not save filters:', e);
+    }
+}
+
+function restoreFiltersFromStorage() {
+    try {
+        const stored = localStorage.getItem(FILTER_STORAGE_KEY);
+        if (!stored) return false;
+
+        const filters = JSON.parse(stored);
+
+        // Only restore if at least one filter is set
+        const hasAny = filters.status || filters.hostel || filters.gender ||
+                       filters.food || filters.biometric || filters.search;
+        if (!hasAny) return false;
+
+        if (filters.status)    $('#filterStatus').val(filters.status);
+        if (filters.hostel)    $('#filterHostel').val(filters.hostel);
+        if (filters.gender)    $('#filterGender').val(filters.gender);
+        if (filters.food)      $('#filterFood').val(filters.food);
+        if (filters.biometric) $('#filterBiometric').val(filters.biometric);
+        if (filters.search)    $('#searchResident').val(filters.search);
+
+        console.log('✅ Filters restored:', filters);
+        return true;
+    } catch (e) {
+        console.warn('Failed to restore filters:', e);
+        return false;
+    }
+}
+
+function clearFiltersStorage() {
+    try {
+        localStorage.removeItem(FILTER_STORAGE_KEY);
+    } catch (e) {}
+}
+
 // ============================================
 // DOCUMENT READY
 // ============================================
@@ -1024,17 +1078,21 @@ $(document).ready(function() {
     cameraModalInstance = new bootstrap.Modal(document.getElementById('cameraModal'), { backdrop: 'static', keyboard: false });
 
     // ============================================
-    // FILTER BINDINGS - all filters trigger applyFilters()
+    // 🔥 FILTER BINDINGS - save to storage on change
     // ============================================
     let searchTimeout;
     $('#searchResident').on('keyup', function() {
         clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => applyFilters(), 300);
+        searchTimeout = setTimeout(() => {
+            applyFilters();
+            saveFiltersToStorage();
+        }, 300);
     });
 
     $('#filterStatus, #filterHostel, #filterGender, #filterFood, #filterBiometric').on('change', function() {
         console.log('🔔 Filter changed:', this.id, '=', this.value);
         applyFilters();
+        saveFiltersToStorage();
     });
 
     // Add resident button
@@ -1119,7 +1177,8 @@ $(document).ready(function() {
         capturedImageData = null;
     });
 
-    // Initial run
+    // 🔥 RESTORE FILTERS BEFORE INITIAL APPLY
+    restoreFiltersFromStorage();
     applyFilters();
 });
 
@@ -1259,7 +1318,7 @@ function updateStatsFromFilters() {
 }
 
 // ============================================
-// CLEAR FILTERS
+// 🔥 CLEAR FILTERS (also clears storage)
 // ============================================
 function clearFilters() {
     $('#filterStatus').val('');
@@ -1270,6 +1329,7 @@ function clearFilters() {
     $('#searchResident').val('');
     $('#resultCount').text('');
     $('#noSearchResults').hide();
+    clearFiltersStorage();
     applyFilters();
 }
 
@@ -1980,6 +2040,7 @@ function deleteResident(id) {
                 success: function(response) {
                     if (response.success) {
                         showToast(response.message, 'success');
+                        // 🔥 Filters saved already in storage; reload keeps them
                         setTimeout(() => location.reload(), 1500);
                     }
                 },
