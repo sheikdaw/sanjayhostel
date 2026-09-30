@@ -133,3 +133,14 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
     });
 });
+use App\Http\Controllers\PublicPaymentController;
+
+// Public payment lookup (anyone with encoded link can access)
+Route::get('/pay/{encodedHostelId}', [PublicPaymentController::class, 'show'])
+    ->name('public.payment.show');
+
+Route::post('/pay/{encodedHostelId}/lookup', [PublicPaymentController::class, 'lookup'])
+    ->name('public.payment.lookup');
+
+Route::get('/pay/success', [PublicPaymentController::class, 'success'])
+    ->name('public.payment.success');

@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Pay Rent — {{ $hostel->hostel_name }}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #0A1E3F;
+            --gold: #C5A028;
+            --gold-light: #E8D5A3;
+        }
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #0A1E3F 0%, #1a3a6b 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .pay-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 480px;
+        }
+
+        .pay-header {
+            background: linear-gradient(135deg, var(--primary), #1a3a6b);
+            color: white;
+            padding: 1.75rem 1.5rem 1.5rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pay-header::after {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 180px;
+            height: 180px;
+            background: rgba(197, 160, 40, 0.15);
+            border-radius: 50%;
+        }
+
+        .pay-logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.75rem;
+            font-size: 1.6rem;
+            color: white;
+            position: relative;
+            z-index: 1;
+        }
+
+        .pay-header h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0 0 0.25rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .pay-header p {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .pay-body {
+            padding: 1.5rem;
+        }
+
+        .pay-form-group {
+            margin-bottom: 1rem;
+        }
+
+        .pay-form-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pay-input-wrap {
+            position: relative;
+        }
+
+        .pay-input-wrap i {
+            position: absolute;
+            left: 0.9rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 1rem;
+        }
+
+        .pay-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .pay-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 4px rgba(197, 160, 40, 0.1);
+        }
+
+        .pay-btn {
+            width: 100%;
+            padding: 0.85rem;
+            border-radius: 12px;
+            border: none;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-family: inherit;
+        }
+
+        .pay-btn-primary {
+            background: linear-gradient(135deg, var(--gold), #d4af37);
+            color: var(--primary);
+        }
+
+        .pay-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(197, 160, 40, 0.4);
+        }
+
+        .pay-btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Result section */
+        .pay-result {
+            display: none;
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .resident-card {
+            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        .resident-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.3rem 0;
+            font-size: 0.82rem;
+        }
+
+        .resident-row .label {
+            color: #6b7280;
+        }
+
+        .resident-row .value {
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        /* Month card */
+        .month-card {
+            background: white;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        .month-card.current {
+            border-color: var(--gold);
+            background: linear-gradient(135deg, #fffbeb, #fef9e7);
+        }
+
+        .month-card.previous {
+            border-color: #fca5a5;
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+        }
+
+        .month-card.paid {
+            border-color: #86efac;
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+        }
+
+        .month-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px dashed rgba(0,0,0,0.1);
+        }
+
+        .month-card-header .month-name {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--primary);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge.paid    { background: #dcfce7; color: #166534; }
+        .badge.partial { background: #fef3c7; color: #92400e; }
+        .badge.pending { background: #fee2e2; color: #991b1b; }
+        .badge.unpaid  { background: #e5e7eb; color: #4b5563; }
+
+        .month-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0;
+            font-size: 0.78rem;
+        }
+
+        .month-row .label { color: #6b7280; }
+        .month-row .value {
+            font-family: 'SF Mono', 'Monaco', monospace;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .month-row.total {
+            border-top: 1px dashed #d1d5db;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            font-weight: 700;
+        }
+
+        .month-row.total .value {
+            font-size: 1rem;
+            color: var(--primary);
+        }
+
+        .month-row.due .value { color: #dc2626; }
+        .month-row.paid-amount .value { color: #059669; }
+
+        /* Total box */
+        .total-box {
+            background: linear-gradient(135deg, var(--primary), #1a3a6b);
+            color: white;
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .total-box .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.85;
+            margin-bottom: 0.25rem;
+        }
+
+        .total-box .amount {
+            font-size: 2rem;
+            font-weight: 800;
+            font-family: 'SF Mono', monospace;
+        }
+
+        .total-box.paid-all {
+            background: linear-gradient(135deg, #059669, #10b981);
+        }
+
+        /* UPI Pay button */
+        .upi-pay-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 1rem;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .upi-pay-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+            color: white;
+        }
+
+        .upi-pay-btn i { font-size: 1.1rem; }
+
+        .no-due-box {
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border: 2px solid #86efac;
+            border-radius: 14px;
+        }
+
+        .no-due-box i {
+            font-size: 3rem;
+            color: #10b981;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .no-due-box h3 {
+            color: #166534;
+            font-weight: 700;
+            margin: 0 0 0.25rem;
+            font-size: 1.1rem;
+        }
+
+        .no-due-box p {
+            color: #4b5563;
+            font-size: 0.8rem;
+            margin: 0;
+        }
+
+        .error-box {
+            background: #fef2f2;
+            border: 2px solid #fca5a5;
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .error-box i {
+            color: #dc2626;
+            font-size: 1.25rem;
+            margin-top: 1px;
+        }
+
+        .error-box p {
+            color: #991b1b;
+            font-size: 0.85rem;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .pay-footer {
+            text-align: center;
+            padding: 1rem;
+            background: #f9fafb;
+            border-top: 1px solid #f3f4f6;
+            font-size: 0.7rem;
+            color: #9ca3af;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Previous months list */
+        .prev-months {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+        }
+
+        .prev-month-tag {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="pay-card">
+    {{-- Header --}}
+    <div class="pay-header">
+        <div class="pay-logo">
+            <i class="bi bi-house-heart-fill"></i>
+        </div>
+        <h1>{{ $hostel->hostel_name }}</h1>
+        <p><i class="bi bi-shield-check"></i> Secure Rent Payment</p>
+    </div>
+
+    {{-- Body --}}
+    <div class="pay-body">
+
+        {{-- Lookup Form --}}
+        <div id="lookupForm">
+            <form id="phoneForm" autocomplete="off">
+                @csrf
+                <div class="pay-form-group">
+                    <label class="pay-form-label">📱 Enter Your Mobile Number</label>
+                    <div class="pay-input-wrap">
+                        <i class="bi bi-phone"></i>
+                        <input type="tel" class="pay-input" id="phoneInput"
+                               placeholder="9876543210" maxlength="15" required>
+                    </div>
+                </div>
+
+                <div id="errorContainer"></div>
+
+                <button type="submit" class="pay-btn pay-btn-primary" id="submitBtn">
+                    <i class="bi bi-search"></i>
+                    <span id="submitText">Check My Dues</span>
+                </button>
+            </form>
+        </div>
+
+        {{-- Result Section --}}
+        <div class="pay-result" id="resultSection">
+            <div id="resultContent"></div>
+
+            <button type="button" class="pay-btn" onclick="resetForm()"
+                    style="background:#f3f4f6; color:#374151; margin-top:1rem;">
+                <i class="bi bi-arrow-left"></i>
+                Check Another Number
+            </button>
+        </div>
+
+    </div>
+
+    {{-- Footer --}}
+    <div class="pay-footer">
+        <i class="bi bi-lock-fill"></i> Powered by Sanjay PG Hostel Management
+    </div>
+</div>
+
+<script>
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const LOOKUP_URL = "{{ route('public.payment.lookup', $encodedHostelId) }}";
+    const ENCODED_ID = "{{ $encodedHostelId }}";
+
+    const form          = document.getElementById('phoneForm');
+    const phoneInput    = document.getElementById('phoneInput');
+    const submitBtn     = document.getElementById('submitBtn');
+    const submitText    = document.getElementById('submitText');
+    const errorBox      = document.getElementById('errorContainer');
+    const lookupForm    = document.getElementById('lookupForm');
+    const resultSection = document.getElementById('resultSection');
+    const resultContent = document.getElementById('resultContent');
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const phone = phoneInput.value.trim();
+        if (!phone || phone.length < 10) {
+            showError('Please enter a valid 10-digit mobile number');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitText.innerHTML = '<span class="spinner"></span> Searching...';
+        errorBox.innerHTML = '';
+
+        try {
+            const response = await fetch(LOOKUP_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ phone })
+            });
+
+            const data = await response.json();
+
+            if (!data.success) {
+                showError(data.message || 'Not found');
+                return;
+            }
+
+            renderResult(data);
+
+        } catch (err) {
+            console.error(err);
+            showError('Network error. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitText.textContent = 'Check My Dues';
+        }
+    });
+
+    function showError(msg) {
+        errorBox.innerHTML = `
+            <div class="error-box">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <p>${escapeHtml(msg)}</p>
+            </div>`;
+    }
+
+    function renderResult(data) {
+        const r = data.resident;
+        const curr = data.current_month;
+        const prev = data.previous_pending;
+
+        const statusClass = curr.status.toLowerCase();
+
+        let html = `
+            <!-- Resident Info -->
+            <div class="resident-card">
+                <div class="resident-row">
+                    <span class="label">Name</span>
+                    <span class="value">${escapeHtml(r.name)}</span>
+                </div>
+                <div class="resident-row">
+                    <span class="label">Room / Bed</span>
+                    <span class="value">${escapeHtml(r.room_no)} / ${escapeHtml(r.bed_no)}</span>
+                </div>
+                <div class="resident-row">
+                    <span class="label">Monthly Rent</span>
+                    <span class="value">₹${formatNumber(r.rent_amount)}</span>
+                </div>
+            </div>
+        `;
+
+        // Current Month Card
+        html += `
+            <div class="month-card current">
+                <div class="month-card-header">
+                    <span class="month-name">📅 ${escapeHtml(curr.month)}</span>
+                    <span class="badge ${statusClass}">
+                        ${curr.status === 'PAID' ? '✅ Paid' : curr.status === 'PARTIAL' ? '🟡 Partial' : '⬜ Unpaid'}
+                    </span>
+                </div>
+                <div class="month-row">
+                    <span class="label">Rent</span>
+                    <span class="value">₹${formatNumber(curr.rent)}</span>
+                </div>
+                ${curr.discount > 0 ? `
+                <div class="month-row">
+                    <span class="label">Discount</span>
+                    <span class="value" style="color:#0891b2;">- ₹${formatNumber(curr.discount)}</span>
+                </div>` : ''}
+                ${curr.fine > 0 ? `
+                <div class="month-row">
+                    <span class="label">Fine</span>
+                    <span class="value" style="color:#dc2626;">+ ₹${formatNumber(curr.fine)}</span>
+                </div>` : ''}
+                <div class="month-row paid-amount">
+                    <span class="label">Paid</span>
+                    <span class="value">₹${formatNumber(curr.paid)}</span>
+                </div>
+                <div class="month-row total ${curr.balance > 0 ? 'due' : ''}">
+                    <span class="label">Balance</span>
+                    <span class="value">₹${formatNumber(curr.balance)}</span>
+                </div>
+            </div>
+        `;
+
+        // Previous Pending Card
+        if (prev.total > 0) {
+            html += `
+                <div class="month-card previous">
+                    <div class="month-card-header">
+                        <span class="month-name">⚠️ Previous Pending</span>
+                        <span class="badge pending">Due</span>
+                    </div>
+                    <div class="month-row total due">
+                        <span class="label">Total Previous Due</span>
+                        <span class="value">₹${formatNumber(prev.total)}</span>
+                    </div>
+                    ${prev.months.length > 0 ? `
+                        <div class="prev-months">
+                            ${prev.months.map(m => `
+                                <span class="prev-month-tag">${escapeHtml(m.label)}: ₹${formatNumber(m.amount)}</span>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Total Due Box
+        if (data.total_due > 0) {
+            html += `
+                <div class="total-box">
+                    <div class="label">Total Amount Due</div>
+                    <div class="amount">₹${formatNumber(data.total_due)}</div>
+                </div>
+            `;
+
+            // UPI Pay button
+            if (data.upi.link) {
+                html += `
+                    <a href="${data.upi.link}" class="upi-pay-btn">
+                        <i class="bi bi-phone"></i>
+                        Pay ₹${formatNumber(data.total_due)} via UPI
+                    </a>
+                `;
+            } else {
+                html += `
+                    <div class="error-box" style="margin-top:0.5rem;">
+                        <i class="bi bi-info-circle-fill" style="color:#3b82f6;"></i>
+                        <p style="color:#1e40af;">UPI not configured. Please contact hostel management.</p>
+                    </div>
+                `;
+            }
+        } else {
+            // All paid
+            html += `
+                <div class="no-due-box">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <h3>All Dues Cleared! 🎉</h3>
+                    <p>You have no pending payments. Thank you!</p>
+                </div>
+            `;
+        }
+
+        resultContent.innerHTML = html;
+
+        // Switch views
+        lookupForm.style.display = 'none';
+        resultSection.style.display = 'block';
+    }
+
+    function resetForm() {
+        phoneInput.value = '';
+        errorBox.innerHTML = '';
+        resultSection.style.display = 'none';
+        lookupForm.style.display = 'block';
+    }
+
+    function formatNumber(n) {
+        const num = parseFloat(n) || 0;
+        return num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+</script>
+
+</body>
+</html>

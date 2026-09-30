@@ -1,0 +1,224 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Hostel;
+use App\Models\Resident;
+use App\Models\Payment;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
+use Carbon\Carbon;
+
+class PublicPaymentController extends Controller
+{
+    /**
+     * Show public payment lookup page
+     *
+     * URL: /pay/{encodedHostelId}
+     */
+    public function show(string $encodedHostelId)
+    {
+        try {
+            $hostelId = Crypt::decryptString($encodedHostelId);
+        } catch (\Exception $e) {
+            abort(404, 'Invalid payment link');
+        }
+
+        $hostel = Hostel::find($hostelId);
+        if (!$hostel || $hostel->status !== 'active') {
+            abort(404, 'Hostel not found or inactive');
+        }
+
+        return view('public.payment-lookup', compact('hostel', 'encodedHostelId'));
+    }
+
+    /**
+     * AJAX: Lookup resident by phone + hostel
+     * Returns current month + previous pending details
+     */
+    public function lookup(Request $request, string $encodedHostelId)
+    {
+        try {
+            $hostelId = Crypt::decryptString($encodedHostelId);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
+        }
+
+        $request->validate([
+            'phone' => 'required|string|min:10|max:15',
+        ]);
+
+        $hostel = Hostel::find($hostelId);
+        if (!$hostel) {
+            return response()->json(['success' => false, 'message' => 'Hostel not found'], 404);
+        }
+
+        // Search resident by phone (last 10 digits to handle +91 prefix)
+        $phone = preg_replace('/[^0-9]/', '', $request->phone);
+        $last10 = substr($phone, -10);
+
+        $resident = Resident::with(['room', 'bed'])
+            ->where('hostel_id', $hostelId)
+            ->where('status', 'ACTIVE')
+            ->where(function ($q) use ($phone, $last10) {
+                $q->where('phone', 'LIKE', "%{$last10}%")
+                  ->orWhere('phone', $phone);
+            })
+            ->first();
+
+        if (!$resident) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active resident found with this mobile number in this hostel.',
+            ]);
+        }
+
+        // Current month/year
+        $now = Carbon::now();
+        $currentMonth = (int) $now->month;
+        $currentYear  = (int) $now->year;
+
+        // ---- Previous Pending ----
+        $previousPending = 0;
+        $previousMonths = [];
+
+        $joinMonth = Carbon::parse($resident->joining_date)->startOfMonth();
+        $currentMonthStart = Carbon::create($currentYear, $currentMonth, 1)->startOfMonth();
+
+        $cursor = $joinMonth->copy();
+        while ($cursor->lt($currentMonthStart)) {
+            $key = $cursor->format('Y-m');
+
+            $payments = Payment::where('resident_id', $resident->id)
+                ->where('month', $cursor->month)
+                ->where('year', $cursor->year)
+                ->get();
+
+            if ($payments->count() > 0) {
+                $due = 0;
+                foreach ($payments as $p) {
+                    $due += (float) $p->balance_amount;
+                }
+            } else {
+                $due = (float) $resident->rent_amount;
+            }
+
+            if ($due > 0) {
+                $previousPending += $due;
+                $previousMonths[] = [
+                    'label'  => $cursor->format('F Y'),
+                    'amount' => round($due, 2),
+                ];
+            }
+
+            $cursor->addMonth();
+        }
+
+        // ---- Current Month ----
+        $currentPayments = Payment::where('resident_id', $resident->id)
+            ->where('month', $currentMonth)
+            ->where('year', $currentYear)
+            ->get();
+
+        $currentPaid = 0;
+        $currentBalance = 0;
+        $currentDiscount = 0;
+        $currentFine = 0;
+
+        if ($currentPayments->count() > 0) {
+            foreach ($currentPayments as $p) {
+                $currentPaid     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
+                $currentBalance  += (float) $p->balance_amount;
+                $currentDiscount += (float) $p->discount_amount;
+                $currentFine     += (float) $p->fine_amount;
+            }
+        } else {
+            $currentBalance = (float) $resident->rent_amount;
+        }
+
+        $currentRent = (float) $resident->rent_amount;
+        $currentDue  = max(0, $currentRent + $currentFine - $currentDiscount);
+
+        // Current month status
+        if ($currentPayments->count() === 0) {
+            $currentStatus = 'UNPAID';
+        } elseif ($currentBalance > 0) {
+            $currentStatus = 'PARTIAL';
+        } else {
+            $currentStatus = 'PAID';
+        }
+
+        $totalDue = $previousPending + $currentBalance;
+
+        // UPI string
+        $upiId = $hostel->upi_id ?? null;
+        $upiPayeeName = $hostel->upi_payee_name ?? $hostel->hostel_name;
+
+        // Build UPI payment link (generic - user will enter amount)
+        $upiLink = null;
+        if ($upiId) {
+            // Extract the raw UPI ID from stored string
+            $rawUpiId = $upiId;
+            if (strpos($upiId, 'pa=') !== false) {
+                // It's a full upi:// link — parse the pa= value
+                preg_match('/pa=([^&]+)/', $upiId, $matches);
+                if (isset($matches[1])) {
+                    $rawUpiId = urldecode($matches[1]);
+                }
+            }
+
+            if ($totalDue > 0) {
+                $upiLink = 'upi://pay?' . http_build_query([
+                    'pa' => $rawUpiId,
+                    'pn' => $upiPayeeName,
+                    'am' => number_format($totalDue, 2, '.', ''),
+                    'cu' => 'INR',
+                    'tn' => 'Rent payment - ' . $resident->name,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'resident' => [
+                'id'            => $resident->id,
+                'name'          => $resident->name,
+                'code'          => $resident->resident_code,
+                'phone'         => $resident->phone,
+                'hostel_name'   => $hostel->hostel_name,
+                'room_no'       => $resident->room->room_no ?? 'N/A',
+                'bed_no'        => $resident->bed->bed_no ?? 'N/A',
+                'joining_date'  => Carbon::parse($resident->joining_date)->format('d M Y'),
+                'rent_amount'   => $currentRent,
+            ],
+            'current_month' => [
+                'month'    => Carbon::create($currentYear, $currentMonth, 1)->format('F Y'),
+                'rent'     => round($currentRent, 2),
+                'discount' => round($currentDiscount, 2),
+                'fine'     => round($currentFine, 2),
+                'paid'     => round($currentPaid, 2),
+                'balance'  => round($currentBalance, 2),
+                'due'      => round($currentDue, 2),
+                'status'   => $currentStatus,
+            ],
+            'previous_pending' => [
+                'total'  => round($previousPending, 2),
+                'months' => $previousMonths,
+            ],
+            'total_due' => round($totalDue, 2),
+            'upi' => [
+                'id'         => $upiId,
+                'payee_name' => $upiPayeeName,
+                'link'       => $upiLink,
+            ],
+        ]);
+    }
+
+    /**
+     * Success page after payment (optional)
+     */
+    public function success(Request $request)
+    {
+        return view('public.payment-success');
+    }
+}
