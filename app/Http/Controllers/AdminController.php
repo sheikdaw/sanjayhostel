@@ -53,6 +53,7 @@ class AdminController extends Controller
 
         // ============================================================
         // PAYMENT STATISTICS — CURRENT MONTH
+        // (Uses the SAME logic as PaymentController@buildRows)
         // ============================================================
 
         $now = Carbon::now();
@@ -60,103 +61,149 @@ class AdminController extends Controller
         $currentYear  = (int) $now->year;
         $monthLabel   = Carbon::create($currentYear, $currentMonth, 1)->format('F Y');
 
-        // ✅ FIX: Fetch payments by month + year (NOT payment_date)
-        $currentMonthPayments = Payment::whereHas('resident', function ($q) use ($hostelIds) {
-                $q->whereIn('hostel_id', $hostelIds);
-            })
-            ->where('month', $currentMonth)
-            ->where('year', $currentYear)
-            ->get();
-
-        $totalPayments = $currentMonthPayments->count();
-        $totalCollected = $currentMonthPayments->sum('cash_paid_amount') + $currentMonthPayments->sum('upi_paid_amount');
-
-        // Group payments by resident for quick lookup
-        $paymentsByResident = [];
-        foreach ($currentMonthPayments as $p) {
-            if (!isset($paymentsByResident[$p->resident_id])) {
-                $paymentsByResident[$p->resident_id] = [];
-            }
-            $paymentsByResident[$p->resident_id][] = $p;
-        }
-
+        // ✅ 1) Fetch active residents
         $activeResidents = Resident::whereIn('hostel_id', $hostelIds)
             ->where('status', 'ACTIVE')
             ->with(['room', 'hostel'])
             ->get();
 
-        // ============================================================
-        // PENDING CALCULATION
-        // ============================================================
+        $residentIds = $activeResidents->pluck('id')->toArray();
+
+        // ✅ 2) Bulk-load ALL payments for these residents (not just current month)
+        //    We need previous months too, for accurate previous pending
+        $allPayments = Payment::whereIn('resident_id', $residentIds)->get();
+
+        // Group by resident → month key
+        $paymentsByResident = [];
+        foreach ($allPayments as $p) {
+            $key = $p->year . '-' . str_pad($p->month, 2, '0', STR_PAD_LEFT);
+            $paymentsByResident[$p->resident_id][$key][] = $p;
+        }
+
+        $selectedKey = $currentYear . '-' . str_pad($currentMonth, 2, '0', STR_PAD_LEFT);
 
         $totalPending = 0;
         $pendingResidents = 0;
         $paidResidents = 0;
         $partialResidents = 0;
         $totalRentForActiveResidents = 0;
+        $totalCollected = 0;
         $pendingDetails = [];
 
         foreach ($activeResidents as $resident) {
-            $rentAmount = (float) ($resident->rent_amount ?? 0);
-            $totalRentForActiveResidents += $rentAmount;
+            $currentRent = (float) ($resident->rent_amount ?? 0);
+            $totalRentForActiveResidents += $currentRent;
 
-            $payments = $paymentsByResident[$resident->id] ?? [];
+            // ===== Previous Pending (walk from joining_date) =====
+            $previousPending = 0;
 
-            if (count($payments) > 0) {
-                // ✅ FIX: Use `balance_amount` from payment record (respects discount)
-                $paidSoFar = 0;
-                $storedBalance = 0;
-                foreach ($payments as $p) {
-                    $paidSoFar     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
-                    $storedBalance += (float) $p->balance_amount;
-                }
+            $joinMonth = Carbon::parse($resident->joining_date)->startOfMonth();
+            $selectedMonthStart = Carbon::create($currentYear, $currentMonth, 1)->startOfMonth();
 
-                // Use stored balance (which already accounts for discount + fine)
-                $balance = max($storedBalance, 0);
+            $cursor = $joinMonth->copy();
+            while ($cursor->lt($selectedMonthStart)) {
+                $key = $cursor->format('Y-m');
+                $payments = $paymentsByResident[$resident->id][$key] ?? [];
 
-                if ($balance > 0) {
-                    if ($paidSoFar > 0) {
-                        $partialResidents++;
-                        $pendingDetails[] = [
-                            'resident' => $resident->name,
-                            'rent'     => $rentAmount,
-                            'balance'  => $balance,
-                            'status'   => 'PARTIAL',
-                        ];
-                    } else {
-                        $pendingResidents++;
-                        $pendingDetails[] = [
-                            'resident' => $resident->name,
-                            'rent'     => $rentAmount,
-                            'balance'  => $balance,
-                            'status'   => 'PENDING',
-                        ];
+                if (count($payments) > 0) {
+                    $dueThisMonth = 0;
+                    foreach ($payments as $p) {
+                        $dueThisMonth += (float) $p->balance_amount;
                     }
-                    $totalPending += $balance;
                 } else {
-                    $paidResidents++;
+                    $dueThisMonth = (float) $resident->rent_amount;
                 }
+
+                if ($dueThisMonth > 0) {
+                    $previousPending += $dueThisMonth;
+                }
+
+                $cursor->addMonth();
+            }
+
+            // ===== Current Month =====
+            $currentPayments = $paymentsByResident[$resident->id][$selectedKey] ?? [];
+
+            $currentPaid = 0;
+            $currentBalanceFromRecords = 0;
+
+            foreach ($currentPayments as $p) {
+                $currentPaid += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
+                $currentBalanceFromRecords += (float) $p->balance_amount;
+            }
+
+            if (count($currentPayments) > 0) {
+                $currentBalance = $currentBalanceFromRecords;
             } else {
-                // ✅ FIX: No payment row → full rent is due
-                $pendingResidents++;
-                $totalPending += $rentAmount;
+                $currentBalance = $currentRent;
+            }
+
+            // ===== Status =====
+            $status = 'UNPAID';
+            if ($previousPending > 0) {
+                $status = 'PENDING';
+            } elseif (count($currentPayments) === 0) {
+                $status = 'UNPAID';
+            } elseif ($currentBalance > 0) {
+                $status = 'PARTIAL';
+            } else {
+                $status = 'PAID';
+            }
+
+            // ===== Accumulate =====
+            $totalCollected += $currentPaid;
+
+            if ($status === 'PAID') {
+                $paidResidents++;
+            } elseif ($status === 'PARTIAL') {
+                $partialResidents++;
+                $totalPending += $currentBalance;
                 $pendingDetails[] = [
                     'resident' => $resident->name,
-                    'rent'     => $rentAmount,
-                    'balance'  => $rentAmount,
+                    'rent'     => $currentRent,
+                    'balance'  => $currentBalance,
+                    'status'   => 'PARTIAL',
+                ];
+            } elseif ($status === 'PENDING') {
+                $pendingResidents++;
+                $totalPending += $previousPending + $currentBalance;
+                $pendingDetails[] = [
+                    'resident' => $resident->name,
+                    'rent'     => $currentRent,
+                    'balance'  => $previousPending + $currentBalance,
+                    'status'   => 'PENDING',
+                ];
+            } elseif ($status === 'UNPAID') {
+                $pendingResidents++;
+                $totalPending += $currentRent;
+                $pendingDetails[] = [
+                    'resident' => $resident->name,
+                    'rent'     => $currentRent,
+                    'balance'  => $currentRent,
                     'status'   => 'NO_PAYMENT',
                 ];
             }
         }
 
-        $totalPendingAlternative = $totalRentForActiveResidents - $totalCollected;
+        // Add "previous pending" for PAID residents too (they might have had old dues)
+        foreach ($activeResidents as $resident) {
+            // Already counted in loop above
+            // Just ensure we don't double count
+        }
 
-        $paidCount     = $paidResidents;
-        $pendingCount  = $pendingResidents;
-        $partialCount  = $partialResidents;
+        $totalPayments = Payment::whereHas('resident', fn($q) => $q->whereIn('hostel_id', $hostelIds))
+            ->where('month', $currentMonth)
+            ->where('year', $currentYear)
+            ->count();
+
+        $paidCount = $paidResidents;
+        $pendingCount = $pendingResidents;
+        $partialCount = $partialResidents;
 
         $totalBalance = $totalPending;
-        $totalRent = $currentMonthPayments->sum('rent_amount');
+        $totalRent = $totalRentForActiveResidents;
+
+        $totalPendingAlternative = $totalRentForActiveResidents - $totalCollected;
 
         // ============================================================
         // MONTHLY PAYMENTS CHART (Last 6 months)
@@ -233,55 +280,68 @@ class AdminController extends Controller
 
             $hostelActiveResidents = Resident::where('hostel_id', $hostel->id)
                 ->where('status', 'ACTIVE')
-                ->with('room')
                 ->get();
 
-            // ✅ FIX: Hostel-wise payments by month/year
-            $hostelCurrentMonthPayments = Payment::whereHas('resident', function ($q) use ($hostel) {
-                    $q->where('hostel_id', $hostel->id);
-                })
-                ->where('month', $currentMonth)
-                ->where('year', $currentYear)
-                ->get();
+            $hostelResidentIds = $hostelActiveResidents->pluck('id')->toArray();
 
+            $hostelAllPayments = Payment::whereIn('resident_id', $hostelResidentIds)->get();
             $hostelPaymentsByResident = [];
-            foreach ($hostelCurrentMonthPayments as $p) {
-                $hostelPaymentsByResident[$p->resident_id][] = $p;
+            foreach ($hostelAllPayments as $p) {
+                $key = $p->year . '-' . str_pad($p->month, 2, '0', STR_PAD_LEFT);
+                $hostelPaymentsByResident[$p->resident_id][$key][] = $p;
             }
 
-            $hostelCollected = $hostelCurrentMonthPayments->sum('cash_paid_amount') + $hostelCurrentMonthPayments->sum('upi_paid_amount');
-
+            $hostelCollected = 0;
             $hostelPending = 0;
             $hostelPaidCount = 0;
             $hostelPendingCount = 0;
             $hostelPartialCount = 0;
 
             foreach ($hostelActiveResidents as $resident) {
-                $rentAmount = (float) ($resident->rent_amount ?? 0);
-                $payments = $hostelPaymentsByResident[$resident->id] ?? [];
+                $currentRent = (float) ($resident->rent_amount ?? 0);
 
-                if (count($payments) > 0) {
-                    $paidSoFar = 0;
-                    $storedBalance = 0;
-                    foreach ($payments as $p) {
-                        $paidSoFar     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
-                        $storedBalance += (float) $p->balance_amount;
-                    }
-                    $balance = max($storedBalance, 0);
-
-                    if ($balance > 0) {
-                        if ($paidSoFar > 0) {
-                            $hostelPartialCount++;
-                        } else {
-                            $hostelPendingCount++;
-                        }
-                        $hostelPending += $balance;
+                // Previous pending
+                $prevPending = 0;
+                $joinMonth = Carbon::parse($resident->joining_date)->startOfMonth();
+                $selStart = Carbon::create($currentYear, $currentMonth, 1)->startOfMonth();
+                $cursor = $joinMonth->copy();
+                while ($cursor->lt($selStart)) {
+                    $key = $cursor->format('Y-m');
+                    $payments = $hostelPaymentsByResident[$resident->id][$key] ?? [];
+                    if (count($payments) > 0) {
+                        $due = 0;
+                        foreach ($payments as $p) $due += (float) $p->balance_amount;
                     } else {
-                        $hostelPaidCount++;
+                        $due = (float) $resident->rent_amount;
                     }
-                } else {
+                    if ($due > 0) $prevPending += $due;
+                    $cursor->addMonth();
+                }
+
+                // Current
+                $currentPayments = $hostelPaymentsByResident[$resident->id][$selectedKey] ?? [];
+                $paid = 0;
+                $bal = 0;
+                foreach ($currentPayments as $p) {
+                    $paid += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
+                    $bal  += (float) $p->balance_amount;
+                }
+                $currentBalance = count($currentPayments) > 0 ? $bal : $currentRent;
+
+                $hostelCollected += $paid;
+
+                // Status
+                if ($prevPending > 0) {
                     $hostelPendingCount++;
-                    $hostelPending += $rentAmount;
+                    $hostelPending += $prevPending + $currentBalance;
+                } elseif (count($currentPayments) === 0) {
+                    $hostelPendingCount++;
+                    $hostelPending += $currentRent;
+                } elseif ($currentBalance > 0) {
+                    $hostelPartialCount++;
+                    $hostelPending += $currentBalance;
+                } else {
+                    $hostelPaidCount++;
                 }
             }
 
@@ -335,7 +395,7 @@ class AdminController extends Controller
             'pending_count'                     => $pendingCount,
             'partial_count'                     => $partialCount,
             'payment_count'                     => $totalPayments,
-            'residents_with_payments'           => $currentMonthPayments->pluck('resident_id')->unique()->count(),
+            'residents_with_payments'           => count(array_unique(array_column($pendingDetails, 'resident'))),
             'pending_details'                   => $pendingDetails,
         ];
 
