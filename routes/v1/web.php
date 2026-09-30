@@ -144,3 +144,6 @@ Route::post('/pay/{encodedHostelId}/lookup', [PublicPaymentController::class, 'l
 
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
+Route::prefix('payment-links')->name('payment-links.')->group(function () {
+    Route::get('/', [PublicPaymentController::class, 'index'])->name('index');
+});

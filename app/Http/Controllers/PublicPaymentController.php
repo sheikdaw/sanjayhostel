@@ -13,7 +13,6 @@ class PublicPaymentController extends Controller
 {
     /**
      * Show public payment lookup page
-     *
      * URL: /pay/{encodedHostelId}
      */
     public function show(string $encodedHostelId)
@@ -25,8 +24,8 @@ class PublicPaymentController extends Controller
         }
 
         $hostel = Hostel::find($hostelId);
-        if (!$hostel || $hostel->status !== 'active') {
-            abort(404, 'Hostel not found or inactive');
+        if (!$hostel) {
+            abort(404, 'Hostel not found');
         }
 
         return view('public.payment-lookup', compact('hostel', 'encodedHostelId'));
@@ -53,7 +52,7 @@ class PublicPaymentController extends Controller
             return response()->json(['success' => false, 'message' => 'Hostel not found'], 404);
         }
 
-        // Search resident by phone (last 10 digits to handle +91 prefix)
+        // Search resident by phone (last 10 digits)
         $phone = preg_replace('/[^0-9]/', '', $request->phone);
         $last10 = substr($phone, -10);
 
@@ -87,8 +86,6 @@ class PublicPaymentController extends Controller
 
         $cursor = $joinMonth->copy();
         while ($cursor->lt($currentMonthStart)) {
-            $key = $cursor->format('Y-m');
-
             $payments = Payment::where('resident_id', $resident->id)
                 ->where('month', $cursor->month)
                 ->where('year', $cursor->year)
@@ -139,7 +136,7 @@ class PublicPaymentController extends Controller
         $currentRent = (float) $resident->rent_amount;
         $currentDue  = max(0, $currentRent + $currentFine - $currentDiscount);
 
-        // Current month status
+        // Status
         if ($currentPayments->count() === 0) {
             $currentStatus = 'UNPAID';
         } elseif ($currentBalance > 0) {
@@ -150,46 +147,42 @@ class PublicPaymentController extends Controller
 
         $totalDue = $previousPending + $currentBalance;
 
-        // UPI string
+        // UPI info
         $upiId = $hostel->upi_id ?? null;
         $upiPayeeName = $hostel->upi_payee_name ?? $hostel->hostel_name;
 
-        // Build UPI payment link (generic - user will enter amount)
+        // Build UPI deep link
         $upiLink = null;
-        if ($upiId) {
-            // Extract the raw UPI ID from stored string
+        if ($upiId && $totalDue > 0) {
             $rawUpiId = $upiId;
             if (strpos($upiId, 'pa=') !== false) {
-                // It's a full upi:// link — parse the pa= value
                 preg_match('/pa=([^&]+)/', $upiId, $matches);
                 if (isset($matches[1])) {
                     $rawUpiId = urldecode($matches[1]);
                 }
             }
 
-            if ($totalDue > 0) {
-                $upiLink = 'upi://pay?' . http_build_query([
-                    'pa' => $rawUpiId,
-                    'pn' => $upiPayeeName,
-                    'am' => number_format($totalDue, 2, '.', ''),
-                    'cu' => 'INR',
-                    'tn' => 'Rent payment - ' . $resident->name,
-                ]);
-            }
+            $upiLink = 'upi://pay?' . http_build_query([
+                'pa' => $rawUpiId,
+                'pn' => $upiPayeeName,
+                'am' => number_format($totalDue, 2, '.', ''),
+                'cu' => 'INR',
+                'tn' => 'Rent - ' . $resident->name,
+            ]);
         }
 
         return response()->json([
             'success' => true,
             'resident' => [
-                'id'            => $resident->id,
-                'name'          => $resident->name,
-                'code'          => $resident->resident_code,
-                'phone'         => $resident->phone,
-                'hostel_name'   => $hostel->hostel_name,
-                'room_no'       => $resident->room->room_no ?? 'N/A',
-                'bed_no'        => $resident->bed->bed_no ?? 'N/A',
-                'joining_date'  => Carbon::parse($resident->joining_date)->format('d M Y'),
-                'rent_amount'   => $currentRent,
+                'id'          => $resident->id,
+                'name'        => $resident->name,
+                'code'        => $resident->resident_code,
+                'phone'       => $resident->phone,
+                'hostel_name' => $hostel->hostel_name,
+                'room_no'     => $resident->room->room_no ?? 'N/A',
+                'bed_no'      => $resident->bed->bed_no ?? 'N/A',
+                'joining_date'=> Carbon::parse($resident->joining_date)->format('d M Y'),
+                'rent_amount' => $currentRent,
             ],
             'current_month' => [
                 'month'    => Carbon::create($currentYear, $currentMonth, 1)->format('F Y'),
@@ -213,12 +206,35 @@ class PublicPaymentController extends Controller
             ],
         ]);
     }
-
-    /**
-     * Success page after payment (optional)
-     */
-    public function success(Request $request)
+     public function index()
     {
-        return view('public.payment-success');
+        $user = auth()->user();
+
+        $hostelQuery = Hostel::orderBy('hostel_name');
+        if (!$user->isAdmin()) {
+            $hostelQuery->whereIn('id', $user->hostel_ids ?? []);
+        }
+
+        $hostels = $hostelQuery->get();
+
+        // Build payment link + QR for each hostel
+        $links = $hostels->map(function ($hostel) {
+            $encodedId = Crypt::encryptString($hostel->id);
+            $url = url('/pay/' . $encodedId);
+
+            return [
+                'id'     => $hostel->id,
+                'name'   => $hostel->hostel_name,
+                'code'   => $hostel->hostel_code,
+                'type'   => $hostel->hostel_type,
+                'status' => $hostel->status,
+                'phone'  => $hostel->phone,
+                'upi_id' => $hostel->upi_id,
+                'url'    => $url,
+                'qr'     => 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' . urlencode($url),
+            ];
+        });
+
+        return view('public.index', compact('links'));
     }
 }
