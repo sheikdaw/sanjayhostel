@@ -20,12 +20,7 @@ class User extends Authenticatable
         'hostel_ids',
         'profile',
         'is_active',
-        // New face detection fields
-        'face_id',
-        'face_registered',
-        'face_registered_at',
-        'face_image_path',
-        'face_encoding',  // Optional: store encoding in DB as JSON
+
     ];
 
     protected $hidden = [
@@ -38,9 +33,7 @@ class User extends Authenticatable
         'hostel_ids' => 'array',
         'is_active' => 'boolean',
         'password' => 'hashed',
-        'face_registered' => 'boolean',
-        'face_registered_at' => 'datetime',
-        'face_encoding' => 'array', // Cast JSON to array
+
     ];
 
     // Your existing methods...

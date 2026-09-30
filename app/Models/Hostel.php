@@ -1,5 +1,4 @@
 <?php
-// app/Models/Hostel.php
 
 namespace App\Models;
 
@@ -28,109 +27,28 @@ class Hostel extends Model
         'upi_payee_name',
     ];
 
-    // Relationships
+    protected $casts = [
+        'biometric_port' => 'integer',
+    ];
+
     public function rooms()
     {
         return $this->hasMany(Room::class);
     }
-
     public function roomTypes()
     {
         return $this->hasMany(RoomType::class);
     }
-
     public function residents()
     {
         return $this->hasMany(Resident::class);
     }
-
-    // Accessors
-    public function getTypeLabelAttribute()
+    public function complaints()
     {
-        return $this->hostel_type == 'MEN' ? '👤 Men' : '👩 Women';
+        return $this->hasMany(Complaint::class);
     }
-
-    public function getStatusBadgeAttribute()
+    public function users()
     {
-        return strtolower($this->status);
-    }
-
-    // Biometric Accessors
-    public function getBiometricDeviceUrlAttribute()
-    {
-        if ($this->biometric_ip_address && $this->biometric_port) {
-            return "http://{$this->biometric_ip_address}:{$this->biometric_port}/webservice.asmx";
-        }
-        return null;
-    }
-
-    public function getEmployeeCodePrefixAttribute()
-    {
-        return $this->attributes['employee_code_prefix'] ?? 'H' . $this->id;
-    }
-
-    public function getBiometricStatusAttribute()
-    {
-        if (!$this->biometric_device_id) {
-            return 'Not Configured';
-        }
-        if ($this->biometric_ip_address) {
-            return 'Configured ✅';
-        }
-        return 'Pending Configuration';
-    }
-
-    public function getBiometricStatusBadgeAttribute()
-    {
-        if (!$this->biometric_device_id) {
-            return 'secondary';
-        }
-        if ($this->biometric_ip_address) {
-            return 'success';
-        }
-        return 'warning';
-    }
-
-    // UPI Accessors
-    public function getUpiPayeeNameAttribute($value)
-    {
-        return $value ?? $this->hostel_name ?? 'Hostel Payment';
-    }
-
-    public function getHasUpiAttribute()
-    {
-        return !empty($this->upi_id);
-    }
-
-    // Scopes
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'ACTIVE');
-    }
-
-    public function scopeMen($query)
-    {
-        return $query->where('hostel_type', 'MEN');
-    }
-
-    public function scopeWomen($query)
-    {
-        return $query->where('hostel_type', 'WOMEN');
-    }
-
-    public function scopeHasBiometric($query)
-    {
-        return $query->whereNotNull('biometric_device_id');
-    }
-
-    public function scopeBiometricConfigured($query)
-    {
-        return $query->whereNotNull('biometric_device_id')
-                    ->whereNotNull('biometric_ip_address');
-    }
-
-    public function scopeHasUpi($query)
-    {
-        return $query->whereNotNull('upi_id');
+        return $this->belongsToMany(User::class, 'user_hostels');
     }
 }

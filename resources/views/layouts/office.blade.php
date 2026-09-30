@@ -95,7 +95,8 @@
             opacity: 0.7;
         }
     </style>
-
+<!-- Select2 for searchable dropdowns -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     @stack('styles')
 </head>
 
@@ -126,8 +127,7 @@
             <div class="ol-nav-section">Overview</div>
 
             @auth
-                <a href="{{ route('admin.dashboard') }}"
-                    class="ol-nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                <a href="#" class="ol-nav-item {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
                     <i class="bi bi-grid-1x2"></i>
                     <span class="ol-nav-label">Dashboard</span>
                 </a>
@@ -143,29 +143,26 @@
                         <span class="ol-nav-label">Hostels</span>
                     </a>
 
-                    <a href="{{ route('admin.room-types.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.room-types.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.room-types.index') }}" class="ol-nav-item {{ request()->routeIs('admin.room-types.*') ? 'active' : '' }}">
                         <i class="bi bi-tags"></i>
                         <span class="ol-nav-label">Room Types</span>
                     </a>
 
-                    <a href="{{ route('admin.rooms.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.rooms.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.rooms.index') }}" class="ol-nav-item {{ request()->routeIs('admin.rooms.*') ? 'active' : '' }}">
                         <i class="bi bi-door-open"></i>
                         <span class="ol-nav-label">Rooms</span>
                     </a>
-
-                    <a href="{{ route('admin.beds.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.beds.*') ? 'active' : '' }}">
-                        <i class="bi bi-bed"></i>
-                        <span class="ol-nav-label">Beds</span>
+                     <a href="{{ route('admin.beds.index') }}" class="ol-nav-item {{ request()->routeIs('admin.beds.*') ? 'active' : '' }}">
+                        <i class="bi bi-door-open"></i>
+                        <span class="ol-nav-label">beds</span>
                     </a>
+
+
 
                     {{-- Resident Management --}}
                     <div class="ol-nav-section">Resident Management</div>
 
-                    <a href="{{ route('admin.residents.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.residents.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.residents.index') }}"  class="ol-nav-item {{ request()->routeIs('admin.residents.*') ? 'active' : '' }}">
                         <i class="bi bi-people"></i>
                         <span class="ol-nav-label">Residents</span>
                     </a>
@@ -173,8 +170,7 @@
                     {{-- Financial Management --}}
                     <div class="ol-nav-section">Financial Management</div>
 
-                    <a href="{{ route('admin.payments.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.payments.index') }}" class="ol-nav-item {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
                         <i class="bi bi-credit-card"></i>
                         <span class="ol-nav-label">Payments</span>
                     </a>
@@ -200,43 +196,19 @@
                     {{-- System Management --}}
                     <div class="ol-nav-section">System</div>
 
-                    <a href="{{ route('admin.users.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                    <a href="#" class="ol-nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                         <i class="bi bi-person-badge"></i>
                         <span class="ol-nav-label">Users</span>
                     </a>
 
                     <!-- Employees -->
-                    <a href="{{ route('admin.employees.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
+                    <a href="#" class="ol-nav-item {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
                         <i class="bi bi-person-badge"></i>
                         <span class="ol-nav-label">Employees</span>
-                        <span class="ol-nav-badge">{{ \App\Models\Employee::count() }}</span>
+                        {{-- <span class="ol-nav-badge">{{ \App\Models\Employee::count() }}</span> --}}
                     </a>
 
-                    <!-- Attendance -->
-                    <a href="{{ route('admin.attendances.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.attendances.*') ? 'active' : '' }}">
-                        <i class="bi bi-calendar-check"></i>
-                        <span class="ol-nav-label">Attendance</span>
-                        <span
-                            class="ol-nav-badge">{{ \App\Models\Attendance::where('attendance_date', now()->toDateString())->count() }}</span>
-                    </a>
 
-                    <!-- Advances -->
-                    <a href="{{ route('admin.advances.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('admin.advances.*') ? 'active' : '' }}">
-                        <i class="bi bi-currency-rupee"></i>
-                        <span class="ol-nav-label">Advances</span>
-                        @php
-                            $outstandingEmployees = \App\Models\Employee::where('advance_amount', '>', 0)
-                                ->where('advance_amount', '>', \DB::raw('advance_deduct'))
-                                ->count();
-                        @endphp
-                        @if ($outstandingEmployees > 0)
-                            <span class="ol-nav-badge" style="background:#dc2626;">{{ $outstandingEmployees }}</span>
-                        @endif
-                    </a>
 
                     <a href="#" class="ol-nav-item">
                         <i class="bi bi-gear"></i>
@@ -255,7 +227,7 @@
                         <i class="bi bi-megaphone"></i>
                         <span class="ol-nav-label">Notices</span>
                     </a>
-                    <a href="{{ route('admin.complaints.index') }}"
+                    <a href="#"
                         class="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-700 font-semibold rounded-lg">
                         <i class="fas fa-user-shield"></i> Auth · All Complaints
                     </a>
@@ -414,7 +386,7 @@
                         <hr class="dropdown-divider">
                     </li>
                     <li>
-                        <form action="{{ route('logout') }}" method="POST">
+                        <form action="#" method="POST">
                             @csrf
                             <button type="submit" class="dropdown-item py-2 text-danger">
                                 <i class="bi bi-box-arrow-right me-2"></i>Sign Out
@@ -703,7 +675,7 @@
             });
         });
     </script>
-
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     @stack('scripts')
 </body>
 

@@ -593,31 +593,31 @@
             <div class="ds-card-body">
                 <div class="row g-2">
                     <div class="col-4 col-sm-2-custom">
-                        <a href="{{ route('admin.residents.index') }}" class="ds-quick-btn">
+                        <a href="#" class="ds-quick-btn">
                             <i class="bi bi-person-plus"></i>
                             Add Resident
                         </a>
                     </div>
                     <div class="col-4 col-sm-2-custom">
-                        <a href="{{ route('admin.payments.index') }}" class="ds-quick-btn">
+                        <a href="#" class="ds-quick-btn">
                             <i class="bi bi-credit-card"></i>
                             Payments
                         </a>
                     </div>
                     <div class="col-4 col-sm-2-custom">
-                        <a href="{{ route('admin.rooms.index') }}" class="ds-quick-btn">
+                        <a href="#" class="ds-quick-btn">
                             <i class="bi bi-door-open"></i>
                             Rooms
                         </a>
                     </div>
                     <div class="col-4 col-sm-2-custom">
-                        <a href="{{ route('admin.beds.index') }}" class="ds-quick-btn">
+                        <a href="#" class="ds-quick-btn">
                             <i class="bi bi-bed"></i>
                             Beds
                         </a>
                     </div>
                     <div class="col-4 col-sm-2-custom">
-                        <a href="{{ route('admin.hostels.index') }}" class="ds-quick-btn">
+                        <a href="#" class="ds-quick-btn">
                             <i class="bi bi-building"></i>
                             Hostels
                         </a>
@@ -691,7 +691,7 @@
         <div class="ds-card">
             <div class="ds-card-head">
                 <div class="ds-card-title">Recent Transactions</div>
-                <a href="{{ route('admin.payments.index') }}" class="btn btn-sm"
+                <a href="#" class="btn btn-sm"
                    style="font-size:0.72rem; color:#10b981; border:1px solid rgba(16,185,129,0.3); border-radius:7px; padding:4px 12px; background:rgba(16,185,129,0.05); text-decoration:none;">
                    View All <i class="bi bi-arrow-right ms-1"></i>
                 </a>

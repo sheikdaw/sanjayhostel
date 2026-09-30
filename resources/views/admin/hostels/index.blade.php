@@ -1,2053 +1,1313 @@
 @extends('layouts.office')
 
-@section('title', 'Hostel Management')
+@section('title', 'Hostel Management — Sanjay PG Hostel')
 @section('page_title', 'Hostel Management')
 
 @push('styles')
-    <style>
-        /* ============================================
-           GLOBAL STYLES
-        ============================================ */
-        :root {
-            --primary: #1a3a6b;
-            --primary-light: #2a5a9b;
-            --gold: #c5a028;
-            --gold-light: #f5e6b8;
-            --success: #22c55e;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --info: #3b82f6;
-        }
-
-        /* ============================================
-           LAYOUT
-        ============================================ */
-        .hostel-container {
-            max-width: 100%;
-            padding: 0 15px;
-        }
-
-        /* ============================================
-           HEADER
-        ============================================ */
-        .hostel-header {
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            color: white;
-            padding: 1.5rem 2rem;
-            border-radius: 12px;
-            margin-bottom: 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .hostel-header h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 0;
-        }
-
-        .hostel-header p {
-            opacity: 0.8;
-            margin: 0;
-            font-size: 0.9rem;
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        /* ============================================
-           STATS GRID
-        ============================================ */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
-            text-align: center;
-            transition: all 0.3s;
-        }
-
-        .stat-card:hover {
-            border-color: var(--gold);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            transform: translateY(-2px);
-        }
-
-        .stat-card .number {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .stat-card .label {
-            font-size: 0.6rem;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stat-card .icon {
-            font-size: 1.2rem;
-            display: block;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-card.total .number { color: var(--primary); }
-        .stat-card.active .number { color: var(--success); }
-        .stat-card.inactive .number { color: var(--danger); }
-        .stat-card.men .number { color: #3b82f6; }
-        .stat-card.women .number { color: #ec4899; }
-        .stat-card.rooms .number { color: #7c3aed; }
-        .stat-card.beds .number { color: #92400e; }
-
-        /* ============================================
-           FILTER SECTION
-        ============================================ */
-        .filter-section {
-            display: flex;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            align-items: center;
-            background: white;
-            padding: 0.75rem 1rem;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
-            margin-bottom: 1rem;
-        }
-
-        .filter-section .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .filter-section select,
-        .filter-section input {
-            padding: 0.35rem 0.8rem;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            font-size: 0.8rem;
-            background: white;
-            min-width: 120px;
-        }
-
-        .filter-section select:focus,
-        .filter-section input:focus {
-            border-color: var(--gold);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
-        }
-
-        .search-box {
-            position: relative;
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 0.35rem 0.8rem 0.35rem 2rem;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            font-size: 0.8rem;
-            background: white;
-        }
-
-        .search-box i {
-            position: absolute;
-            left: 0.6rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-        }
-
-        .result-count {
-            font-size: 0.75rem;
-            color: #6b7280;
-            padding: 0.25rem 0.5rem;
-            background: #f3f4f6;
-            border-radius: 4px;
-            margin-left: auto;
-        }
-
-        .btn-clear-filters {
-            padding: 0.35rem 1rem;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            background: white;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-clear-filters:hover {
-            background: #f3f4f6;
-        }
-
-        /* ============================================
-           HOSTEL CARD
-        ============================================ */
-        .hostel-card {
-            transition: all 0.3s ease;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            overflow: hidden;
-            background: white;
-            position: relative;
-            height: 100%;
-        }
-
-        .hostel-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
-        }
-
-        .hostel-card .card-header {
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .hostel-card .card-header .hostel-type-badge {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 2px 12px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-
-        .hostel-card .card-body {
-            padding: 1.25rem;
-        }
-
-        .hostel-card .card-body .hostel-code {
-            font-size: 0.7rem;
-            font-family: monospace;
-            background: #f3f4f6;
-            padding: 2px 8px;
-            border-radius: 4px;
-            color: #6b7280;
-        }
-
-        .hostel-detail {
-            font-size: 0.8rem;
-            color: #6b7280;
-            margin-bottom: 0.25rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .hostel-detail i {
-            width: 18px;
-            color: var(--gold);
-        }
-
-        .hostel-detail .label {
-            color: #6b7280;
-        }
-
-        .hostel-detail .value {
-            color: #1f2937;
-            font-weight: 500;
-        }
-
-        .hostel-stats-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0.5rem;
-            margin: 0.75rem 0;
-            background: #f8fafc;
-            padding: 0.75rem;
-            border-radius: 8px;
-        }
-
-        .hostel-stats-row .stat-item {
-            text-align: center;
-        }
-
-        .hostel-stats-row .stat-item .stat-number {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .hostel-stats-row .stat-item .stat-label {
-            font-size: 0.6rem;
-            color: #6b7280;
-            text-transform: uppercase;
-        }
-
-        .hostel-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            margin-top: 0.75rem;
-        }
-
-        .hostel-actions .btn-sm {
-            padding: 0.25rem 0.75rem;
-            border-radius: 6px;
-            border: 1px solid #e5e7eb;
-            background: white;
-            font-size: 0.7rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .hostel-actions .btn-sm:hover {
-            background: #f3f4f6;
-        }
-
-        .hostel-actions .btn-sm.primary:hover {
-            background: #e3f2fd;
-            border-color: #90caf9;
-        }
-
-        .hostel-actions .btn-sm.success:hover {
-            background: #dcfce7;
-            border-color: #86efac;
-        }
-
-        .hostel-actions .btn-sm.warning:hover {
-            background: #fef3c7;
-            border-color: #fcd34d;
-        }
-
-        .hostel-actions .btn-sm.danger:hover {
-            background: #fee2e2;
-            border-color: #fca5a5;
-        }
-
-        .hostel-actions .btn-sm.purple:hover {
-            background: #ede9fe;
-            border-color: #c4b5fd;
-        }
-
-        /* ============================================
-           BADGES
-        ============================================ */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: none;
-        }
-
-        .status-badge:hover {
-            opacity: 0.8;
-            transform: scale(1.05);
-        }
-
-        .status-badge.active {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .status-badge.inactive {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .status-badge .dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .status-badge.active .dot {
-            background: var(--success);
-        }
-
-        .status-badge.inactive .dot {
-            background: var(--danger);
-        }
-
-        .biometric-status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 10px;
-            border-radius: 12px;
-            font-size: 0.6rem;
-            font-weight: 600;
-        }
-
-        .biometric-status-badge.configured {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .biometric-status-badge.not-configured {
-            background: #f3f4f6;
-            color: #6b7280;
-        }
-
-        .biometric-status-badge.online {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .biometric-status-badge.offline {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        /* ============================================
-           BUTTONS
-        ============================================ */
-        .btn-primary-custom {
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-primary-custom:hover {
-            background: var(--primary-light);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(26, 58, 107, 0.3);
-        }
-
-        .btn-secondary-custom {
-            background: #6b7280;
-            color: white;
-            border: none;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-secondary-custom:hover {
-            background: #4b5563;
-        }
-
-        .btn-purple-custom {
-            background: #7c3aed;
-            color: white;
-            border: none;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-purple-custom:hover {
-            background: #6d28d9;
-        }
-
-        /* ============================================
-           MODAL - SCROLLABLE
-        ============================================ */
-        .modal-content {
-            border-radius: 16px;
-            border: none;
-            max-height: 95vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .modal-header {
-            background: var(--primary);
-            color: white;
-            border-radius: 16px 16px 0 0;
-            padding: 1rem 1.5rem;
-            flex-shrink: 0;
-        }
-
-        .modal-header .btn-close {
-            filter: brightness(0) invert(1);
-        }
-
-        .modal-body {
-            padding: 1.5rem;
-            overflow-y: auto;
-            flex: 1;
-            max-height: calc(95vh - 130px);
-        }
-
-        .modal-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid #e5e7eb;
-            flex-shrink: 0;
-            background: #f8fafc;
-            border-radius: 0 0 16px 16px;
-        }
-
-        /* Modal Scrollbar */
-        .modal-body::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .modal-body::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 3px;
-        }
-
-        .modal-body::-webkit-scrollbar-thumb {
-            background: var(--gold);
-            border-radius: 3px;
-        }
-
-        .modal-body::-webkit-scrollbar-thumb:hover {
-            background: #b8941a;
-        }
-
-        /* ============================================
-           FORM STYLES
-        ============================================ */
-        .rv-input-box {
-            position: relative;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            background: #fafafa;
-            transition: all 0.2s;
-        }
-
-        .rv-input-box:focus-within {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
-            background: white;
-        }
-
-        .rv-input-box.is-invalid {
-            border-color: var(--danger);
-        }
-
-        .rv-input-icon {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-            font-size: 0.9rem;
-            pointer-events: none;
-        }
-
-        .rv-input-icon.textarea-icon {
-            top: 16px;
-            transform: none;
-        }
-
-        .rv-input {
-            width: 100%;
-            padding: 0.6rem 0.8rem 0.6rem 2.4rem;
-            border: none;
-            background: transparent;
-            outline: none;
-            font-size: 0.85rem;
-            color: #1f2937;
-        }
-
-        .rv-input.textarea-input {
-            min-height: 60px;
-            resize: vertical;
-        }
-
-        select.rv-input {
-            appearance: none;
-            padding-right: 2rem;
-            cursor: pointer;
-        }
-
-        .form-label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.3rem;
-        }
-
-        .form-label .required {
-            color: var(--danger);
-            margin-left: 2px;
-        }
-
-        .invalid-feedback {
-            font-size: 0.75rem;
-            color: var(--danger);
-            margin-top: 0.25rem;
-        }
-
-        /* ============================================
-           BIOMETRIC CONFIG SECTION
-        ============================================ */
-        .biometric-config-card {
-            background: #f8fafc;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            margin-top: 0.5rem;
-        }
-
-        .biometric-config-card .config-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.25rem 0;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 0.8rem;
-        }
-
-        .biometric-config-card .config-row:last-child {
-            border-bottom: none;
-        }
-
-        .biometric-config-card .config-row .label {
-            color: #6b7280;
-        }
-
-        .biometric-config-card .config-row .value {
-            font-weight: 600;
-            color: #1f2937;
-        }
-
-        /* ============================================
-           TOAST
-        ============================================ */
-        .toast-container {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 400px;
-        }
-
-        .toast-custom {
-            background: white;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-            border-left: 4px solid var(--success);
-            margin-bottom: 0.75rem;
-            animation: slideInRight 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .toast-custom.error {
-            border-left-color: var(--danger);
-        }
-
-        .toast-custom .message {
-            flex: 1;
-            font-size: 0.85rem;
-            color: #1f2937;
-        }
-
-        .toast-custom .close-btn {
-            background: none;
-            border: none;
-            color: #9ca3af;
-            cursor: pointer;
-            padding: 0 0.25rem;
-            font-size: 1.2rem;
-        }
-
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-
-        /* ============================================
-           EMPTY STATE
-        ============================================ */
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-        }
-
-        .empty-state i {
-            font-size: 4rem;
-            color: #d1d5db;
-            margin-bottom: 1rem;
-        }
-
-        .no-results-state {
-            text-align: center;
-            padding: 3rem 1.5rem;
-            background: white;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            margin-top: 1rem;
-        }
-
-        .no-results-state i {
-            font-size: 3rem;
-            color: #d1d5db;
-            margin-bottom: 0.75rem;
-        }
-
-        .no-results-state h5 {
-            color: #374151;
-            margin-bottom: 0.5rem;
-        }
-
-        .no-results-state p {
-            color: #6b7280;
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-        }
-
-        /* ============================================
-           RESPONSIVE
-        ============================================ */
-        @media (max-width: 768px) {
-            .hostel-header {
-                flex-direction: column;
-                align-items: stretch;
-                text-align: center;
-                padding: 1rem;
-            }
-
-            .header-actions {
-                justify-content: center;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-                gap: 0.5rem;
-            }
-
-            .stat-card .number {
-                font-size: 1rem;
-            }
-
-            .filter-section {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .filter-section .filter-group {
-                flex-wrap: wrap;
-            }
-
-            .filter-section select,
-            .filter-section input {
-                min-width: 100%;
-            }
-
-            .search-box {
-                min-width: 100%;
-            }
-
-            .result-count {
-                margin-left: 0;
-                text-align: center;
-            }
-
-            .hostel-stats-row {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .modal-body {
-                max-height: calc(90vh - 130px);
-                padding: 1rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .hostel-header h1 {
-                font-size: 1.2rem;
-            }
-
-            .header-actions .btn-primary-custom,
-            .header-actions .btn-secondary-custom,
-            .header-actions .btn-purple-custom {
-                padding: 0.35rem 0.8rem;
-                font-size: 0.75rem;
-            }
-
-            .hostel-stats-row {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        /* ============================================
-           PRINT STYLES
-        ============================================ */
-        @media print {
-            .no-print {
-                display: none !important;
-            }
-            .hostel-card {
-                break-inside: avoid;
-                border: 1px solid #ddd !important;
-            }
-        }
-    </style>
+<style>
+    /* ═══════════════════════════════════════════
+       HOSTEL MANAGEMENT
+    ═══════════════════════════════════════════ */
+
+    .hm-page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .hm-page-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--sanjay-primary);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .hm-page-title i { color: var(--sanjay-gold); }
+    .hm-page-subtitle {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin: 0.25rem 0 0 0;
+    }
+
+    /* ── Toolbar ── */
+    .hm-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.25rem;
+    }
+    .hm-search-box {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+        max-width: 320px;
+    }
+    .hm-search-box input {
+        width: 100%;
+        padding: 0.55rem 1rem 0.55rem 2.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        background: white;
+        transition: all 0.2s;
+        color: #374151;
+    }
+    .hm-search-box input:focus {
+        outline: none;
+        border-color: var(--sanjay-gold);
+        box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
+    }
+    .hm-search-box i {
+        position: absolute;
+        left: 0.85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
+
+    .hm-filter-select {
+        padding: 0.55rem 2rem 0.55rem 0.85rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        background: white;
+        color: #374151;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+    }
+    .hm-filter-select:focus {
+        outline: none;
+        border-color: var(--sanjay-gold);
+        box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
+    }
+
+    /* ── Buttons ── */
+    .hm-btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.55rem 1.1rem;
+        background: linear-gradient(135deg, var(--sanjay-primary), #1a3a6b);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .hm-btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(10, 30, 63, 0.25);
+        color: white;
+    }
+
+    /* ── Grid ── */
+    .hm-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1rem;
+    }
+
+    /* ── Cards ── */
+    .hm-card {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+    .hm-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+        border-color: rgba(197, 160, 40, 0.3);
+    }
+    .hm-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--sanjay-gold), var(--sanjay-primary));
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    .hm-card:hover::before { opacity: 1; }
+
+    .hm-card-head {
+        padding: 1rem 1.15rem 0.75rem;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+    .hm-card-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(197, 160, 40, 0.12), rgba(10, 30, 63, 0.08));
+        color: var(--sanjay-gold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        flex-shrink: 0;
+    }
+    .hm-card-title-wrap { flex: 1; min-width: 0; }
+    .hm-card-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--sanjay-primary);
+        margin: 0 0 0.15rem 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .hm-card-code {
+        font-size: 0.68rem;
+        color: #9ca3af;
+        font-family: 'DM Mono', monospace;
+        letter-spacing: 0.3px;
+    }
+    .hm-card-menu { position: relative; }
+    .hm-card-menu-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.85rem;
+    }
+    .hm-card-menu-btn:hover {
+        background: #f9fafb;
+        border-color: var(--sanjay-gold);
+        color: var(--sanjay-gold);
+    }
+
+    .hm-card-body {
+        padding: 0 1.15rem 1rem;
+        flex: 1;
+    }
+    .hm-card-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.6rem;
+        margin-bottom: 0.85rem;
+    }
+    .hm-stat-item {
+        background: #f8fafc;
+        border-radius: 9px;
+        padding: 0.5rem 0.7rem;
+        border: 1px solid #f1f5f9;
+    }
+    .hm-stat-label {
+        font-size: 0.62rem;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        margin-bottom: 0.15rem;
+    }
+    .hm-stat-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--sanjay-primary);
+        font-family: 'DM Mono', monospace;
+        line-height: 1.1;
+    }
+    .hm-card-detail {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: #6b7280;
+        padding: 0.3rem 0;
+    }
+    .hm-card-detail i {
+        color: var(--sanjay-gold);
+        font-size: 0.8rem;
+        width: 14px;
+        flex-shrink: 0;
+    }
+    .hm-card-detail span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Badges ── */
+    .hm-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: capitalize;
+    }
+    .hm-badge.active   { background: #dcfce7; color: #166534; }
+    .hm-badge.inactive { background: #fee2e2; color: #991b1b; }
+    .hm-badge.male     { background: #dbeafe; color: #1e40af; }
+    .hm-badge.female   { background: #fce7f3; color: #9d174d; }
+    .hm-badge.co-ed    { background: #f3e8ff; color: #6b21a8; }
+    .hm-badge-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    /* ── Card Footer ── */
+    .hm-card-footer {
+        padding: 0.7rem 1.15rem;
+        border-top: 1px solid #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        background: #fafbfc;
+    }
+    .hm-card-actions {
+        display: flex;
+        gap: 0.35rem;
+    }
+    .hm-icon-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: white;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.8rem;
+    }
+    .hm-icon-btn:hover { transform: translateY(-1px); }
+    .hm-icon-btn.edit:hover   { background: #eff6ff; border-color: #3b82f6; color: #3b82f6; }
+    .hm-icon-btn.delete:hover { background: #fef2f2; border-color: #ef4444; color: #ef4444; }
+    .hm-icon-btn.toggle:hover { background: #fefce8; border-color: #eab308; color: #ca8a04; }
+
+    /* ── Empty State ── */
+    .hm-empty {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 14px;
+        border: 2px dashed #e5e7eb;
+        grid-column: 1 / -1;
+    }
+    .hm-empty-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(197, 160, 40, 0.1), rgba(10, 30, 63, 0.05));
+        color: var(--sanjay-gold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        margin: 0 auto 1.25rem;
+    }
+    .hm-empty h5 { color: var(--sanjay-primary); font-weight: 700; margin-bottom: 0.5rem; }
+    .hm-empty p  { color: #6b7280; font-size: 0.85rem; margin-bottom: 1.5rem; }
+
+    /* ═══════════════════════════════════════════
+       MODAL
+    ═══════════════════════════════════════════ */
+    .hm-modal .modal-content {
+        border: none;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.15);
+    }
+    .hm-modal .modal-header {
+        background: linear-gradient(135deg, var(--sanjay-primary), #1a3a6b);
+        color: white;
+        border: none;
+        padding: 1.1rem 1.5rem;
+    }
+    .hm-modal .modal-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .hm-modal .modal-title i { color: var(--sanjay-gold); }
+    .hm-modal .btn-close { filter: brightness(0) invert(1); opacity: 0.8; }
+    .hm-modal .modal-body {
+        padding: 1.5rem;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    .hm-modal .modal-body::-webkit-scrollbar { width: 4px; }
+    .hm-modal .modal-body::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    .hm-modal .modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #f3f4f6;
+        background: #fafbfc;
+    }
+
+    /* ── Form ── */
+    .hm-form-section { margin-bottom: 1.5rem; }
+    .hm-form-section:last-child { margin-bottom: 0; }
+    .hm-form-section-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--sanjay-gold);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .hm-form-section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(197, 160, 40, 0.3), transparent);
+    }
+    .hm-form-group { margin-bottom: 0.9rem; }
+    .hm-form-label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.35rem;
+    }
+    .hm-form-label .required { color: #ef4444; margin-left: 2px; }
+    .hm-form-control {
+        width: 100%;
+        padding: 0.6rem 0.85rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 9px;
+        font-size: 0.82rem;
+        color: #374151;
+        background: white;
+        transition: all 0.2s;
+        font-family: inherit;
+    }
+    .hm-form-control:focus {
+        outline: none;
+        border-color: var(--sanjay-gold);
+        box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
+    }
+    .hm-form-control::placeholder { color: #9ca3af; }
+    .hm-form-control.is-invalid {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+    .hm-form-error {
+        font-size: 0.7rem;
+        color: #ef4444;
+        margin-top: 0.25rem;
+        display: none;
+    }
+    .hm-form-error.show { display: block; }
+    select.hm-form-control {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.85rem center;
+        padding-right: 2.2rem;
+    }
+
+    .hm-form-row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.9rem;
+    }
+    @media (max-width: 576px) {
+        .hm-form-row { grid-template-columns: 1fr; }
+    }
+
+    /* ── Buttons ── */
+    .hm-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.6rem 1.25rem;
+        border-radius: 9px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        white-space: nowrap;
+    }
+    .hm-btn-gold {
+        background: linear-gradient(135deg, var(--sanjay-gold), #d4af37);
+        color: var(--sanjay-primary);
+    }
+    .hm-btn-gold:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(197, 160, 40, 0.35);
+    }
+    .hm-btn-gold:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    .hm-btn-outline {
+        background: white;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+    }
+    .hm-btn-outline:hover { background: #f9fafb; color: #374151; }
+    .hm-btn-danger { background: #ef4444; color: white; }
+    .hm-btn-danger:hover {
+        background: #dc2626;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
+    }
+
+    /* ── Spinner ── */
+    .hm-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: hm-spin 0.6s linear infinite;
+        display: inline-block;
+    }
+    @keyframes hm-spin { to { transform: rotate(360deg); } }
+
+    /* ── Delete Modal ── */
+    .hm-delete-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: #fef2f2;
+        color: #ef4444;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin: 0 auto 1rem;
+    }
+
+    /* ── Context Menu ── */
+    .context-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.6rem 1rem;
+        border: none;
+        background: white;
+        color: #374151;
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        text-align: left;
+    }
+    .context-menu-item:hover { background: #f9fafb; color: var(--sanjay-primary); }
+    .context-menu-item.danger { color: #ef4444; }
+    .context-menu-item.danger:hover { background: #fef2f2; }
+    .context-menu-item i { font-size: 0.85rem; width: 16px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+        .hm-page-header { flex-direction: column; align-items: flex-start; }
+        .hm-toolbar { flex-direction: column; align-items: stretch; }
+        .hm-search-box { max-width: none; }
+        .hm-grid { grid-template-columns: 1fr; }
+    }
+</style>
 @endpush
 
 @section('content')
-    <div class="hostel-container">
 
-        {{-- ============================================
-        HEADER
-        ============================================ --}}
-        <div class="hostel-header no-print">
-            <div>
-                <h1><i class="bi bi-building"></i> Hostel Management</h1>
-                <p>Manage all hostels, their configurations, biometric devices, and UPI payments</p>
+{{-- ═══════════════════════════════════════════
+     PAGE HEADER
+═══════════════════════════════════════════ --}}
+<div class="hm-page-header">
+    <div>
+        <h2 class="hm-page-title">
+            <i class="bi bi-building"></i>
+            Hostel Management
+        </h2>
+        <p class="hm-page-subtitle">Manage all hostels, their details, and biometric settings</p>
+    </div>
+    <button type="button" class="hm-btn-primary" onclick="openCreateModal()">
+        <i class="bi bi-plus-lg"></i>
+        Add New Hostel
+    </button>
+</div>
+
+{{-- ═══════════════════════════════════════════
+     TOOLBAR
+═══════════════════════════════════════════ --}}
+<div class="hm-toolbar">
+    <div class="hm-search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" id="hmSearchInput" placeholder="Search hostels by name or code...">
+    </div>
+
+    <select class="hm-filter-select" id="hmTypeFilter">
+        <option value="">All Types</option>
+        <option value="male">Men</option>
+        <option value="female">Women</option>
+        <option value="co-ed">Co-ed</option>
+    </select>
+
+    <select class="hm-filter-select" id="hmStatusFilter">
+        <option value="">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+    </select>
+
+    <span style="margin-left:auto; font-size:0.75rem; color:#9ca3af;" id="hmCountLabel">
+        {{ $hostels->count() }} hostels
+    </span>
+</div>
+
+{{-- ═══════════════════════════════════════════
+     HOSTEL GRID
+═══════════════════════════════════════════ --}}
+<div class="hm-grid" id="hmGrid">
+    @forelse($hostels as $hostel)
+    <div class="hm-card"
+         data-id="{{ $hostel->id }}"
+         data-name="{{ strtolower($hostel->hostel_name) }}"
+         data-code="{{ strtolower($hostel->hostel_code) }}"
+         data-type="{{ $hostel->hostel_type }}"
+         data-status="{{ $hostel->status }}">
+
+        {{-- Card Head --}}
+        <div class="hm-card-head">
+            <div class="hm-card-icon">
+                <i class="bi bi-{{ $hostel->type_icon }}"></i>
             </div>
-            <div class="header-actions">
-                <button type="button" class="btn-purple-custom" onclick="syncAllHostelsBiometric()">
-                    <i class="bi bi-cloud-upload"></i> Sync All Biometric
-                </button>
-                <button type="button" class="btn-secondary-custom" onclick="window.location.href='{{ route('admin.hostels.biometric-config') }}'">
-                    <i class="bi bi-fingerprint"></i> Biometric Config
-                </button>
-                <button type="button" class="btn-primary-custom" id="addHostelBtn">
-                    <i class="bi bi-plus-circle"></i> Add Hostel
+            <div class="hm-card-title-wrap">
+                <h3 class="hm-card-title" title="{{ $hostel->hostel_name }}">
+                    {{ $hostel->hostel_name }}
+                </h3>
+                <div class="hm-card-code">{{ $hostel->hostel_code }}</div>
+            </div>
+            <div class="hm-card-menu">
+                <button type="button" class="hm-card-menu-btn"
+                        onclick="toggleCardMenu(event, {{ $hostel->id }})">
+                    <i class="bi bi-three-dots-vertical"></i>
                 </button>
             </div>
         </div>
 
-        {{-- ============================================
-        STATISTICS
-        ============================================ --}}
-        <div class="stats-grid">
-            <div class="stat-card total">
-                <span class="icon">🏠</span>
-                <div class="number">{{ $stats['total'] ?? 0 }}</div>
-                <div class="label">Total Hostels</div>
+        {{-- Card Body --}}
+        <div class="hm-card-body">
+            {{-- Badges --}}
+            <div style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom:0.85rem;">
+                <span class="hm-badge {{ $hostel->status }}">
+                    <span class="hm-badge-dot"></span>
+                    {{ ucfirst($hostel->status) }}
+                </span>
+                <span class="hm-badge {{ $hostel->hostel_type }}">
+                    <i class="bi bi-{{ $hostel->type_icon }}"></i>
+                    {{ $hostel->type_label }}
+                </span>
             </div>
-            <div class="stat-card active">
-                <span class="icon">✅</span>
-                <div class="number">{{ $stats['active'] ?? 0 }}</div>
-                <div class="label">Active</div>
-            </div>
-            <div class="stat-card inactive">
-                <span class="icon">⛔</span>
-                <div class="number">{{ $stats['inactive'] ?? 0 }}</div>
-                <div class="label">Inactive</div>
-            </div>
-            <div class="stat-card men">
-                <span class="icon">👨</span>
-                <div class="number">{{ $stats['men'] ?? 0 }}</div>
-                <div class="label">Men Hostels</div>
-            </div>
-            <div class="stat-card women">
-                <span class="icon">👩</span>
-                <div class="number">{{ $stats['women'] ?? 0 }}</div>
-                <div class="label">Women Hostels</div>
-            </div>
-            <div class="stat-card rooms">
-                <span class="icon">🚪</span>
-                <div class="number">{{ $stats['total_rooms'] ?? 0 }}</div>
-                <div class="label">Total Rooms</div>
-            </div>
-            <div class="stat-card beds">
-                <span class="icon">🛏️</span>
-                <div class="number">{{ $stats['total_beds'] ?? 0 }}</div>
-                <div class="label">Total Beds</div>
-            </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe);">
-                <span class="icon">🔒</span>
-                <div class="number" style="color: #7c3aed;">{{ $stats['biometric_enabled'] ?? 0 }}</div>
-                <div class="label">Biometric Hostels</div>
-            </div>
-        </div>
 
-        {{-- ============================================
-        FILTERS
-        ============================================ --}}
-        <div class="filter-section no-print">
-            <div class="filter-group">
-                <label style="font-size:0.8rem; font-weight:600;">Filter:</label>
-            </div>
-            <div class="filter-group">
-                <select id="filterStatus">
-                    <option value="">All Status</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <select id="filterType">
-                    <option value="">All Types</option>
-                    <option value="MEN">👨 Men</option>
-                    <option value="WOMEN">👩 Women</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <select id="filterBiometric">
-                    <option value="">All Biometric</option>
-                    <option value="configured">✅ Configured</option>
-                    <option value="not_configured">❌ Not Configured</option>
-                </select>
-            </div>
-            <div class="search-box">
-                <i class="bi bi-search"></i>
-                <input type="text" id="searchHostel" placeholder="Search by name, code, phone, email...">
-            </div>
-            <button class="btn-clear-filters" onclick="clearFilters()">
-                <i class="bi bi-arrow-counterclockwise"></i> Clear
-            </button>
-            <span class="result-count" id="resultCount"></span>
-        </div>
-
-        {{-- ============================================
-        HOSTELS GRID
-        ============================================ --}}
-        <div id="hostelsContainer">
-            @if ($hostels->count() > 0)
-                <div class="row g-4" id="hostelsGrid">
-                    @foreach ($hostels as $hostel)
-                        <div class="col-xl-4 col-lg-6 col-md-6 hostel-item"
-                             data-id="{{ $hostel->id }}"
-                             data-status="{{ $hostel->status }}"
-                             data-type="{{ $hostel->hostel_type }}"
-                             data-biometric="{{ $hostel->biometric_device_id ? 'configured' : 'not_configured' }}"
-                             data-name="{{ strtolower($hostel->hostel_name) }}"
-                             data-code="{{ strtolower($hostel->hostel_code) }}"
-                             data-phone="{{ $hostel->phone ?? '' }}"
-                             data-email="{{ strtolower($hostel->email ?? '') }}">
-
-                            <div class="hostel-card">
-                                {{-- Card Header --}}
-                                <div class="card-header">
-                                    <div>
-                                        <div style="font-weight:600; font-size:1rem;">
-                                            {{ $hostel->hostel_name }}
-                                        </div>
-                                        <div style="font-size:0.7rem; opacity:0.8;">
-                                            <span class="hostel-code">{{ $hostel->hostel_code }}</span>
-                                            @if($hostel->biometric_device_id)
-                                                <span style="margin-left:8px; background:rgba(255,255,255,0.2); padding:0 6px; border-radius:3px; font-size:0.6rem;">
-                                                    <i class="bi bi-fingerprint"></i> Biometric
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span class="hostel-type-badge">
-                                            {{ $hostel->hostel_type == 'MEN' ? '👨 Men' : '👩 Women' }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {{-- Card Body --}}
-                                <div class="card-body">
-                                    {{-- Contact Details --}}
-                                    @if($hostel->phone)
-                                        <div class="hostel-detail">
-                                            <i class="bi bi-phone"></i>
-                                            <span class="value">{{ $hostel->phone }}</span>
-                                        </div>
-                                    @endif
-                                    @if($hostel->email)
-                                        <div class="hostel-detail">
-                                            <i class="bi bi-envelope"></i>
-                                            <span class="value">{{ Str::limit($hostel->email, 30) }}</span>
-                                        </div>
-                                    @endif
-                                    @if($hostel->address)
-                                        <div class="hostel-detail">
-                                            <i class="bi bi-geo-alt"></i>
-                                            <span class="value">{{ Str::limit($hostel->address, 40) }}</span>
-                                        </div>
-                                    @endif
-
-                                    {{-- UPI Info --}}
-                                    @if($hostel->upi_id)
-                                        <div class="hostel-detail">
-                                            <i class="bi bi-upc-scan"></i>
-                                            <span class="label">UPI:</span>
-                                            <span class="value" style="font-size:0.7rem; word-break:break-all;">{{ $hostel->upi_id }}</span>
-                                            @if($hostel->upi_payee_name)
-                                                <span style="font-size:0.65rem; color:#6b7280;">({{ $hostel->upi_payee_name }})</span>
-                                            @endif
-                                        </div>
-                                    @endif
-
-                                    {{-- Stats Row --}}
-                                    <div class="hostel-stats-row">
-                                        <div class="stat-item">
-                                            <div class="stat-number">{{ $hostel->residents_count ?? 0 }}</div>
-                                            <div class="stat-label">Residents</div>
-                                        </div>
-                                        <div class="stat-item">
-                                            <div class="stat-number">{{ $hostel->rooms_count ?? 0 }}</div>
-                                            <div class="stat-label">Rooms</div>
-                                        </div>
-                                        <div class="stat-item">
-                                            <div class="stat-number">{{ $hostel->beds_count ?? 0 }}</div>
-                                            <div class="stat-label">Beds</div>
-                                        </div>
-                                        <div class="stat-item">
-                                            <div class="stat-number" style="color: #7c3aed;">
-                                                {{ $hostel->biometric_residents_count ?? 0 }}
-                                            </div>
-                                            <div class="stat-label">Bio. Synced</div>
-                                        </div>
-                                    </div>
-
-                                    {{-- Biometric Status --}}
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <div>
-                                            <span class="status-badge {{ strtolower($hostel->status) }}" onclick="toggleHostelStatus({{ $hostel->id }})">
-                                                <span class="dot"></span>
-                                                {{ $hostel->status }}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            @if($hostel->biometric_device_id)
-                                                <span class="biometric-status-badge configured" id="bio-status-{{ $hostel->id }}">
-                                                    <i class="bi bi-check-circle"></i> Configured
-                                                </span>
-                                            @else
-                                                <span class="biometric-status-badge not-configured">
-                                                    <i class="bi bi-slash-circle"></i> Not Configured
-                                                </span>
-                                            @endif
-                                        </div>
-                                    </div>
-
-                                    {{-- Biometric Config Preview --}}
-                                    @if($hostel->biometric_device_id)
-                                        <div class="biometric-config-card">
-                                            <div class="config-row">
-                                                <span class="label">Device:</span>
-                                                <span class="value">{{ $hostel->biometric_device_name ?? $hostel->biometric_device_id }}</span>
-                                            </div>
-                                            <div class="config-row">
-                                                <span class="label">IP:</span>
-                                                <span class="value">{{ $hostel->biometric_ip_address }}</span>
-                                            </div>
-                                            <div class="config-row">
-                                                <span class="label">Port:</span>
-                                                <span class="value">{{ $hostel->biometric_port ?? '4370' }}</span>
-                                            </div>
-                                            @if($hostel->employee_code_prefix)
-                                                <div class="config-row">
-                                                    <span class="label">Code Prefix:</span>
-                                                    <span class="value">{{ $hostel->employee_code_prefix }}</span>
-                                                </div>
-                                            @endif
-                                        </div>
-                                    @endif
-
-                                    {{-- Actions --}}
-                                    <div class="hostel-actions">
-                                        <button class="btn-sm primary" onclick="editHostel({{ $hostel->id }})" title="Edit Hostel">
-                                            <i class="bi bi-pencil"></i> Edit
-                                        </button>
-                                        <button class="btn-sm purple" onclick="openBiometricModal({{ $hostel->id }})" title="Configure Biometric">
-                                            <i class="bi bi-fingerprint"></i> Bio Config
-                                        </button>
-                                        @if($hostel->biometric_device_id)
-                                            <button class="btn-sm success" onclick="testBiometricConnection({{ $hostel->id }})" title="Test Connection">
-                                                <i class="bi bi-plug"></i> Test
-                                            </button>
-                                            <button class="btn-sm warning" onclick="syncHostelBiometric({{ $hostel->id }})" title="Sync Residents">
-                                                <i class="bi bi-cloud-upload"></i> Sync
-                                            </button>
-                                        @endif
-                                        <button class="btn-sm danger" onclick="deleteHostel({{ $hostel->id }})" title="Delete Hostel">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
+            {{-- Stats --}}
+            <div class="hm-card-stats">
+                <div class="hm-stat-item">
+                    <div class="hm-stat-label">Rooms</div>
+                    <div class="hm-stat-value">{{ $hostel->rooms_count ?? 0 }}</div>
                 </div>
-
-                {{-- No Results --}}
-                <div id="noSearchResults" class="no-results-state" style="display:none;">
-                    <i class="bi bi-search"></i>
-                    <h5>No hostels found</h5>
-                    <p>No hostels match your search criteria. Try adjusting your filters.</p>
-                    <button class="btn-clear-filters" onclick="clearFilters()">
-                        <i class="bi bi-arrow-counterclockwise"></i> Clear All Filters
-                    </button>
+                <div class="hm-stat-item">
+                    <div class="hm-stat-label">Residents</div>
+                    <div class="hm-stat-value">{{ $hostel->residents_count ?? 0 }}</div>
                 </div>
+            </div>
 
-            @else
-                {{-- Empty State --}}
-                <div class="empty-state">
-                    <i class="bi bi-building"></i>
-                    <h5>No hostels found</h5>
-                    <p class="text-muted">Create your first hostel to get started.</p>
-                    <button type="button" class="btn-primary-custom" onclick="openAddModal()">
-                        <i class="bi bi-plus-circle"></i> Add Hostel
-                    </button>
-                </div>
+            {{-- Details --}}
+            @if($hostel->phone)
+            <div class="hm-card-detail">
+                <i class="bi bi-telephone"></i>
+                <span>{{ $hostel->phone }}</span>
+            </div>
+            @endif
+
+            @if($hostel->email)
+            <div class="hm-card-detail">
+                <i class="bi bi-envelope"></i>
+                <span>{{ $hostel->email }}</span>
+            </div>
+            @endif
+
+            @if($hostel->address)
+            <div class="hm-card-detail">
+                <i class="bi bi-geo-alt"></i>
+                <span>{{ \Illuminate\Support\Str::limit($hostel->address, 40) }}</span>
+            </div>
+            @endif
+
+            @if($hostel->biometric_device_name)
+            <div class="hm-card-detail">
+                <i class="bi bi-fingerprint"></i>
+                <span>{{ $hostel->biometric_device_name }}</span>
+            </div>
             @endif
         </div>
-    </div>
 
-    {{-- ============================================
-    ADD/EDIT MODAL
-    ============================================ --}}
-    <div class="modal fade" id="hostelModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle"><i class="bi bi-building-add"></i> Add Hostel</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="hostelForm" enctype="multipart/form-data">
-                    @csrf
-                    <input type="hidden" id="editId" name="edit_id">
-                    <div class="modal-body">
-                        <div class="row g-3">
-
-                            {{-- Basic Information --}}
-                            <div class="col-md-6">
-                                <label class="form-label">Hostel Code <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-hash rv-input-icon"></i>
-                                    <input type="text" name="hostel_code" id="hostel_code" class="rv-input" placeholder="e.g. HOST-001" required>
-                                </div>
-                                <div class="invalid-feedback" id="hostel_code_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Hostel Name <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-building rv-input-icon"></i>
-                                    <input type="text" name="hostel_name" id="hostel_name" class="rv-input" placeholder="Hostel name" required>
-                                </div>
-                                <div class="invalid-feedback" id="hostel_name_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Hostel Type <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-person rv-input-icon"></i>
-                                    <select name="hostel_type" id="hostel_type" class="rv-input" required>
-                                        <option value="">Select Type</option>
-                                        <option value="MEN">👨 Men</option>
-                                        <option value="WOMEN">👩 Women</option>
-                                    </select>
-                                </div>
-                                <div class="invalid-feedback" id="hostel_type_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Status <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-toggle-on rv-input-icon"></i>
-                                    <select name="status" id="status" class="rv-input" required>
-                                        <option value="ACTIVE">✅ Active</option>
-                                        <option value="INACTIVE">⛔ Inactive</option>
-                                    </select>
-                                </div>
-                                <div class="invalid-feedback" id="status_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Phone</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-phone rv-input-icon"></i>
-                                    <input type="text" name="phone" id="phone" class="rv-input" placeholder="+91 98765 43210">
-                                </div>
-                                <div class="invalid-feedback" id="phone_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Email</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-envelope rv-input-icon"></i>
-                                    <input type="email" name="email" id="email" class="rv-input" placeholder="hostel@email.com">
-                                </div>
-                                <div class="invalid-feedback" id="email_error"></div>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label">Address</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-geo-alt rv-input-icon textarea-icon"></i>
-                                    <textarea name="address" id="address" class="rv-input textarea-input" placeholder="Complete address"></textarea>
-                                </div>
-                                <div class="invalid-feedback" id="address_error"></div>
-                            </div>
-
-                            {{-- UPI Configuration --}}
-                            <div class="col-12">
-                                <hr>
-                                <h6 class="mb-3"><i class="bi bi-upc-scan text-gold"></i> UPI Payment Configuration</h6>
-                            </div>
-                            <div class="col-md-8">
-                                <label class="form-label">UPI ID / URL</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-upc-scan rv-input-icon"></i>
-                                    <input type="text" name="upi_id" id="upi_id" class="rv-input" placeholder="upi://pay?pa=hostel@bank&pn=HostelName">
-                                </div>
-                                <small class="text-muted" style="font-size:0.7rem;">
-                                    <i class="bi bi-info-circle"></i> Enter full UPI URL or UPI ID (e.g., upi://pay?pa=hostel@bank)
-                                </small>
-                                <div class="invalid-feedback" id="upi_id_error"></div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Payee Name</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-person rv-input-icon"></i>
-                                    <input type="text" name="upi_payee_name" id="upi_payee_name" class="rv-input" placeholder="Payee name">
-                                </div>
-                                <small class="text-muted" style="font-size:0.7rem;">
-                                    <i class="bi bi-info-circle"></i> Will default to hostel name
-                                </small>
-                                <div class="invalid-feedback" id="upi_payee_name_error"></div>
-                            </div>
-
-                            {{-- Biometric Configuration (Minimal) --}}
-                            <div class="col-12">
-                                <hr>
-                                <h6 class="mb-3"><i class="bi bi-fingerprint text-purple"></i> Biometric Configuration</h6>
-                                <p class="text-muted small">Configure biometric device details for this hostel. Use the "Biometric Config" button on the hostel card for full configuration.</p>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Device ID</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-qr-code rv-input-icon"></i>
-                                    <input type="text" name="biometric_device_id" id="biometric_device_id" class="rv-input" placeholder="Device serial number">
-                                </div>
-                                <div class="invalid-feedback" id="biometric_device_id_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Device Name</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-tag rv-input-icon"></i>
-                                    <input type="text" name="biometric_device_name" id="biometric_device_name" class="rv-input" placeholder="e.g. Main Gate Device">
-                                </div>
-                                <div class="invalid-feedback" id="biometric_device_name_error"></div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">IP Address</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-wifi rv-input-icon"></i>
-                                    <input type="text" name="biometric_ip_address" id="biometric_ip_address" class="rv-input" placeholder="192.168.1.100">
-                                </div>
-                                <div class="invalid-feedback" id="biometric_ip_address_error"></div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Port</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-plug rv-input-icon"></i>
-                                    <input type="text" name="biometric_port" id="biometric_port" class="rv-input" placeholder="4370" value="4370">
-                                </div>
-                                <div class="invalid-feedback" id="biometric_port_error"></div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Location Code</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-geo rv-input-icon"></i>
-                                    <input type="text" name="biometric_location_code" id="biometric_location_code" class="rv-input" placeholder="LOC_001">
-                                </div>
-                                <div class="invalid-feedback" id="biometric_location_code_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Employee Code Prefix</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-hash rv-input-icon"></i>
-                                    <input type="text" name="employee_code_prefix" id="employee_code_prefix" class="rv-input" placeholder="e.g. HOST-">
-                                </div>
-                                <small class="text-muted" style="font-size:0.7rem;">
-                                    <i class="bi bi-info-circle"></i> Will be prepended to resident employee codes
-                                </small>
-                                <div class="invalid-feedback" id="employee_code_prefix_error"></div>
-                            </div>
-
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Cancel</button>
-                        <button type="submit" class="btn-primary-custom" id="saveBtn">
-                            <i class="bi bi-check-circle"></i> <span id="saveBtnText">Save</span>
-                        </button>
-                    </div>
-                </form>
+        {{-- Card Footer --}}
+        <div class="hm-card-footer">
+            <span style="font-size:0.68rem; color:#9ca3af;">
+                <i class="bi bi-clock"></i>
+                {{ $hostel->created_at->format('d M Y') }}
+            </span>
+            <div class="hm-card-actions">
+                <button type="button" class="hm-icon-btn toggle"
+                        onclick="toggleStatus({{ $hostel->id }})"
+                        title="{{ $hostel->status === 'active' ? 'Deactivate' : 'Activate' }}">
+                    <i class="bi bi-{{ $hostel->status === 'active' ? 'pause-circle' : 'play-circle' }}"></i>
+                </button>
+                <button type="button" class="hm-icon-btn edit"
+                        onclick="openEditModal({{ $hostel->id }})"
+                        title="Edit">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button type="button" class="hm-icon-btn delete"
+                        onclick="openDeleteModal({{ $hostel->id }}, '{{ addslashes($hostel->hostel_name) }}')"
+                        title="Delete">
+                    <i class="bi bi-trash"></i>
+                </button>
             </div>
         </div>
     </div>
+    @empty
+    <div class="hm-empty">
+        <div class="hm-empty-icon">
+            <i class="bi bi-building-add"></i>
+        </div>
+        <h5>No Hostels Yet</h5>
+        <p>Get started by adding your first hostel to the system.</p>
+        <button type="button" class="hm-btn-primary" onclick="openCreateModal()">
+            <i class="bi bi-plus-lg"></i>
+            Add Your First Hostel
+        </button>
+    </div>
+    @endforelse
+</div>
 
-    {{-- ============================================
-    BIOMETRIC CONFIG MODAL
-    ============================================ --}}
-    <div class="modal fade" id="biometricModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-fingerprint"></i> Biometric Configuration</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="biometricForm">
-                    @csrf
-                    <input type="hidden" id="bioHostelId" name="hostel_id">
-                    <div class="modal-body">
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i>
-                                    Configure the biometric device for this hostel. All residents will be synced to this device.
-                                </div>
+{{-- ═══════════════════════════════════════════
+     CREATE / EDIT MODAL
+═══════════════════════════════════════════ --}}
+<div class="modal fade hm-modal" id="hostelModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="hostelModalTitle">
+                    <i class="bi bi-building-add"></i>
+                    Add New Hostel
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="hostelForm" autocomplete="off">
+                @csrf
+                <input type="hidden" id="hostelId" name="id" value="">
+
+                <div class="modal-body">
+                    {{-- Basic Info --}}
+                    <div class="hm-form-section">
+                        <div class="hm-form-section-title">
+                            <i class="bi bi-info-circle"></i>
+                            Basic Information
+                        </div>
+
+                        <div class="hm-form-row">
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">
+                                    Hostel Code <span class="required">*</span>
+                                </label>
+                                <input type="text" class="hm-form-control"
+                                       id="hostel_code" name="hostel_code"
+                                       placeholder="e.g., SPGH-001" required>
+                                <div class="hm-form-error" id="error_hostel_code"></div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Device ID <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-qr-code rv-input-icon"></i>
-                                    <input type="text" name="biometric_device_id" id="bio_device_id" class="rv-input" placeholder="Device serial number" required>
-                                </div>
-                                <div class="invalid-feedback" id="bio_device_id_error"></div>
+
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">
+                                    Hostel Name <span class="required">*</span>
+                                </label>
+                                <input type="text" class="hm-form-control"
+                                       id="hostel_name" name="hostel_name"
+                                       placeholder="e.g., Sanjay PG Hostel - Main" required>
+                                <div class="hm-form-error" id="error_hostel_name"></div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Device Name</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-tag rv-input-icon"></i>
-                                    <input type="text" name="biometric_device_name" id="bio_device_name" class="rv-input" placeholder="e.g. Main Gate Device">
-                                </div>
-                                <div class="invalid-feedback" id="bio_device_name_error"></div>
+                        </div>
+
+                        <div class="hm-form-row">
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">
+                                    Hostel Type <span class="required">*</span>
+                                </label>
+                                <select class="hm-form-control" id="hostel_type" name="hostel_type" required>
+                                    <option value="">Select Type</option>
+                                    <option value="male">Men</option>
+                                    <option value="female">Women</option>
+                                    <option value="co-ed">Co-ed</option>
+                                </select>
+                                <div class="hm-form-error" id="error_hostel_type"></div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">IP Address <span class="required">*</span></label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-wifi rv-input-icon"></i>
-                                    <input type="text" name="biometric_ip_address" id="bio_ip_address" class="rv-input" placeholder="192.168.1.100" required>
-                                </div>
-                                <div class="invalid-feedback" id="bio_ip_address_error"></div>
+
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">
+                                    Status <span class="required">*</span>
+                                </label>
+                                <select class="hm-form-control" id="status" name="status" required>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                                <div class="hm-form-error" id="error_status"></div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Port</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-plug rv-input-icon"></i>
-                                    <input type="text" name="biometric_port" id="bio_port" class="rv-input" placeholder="4370" value="4370">
-                                </div>
-                                <div class="invalid-feedback" id="bio_port_error"></div>
+                        </div>
+
+                        <div class="hm-form-group">
+                            <label class="hm-form-label">Address</label>
+                            <textarea class="hm-form-control" id="address" name="address"
+                                      rows="2" placeholder="Full address of the hostel"></textarea>
+                            <div class="hm-form-error" id="error_address"></div>
+                        </div>
+
+                        <div class="hm-form-row">
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">Phone</label>
+                                <input type="text" class="hm-form-control"
+                                       id="phone" name="phone" placeholder="+91 98765 43210">
+                                <div class="hm-form-error" id="error_phone"></div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Location Code</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-geo rv-input-icon"></i>
-                                    <input type="text" name="biometric_location_code" id="bio_location_code" class="rv-input" placeholder="LOC_001">
-                                </div>
-                                <div class="invalid-feedback" id="bio_location_code_error"></div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Employee Code Prefix</label>
-                                <div class="rv-input-box">
-                                    <i class="bi bi-hash rv-input-icon"></i>
-                                    <input type="text" name="employee_code_prefix" id="bio_code_prefix" class="rv-input" placeholder="e.g. HOST-">
-                                </div>
-                                <small class="text-muted" style="font-size:0.7rem;">
-                                    <i class="bi bi-info-circle"></i> Prepended to resident employee codes
-                                </small>
-                                <div class="invalid-feedback" id="bio_code_prefix_error"></div>
+
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">Email</label>
+                                <input type="email" class="hm-form-control"
+                                       id="email" name="email" placeholder="hostel@example.com">
+                                <div class="hm-form-error" id="error_email"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Cancel</button>
-                        <button type="button" class="btn-purple-custom" onclick="testBiometricConfig()" style="background:#7c3aed;">
-                            <i class="bi bi-plug"></i> Test Connection
-                        </button>
-                        <button type="submit" class="btn-primary-custom" id="bioSaveBtn">
-                            <i class="bi bi-check-circle"></i> Save Configuration
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 
-    {{-- ============================================
-    DETAILS VIEW MODAL
-    ============================================ --}}
-    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-building"></i> Hostel Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="detailsBody">
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2 text-muted">Loading details...</p>
+                    {{-- Biometric --}}
+                    <div class="hm-form-section">
+                        <div class="hm-form-section-title">
+                            <i class="bi bi-fingerprint"></i>
+                            Biometric Device Settings
+                        </div>
+
+                        <div class="hm-form-row">
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">Device ID</label>
+                                <input type="text" class="hm-form-control"
+                                       id="biometric_device_id" name="biometric_device_id"
+                                       placeholder="e.g., BIO-001">
+                            </div>
+
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">Device Name</label>
+                                <input type="text" class="hm-form-control"
+                                       id="biometric_device_name" name="biometric_device_name"
+                                       placeholder="e.g., Main Gate Scanner">
+                            </div>
+                        </div>
+
+                        <div class="hm-form-row">
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">IP Address</label>
+                                <input type="text" class="hm-form-control"
+                                       id="biometric_ip_address" name="biometric_ip_address"
+                                       placeholder="e.g., 192.168.1.100">
+                            </div>
+
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">Port</label>
+                                <input type="number" class="hm-form-control"
+                                       id="biometric_port" name="biometric_port"
+                                       placeholder="e.g., 4370" min="1" max="65535">
+                            </div>
+                        </div>
+
+                        <div class="hm-form-row">
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">Location Code</label>
+                                <input type="text" class="hm-form-control"
+                                       id="biometric_location_code" name="biometric_location_code"
+                                       placeholder="e.g., MAIN-GATE">
+                            </div>
+
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">Employee Code Prefix</label>
+                                <input type="text" class="hm-form-control"
+                                       id="employee_code_prefix" name="employee_code_prefix"
+                                       placeholder="e.g., EMP-">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Payment --}}
+                    <div class="hm-form-section">
+                        <div class="hm-form-section-title">
+                            <i class="bi bi-credit-card"></i>
+                            Payment Settings
+                        </div>
+
+                        <div class="hm-form-row">
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">UPI ID</label>
+                                <input type="text" class="hm-form-control"
+                                       id="upi_id" name="upi_id"
+                                       placeholder="e.g., sanjaypg@upi">
+                            </div>
+
+                            <div class="hm-form-group">
+                                <label class="hm-form-label">UPI Payee Name</label>
+                                <input type="text" class="hm-form-control"
+                                       id="upi_payee_name" name="upi_payee_name"
+                                       placeholder="e.g., Sanjay PG Hostel">
+                            </div>
+                        </div>
                     </div>
                 </div>
+
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary-custom" data-bs-dismiss="modal" style="background:#6b7280;">Close</button>
-                    <button type="button" class="btn-primary-custom" onclick="window.print()">
-                        <i class="bi bi-printer"></i> Print
+                    <button type="button" class="hm-btn hm-btn-outline" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i>
+                        Cancel
+                    </button>
+                    <button type="submit" class="hm-btn hm-btn-gold" id="hostelSubmitBtn">
+                        <i class="bi bi-check-lg"></i>
+                        <span id="hostelSubmitText">Save Hostel</span>
                     </button>
                 </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- ═══════════════════════════════════════════
+     DELETE MODAL
+═══════════════════════════════════════════ --}}
+<div class="modal fade hm-modal" id="deleteModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+        <div class="modal-content">
+            <div class="modal-body text-center" style="padding:2rem 1.5rem;">
+                <div class="hm-delete-icon">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <h5 style="color:var(--sanjay-primary); font-weight:700; margin-bottom:0.5rem;">
+                    Delete Hostel?
+                </h5>
+                <p style="color:#6b7280; font-size:0.85rem; margin-bottom:0.25rem;">
+                    You are about to delete:
+                </p>
+                <p style="color:var(--sanjay-primary); font-weight:600; font-size:0.95rem; margin-bottom:1rem;"
+                   id="deleteHostelName"></p>
+                <p style="color:#ef4444; font-size:0.75rem; margin-bottom:0;">
+                    <i class="bi bi-info-circle"></i>
+                    This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer" style="justify-content:center; gap:0.5rem;">
+                <button type="button" class="hm-btn hm-btn-outline" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i>
+                    Cancel
+                </button>
+                <button type="button" class="hm-btn hm-btn-danger" id="confirmDeleteBtn">
+                    <i class="bi bi-trash"></i>
+                    <span id="deleteBtnText">Delete</span>
+                </button>
             </div>
         </div>
     </div>
+</div>
 
-    {{-- Toast Container --}}
-    <div class="toast-container" id="flashMessageContainer"></div>
+{{-- CONTEXT MENU --}}
+<div id="cardContextMenu" style="display:none; position:fixed; z-index:9999; background:white; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); border:1px solid #e5e7eb; min-width:160px; overflow:hidden;">
+    <button type="button" class="context-menu-item" onclick="contextEdit()">
+        <i class="bi bi-pencil"></i> Edit Hostel
+    </button>
+    <button type="button" class="context-menu-item" onclick="contextToggle()">
+        <i class="bi bi-arrow-repeat"></i> Toggle Status
+    </button>
+    <button type="button" class="context-menu-item danger" onclick="contextDelete()">
+        <i class="bi bi-trash"></i> Delete Hostel
+    </button>
+</div>
+
 @endsection
 
-{{-- ============================================
-JAVASCRIPT
-============================================ --}}
 @push('scripts')
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
 <script>
-// ============================================
-// VARIABLES
-// ============================================
-let hostelModal, biometricModal, detailsModal;
+// ═══════════════════════════════════════════
+// HOSTEL MANAGEMENT - JS
+// ═══════════════════════════════════════════
 
-$(document).ready(function() {
-    console.log('✅ Document ready!');
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+const BASE_URL = "{{ url('admin/hostels') }}";
+let currentDeleteId = null;
+let currentContextId = null;
 
-    // Initialize Modals
-    hostelModal = new bootstrap.Modal(document.getElementById('hostelModal'), {
-        backdrop: 'static',
-        keyboard: true
+// ── Toast ──
+function showToast(message, type = 'success') {
+    if (typeof showFlashMessage === 'function') {
+        showFlashMessage(message, type);
+    } else {
+        alert(message);
+    }
+}
+
+// ── Open Create Modal ──
+function openCreateModal() {
+    resetForm();
+    document.getElementById('hostelModalTitle').innerHTML =
+        '<i class="bi bi-building-add"></i> Add New Hostel';
+    document.getElementById('hostelSubmitText').textContent = 'Save Hostel';
+    document.getElementById('hostelId').value = '';
+
+    const modal = new bootstrap.Modal(document.getElementById('hostelModal'));
+    modal.show();
+}
+
+// ── Open Edit Modal ──
+async function openEditModal(id) {
+    resetForm();
+
+    try {
+        const response = await fetch(`${BASE_URL}/${id}`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF_TOKEN
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const hostel = data.hostel;
+
+            document.getElementById('hostelModalTitle').innerHTML =
+                '<i class="bi bi-pencil-square"></i> Edit Hostel';
+            document.getElementById('hostelSubmitText').textContent = 'Update Hostel';
+            document.getElementById('hostelId').value = hostel.id;
+
+            const fields = [
+                'hostel_code', 'hostel_name', 'hostel_type', 'status',
+                'address', 'phone', 'email',
+                'biometric_device_id', 'biometric_device_name',
+                'biometric_ip_address', 'biometric_port',
+                'biometric_location_code', 'employee_code_prefix',
+                'upi_id', 'upi_payee_name'
+            ];
+
+            fields.forEach(field => {
+                const el = document.getElementById(field);
+                if (el) el.value = hostel[field] || '';
+            });
+
+            const modal = new bootstrap.Modal(document.getElementById('hostelModal'));
+            modal.show();
+        } else {
+            showToast('Failed to load hostel', 'error');
+        }
+    } catch (error) {
+        console.error(error);
+        showToast('Failed to load hostel', 'error');
+    }
+}
+
+// ── Reset Form ──
+function resetForm() {
+    document.getElementById('hostelForm').reset();
+    document.getElementById('hostelId').value = '';
+
+    document.querySelectorAll('.hm-form-error').forEach(el => {
+        el.textContent = '';
+        el.classList.remove('show');
     });
-    biometricModal = new bootstrap.Modal(document.getElementById('biometricModal'), {
-        backdrop: 'static',
-        keyboard: true
+    document.querySelectorAll('.hm-form-control').forEach(el => {
+        el.classList.remove('is-invalid');
     });
-    detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'), {
-        backdrop: 'static',
-        keyboard: true
+}
+
+// ── Submit ──
+document.getElementById('hostelForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const submitBtn = document.getElementById('hostelSubmitBtn');
+    const submitText = document.getElementById('hostelSubmitText');
+    const originalText = submitText.textContent;
+    const hostelId = document.getElementById('hostelId').value;
+    const isEdit = hostelId !== '';
+
+    document.querySelectorAll('.hm-form-error').forEach(el => {
+        el.textContent = '';
+        el.classList.remove('show');
     });
-
-    // ============================================
-    // FILTER BINDING
-    // ============================================
-
-    let searchTimeout;
-    $('#searchHostel').on('keyup', function() {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(function() {
-            applyFilters();
-        }, 300);
-    });
-
-    $('#filterStatus, #filterType, #filterBiometric').on('change', function() {
-        applyFilters();
+    document.querySelectorAll('.hm-form-control').forEach(el => {
+        el.classList.remove('is-invalid');
     });
 
-    // Add Hostel Button
-    $('#addHostelBtn').on('click', function(e) {
-        e.preventDefault();
-        openAddModal();
-    });
+    submitBtn.disabled = true;
+    submitText.innerHTML = '<span class="hm-spinner"></span> Saving...';
 
-    // Modal hidden event
-    $('#hostelModal').on('hidden.bs.modal', function() {
-        resetForm();
-    });
+    const formData = new FormData(this);
+    const url = isEdit ? `${BASE_URL}/${hostelId}` : BASE_URL;
 
-    // Form submit
-    $('#hostelForm').on('submit', function(e) {
-        e.preventDefault();
-        submitForm();
-    });
+    if (isEdit) formData.append('_method', 'PUT');
 
-    // Biometric Form submit
-    $('#biometricForm').on('submit', function(e) {
-        e.preventDefault();
-        submitBiometricConfig();
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json'
+            },
+            body: formData
+        });
 
-    // Run initial filter
-    applyFilters();
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('hostelModal')).hide();
+            setTimeout(() => window.location.reload(), 700);
+        } else {
+            if (data.errors) {
+                Object.keys(data.errors).forEach(field => {
+                    const errEl = document.getElementById(`error_${field}`);
+                    const inputEl = document.getElementById(field);
+
+                    if (errEl) {
+                        errEl.textContent = data.errors[field][0];
+                        errEl.classList.add('show');
+                    }
+                    if (inputEl) inputEl.classList.add('is-invalid');
+                });
+                showToast('Please fix the errors', 'error');
+            } else {
+                showToast(data.message || 'Something went wrong', 'error');
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        showToast('Network error', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitText.textContent = originalText;
+    }
 });
 
-// ============================================
-// APPLY FILTERS
-// ============================================
-function applyFilters() {
-    var status = $('#filterStatus').val() || '';
-    var type = $('#filterType').val() || '';
-    var biometric = $('#filterBiometric').val() || '';
-    var search = $('#searchHostel').val().toLowerCase().trim() || '';
+// ── Open Delete Modal ──
+function openDeleteModal(id, name) {
+    currentDeleteId = id;
+    document.getElementById('deleteHostelName').textContent = `"${name}"`;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
 
-    var visibleCount = 0;
-    var totalCount = $('.hostel-item').length;
+// ── Confirm Delete ──
+document.getElementById('confirmDeleteBtn').addEventListener('click', async function() {
+    if (!currentDeleteId) return;
 
-    $('.hostel-item').each(function(index) {
-        var show = true;
-        var $item = $(this);
+    const btn = this;
+    const btnText = document.getElementById('deleteBtnText');
+    const originalText = btnText.textContent;
 
-        var resStatus = $item.attr('data-status') || '';
-        var resType = $item.attr('data-type') || '';
-        var resBiometric = $item.attr('data-biometric') || '';
-        var resName = ($item.attr('data-name') || '').toLowerCase();
-        var resCode = ($item.attr('data-code') || '').toLowerCase();
-        var resPhone = ($item.attr('data-phone') || '').toLowerCase();
-        var resEmail = ($item.attr('data-email') || '').toLowerCase();
-        var resId = String($item.attr('data-id') || '');
+    btn.disabled = true;
+    btnText.innerHTML = '<span class="hm-spinner"></span> Deleting...';
 
-        if (status && resStatus !== status) show = false;
-        if (type && show && resType !== type) show = false;
-        if (biometric && show && resBiometric !== biometric) show = false;
+    try {
+        const response = await fetch(`${BASE_URL}/${currentDeleteId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json'
+            }
+        });
 
-        if (search && show) {
-            var searchMatch = false;
-            if (resName.includes(search)) searchMatch = true;
-            if (resCode.includes(search)) searchMatch = true;
-            if (resPhone.includes(search)) searchMatch = true;
-            if (resEmail.includes(search)) searchMatch = true;
-            if (resId.includes(search)) searchMatch = true;
-            var textContent = $item.text().toLowerCase();
-            if (textContent.includes(search)) searchMatch = true;
-            if (!searchMatch) show = false;
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+
+            const card = document.querySelector(`.hm-card[data-id="${currentDeleteId}"]`);
+            if (card) {
+                card.style.transition = 'all 0.3s';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.9)';
+                setTimeout(() => { card.remove(); updateCountLabel(); }, 300);
+            }
+        } else {
+            showToast(data.message || 'Failed to delete', 'error');
         }
+    } catch (error) {
+        console.error(error);
+        showToast('Network error', 'error');
+    } finally {
+        btn.disabled = false;
+        btnText.textContent = originalText;
+        currentDeleteId = null;
+    }
+});
 
-        if (show) {
-            $item.show();
+// ── Toggle Status ──
+async function toggleStatus(id) {
+    try {
+        const response = await fetch(`${BASE_URL}/${id}/toggle-status`, {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message, 'success');
+
+            const card = document.querySelector(`.hm-card[data-id="${id}"]`);
+            if (card) {
+                const badge = card.querySelector('.hm-badge');
+                const toggleBtn = card.querySelector('.hm-icon-btn.toggle');
+
+                if (data.status === 'active') {
+                    badge.className = 'hm-badge active';
+                    badge.innerHTML = '<span class="hm-badge-dot"></span> Active';
+                    toggleBtn.title = 'Deactivate';
+                    toggleBtn.innerHTML = '<i class="bi bi-pause-circle"></i>';
+                } else {
+                    badge.className = 'hm-badge inactive';
+                    badge.innerHTML = '<span class="hm-badge-dot"></span> Inactive';
+                    toggleBtn.title = 'Activate';
+                    toggleBtn.innerHTML = '<i class="bi bi-play-circle"></i>';
+                }
+                card.setAttribute('data-status', data.status);
+            }
+        } else {
+            showToast(data.message || 'Failed to update', 'error');
+        }
+    } catch (error) {
+        console.error(error);
+        showToast('Network error', 'error');
+    }
+}
+
+// ── Search & Filter ──
+const searchInput = document.getElementById('hmSearchInput');
+const typeFilter = document.getElementById('hmTypeFilter');
+const statusFilter = document.getElementById('hmStatusFilter');
+
+function applyFilters() {
+    const search = searchInput.value.toLowerCase().trim();
+    const type = typeFilter.value;
+    const status = statusFilter.value;
+
+    let visibleCount = 0;
+
+    document.querySelectorAll('.hm-card').forEach(card => {
+        const name = card.getAttribute('data-name');
+        const code = card.getAttribute('data-code');
+        const cardType = card.getAttribute('data-type');
+        const cardStatus = card.getAttribute('data-status');
+
+        const matchesSearch = !search || name.includes(search) || code.includes(search);
+        const matchesType = !type || cardType === type;
+        const matchesStatus = !status || cardStatus === status;
+
+        if (matchesSearch && matchesType && matchesStatus) {
+            card.style.display = '';
             visibleCount++;
         } else {
-            $item.hide();
+            card.style.display = 'none';
         }
     });
 
-    var resultCountEl = $('#resultCount');
-    if (visibleCount === totalCount) {
-        resultCountEl.text('');
+    updateCountLabel(visibleCount);
+}
+
+function updateCountLabel(count) {
+    const total = document.querySelectorAll('.hm-card').length;
+    const label = document.getElementById('hmCountLabel');
+    if (count !== undefined && count !== total) {
+        label.textContent = `${count} of ${total} hostels`;
     } else {
-        resultCountEl.text('Showing ' + visibleCount + ' of ' + totalCount + ' hostels');
-    }
-
-    if (visibleCount === 0 && totalCount > 0) {
-        $('#noSearchResults').show();
-    } else {
-        $('#noSearchResults').hide();
+        label.textContent = `${total} hostels`;
     }
 }
 
-// ============================================
-// CLEAR FILTERS
-// ============================================
-function clearFilters() {
-    $('#filterStatus, #filterType, #filterBiometric').val('');
-    $('#searchHostel').val('');
-    $('#resultCount').text('');
-    $('#noSearchResults').hide();
-    applyFilters();
+searchInput.addEventListener('input', applyFilters);
+typeFilter.addEventListener('change', applyFilters);
+statusFilter.addEventListener('change', applyFilters);
+
+// ── Context Menu ──
+const contextMenu = document.getElementById('cardContextMenu');
+
+function toggleCardMenu(event, id) {
+    event.stopPropagation();
+    currentContextId = id;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    contextMenu.style.display = 'block';
+    contextMenu.style.left = Math.min(rect.right - 160, window.innerWidth - 170) + 'px';
+    contextMenu.style.top = (rect.bottom + 4) + 'px';
 }
 
-// ============================================
-// MODAL FUNCTIONS
-// ============================================
-function openAddModal() {
-    resetForm();
-    document.getElementById('modalTitle').textContent = 'Add Hostel';
-    document.getElementById('saveBtnText').textContent = 'Save';
-    document.getElementById('editId').value = '';
-    $('.invalid-feedback').text('');
-    $('.rv-input-box').removeClass('is-invalid');
-    hostelModal.show();
+function hideContextMenu() { contextMenu.style.display = 'none'; }
+
+function contextEdit() {
+    if (currentContextId) openEditModal(currentContextId);
+    hideContextMenu();
 }
 
-function resetForm() {
-    const form = document.getElementById('hostelForm');
-    form.reset();
-    document.getElementById('biometric_port').value = '4370';
-    $('.invalid-feedback').text('');
-    $('.rv-input-box').removeClass('is-invalid');
-    document.getElementById('saveBtnText').textContent = 'Save';
-    document.getElementById('editId').value = '';
-    document.getElementById('modalTitle').textContent = 'Add Hostel';
+function contextToggle() {
+    if (currentContextId) toggleStatus(currentContextId);
+    hideContextMenu();
 }
 
-// ============================================
-// FORM SUBMISSION
-// ============================================
-function submitForm() {
-    let id = document.getElementById('editId').value;
-    let url = "{{ route('admin.hostels.store') }}";
-    let formData = new FormData(document.getElementById('hostelForm'));
-
-    if (id) {
-        url = "{{ url('admin/hostels') }}/" + id;
-        formData.append('_method', 'PUT');
+function contextDelete() {
+    if (currentContextId) {
+        const card = document.querySelector(`.hm-card[data-id="${currentContextId}"]`);
+        if (card) {
+            const name = card.querySelector('.hm-card-title').textContent.trim();
+            openDeleteModal(currentContextId, name);
+        }
     }
-
-    $.ajax({
-        url: url,
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        beforeSend: function() {
-            $('#saveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
-            $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid');
-        },
-        success: function(response) {
-            if (response.success) {
-                hostelModal.hide();
-                showToast(response.message, 'success');
-                setTimeout(() => location.reload(), 1500);
-            }
-        },
-        error: function(xhr) {
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            } else if (xhr.status === 422) {
-                let errors = xhr.responseJSON.errors;
-                if (xhr.responseJSON.message) {
-                    showToast(xhr.responseJSON.message, 'error');
-                } else {
-                    $.each(errors, function(field, messages) {
-                        $('#' + field).closest('.rv-input-box').addClass('is-invalid');
-                        $('#' + field + '_error').text(messages[0]);
-                    });
-                    showToast('Please fix validation errors', 'error');
-                }
-            } else {
-                showToast(xhr.responseJSON?.message || 'Something went wrong!', 'error');
-            }
-        },
-        complete: function() {
-            let id = document.getElementById('editId').value;
-            let text = id ? 'Update' : 'Save';
-            $('#saveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> <span id="saveBtnText">' + text + '</span>');
-        }
-    });
+    hideContextMenu();
 }
 
-// ============================================
-// CRUD OPERATIONS
-// ============================================
-function editHostel(id) {
-    $.ajax({
-        url: "{{ url('admin/hostels') }}/" + id + "/edit",
-        type: 'GET',
-        success: function(response) {
-            if (response.success) {
-                let data = response.data;
-                document.getElementById('modalTitle').textContent = 'Edit Hostel';
-                document.getElementById('editId').value = data.id;
-                document.getElementById('hostel_code').value = data.hostel_code;
-                document.getElementById('hostel_name').value = data.hostel_name;
-                document.getElementById('hostel_type').value = data.hostel_type;
-                document.getElementById('status').value = data.status;
-                document.getElementById('address').value = data.address || '';
-                document.getElementById('phone').value = data.phone || '';
-                document.getElementById('email').value = data.email || '';
-                document.getElementById('upi_id').value = data.upi_id || '';
-                document.getElementById('upi_payee_name').value = data.upi_payee_name || '';
-                document.getElementById('biometric_device_id').value = data.biometric_device_id || '';
-                document.getElementById('biometric_device_name').value = data.biometric_device_name || '';
-                document.getElementById('biometric_ip_address').value = data.biometric_ip_address || '';
-                document.getElementById('biometric_port').value = data.biometric_port || '4370';
-                document.getElementById('biometric_location_code').value = data.biometric_location_code || '';
-                document.getElementById('employee_code_prefix').value = data.employee_code_prefix || '';
+document.addEventListener('click', hideContextMenu);
+document.addEventListener('scroll', hideContextMenu, true);
 
-                document.getElementById('saveBtnText').textContent = 'Update';
-                $('.invalid-feedback').text('');
-                $('.rv-input-box').removeClass('is-invalid');
-                hostelModal.show();
-            }
-        },
-        error: function(xhr) {
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            } else {
-                showToast('Failed to load hostel data', 'error');
-            }
-        }
-    });
-}
-
-function deleteHostel(id) {
-    Swal.fire({
-        title: 'Are you sure?',
-        text: "This action cannot be undone! All associated rooms, beds, and residents will also be affected.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, delete it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            $.ajax({
-                url: "{{ url('admin/hostels') }}/" + id,
-                type: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                success: function(response) {
-                    if (response.success) {
-                        showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    } else {
-                        showToast(response.message || 'Failed to delete!', 'error');
-                    }
-                },
-                error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to delete!', 'error');
-                    }
-                }
-            });
-        }
-    });
-}
-
-function toggleHostelStatus(id) {
-    Swal.fire({
-        title: 'Toggle Status?',
-        text: "Change hostel status?",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#c5a028',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, change it!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            $.ajax({
-                url: "{{ url('admin/hostels') }}/" + id + "/toggle-status",
-                type: 'PATCH',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                success: function(response) {
-                    if (response.success) {
-                        showToast(response.message, 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    }
-                },
-                error: function(xhr) {
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast(xhr.responseJSON?.message || 'Failed to update status!', 'error');
-                    }
-                }
-            });
-        }
-    });
-}
-
-// ============================================
-// BIOMETRIC CONFIGURATION
-// ============================================
-function openBiometricModal(id) {
-    $('#bioHostelId').val(id);
-    $('#biometricForm')[0].reset();
-    $('#bio_port').val('4370');
-    $('.invalid-feedback').text('');
-    $('.rv-input-box').removeClass('is-invalid');
-
-    // Load existing config
-    $.ajax({
-        url: "{{ url('admin/hostels') }}/" + id + "/biometric-config",
-        type: 'GET',
-        success: function(response) {
-            if (response.success) {
-                let data = response.data;
-                $('#bio_device_id').val(data.biometric_device_id || '');
-                $('#bio_device_name').val(data.biometric_device_name || '');
-                $('#bio_ip_address').val(data.biometric_ip_address || '');
-                $('#bio_port').val(data.biometric_port || '4370');
-                $('#bio_location_code').val(data.biometric_location_code || '');
-                $('#bio_code_prefix').val(data.employee_code_prefix || '');
-            }
-        },
-        error: function(xhr) {
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            }
-        }
-    });
-
-    biometricModal.show();
-}
-
-function submitBiometricConfig() {
-    let id = $('#bioHostelId').val();
-    let formData = new FormData(document.getElementById('biometricForm'));
-
-    $.ajax({
-        url: "{{ url('admin/hostels') }}/" + id + "/biometric-config",
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-        beforeSend: function() {
-            $('#bioSaveBtn').prop('disabled', true).html('<i class="bi bi-spinner bi-spin"></i> Saving...');
-            $('.invalid-feedback').text('');
-            $('.rv-input-box').removeClass('is-invalid');
-        },
-        success: function(response) {
-            if (response.success) {
-                biometricModal.hide();
-                showToast(response.message, 'success');
-                setTimeout(() => location.reload(), 1500);
-            }
-        },
-        error: function(xhr) {
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            } else if (xhr.status === 422) {
-                let errors = xhr.responseJSON.errors;
-                if (xhr.responseJSON.message) {
-                    showToast(xhr.responseJSON.message, 'error');
-                } else {
-                    $.each(errors, function(field, messages) {
-                        $('#bio_' + field).closest('.rv-input-box').addClass('is-invalid');
-                        $('#bio_' + field + '_error').text(messages[0]);
-                    });
-                    showToast('Please fix validation errors', 'error');
-                }
-            } else {
-                showToast(xhr.responseJSON?.message || 'Failed to save configuration!', 'error');
-            }
-        },
-        complete: function() {
-            $('#bioSaveBtn').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Save Configuration');
-        }
-    });
-}
-
-function testBiometricConfig() {
-    let id = $('#bioHostelId').val();
-
-    Swal.fire({
-        title: 'Testing Connection',
-        text: 'Please wait while we test the biometric device connection...',
-        icon: 'info',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    $.ajax({
-        url: "{{ url('admin/hostels') }}/" + id + "/test-biometric",
-        type: 'GET',
-        success: function(response) {
-            Swal.close();
-            if (response.success) {
-                showToast('✅ ' + response.message, 'success');
-            } else {
-                showToast('❌ ' + response.message, 'error');
-            }
-        },
-        error: function(xhr) {
-            Swal.close();
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            } else {
-                showToast('❌ Failed to test connection!', 'error');
-            }
-        }
-    });
-}
-
-// ============================================
-// BIOMETRIC SYNC OPERATIONS
-// ============================================
-function syncHostelBiometric(id) {
-    Swal.fire({
-        title: 'Sync Residents?',
-        text: "This will sync all active residents of this hostel to the biometric device.",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#7c3aed',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, sync them!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Syncing...',
-                text: 'Please wait while residents are synced to the device.',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-
-            $.ajax({
-                url: "{{ url('admin/hostels') }}/" + id + "/sync-biometric",
-                type: 'POST',
-                data: { _token: '{{ csrf_token() }}' },
-                success: function(response) {
-                    Swal.close();
-                    if (response.success) {
-                        let msg = '✅ ' + response.message;
-                        if (response.failed > 0) {
-                            msg += ' (Failed: ' + response.failed + ')';
-                        }
-                        showToast(msg, response.failed > 0 ? 'error' : 'success');
-                        setTimeout(() => location.reload(), 2000);
-                    } else {
-                        showToast('❌ ' + response.message, 'error');
-                    }
-                },
-                error: function(xhr) {
-                    Swal.close();
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast('❌ Failed to sync residents!', 'error');
-                    }
-                }
-            });
-        }
-    });
-}
-
-function syncAllHostelsBiometric() {
-    Swal.fire({
-        title: 'Sync All Hostels?',
-        text: "This will sync all active residents from all configured hostels to their respective biometric devices.",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#7c3aed',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Yes, sync all!'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                title: 'Syncing All...',
-                text: 'Please wait while all hostels are synced.',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-
-            $.ajax({
-                url: "{{ route('admin.hostels.sync-all-biometric') }}",
-                type: 'POST',
-                data: { _token: '{{ csrf_token() }}' },
-                success: function(response) {
-                    Swal.close();
-                    if (response.success) {
-                        let msg = '✅ ' + response.message;
-                        showToast(msg, 'success');
-                        setTimeout(() => location.reload(), 2000);
-                    } else {
-                        showToast('❌ ' + response.message, 'error');
-                    }
-                },
-                error: function(xhr) {
-                    Swal.close();
-                    if (xhr.status === 403) {
-                        showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-                    } else {
-                        showToast('❌ Failed to sync hostels!', 'error');
-                    }
-                }
-            });
-        }
-    });
-}
-
-function testBiometricConnection(id) {
-    Swal.fire({
-        title: 'Testing Connection',
-        text: 'Checking biometric device connection...',
-        icon: 'info',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
-    $.ajax({
-        url: "{{ url('admin/hostels') }}/" + id + "/test-biometric",
-        type: 'GET',
-        success: function(response) {
-            Swal.close();
-            if (response.success) {
-                showToast('✅ ' + response.message, 'success');
-            } else {
-                showToast('❌ ' + response.message, 'error');
-            }
-        },
-        error: function(xhr) {
-            Swal.close();
-            if (xhr.status === 403) {
-                showToast(xhr.responseJSON?.message || 'Permission denied!', 'error');
-            } else {
-                showToast('❌ Failed to test connection!', 'error');
-            }
-        }
-    });
-}
-
-// ============================================
-// TOAST NOTIFICATIONS
-// ============================================
-function showToast(message, type = 'success') {
-    let container = document.getElementById('flashMessageContainer');
-    if (!container) {
-        const newContainer = document.createElement('div');
-        newContainer.id = 'flashMessageContainer';
-        newContainer.className = 'toast-container';
-        document.body.appendChild(newContainer);
-        container = newContainer;
-    }
-
-    const icon = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
-    const color = type === 'success' ? '#22c55e' : '#ef4444';
-
-    const toast = document.createElement('div');
-    toast.className = 'toast-custom ' + (type === 'error' ? 'error' : '');
-    toast.innerHTML = `
-        <i class="bi ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
-        <div class="message">${message}</div>
-        <button class="close-btn" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>
-    `;
-    container.appendChild(toast);
-
-    setTimeout(() => {
-        if (toast.parentElement) {
-            toast.style.animation = 'slideOutRight 0.3s ease forwards';
-            setTimeout(() => toast.remove(), 300);
-        }
-    }, 5000);
-}
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => updateCountLabel());
 </script>
 @endpush
