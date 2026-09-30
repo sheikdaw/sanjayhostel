@@ -179,7 +179,7 @@
                         <i class="bi bi-credit-card"></i>
                         <span class="ol-nav-label">Payments</span>
                     </a>
- <a href="{{ route('payment-links.index') }}"
+                    <a href="{{ route('payment-links.index') }}"
                         class="ol-nav-item {{ request()->routeIs('payment-links.*') ? 'active' : '' }}">
                         <i class="bi bi-link-45deg"></i>
                         <span class="ol-nav-label">Payment Links</span>
@@ -397,7 +397,7 @@
                         <hr class="dropdown-divider">
                     </li>
                     <li>
-                        <form action="#" method="POST">
+                        <form action="{{ route('logout') }}" method="POST">
                             @csrf
                             <button type="submit" class="dropdown-item py-2 text-danger">
                                 <i class="bi bi-box-arrow-right me-2"></i>Sign Out
