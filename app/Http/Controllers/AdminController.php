@@ -11,6 +11,7 @@ use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class AdminController extends Controller
 {
@@ -27,143 +28,133 @@ class AdminController extends Controller
             $hostels = Hostel::whereIn('id', $hostelIds)->where('status', 'ACTIVE')->get();
         }
 
-        // If no hostels, return empty dashboard
         if (empty($hostelIds)) {
-            $hostelIds = [0]; // Prevent SQL errors
+            $hostelIds = [0];
         }
 
         // ============================================================
         // STATISTICS
         // ============================================================
 
-        // Hostel Statistics
         $totalHostels = $hostels->count();
         $totalRooms = Room::whereIn('hostel_id', $hostelIds)->count();
-        $totalBeds = Bed::whereHas('room', function($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        })->count();
+        $totalBeds = Bed::whereHas('room', fn($q) => $q->whereIn('hostel_id', $hostelIds))->count();
         $totalResidents = Resident::whereIn('hostel_id', $hostelIds)->where('status', 'ACTIVE')->count();
         $totalVacated = Resident::whereIn('hostel_id', $hostelIds)->where('status', 'VACATED')->count();
 
-        // Bed occupancy stats
-        $occupiedBeds = Bed::whereHas('room', function($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        })->where('status', 'OCCUPIED')->count();
-        $vacantBeds = Bed::whereHas('room', function($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        })->where('status', 'VACANT')->count();
-        $blockedBeds = Bed::whereHas('room', function($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        })->where('status', 'BLOCKED')->count();
+        $occupiedBeds = Bed::whereHas('room', fn($q) => $q->whereIn('hostel_id', $hostelIds))
+            ->where('status', 'OCCUPIED')->count();
+        $vacantBeds = Bed::whereHas('room', fn($q) => $q->whereIn('hostel_id', $hostelIds))
+            ->where('status', 'VACANT')->count();
+        $blockedBeds = Bed::whereHas('room', fn($q) => $q->whereIn('hostel_id', $hostelIds))
+            ->where('status', 'BLOCKED')->count();
 
         $occupancyRate = $totalBeds > 0 ? round(($occupiedBeds / $totalBeds) * 100, 1) : 0;
 
         // ============================================================
-        // PAYMENT STATISTICS - FIXED FOR CURRENT MONTH
-        //
-        // IMPORTANT: We DO NOT trust the stored `balance_amount` column
-        // on the payments table anymore. If a payment row was ever saved
-        // with status=PENDING/PARTIAL but balance_amount=0 (a write-side
-        // bug), this dashboard would previously show pending count > 0
-        // but pending amount = ₹0.0L. Instead we always recompute the
-        // balance live as: rent_amount - (cash_paid + upi_paid).
+        // PAYMENT STATISTICS — CURRENT MONTH
         // ============================================================
 
-        // Get current month range
-        $currentMonthStart = now()->startOfMonth();
-        $currentMonthEnd = now()->endOfMonth();
+        $now = Carbon::now();
+        $currentMonth = (int) $now->month;
+        $currentYear  = (int) $now->year;
+        $monthLabel   = Carbon::create($currentYear, $currentMonth, 1)->format('F Y');
 
-        // Get all ACTIVE residents for this hostel
-        $activeResidents = Resident::whereIn('hostel_id', $hostelIds)
-            ->where('status', 'ACTIVE')
-            ->with(['room', 'hostel']) // Eager load relationships
+        // ✅ FIX: Fetch payments by month + year (NOT payment_date)
+        $currentMonthPayments = Payment::whereHas('resident', function ($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            })
+            ->where('month', $currentMonth)
+            ->where('year', $currentYear)
             ->get();
 
-        // Get payments for current month
-        $currentMonthPayments = Payment::whereHas('resident', function($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        })
-        ->whereBetween('payment_date', [$currentMonthStart, $currentMonthEnd])
-        ->get();
-
-        // Total payments count for current month
         $totalPayments = $currentMonthPayments->count();
-
-        // Total Collected (Cash + UPI) for current month
         $totalCollected = $currentMonthPayments->sum('cash_paid_amount') + $currentMonthPayments->sum('upi_paid_amount');
 
-        // Calculate pending amount for each active resident
+        // Group payments by resident for quick lookup
+        $paymentsByResident = [];
+        foreach ($currentMonthPayments as $p) {
+            if (!isset($paymentsByResident[$p->resident_id])) {
+                $paymentsByResident[$p->resident_id] = [];
+            }
+            $paymentsByResident[$p->resident_id][] = $p;
+        }
+
+        $activeResidents = Resident::whereIn('hostel_id', $hostelIds)
+            ->where('status', 'ACTIVE')
+            ->with(['room', 'hostel'])
+            ->get();
+
+        // ============================================================
+        // PENDING CALCULATION
+        // ============================================================
+
         $totalPending = 0;
         $pendingResidents = 0;
         $paidResidents = 0;
         $partialResidents = 0;
         $totalRentForActiveResidents = 0;
-        $pendingDetails = []; // For debugging
+        $pendingDetails = [];
 
         foreach ($activeResidents as $resident) {
-            // Rent amount lives on the Resident model itself, NOT on Room.
-            // (Room has no rent_amount column — that was the actual bug:
-            // $resident->room->rent_amount was always null/0.)
             $rentAmount = (float) ($resident->rent_amount ?? 0);
             $totalRentForActiveResidents += $rentAmount;
 
-            // Get this month's payment for this resident
-            $monthlyPayment = $currentMonthPayments->firstWhere('resident_id', $resident->id);
+            $payments = $paymentsByResident[$resident->id] ?? [];
 
-            if ($monthlyPayment) {
-                // ALWAYS derive the balance live — never trust the stored column
-                $paidSoFar = (float) $monthlyPayment->cash_paid_amount + (float) $monthlyPayment->upi_paid_amount;
-                $balance   = max($rentAmount - $paidSoFar, 0);
+            if (count($payments) > 0) {
+                // ✅ FIX: Use `balance_amount` from payment record (respects discount)
+                $paidSoFar = 0;
+                $storedBalance = 0;
+                foreach ($payments as $p) {
+                    $paidSoFar     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
+                    $storedBalance += (float) $p->balance_amount;
+                }
+
+                // Use stored balance (which already accounts for discount + fine)
+                $balance = max($storedBalance, 0);
 
                 if ($balance > 0) {
-                    // Derive status live too, so it's consistent with the balance
                     if ($paidSoFar > 0) {
                         $partialResidents++;
-                        $totalPending += $balance;
                         $pendingDetails[] = [
                             'resident' => $resident->name,
-                            'rent' => $rentAmount,
-                            'balance' => $balance,
-                            'status' => 'PARTIAL'
+                            'rent'     => $rentAmount,
+                            'balance'  => $balance,
+                            'status'   => 'PARTIAL',
                         ];
                     } else {
                         $pendingResidents++;
-                        $totalPending += $balance;
                         $pendingDetails[] = [
                             'resident' => $resident->name,
-                            'rent' => $rentAmount,
-                            'balance' => $balance,
-                            'status' => 'PENDING'
+                            'rent'     => $rentAmount,
+                            'balance'  => $balance,
+                            'status'   => 'PENDING',
                         ];
                     }
+                    $totalPending += $balance;
                 } else {
-                    // Fully paid
                     $paidResidents++;
                 }
             } else {
-                // No payment made this month - FULL PENDING
+                // ✅ FIX: No payment row → full rent is due
                 $pendingResidents++;
                 $totalPending += $rentAmount;
                 $pendingDetails[] = [
                     'resident' => $resident->name,
-                    'rent' => $rentAmount,
-                    'balance' => $rentAmount,
-                    'status' => 'NO_PAYMENT'
+                    'rent'     => $rentAmount,
+                    'balance'  => $rentAmount,
+                    'status'   => 'NO_PAYMENT',
                 ];
             }
         }
 
-        // Alternative calculation: Total Pending = (Total Rent for all active residents) - Total Collected
-        // This should now match $totalPending exactly, since both derive from the same
-        // live cash/upi figures rather than a stored balance column.
         $totalPendingAlternative = $totalRentForActiveResidents - $totalCollected;
 
-        // Payment status counts for current month
-        $paidCount = $paidResidents;
-        $pendingCount = $pendingResidents;
-        $partialCount = $partialResidents;
+        $paidCount     = $paidResidents;
+        $pendingCount  = $pendingResidents;
+        $partialCount  = $partialResidents;
 
-        // Total balance for current month — derived live, not from stored column
         $totalBalance = $totalPending;
         $totalRent = $currentMonthPayments->sum('rent_amount');
 
@@ -173,41 +164,36 @@ class AdminController extends Controller
 
         $sixMonthsAgo = now()->subMonths(6)->startOfMonth();
 
-        $monthlyPayments = Payment::whereHas('resident', function($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        })
-        ->where('payment_date', '>=', $sixMonthsAgo)
-        ->get()
-        ->groupBy(function($payment) {
-            return $payment->payment_date->format('Y-m');
-        })
-        ->map(function($group) {
-            $collected = $group->sum('cash_paid_amount') + $group->sum('upi_paid_amount');
-            return [
-                'month' => $group->first()->payment_date->month,
-                'year' => $group->first()->payment_date->year,
-                'total_collected' => $collected,
-                'total_rent' => $group->sum('rent_amount'),
-                // derive live instead of trusting stored balance_amount
-                'total_balance' => max($group->sum('rent_amount') - $collected, 0)
-            ];
-        })
-        ->values()
-        ->sortBy(function($item) {
-            return $item['year'] . '-' . str_pad($item['month'], 2, '0', STR_PAD_LEFT);
-        })
-        ->take(6);
+        $monthlyPayments = Payment::whereHas('resident', function ($q) use ($hostelIds) {
+                $q->whereIn('hostel_id', $hostelIds);
+            })
+            ->where('payment_date', '>=', $sixMonthsAgo)
+            ->get()
+            ->groupBy(fn($p) => $p->payment_date->format('Y-m'))
+            ->map(function ($group) {
+                $collected = $group->sum('cash_paid_amount') + $group->sum('upi_paid_amount');
+                $rent      = $group->sum('rent_amount');
+                return [
+                    'month'           => $group->first()->payment_date->month,
+                    'year'            => $group->first()->payment_date->year,
+                    'total_collected' => $collected,
+                    'total_rent'      => $rent,
+                    'total_balance'   => max($rent - $collected, 0),
+                ];
+            })
+            ->values()
+            ->sortBy(fn($item) => $item['year'] . '-' . str_pad($item['month'], 2, '0', STR_PAD_LEFT))
+            ->take(6);
 
         $months = [];
         $collections = [];
         $balances = [];
         foreach ($monthlyPayments as $payment) {
-            $months[] = date('M', mktime(0, 0, 0, $payment['month'], 1));
-            $collections[] = round($payment['total_collected'] / 100000, 1); // In lakhs
-            $balances[] = round($payment['total_balance'] / 100000, 1); // In lakhs
+            $months[]      = date('M', mktime(0, 0, 0, $payment['month'], 1));
+            $collections[] = round($payment['total_collected'] / 100000, 1);
+            $balances[]    = round($payment['total_balance'] / 100000, 1);
         }
 
-        // If no data, show last 6 months with zero values
         if (empty($months)) {
             for ($i = 5; $i >= 0; $i--) {
                 $date = now()->subMonths($i);
@@ -222,16 +208,10 @@ class AdminController extends Controller
         // ============================================================
 
         $recentPayments = Payment::with(['resident', 'resident.hostel'])
-            ->whereHas('resident', function($q) use ($hostelIds) {
-                $q->whereIn('hostel_id', $hostelIds);
-            })
+            ->whereHas('resident', fn($q) => $q->whereIn('hostel_id', $hostelIds))
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
-
-        // ============================================================
-        // RECENT RESIDENTS
-        // ============================================================
 
         $recentResidents = Resident::with(['hostel', 'room', 'bed'])
             ->whereIn('hostel_id', $hostelIds)
@@ -247,41 +227,47 @@ class AdminController extends Controller
         foreach ($hostels as $hostel) {
             $residentCount = Resident::where('hostel_id', $hostel->id)->where('status', 'ACTIVE')->count();
             $roomCount = Room::where('hostel_id', $hostel->id)->count();
-            $bedCount = Bed::whereHas('room', function($q) use ($hostel) {
-                $q->where('hostel_id', $hostel->id);
-            })->count();
-            $occupiedCount = Bed::whereHas('room', function($q) use ($hostel) {
-                $q->where('hostel_id', $hostel->id);
-            })->where('status', 'OCCUPIED')->count();
+            $bedCount = Bed::whereHas('room', fn($q) => $q->where('hostel_id', $hostel->id))->count();
+            $occupiedCount = Bed::whereHas('room', fn($q) => $q->where('hostel_id', $hostel->id))
+                ->where('status', 'OCCUPIED')->count();
 
-            // Hostel wise payment summary for current month
             $hostelActiveResidents = Resident::where('hostel_id', $hostel->id)
                 ->where('status', 'ACTIVE')
                 ->with('room')
                 ->get();
 
-            $hostelCurrentMonthPayments = Payment::whereHas('resident', function($q) use ($hostel) {
-                $q->where('hostel_id', $hostel->id);
-            })
-            ->whereBetween('payment_date', [$currentMonthStart, $currentMonthEnd])
-            ->get();
+            // ✅ FIX: Hostel-wise payments by month/year
+            $hostelCurrentMonthPayments = Payment::whereHas('resident', function ($q) use ($hostel) {
+                    $q->where('hostel_id', $hostel->id);
+                })
+                ->where('month', $currentMonth)
+                ->where('year', $currentYear)
+                ->get();
+
+            $hostelPaymentsByResident = [];
+            foreach ($hostelCurrentMonthPayments as $p) {
+                $hostelPaymentsByResident[$p->resident_id][] = $p;
+            }
 
             $hostelCollected = $hostelCurrentMonthPayments->sum('cash_paid_amount') + $hostelCurrentMonthPayments->sum('upi_paid_amount');
 
-            // Calculate hostel pending — derived live, same as the top-level loop above
             $hostelPending = 0;
             $hostelPaidCount = 0;
             $hostelPendingCount = 0;
             $hostelPartialCount = 0;
 
             foreach ($hostelActiveResidents as $resident) {
-                // Same fix: rent_amount is on Resident, not Room.
                 $rentAmount = (float) ($resident->rent_amount ?? 0);
-                $monthlyPayment = $hostelCurrentMonthPayments->firstWhere('resident_id', $resident->id);
+                $payments = $hostelPaymentsByResident[$resident->id] ?? [];
 
-                if ($monthlyPayment) {
-                    $paidSoFar = (float) $monthlyPayment->cash_paid_amount + (float) $monthlyPayment->upi_paid_amount;
-                    $balance   = max($rentAmount - $paidSoFar, 0);
+                if (count($payments) > 0) {
+                    $paidSoFar = 0;
+                    $storedBalance = 0;
+                    foreach ($payments as $p) {
+                        $paidSoFar     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
+                        $storedBalance += (float) $p->balance_amount;
+                    }
+                    $balance = max($storedBalance, 0);
 
                     if ($balance > 0) {
                         if ($paidSoFar > 0) {
@@ -300,46 +286,34 @@ class AdminController extends Controller
             }
 
             $hostelStats[] = [
-                'name' => $hostel->hostel_name,
-                'code' => $hostel->hostel_code,
-                'residents' => $residentCount,
-                'rooms' => $roomCount,
-                'beds' => $bedCount,
-                'occupied' => $occupiedCount,
-                'occupancy_rate' => $bedCount > 0 ? round(($occupiedCount / $bedCount) * 100, 1) : 0,
-                'collected' => $hostelCollected,
-                'pending' => $hostelPending,
-                'paid_count' => $hostelPaidCount,
-                'pending_count' => $hostelPendingCount,
-                'partial_count' => $hostelPartialCount
+                'name'            => $hostel->hostel_name,
+                'code'            => $hostel->hostel_code,
+                'residents'       => $residentCount,
+                'rooms'           => $roomCount,
+                'beds'            => $bedCount,
+                'occupied'        => $occupiedCount,
+                'occupancy_rate'  => $bedCount > 0 ? round(($occupiedCount / $bedCount) * 100, 1) : 0,
+                'collected'       => $hostelCollected,
+                'pending'         => $hostelPending,
+                'paid_count'      => $hostelPaidCount,
+                'pending_count'   => $hostelPendingCount,
+                'partial_count'   => $hostelPartialCount,
             ];
         }
 
         // ============================================================
-        // ROOM TYPE DISTRIBUTION
+        // ROOM TYPE / BED TYPE / STATUS DISTRIBUTION
         // ============================================================
 
-        $roomTypeDistribution = RoomType::whereHas('hostel', function($q) use ($hostelIds) {
-            $q->whereIn('id', $hostelIds);
-        })
-        ->select('room_type_name', DB::raw('count(*) as total'))
-        ->groupBy('room_type_name')
-        ->get();
+        $roomTypeDistribution = RoomType::whereHas('hostel', fn($q) => $q->whereIn('id', $hostelIds))
+            ->select('room_type_name', DB::raw('count(*) as total'))
+            ->groupBy('room_type_name')
+            ->get();
 
-        // ============================================================
-        // BED TYPE DISTRIBUTION
-        // ============================================================
-
-        $bedTypeDistribution = Bed::whereHas('room', function($q) use ($hostelIds) {
-            $q->whereIn('hostel_id', $hostelIds);
-        })
-        ->select('bed_type', DB::raw('count(*) as total'))
-        ->groupBy('bed_type')
-        ->get();
-
-        // ============================================================
-        // STATUS DISTRIBUTION
-        // ============================================================
+        $bedTypeDistribution = Bed::whereHas('room', fn($q) => $q->whereIn('hostel_id', $hostelIds))
+            ->select('bed_type', DB::raw('count(*) as total'))
+            ->groupBy('bed_type')
+            ->get();
 
         $statusDistribution = Resident::whereIn('hostel_id', $hostelIds)
             ->select('status', DB::raw('count(*) as total'))
@@ -347,25 +321,24 @@ class AdminController extends Controller
             ->get();
 
         // ============================================================
-        // CALCULATION SUMMARY FOR DEBUGGING
+        // CALCULATION SUMMARY
         // ============================================================
 
         $calculationSummary = [
-            'month' => $currentMonthStart->format('F Y'),
-            'total_active_residents' => $activeResidents->count(),
-            'total_rent_for_active_residents' => $totalRentForActiveResidents,
-            'total_collected' => $totalCollected,
-            'total_pending' => $totalPending,
-            'total_pending_alternative' => $totalPendingAlternative,
-            'paid_count' => $paidCount,
-            'pending_count' => $pendingCount,
-            'partial_count' => $partialCount,
-            'payment_count' => $totalPayments,
-            'residents_with_payments' => $currentMonthPayments->pluck('resident_id')->unique()->count(),
-            'pending_details' => $pendingDetails
+            'month'                             => $monthLabel,
+            'total_active_residents'            => $activeResidents->count(),
+            'total_rent_for_active_residents'   => $totalRentForActiveResidents,
+            'total_collected'                   => $totalCollected,
+            'total_pending'                     => $totalPending,
+            'total_pending_alternative'         => $totalPendingAlternative,
+            'paid_count'                        => $paidCount,
+            'pending_count'                     => $pendingCount,
+            'partial_count'                     => $partialCount,
+            'payment_count'                     => $totalPayments,
+            'residents_with_payments'           => $currentMonthPayments->pluck('resident_id')->unique()->count(),
+            'pending_details'                   => $pendingDetails,
         ];
 
-        // Get current user
         $currentUser = auth()->user();
 
         return view('main.admin.dashboard', compact(
