@@ -95,8 +95,8 @@
             opacity: 0.7;
         }
     </style>
-<!-- Select2 for searchable dropdowns -->
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <!-- Select2 for searchable dropdowns -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     @stack('styles')
 </head>
 
@@ -143,16 +143,19 @@
                         <span class="ol-nav-label">Hostels</span>
                     </a>
 
-                    <a href="{{ route('admin.room-types.index') }}" class="ol-nav-item {{ request()->routeIs('admin.room-types.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.room-types.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.room-types.*') ? 'active' : '' }}">
                         <i class="bi bi-tags"></i>
                         <span class="ol-nav-label">Room Types</span>
                     </a>
 
-                    <a href="{{ route('admin.rooms.index') }}" class="ol-nav-item {{ request()->routeIs('admin.rooms.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.rooms.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.rooms.*') ? 'active' : '' }}">
                         <i class="bi bi-door-open"></i>
                         <span class="ol-nav-label">Rooms</span>
                     </a>
-                     <a href="{{ route('admin.beds.index') }}" class="ol-nav-item {{ request()->routeIs('admin.beds.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.beds.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.beds.*') ? 'active' : '' }}">
                         <i class="bi bi-door-open"></i>
                         <span class="ol-nav-label">beds</span>
                     </a>
@@ -162,7 +165,8 @@
                     {{-- Resident Management --}}
                     <div class="ol-nav-section">Resident Management</div>
 
-                    <a href="{{ route('admin.residents.index') }}"  class="ol-nav-item {{ request()->routeIs('admin.residents.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.residents.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.residents.*') ? 'active' : '' }}">
                         <i class="bi bi-people"></i>
                         <span class="ol-nav-label">Residents</span>
                     </a>
@@ -170,7 +174,8 @@
                     {{-- Financial Management --}}
                     <div class="ol-nav-section">Financial Management</div>
 
-                    <a href="{{ route('admin.payments.index') }}" class="ol-nav-item {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.payments.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.payments.*') ? 'active' : '' }}">
                         <i class="bi bi-credit-card"></i>
                         <span class="ol-nav-label">Payments</span>
                     </a>
@@ -227,11 +232,11 @@
                         <i class="bi bi-megaphone"></i>
                         <span class="ol-nav-label">Notices</span>
                     </a>
-                       <a href="{{ route('payment-links.index') }}"
-   class="ol-nav-item {{ request()->routeIs('payment-links.*') ? 'active' : '' }}">
-    <i class="bi bi-link-45deg"></i>
-    <span class="ol-nav-label">Payment Links</span>
-</a>
+                    <a href="{{ route('payment-links.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('payment-links.*') ? 'active' : '' }}">
+                        <i class="bi bi-link-45deg"></i>
+                        <span class="ol-nav-label">Payment Links</span>
+                    </a>
                     <a href="#"
                         class="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-700 font-semibold rounded-lg">
                         <i class="fas fa-user-shield"></i> Auth · All Complaints
@@ -681,7 +686,7 @@
             });
         });
     </script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     @stack('scripts')
 </body>
 
