@@ -179,7 +179,11 @@
                         <i class="bi bi-credit-card"></i>
                         <span class="ol-nav-label">Payments</span>
                     </a>
-
+ <a href="{{ route('payment-links.index') }}"
+                        class="ol-nav-item {{ request()->routeIs('payment-links.*') ? 'active' : '' }}">
+                        <i class="bi bi-link-45deg"></i>
+                        <span class="ol-nav-label">Payment Links</span>
+                    </a>
                     {{-- Reports --}}
                     <div class="ol-nav-section">Reports</div>
 
@@ -232,11 +236,7 @@
                         <i class="bi bi-megaphone"></i>
                         <span class="ol-nav-label">Notices</span>
                     </a>
-                    <a href="{{ route('payment-links.index') }}"
-                        class="ol-nav-item {{ request()->routeIs('payment-links.*') ? 'active' : '' }}">
-                        <i class="bi bi-link-45deg"></i>
-                        <span class="ol-nav-label">Payment Links</span>
-                    </a>
+
                     <a href="#"
                         class="flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-700 font-semibold rounded-lg">
                         <i class="fas fa-user-shield"></i> Auth · All Complaints
