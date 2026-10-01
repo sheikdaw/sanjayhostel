@@ -2,7 +2,7 @@
 
 @section('title', 'Privacy Policy | Sanjay & Harini Hostels')
 @section('meta_description', 'Privacy Policy of Sanjay & Harini Hostels. Learn how we collect, use, and protect your personal information when you use our website and services.')
-@section('canonical', route('privacy'))
+@section('canonical', \App\Support\Seo::url('/privacy'))
 
 @section('content')
 @php
@@ -59,6 +59,7 @@
 
     <div class="page-hero">
         <div class="wrap">
+            @include('partials.breadcrumbs', ['crumbs' => [['Home', '/'], ['Privacy policy', '/privacy']]])
             <span class="eyebrow">Legal</span>
             <h1>Privacy Policy</h1>
             <p>Your privacy matters to us. This policy explains how we collect, use and protect your personal information.</p>
@@ -76,7 +77,7 @@
 
             <div class="terms-content">
                 <div class="terms-intro">
-                    <p class="last-updated"><strong>Last updated:</strong> {{ now()->format('d F, Y') }}</p>
+                    @if (config('hostel.policy_updated'))<p class="last-updated"><strong>Last updated:</strong> {{ config('hostel.policy_updated') }}</p>@endif
                     <p>This policy applies to information collected through this website and when you contact Sanjay &amp; Harini Hostels about a room or lunch box service.</p>
                 </div>
 
@@ -98,9 +99,9 @@
                     <h2>{{ count($sections) + 1 }}. Contact us</h2>
                     <p>If you have questions or requests about this Privacy Policy, contact us:</p>
                     <div class="contact-details">
-                        <p><strong>Phone</strong>+91 9043093470</p>
-                        <p><strong>Email</strong>info@sanjayandharinihostels.com</p>
-                        <p><strong>Location</strong>Alandur, Chennai</p>
+                        <p><strong>Phone</strong>{{ config('hostel.phone_display') }}</p>
+                        <p><strong>Email</strong>{{ config('hostel.email') }}</p>
+                        <p><strong>Location</strong>Alandur and Perungalathur, Chennai</p>
                     </div>
                 </div>
             </div>

@@ -1,12 +1,13 @@
 @extends('layouts.frontend')
 
-@section('title', 'Rooms & Facilities | AC/Non-AC PG in Alandur, St. Thomas Mount & Perungalathur')
-@section('canonical', 'https://www.sanjayandharinihostels.com/rooms')
-@section('meta_description', "Single, double and triple sharing rooms, AC/non-AC options, WiFi, CCTV and daily home-style meals at Sanjay Boys Hostel and Harini Girls Hostel, Chennai.")
+@section('title', 'Rooms, Rent & Facilities | Sanjay & Harini Hostels')
+@section('canonical', \App\Support\Seo::url('/rooms'))
+@section('meta_description', "Single, double, triple and dormitory rooms, AC or non-AC, with WiFi, CCTV and home-style meals at Sanjay & Harini Hostels in Alandur and Perungalathur, Chennai.")
 
 @section('content')
 <div class="page-hero panel-ivory">
         <div class="wrap">
+            @include('partials.breadcrumbs', ['crumbs' => [['Home', '/'], ['Rooms & pricing', '/rooms']]])
             <span class="eyebrow">Rooms & Facilities</span>
             <h1>Rooms & Facilities at Sanjay & Harini Hostels</h1>
             <p>Single, double and triple sharing — AC and non-AC — with WiFi, CCTV, laundry and daily home-style meals.</p>
@@ -79,6 +80,7 @@
                 * Prices are per person per month. All rates are inclusive of meals, WiFi, housekeeping & security.
                 <br>Security deposit: ₹2,000 (refundable). Minimum stay: 1 month.
             </p>
+            <p class="price-note">Rent can vary by hostel. See our <a class="text-link" href="{{ route('hostels.alandur') }}">hostels in Alandur</a> and the <a class="text-link" href="{{ route('hostels.perungalathur') }}">hostel in Perungalathur</a>, or <a class="text-link" href="{{ route('contact') }}">contact us</a> for the exact rent at the hostel you choose.</p>
         </div>
     </section>
 
@@ -96,33 +98,33 @@
                 <button class="tab-btn" data-tab="amenities">Amenities</button>
             </div>
             <div class="tab-panel grid-cards active" id="rooms">
-                <div class="fac-card"><div class="ic">🛏️</div><h4>Single Sharing</h4><p>₹8,500/mo</p></div>
-                <div class="fac-card"><div class="ic">🛏️</div><h4>Double Sharing</h4><p>₹6,000/mo</p></div>
-                <div class="fac-card"><div class="ic">🛏️</div><h4>Triple Sharing</h4><p>₹4,500/mo</p></div>
-                <div class="fac-card"><div class="ic">🏠</div><h4>Dormitory</h4><p>₹3,000/mo</p></div>
-                <div class="fac-card"><div class="ic">❄️</div><h4>AC Rooms</h4><p>+₹1,000–2,000</p></div>
-                <div class="fac-card"><div class="ic">🌬️</div><h4>Non-AC Rooms</h4><p>Included</p></div>
-                <div class="fac-card"><div class="ic">🚿</div><h4>Attached Bathroom</h4><p>Select rooms</p></div>
-                <div class="fac-card"><div class="ic">🌿</div><h4>Balcony Rooms</h4><p>Subject to availability</p></div>
+                <div class="fac-card"><div class="ic">🛏️</div><h3>Single Sharing</h3><p>₹8,500/mo</p></div>
+                <div class="fac-card"><div class="ic">🛏️</div><h3>Double Sharing</h3><p>₹6,000/mo</p></div>
+                <div class="fac-card"><div class="ic">🛏️</div><h3>Triple Sharing</h3><p>₹4,500/mo</p></div>
+                <div class="fac-card"><div class="ic">🏠</div><h3>Dormitory</h3><p>₹3,000/mo</p></div>
+                <div class="fac-card"><div class="ic">❄️</div><h3>AC Rooms</h3><p>+₹1,000–2,000</p></div>
+                <div class="fac-card"><div class="ic">🌬️</div><h3>Non-AC Rooms</h3><p>Included</p></div>
+                <div class="fac-card"><div class="ic">🚿</div><h3>Attached Bathroom</h3><p>Select rooms</p></div>
+                <div class="fac-card"><div class="ic">🌿</div><h3>Balcony Rooms</h3><p>Subject to availability</p></div>
             </div>
             <div class="tab-panel grid-cards" id="furnish">
-                <div class="fac-card"><div class="ic">🛌</div><h4>Cot & Mattress</h4></div>
-                <div class="fac-card"><div class="ic">📚</div><h4>Study Table & Chair</h4></div>
-                <div class="fac-card"><div class="ic">🚪</div><h4>Wardrobe & Locker</h4></div>
-                <div class="fac-card"><div class="ic">🔌</div><h4>Charging Points</h4></div>
-                <div class="fac-card"><div class="ic">💡</div><h4>LED Lights</h4></div>
-                <div class="fac-card"><div class="ic">🌀</div><h4>Ceiling Fans</h4></div>
+                <div class="fac-card"><div class="ic">🛌</div><h3>Cot & Mattress</h3></div>
+                <div class="fac-card"><div class="ic">📚</div><h3>Study Table & Chair</h3></div>
+                <div class="fac-card"><div class="ic">🚪</div><h3>Wardrobe & Locker</h3></div>
+                <div class="fac-card"><div class="ic">🔌</div><h3>Charging Points</h3></div>
+                <div class="fac-card"><div class="ic">💡</div><h3>LED Lights</h3></div>
+                <div class="fac-card"><div class="ic">🌀</div><h3>Ceiling Fans</h3></div>
             </div>
             <div class="tab-panel grid-cards" id="amenities">
-                <div class="fac-card"><div class="ic">📶</div><h4>High-Speed WiFi</h4></div>
-                <div class="fac-card"><div class="ic">🚰</div><h4>RO Water 24x7</h4></div>
-                <div class="fac-card"><div class="ic">🔒</div><h4>CCTV & Biometric</h4></div>
-                <div class="fac-card"><div class="ic">⚡</div><h4>Power Backup</h4></div>
-                <div class="fac-card"><div class="ic">🛗</div><h4>Lift Facility</h4></div>
-                <div class="fac-card"><div class="ic">🧹</div><h4>Daily Housekeeping</h4></div>
-                <div class="fac-card"><div class="ic">👕</div><h4>Laundry & Ironing</h4></div>
-                <div class="fac-card"><div class="ic">📖</div><h4>Study Hall</h4></div>
-                <div class="fac-card"><div class="ic">🅿️</div><h4>Parking</h4></div>
+                <div class="fac-card"><div class="ic">📶</div><h3>High-Speed WiFi</h3></div>
+                <div class="fac-card"><div class="ic">🚰</div><h3>RO Water 24x7</h3></div>
+                <div class="fac-card"><div class="ic">🔒</div><h3>CCTV & Biometric</h3></div>
+                <div class="fac-card"><div class="ic">⚡</div><h3>Power Backup</h3></div>
+                <div class="fac-card"><div class="ic">🛗</div><h3>Lift Facility</h3></div>
+                <div class="fac-card"><div class="ic">🧹</div><h3>Daily Housekeeping</h3></div>
+                <div class="fac-card"><div class="ic">👕</div><h3>Laundry & Ironing</h3></div>
+                <div class="fac-card"><div class="ic">📖</div><h3>Study Hall</h3></div>
+                <div class="fac-card"><div class="ic">🅿️</div><h3>Parking</h3></div>
             </div>
         </div>
     </section>
@@ -148,13 +150,13 @@
                     <h3 style="margin-top:30px;">Lunch Box Delivery</h3>
                     <p style="color:var(--stone);">For office employees, IT staff, college students, and senior citizens. Bulk orders for corporates.</p>
                     <div class="plan-grid">
-                        <div class="plan-card"><span class="tag-pill">Veg</span><h4>Daily Veg</h4><p>₹120/meal</p></div>
-                        <div class="plan-card"><span class="tag-pill">Premium</span><h4>Veg / Non-Veg</h4><p>₹150/meal</p></div>
-                        <div class="plan-card"><span class="tag-pill">Corporate</span><h4>Bulk Supply</h4><p>Custom quote</p></div>
+                        <div class="plan-card"><span class="tag-pill">Veg</span><h3>Daily Veg</h3><p>₹120/meal</p></div>
+                        <div class="plan-card"><span class="tag-pill">Premium</span><h3>Veg / Non-Veg</h3><p>₹150/meal</p></div>
+                        <div class="plan-card"><span class="tag-pill">Corporate</span><h3>Bulk Supply</h3><p>Custom quote</p></div>
                     </div>
                 </div>
                 <div class="food-visual">
-                    <img src="https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=900" alt="Home-style meals served at Sanjay & Harini Hostels, Chennai">
+                    <img loading="lazy" decoding="async" width="900" height="675" src="https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&q=70&w=900" alt="Home-style meals served at Sanjay & Harini Hostels, Chennai">
                 </div>
             </div>
         </div>

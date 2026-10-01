@@ -1,12 +1,13 @@
 @extends('layouts.frontend')
 
 @section('title', 'Terms & Conditions | Sanjay & Harini Hostels, Chennai')
-@section('canonical', 'https://www.sanjayandharinihostels.com/terms')
-@section('meta_description', 'Read the Terms and Conditions for Sanjay Boys Hostel and Harini Girls Hostel. Learn about our policies, user responsibilities, and governing laws.')
+@section('canonical', \App\Support\Seo::url('/terms'))
+@section('meta_description', 'Read the Terms and Conditions for Sanjay & Harini Hostels in Alandur and Perungalathur, Chennai: booking, payments, deposits, user responsibilities and governing law.')
 
 @section('content')
 <div class="page-hero panel-ivory">
         <div class="wrap">
+            @include('partials.breadcrumbs', ['crumbs' => [['Home', '/'], ['Terms & conditions', '/terms']]])
             <span class="eyebrow">Legal</span>
             <h1>Terms & Conditions</h1>
             <p>Please read these terms carefully before using our website or booking a room at Sanjay & Harini Hostels.</p>
@@ -17,7 +18,7 @@
         <div class="wrap">
             <div class="terms-content reveal">
                 <div class="terms-intro">
-                    <p class="last-updated"><strong>Last Updated:</strong> {{ now()->format('d F, Y') }}</p>
+                    @if (config('hostel.policy_updated'))<p class="last-updated"><strong>Last updated:</strong> {{ config('hostel.policy_updated') }}</p>@endif
                     <p>These Terms and Conditions govern your use of this website and the purchase of products or services offered herein. By accessing or using this website, you agree to be bound by these terms. Please read them carefully.</p>
                 </div>
 
@@ -113,14 +114,10 @@
                     <h2>10. Contact Us</h2>
                     <p>If you have any questions about these Terms & Conditions, please contact us:</p>
                     <div class="contact-details">
-                        <p><strong>Sanjay Boys Hostel</strong><br>
-                        📍 Alandur, St. Thomas Mount, Perungalathur, Chennai<br>
-                        📞 +91 98765 43210<br>
-                        📧 sanjayboys@hostel.in</p>
-                        <p><strong>Harini Girls Hostel</strong><br>
-                        📍 Alandur, St. Thomas Mount, Chennai<br>
-                        📞 +91 98765 43211<br>
-                        📧 harinigirls@hostel.in</p>
+                        <p><strong>Sanjay &amp; Harini Hostels</strong><br>
+                        📍 Alandur and Perungalathur, Chennai<br>
+                        📞 {{ config('hostel.phone_display') }}<br>
+                        📧 {{ config('hostel.email') }}</p>
                     </div>
                 </div>
 
