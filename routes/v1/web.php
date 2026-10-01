@@ -36,7 +36,7 @@ Route::get('/gallery', function () {
 
 // Contact page — both /contact and /contacts resolve to the same view.
 Route::get('/contact', function () {
-    return view('view.contatct');
+    return view('view.contact');
 })->name('contact');
 
 Route::get('/contacts', function () {
