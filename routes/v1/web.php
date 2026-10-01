@@ -120,18 +120,25 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     });
 
 
-    Route::prefix('payments')->name('payments.')->group(function () {
-        Route::get('/', [PaymentController::class, 'index'])->name('index');
-        Route::post('/filter', [PaymentController::class, 'filter'])->name('filter');
-        Route::get('/export/csv', [PaymentController::class, 'exportCsv'])->name('export.csv');
-        Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
 
-        Route::post('/', [PaymentController::class, 'store'])->name('store');
-        Route::get('/{id}', [PaymentController::class, 'show'])->name('show');
-        Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
-        Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
-    });
+
+Route::prefix('payments')->name('payments.')->group(function () {
+    Route::get('/', [PaymentController::class, 'index'])->name('index');
+    Route::post('/filter', [PaymentController::class, 'filter'])->name('filter');
+    Route::get('/export/csv', [PaymentController::class, 'exportCsv'])->name('export.csv');
+    Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
+
+    // ✅ Dropdown helpers for manual payment
+    Route::get('/rooms/{hostelId}', [PaymentController::class, 'roomsByHostel'])->name('rooms');
+    Route::get('/residents/{roomId}', [PaymentController::class, 'residentsByRoom'])->name('residents');
+
+    Route::post('/', [PaymentController::class, 'store'])->name('store');
+    Route::get('/{id}', [PaymentController::class, 'show'])->name('show');
+    Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
 });
+});
+
 use App\Http\Controllers\PublicPaymentController;
 
 // Public payment lookup (anyone with encoded link can access)

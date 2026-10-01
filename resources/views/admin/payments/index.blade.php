@@ -20,13 +20,9 @@
         font-size: 0.82rem; font-weight: 600; cursor: pointer;
         transition: all 0.25s; white-space: nowrap; border: none;
     }
-    .pm-btn-pdf {
-        background: linear-gradient(135deg, #dc2626, #b91c1c); color: white;
-    }
+    .pm-btn-pdf { background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; }
     .pm-btn-pdf:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(220,38,38,0.35); color: white; }
-    .pm-btn-excel {
-        background: linear-gradient(135deg, #16a34a, #15803d); color: white;
-    }
+    .pm-btn-excel { background: linear-gradient(135deg, #16a34a, #15803d); color: white; }
     .pm-btn-excel:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(22,163,74,0.35); color: white; }
 
     .pm-summary-row {
@@ -43,7 +39,6 @@
     .pm-summary-card.red::before    { background: linear-gradient(90deg, #ef4444, #dc2626); }
     .pm-summary-card.green::before  { background: linear-gradient(90deg, #10b981, #059669); }
     .pm-summary-card.blue::before   { background: linear-gradient(90deg, #3b82f6, #2563eb); }
-    .pm-summary-card.gold::before   { background: linear-gradient(90deg, var(--sanjay-gold), #d4af37); }
     .pm-summary-card.orange::before { background: linear-gradient(90deg, #f59e0b, #d97706); }
     .pm-summary-card.gray::before   { background: linear-gradient(90deg, #6b7280, #4b5563); }
 
@@ -189,6 +184,7 @@
         transition: all 0.2s;
     }
     .pm-form-control:focus { outline: none; border-color: var(--sanjay-gold); box-shadow: 0 0 0 3px rgba(197,160,40,0.1); }
+    .pm-form-control:disabled { background: #f3f4f6; cursor: not-allowed; opacity: 0.7; }
 
     .pm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem 1.25rem; border-radius: 9px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; white-space: nowrap; }
     .pm-btn-gold { background: linear-gradient(135deg, var(--sanjay-gold), #d4af37); color: var(--sanjay-primary); }
@@ -202,6 +198,16 @@
     .pm-pay-summary-row.total { border-top: 1px dashed #d1d5db; margin-top: 0.5rem; padding-top: 0.6rem; font-weight: 700; }
     .pm-pay-summary-row .label { color: #6b7280; }
     .pm-pay-summary-row .value { font-family: 'DM Mono', monospace; font-weight: 600; color: #374151; }
+
+    .pm-divider {
+        display: flex; align-items: center; gap: 0.75rem;
+        margin: 1rem 0; color: #9ca3af; font-size: 0.7rem;
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .pm-divider::before, .pm-divider::after {
+        content: ''; flex: 1; height: 1px;
+        background: linear-gradient(90deg, transparent, #e5e7eb, transparent);
+    }
 
     @media (max-width: 768px) {
         .pm-toolbar { flex-direction: column; align-items: stretch; }
@@ -354,7 +360,39 @@
                 <input type="hidden" id="payEditMode" name="edit_mode" value="0">
 
                 <div class="modal-body">
-                    <div class="pm-pay-summary">
+
+                    {{-- ✅ Manual Selector (hidden in row-pay mode) --}}
+                    <div id="manualResidentSelector" style="display:none;">
+                        <div class="pm-form-row">
+                            <div class="pm-form-group">
+                                <label class="pm-form-label">Hostel <span class="required">*</span></label>
+                                <select class="pm-form-control" id="manualHostelId">
+                                    <option value="">Select Hostel</option>
+                                    @foreach($hostels as $h)
+                                        <option value="{{ $h->id }}">{{ $h->hostel_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="pm-form-group">
+                                <label class="pm-form-label">Room <span class="required">*</span></label>
+                                <select class="pm-form-control" id="manualRoomId" disabled>
+                                    <option value="">Select Hostel First</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pm-form-group">
+                            <label class="pm-form-label">Resident <span class="required">*</span></label>
+                            <select class="pm-form-control" id="manualResidentDropdown" disabled>
+                                <option value="">Select Room First</option>
+                            </select>
+                        </div>
+
+                        <div class="pm-divider">Payment Details</div>
+                    </div>
+
+                    {{-- Summary --}}
+                    <div class="pm-pay-summary" id="manualSummaryBox" style="display:none;">
                         <div class="pm-pay-summary-row">
                             <span class="label">Resident</span>
                             <span class="value" id="payResidentName">—</span>
@@ -474,7 +512,7 @@ function showToast(message, type = 'success') {
 }
 
 // ─────────────────────────────────────────
-// GET CURRENT FILTERS
+// FILTERS
 // ─────────────────────────────────────────
 function getFilters() {
     return {
@@ -488,16 +526,11 @@ function getFilters() {
     };
 }
 
-// ─────────────────────────────────────────
-// EXPORT (PDF / CSV)
-// ─────────────────────────────────────────
 function exportData(type) {
-    const filters = getFilters();
-    const params = new URLSearchParams(filters);
+    const params = new URLSearchParams(getFilters());
     const url = type === 'csv'
         ? `${BASE_URL}/export/csv?${params.toString()}`
         : `${BASE_URL}/export/pdf?${params.toString()}`;
-
     window.open(url, '_blank');
 }
 
@@ -665,11 +698,18 @@ function renderTable(rows) {
     container.innerHTML = html;
 }
 
+// ─────────────────────────────────────────
+// OPEN PAY MODAL (from row — no manual selector)
+// ─────────────────────────────────────────
 function openPayModal(row) {
+    document.getElementById('manualResidentSelector').style.display = 'none';
+    document.getElementById('manualSummaryBox').style.display = 'block';
+
     document.getElementById('paymentModalTitle').innerHTML = '<i class="bi bi-cash-coin"></i> Record Payment';
     document.getElementById('paySubmitText').textContent = 'Save Payment';
     document.getElementById('payEditMode').value = '0';
     document.getElementById('payPaymentId').value = '';
+
     document.getElementById('payResidentId').value = row.resident_id;
     document.getElementById('payResidentName').textContent     = row.resident_name;
     document.getElementById('payResidentLocation').textContent = `${row.hostel_name} — Room ${row.room_no} • Bed ${row.bed_no}`;
@@ -692,8 +732,14 @@ function openPayModal(row) {
     new bootstrap.Modal(document.getElementById('paymentModal')).show();
 }
 
+// ─────────────────────────────────────────
+// OPEN EDIT PAYMENT
+// ─────────────────────────────────────────
 async function openEditPayment(row) {
     if (!row.payment_id) return;
+
+    document.getElementById('manualResidentSelector').style.display = 'none';
+    document.getElementById('manualSummaryBox').style.display = 'block';
 
     try {
         const response = await fetch(`${BASE_URL}/${row.payment_id}`, {
@@ -739,6 +785,9 @@ async function openEditPayment(row) {
     }
 }
 
+// ─────────────────────────────────────────
+// SUBMIT PAYMENT
+// ─────────────────────────────────────────
 document.getElementById('paymentForm').addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -747,6 +796,12 @@ document.getElementById('paymentForm').addEventListener('submit', async function
     const originalText = submitText.textContent;
     const paymentId = document.getElementById('payPaymentId').value;
     const editMode = document.getElementById('payEditMode').value === '1';
+    const residentId = document.getElementById('payResidentId').value;
+
+    if (!residentId) {
+        showToast('Please select a resident', 'error');
+        return;
+    }
 
     submitBtn.disabled = true;
     submitText.innerHTML = '<span class="pm-spinner" style="width:14px;height:14px;border-width:1.5px;border-top-color:white;"></span> Saving...';
@@ -782,6 +837,9 @@ document.getElementById('paymentForm').addEventListener('submit', async function
     }
 });
 
+// ─────────────────────────────────────────
+// MANUAL PAYMENT MODAL
+// ─────────────────────────────────────────
 function openManualPaymentModal() {
     document.getElementById('paymentForm').reset();
     document.getElementById('paymentModalTitle').innerHTML = '<i class="bi bi-plus-lg"></i> Manual Payment';
@@ -793,16 +851,139 @@ function openManualPaymentModal() {
     document.getElementById('payMonth').value = document.getElementById('pmMonthFilter').value;
     document.getElementById('payYear').value = document.getElementById('pmYearFilter').value;
 
-    document.getElementById('payResidentName').textContent = '—';
-    document.getElementById('payResidentLocation').textContent = '—';
-    document.getElementById('payMonthLabel').textContent = '—';
-    document.getElementById('payRequiredRent').textContent = '₹0';
-    document.getElementById('payPreviousPending').textContent = '₹0';
-    document.getElementById('payTotalDue').textContent = '₹0';
+    // Show the manual selector
+    document.getElementById('manualResidentSelector').style.display = 'block';
+    document.getElementById('manualSummaryBox').style.display = 'none';
+
+    // Reset dropdowns
+    document.getElementById('manualHostelId').value = '';
+    document.getElementById('manualRoomId').innerHTML = '<option value="">Select Hostel First</option>';
+    document.getElementById('manualRoomId').disabled = true;
+    document.getElementById('manualResidentDropdown').innerHTML = '<option value="">Select Room First</option>';
+    document.getElementById('manualResidentDropdown').disabled = true;
 
     new bootstrap.Modal(document.getElementById('paymentModal')).show();
 }
 
+// ─────────────────────────────────────────
+// MANUAL PAYMENT — CASCADE SELECTS
+// ─────────────────────────────────────────
+
+// Hostel → Rooms
+document.getElementById('manualHostelId')?.addEventListener('change', async function () {
+    const hostelId = this.value;
+    const roomSelect = document.getElementById('manualRoomId');
+    const residentSelect = document.getElementById('manualResidentDropdown');
+    const summaryBox = document.getElementById('manualSummaryBox');
+
+    roomSelect.innerHTML = '<option value="">Loading...</option>';
+    roomSelect.disabled = true;
+    residentSelect.innerHTML = '<option value="">Select Room First</option>';
+    residentSelect.disabled = true;
+    summaryBox.style.display = 'none';
+
+    if (!hostelId) {
+        roomSelect.innerHTML = '<option value="">Select Hostel First</option>';
+        return;
+    }
+
+    try {
+        const response = await fetch(`{{ url('admin/payments/rooms') }}/${hostelId}`, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
+        });
+        const data = await response.json();
+
+        if (data.success && data.rooms.length > 0) {
+            let html = '<option value="">Select Room</option>';
+            data.rooms.forEach(r => {
+                html += `<option value="${r.id}">Room ${escapeHtml(r.room_no)}</option>`;
+            });
+            roomSelect.innerHTML = html;
+            roomSelect.disabled = false;
+        } else {
+            roomSelect.innerHTML = '<option value="">No rooms found</option>';
+        }
+    } catch (err) {
+        console.error(err);
+        roomSelect.innerHTML = '<option value="">Failed to load</option>';
+    }
+});
+
+// Room → Residents
+document.getElementById('manualRoomId')?.addEventListener('change', async function () {
+    const roomId = this.value;
+    const residentSelect = document.getElementById('manualResidentDropdown');
+    const summaryBox = document.getElementById('manualSummaryBox');
+
+    residentSelect.innerHTML = '<option value="">Loading...</option>';
+    residentSelect.disabled = true;
+    summaryBox.style.display = 'none';
+
+    if (!roomId) {
+        residentSelect.innerHTML = '<option value="">Select Room First</option>';
+        return;
+    }
+
+    try {
+        const response = await fetch(`{{ url('admin/payments/residents') }}/${roomId}`, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
+        });
+        const data = await response.json();
+
+        if (data.success && data.residents.length > 0) {
+            let html = '<option value="">Select Resident</option>';
+            data.residents.forEach(r => {
+                html += `<option value="${r.id}" data-rent="${r.rent_amount}" data-code="${escapeHtml(r.resident_code)}">${escapeHtml(r.name)} (${escapeHtml(r.resident_code)})</option>`;
+            });
+            residentSelect.innerHTML = html;
+            residentSelect.disabled = false;
+        } else {
+            residentSelect.innerHTML = '<option value="">No residents in this room</option>';
+        }
+    } catch (err) {
+        console.error(err);
+        residentSelect.innerHTML = '<option value="">Failed to load</option>';
+    }
+});
+
+// Resident → Fill summary
+document.getElementById('manualResidentDropdown')?.addEventListener('change', function () {
+    const option = this.options[this.selectedIndex];
+    const residentId = this.value;
+    const summaryBox = document.getElementById('manualSummaryBox');
+
+    if (!residentId) {
+        summaryBox.style.display = 'none';
+        document.getElementById('payResidentId').value = '';
+        return;
+    }
+
+    document.getElementById('payResidentId').value = residentId;
+
+    const rent = parseFloat(option.dataset.rent) || 0;
+
+    document.getElementById('payResidentName').textContent = option.text;
+    document.getElementById('payResidentLocation').textContent =
+        document.getElementById('manualHostelId').options[document.getElementById('manualHostelId').selectedIndex].text
+        + ' — ' +
+        document.getElementById('manualRoomId').options[document.getElementById('manualRoomId').selectedIndex].text;
+    document.getElementById('payMonthLabel').textContent =
+        document.getElementById('payMonth').options[document.getElementById('payMonth').selectedIndex].text
+        + ' ' +
+        document.getElementById('payYear').value;
+
+    document.getElementById('payRequiredRent').textContent = '₹' + formatNumber(rent);
+    document.getElementById('payRent').value = rent;
+    document.getElementById('payUpi').value = rent;
+    document.getElementById('payPreviousPending').textContent = '₹0';
+    document.getElementById('payTotalDue').textContent = '₹' + formatNumber(rent);
+
+    summaryBox.style.display = 'block';
+});
+
+// ─────────────────────────────────────────
+// FILTER LISTENERS
+// ─────────────────────────────────────────
 function debounceLoad() {
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(loadPayments, 400);
@@ -816,6 +997,9 @@ document.getElementById('pmMonthFilter').addEventListener('change', loadPayments
 document.getElementById('pmYearFilter').addEventListener('change', loadPayments);
 document.getElementById('pmStatusFilter').addEventListener('change', loadPayments);
 
+// ─────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────
 function formatNumber(n) {
     const num = parseFloat(n) || 0;
     return num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });

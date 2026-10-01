@@ -33,7 +33,11 @@ class PaymentController extends Controller
     /**
      * Build filtered payment rows (used by filter + export).
      *
-     * Returns array of rows + stats.
+     * STATUS RULES — a resident can be in MULTIPLE categories:
+     *   - hasPreviousPending → count as PENDING
+     *   - hasCurrentUnpaid   → count as UNPAID   (no payment row this month)
+     *   - hasCurrentPartial  → count as PARTIAL  (paid but balance > 0)
+     *   - hasCurrentPaid     → count as PAID     (fully paid, balance = 0)
      */
     private function buildRows(Request $request): array
     {
@@ -180,21 +184,35 @@ class PaymentController extends Controller
 
             $currentDue = $currentRent + $currentFine - $currentDiscount;
 
-            // Status
-            $status = 'UNPAID';
-            if ($previousPending > 0) {
+            // FIXED STATUS LOGIC — multiple flags per resident
+            $hasPreviousPending = ($previousPending > 0);
+            $hasCurrentPayments = (count($currentPayments) > 0);
+            $hasCurrentUnpaid   = !$hasCurrentPayments;
+            $hasCurrentPartial  = ($hasCurrentPayments && $currentBalance > 0);
+            $hasCurrentPaid     = ($hasCurrentPayments && $currentBalance == 0);
+
+            // Primary status
+            if ($hasPreviousPending) {
                 $status = 'PENDING';
-            } elseif (count($currentPayments) === 0) {
+            } elseif ($hasCurrentUnpaid) {
                 $status = 'UNPAID';
-            } elseif ($currentBalance > 0) {
+            } elseif ($hasCurrentPartial) {
                 $status = 'PARTIAL';
             } else {
                 $status = 'PAID';
             }
 
             // Status filter
-            if ($filterStatus && $filterStatus !== 'ALL' && $filterStatus !== $status) {
-                continue;
+            if ($filterStatus && $filterStatus !== 'ALL') {
+                $match = false;
+                if ($filterStatus === 'PENDING' && $hasPreviousPending) $match = true;
+                if ($filterStatus === 'UNPAID'  && $hasCurrentUnpaid)   $match = true;
+                if ($filterStatus === 'PARTIAL' && $hasCurrentPartial)  $match = true;
+                if ($filterStatus === 'PAID'    && $hasCurrentPaid)     $match = true;
+
+                if (!$match) {
+                    continue;
+                }
             }
 
             $rows[] = [
@@ -229,28 +247,41 @@ class PaymentController extends Controller
 
                 'total_due'         => round($previousPending + $currentBalance, 2),
 
-                'status'            => $status,
+                'status'               => $status,
+                'has_previous_pending' => $hasPreviousPending,
+                'has_current_unpaid'   => $hasCurrentUnpaid,
+                'has_current_partial'  => $hasCurrentPartial,
+                'has_current_paid'     => $hasCurrentPaid,
             ];
 
+            // FIXED STATS — count in EVERY applicable category
             $stats['total']++;
-            $stats[$status === 'PAID' ? 'paid' : ($status === 'PARTIAL' ? 'partial' : ($status === 'PENDING' ? 'pending' : 'unpaid'))]++;
-
             $stats['total_rent']    += $currentRent;
             $stats['total_paid']    += $currentPaid;
             $stats['total_balance'] += $previousPending + $currentBalance;
 
-            if ($status === 'PAID') {
+            if ($hasCurrentPaid) {
+                $stats['paid']++;
                 $stats['paid_amount'] += $currentPaid;
-            } elseif ($status === 'PARTIAL') {
+            }
+
+            if ($hasCurrentPartial) {
+                $stats['partial']++;
                 $stats['partial_amount'] += $currentBalance;
-            } elseif ($status === 'UNPAID') {
+            }
+
+            if ($hasCurrentUnpaid) {
+                $stats['unpaid']++;
                 $stats['unpaid_amount'] += $currentRent;
-            } elseif ($status === 'PENDING') {
+            }
+
+            if ($hasPreviousPending) {
+                $stats['pending']++;
                 $stats['pending_amount'] += $previousPending;
             }
         }
 
-        // Sort: PENDING → UNPAID → PARTIAL → PAID
+        // Sort
         $order = ['PENDING' => 1, 'UNPAID' => 2, 'PARTIAL' => 3, 'PAID' => 4];
         usort($rows, function ($a, $b) use ($order) {
             $oa = $order[$a['status']] ?? 99;
@@ -293,7 +324,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Build filter description for export header
+     * Build filter label for export header
      */
     private function buildFilterLabel(array $result): string
     {
@@ -321,7 +352,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Export current filtered data as CSV (Excel-compatible)
+     * Export as CSV (Excel-compatible)
      */
     public function exportCsv(Request $request)
     {
@@ -337,19 +368,15 @@ class PaymentController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $callback = function () use ($rows, $stats, $filterLabel, $result) {
+        $callback = function () use ($rows, $stats, $filterLabel) {
             $out = fopen('php://output', 'w');
-
-            // BOM for Excel UTF-8
             fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-            // Title rows
             fputcsv($out, ['PAYMENT REPORT']);
             fputcsv($out, ['Filter: ' . $filterLabel]);
             fputcsv($out, ['Generated: ' . now()->format('d M Y H:i A')]);
             fputcsv($out, []);
 
-            // Summary
             fputcsv($out, ['SUMMARY']);
             fputcsv($out, ['Fully Paid', $stats['paid'], '₹' . number_format($stats['paid_amount'], 2)]);
             fputcsv($out, ['Partial', $stats['partial'], '₹' . number_format($stats['partial_amount'], 2)]);
@@ -358,31 +385,13 @@ class PaymentController extends Controller
             fputcsv($out, ['Total Residents', $stats['total'], 'Balance: ₹' . number_format($stats['total_balance'], 2)]);
             fputcsv($out, []);
 
-            // Table headers
             fputcsv($out, [
-                'S.No',
-                'Resident Code',
-                'Resident Name',
-                'Phone',
-                'Hostel',
-                'Room',
-                'Bed',
-                'Month',
-                'Year',
-                'Rent',
-                'Discount',
-                'Fine',
-                'Paid',
-                'Current Balance',
-                'Previous Pending',
-                'Total Due',
-                'Status',
-                'Payment Date',
-                'Receipt No',
-                'Remark',
+                'S.No', 'Resident Code', 'Resident Name', 'Phone', 'Hostel', 'Room', 'Bed',
+                'Month', 'Year', 'Rent', 'Discount', 'Fine', 'Paid',
+                'Current Balance', 'Previous Pending', 'Total Due', 'Status',
+                'Payment Date', 'Receipt No', 'Remark',
             ]);
 
-            // Data rows
             $sno = 1;
             foreach ($rows as $r) {
                 fputcsv($out, [
@@ -416,7 +425,7 @@ class PaymentController extends Controller
     }
 
     /**
-     * Export current filtered data as PDF (print-friendly HTML)
+     * Export as PDF (print-friendly HTML view)
      */
     public function exportPdf(Request $request)
     {
@@ -431,6 +440,40 @@ class PaymentController extends Controller
             'filterLabel' => $filterLabel,
             'generatedAt' => now()->format('d M Y H:i A'),
         ]);
+    }
+
+    /**
+     * Get rooms for a hostel (dropdown helper)
+     */
+    public function roomsByHostel($hostelId)
+    {
+        if (!auth()->user()->hasAccessToHostel($hostelId)) {
+            return response()->json(['success' => false, 'message' => 'No access'], 403);
+        }
+
+        $rooms = Room::where('hostel_id', $hostelId)
+            ->orderBy('room_no')
+            ->get(['id', 'room_no']);
+
+        return response()->json(['success' => true, 'rooms' => $rooms]);
+    }
+
+    /**
+     * Get active residents for a room (dropdown helper)
+     */
+    public function residentsByRoom($roomId)
+    {
+        $room = Room::findOrFail($roomId);
+        if (!auth()->user()->hasAccessToHostel($room->hostel_id)) {
+            return response()->json(['success' => false, 'message' => 'No access'], 403);
+        }
+
+        $residents = Resident::where('room_id', $roomId)
+            ->where('status', 'ACTIVE')
+            ->orderBy('name')
+            ->get(['id', 'name', 'resident_code', 'rent_amount']);
+
+        return response()->json(['success' => true, 'residents' => $residents]);
     }
 
     /**
