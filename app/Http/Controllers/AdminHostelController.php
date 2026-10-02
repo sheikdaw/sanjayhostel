@@ -3,29 +3,42 @@
 namespace App\Http\Controllers;
 
 use App\Models\Hostel;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class AdminHostelController extends Controller
 {
-    /* =========================================================
-     |  INDEX
-     ========================================================= */
+    /**
+     * Display hostel management page.
+     * admin   → all hostels
+     * account → only hostels in user.hostel_ids
+     */
     public function index()
     {
-        $hostels = Hostel::withCount(['rooms', 'residents'])
-            ->orderBy('hostel_name')
-            ->get();
+        $user = auth()->user();
+
+        $query = Hostel::withCount(['rooms', 'residents'])
+            ->orderBy('created_at', 'desc');
+
+        // Non-admin users only see their assigned hostels
+        if (! $user->isAdmin()) {
+            $query->whereIn('id', $user->hostel_ids ?? []);
+        }
+
+        $hostels = $query->get();
 
         return view('admin.hostels.index', compact('hostels'));
     }
 
-    /* =========================================================
-     |  STORE
-     ========================================================= */
+    /**
+     * Store new hostel.
+     * Auto-assigns to current user if not admin.
+     */
     public function store(Request $request)
     {
-        // 🔧 Normalize BEFORE validation
+        // Normalize before validation
         $request->merge([
             'hostel_type' => $this->normalizeType($request->input('hostel_type')),
             'status'      => strtolower(trim((string) $request->input('status', 'active'))),
@@ -33,12 +46,29 @@ class AdminHostelController extends Controller
             'hostel_name' => trim((string) $request->input('hostel_name')),
         ]);
 
-        $validator = Validator::make($request->all(), $this->rules());
+        $validator = Validator::make($request->all(), [
+            'hostel_code' => 'required|string|max:50|unique:hostels,hostel_code',
+            'hostel_name' => 'required|string|max:255',
+            'hostel_type' => 'required|in:male,female,co-ed',
+            'address'     => 'nullable|string|max:500',
+            'phone'       => 'nullable|string|max:20',
+            'email'       => 'nullable|email|max:255',
+            'status'      => 'required|in:active,inactive',
+
+            'biometric_device_id'     => 'nullable|string|max:100',
+            'biometric_device_name'   => 'nullable|string|max:255',
+            'biometric_ip_address'    => 'nullable|string|max:50',
+            'biometric_port'          => 'nullable|integer|min:1|max:65535',
+            'biometric_location_code' => 'nullable|string|max:50',
+            'employee_code_prefix'    => 'nullable|string|max:20',
+
+            'upi_id'         => 'nullable|string|max:100',
+            'upi_payee_name' => 'nullable|string|max:255',
+        ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
                 'errors'  => $validator->errors(),
             ], 422);
         }
@@ -46,12 +76,21 @@ class AdminHostelController extends Controller
         try {
             $hostel = Hostel::create($validator->validated());
 
+            // Auto-assign to non-admin users
+            $user = auth()->user();
+            if (! $user->isAdmin()) {
+                $ids = $user->hostel_ids ?? [];
+                $ids[] = $hostel->id;
+                $user->hostel_ids = array_values(array_unique($ids));
+                $user->save();
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Hostel created successfully.',
-                'hostel'  => $hostel,
-            ], 201);
-        } catch (\Throwable $e) {
+                'message' => 'Hostel created successfully!',
+                'hostel'  => $hostel->loadCount(['rooms', 'residents']),
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create hostel: ' . $e->getMessage(),
@@ -59,41 +98,48 @@ class AdminHostelController extends Controller
         }
     }
 
-    /* =========================================================
-     |  SHOW
-     ========================================================= */
+    /**
+     * Get single hostel (with access check).
+     */
     public function show($id)
     {
-        $hostel = Hostel::withCount(['rooms', 'residents'])->find($id);
+        try {
+            $hostel = Hostel::withCount(['rooms', 'residents'])->findOrFail($id);
 
-        if (!$hostel) {
+            if (! auth()->user()->hasAccessToHostel($hostel->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this hostel.',
+                ], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'hostel'  => $hostel,
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Hostel not found.',
+                'message' => 'Hostel not found',
             ], 404);
         }
-
-        return response()->json([
-            'success' => true,
-            'hostel'  => $hostel,
-        ]);
     }
 
-    /* =========================================================
-     |  UPDATE
-     ========================================================= */
+    /**
+     * Update hostel (with access check).
+     */
     public function update(Request $request, $id)
     {
-        $hostel = Hostel::find($id);
+        $hostel = Hostel::findOrFail($id);
 
-        if (!$hostel) {
+        if (! auth()->user()->hasAccessToHostel($hostel->id)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Hostel not found.',
-            ], 404);
+                'message' => 'You do not have access to this hostel.',
+            ], 403);
         }
 
-        // 🔧 Normalize BEFORE validation
+        // Normalize before validation
         $request->merge([
             'hostel_type' => $this->normalizeType($request->input('hostel_type')),
             'status'      => strtolower(trim((string) $request->input('status', $hostel->status))),
@@ -101,12 +147,32 @@ class AdminHostelController extends Controller
             'hostel_name' => trim((string) $request->input('hostel_name')),
         ]);
 
-        $validator = Validator::make($request->all(), $this->rules($id));
+        $validator = Validator::make($request->all(), [
+            'hostel_code' => [
+                'required', 'string', 'max:50',
+                Rule::unique('hostels', 'hostel_code')->ignore($id),
+            ],
+            'hostel_name' => 'required|string|max:255',
+            'hostel_type' => 'required|in:male,female,co-ed',
+            'address'     => 'nullable|string|max:500',
+            'phone'       => 'nullable|string|max:20',
+            'email'       => 'nullable|email|max:255',
+            'status'      => 'required|in:active,inactive',
+
+            'biometric_device_id'     => 'nullable|string|max:100',
+            'biometric_device_name'   => 'nullable|string|max:255',
+            'biometric_ip_address'    => 'nullable|string|max:50',
+            'biometric_port'          => 'nullable|integer|min:1|max:65535',
+            'biometric_location_code' => 'nullable|string|max:50',
+            'employee_code_prefix'    => 'nullable|string|max:20',
+
+            'upi_id'         => 'nullable|string|max:100',
+            'upi_payee_name' => 'nullable|string|max:255',
+        ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
                 'errors'  => $validator->errors(),
             ], 422);
         }
@@ -116,10 +182,10 @@ class AdminHostelController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Hostel updated successfully.',
-                'hostel'  => $hostel->fresh(),
+                'message' => 'Hostel updated successfully!',
+                'hostel'  => $hostel->fresh()->loadCount(['rooms', 'residents']),
             ]);
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update hostel: ' . $e->getMessage(),
@@ -127,35 +193,45 @@ class AdminHostelController extends Controller
         }
     }
 
-    /* =========================================================
-     |  DESTROY
-     ========================================================= */
+    /**
+     * Delete hostel (with access check + auto-unassign from users).
+     */
     public function destroy($id)
     {
-        $hostel = Hostel::find($id);
-
-        if (!$hostel) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hostel not found.',
-            ], 404);
-        }
-
-        if ($hostel->residents()->exists()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete hostel with active residents. Vacate them first.',
-            ], 422);
-        }
-
         try {
+            $hostel = Hostel::findOrFail($id);
+
+            if (! auth()->user()->hasAccessToHostel($hostel->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this hostel.',
+                ], 403);
+            }
+
+            if ($hostel->rooms()->count() > 0 || $hostel->residents()->count() > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete hostel with existing rooms or residents.',
+                ], 422);
+            }
+
+            $hostelId = $hostel->id;
             $hostel->delete();
+
+            // Remove this hostel from all users' hostel_ids
+            User::whereJsonContains('hostel_ids', (int) $hostelId)
+                ->each(function ($u) use ($hostelId) {
+                    $ids = $u->hostel_ids ?? [];
+                    $ids = array_values(array_filter($ids, fn ($x) => (int) $x !== (int) $hostelId));
+                    $u->hostel_ids = $ids;
+                    $u->save();
+                });
 
             return response()->json([
                 'success' => true,
-                'message' => 'Hostel deleted successfully.',
+                'message' => 'Hostel deleted successfully!',
             ]);
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete hostel: ' . $e->getMessage(),
@@ -163,33 +239,33 @@ class AdminHostelController extends Controller
         }
     }
 
-    /* =========================================================
-     |  TOGGLE STATUS
-     ========================================================= */
+    /**
+     * Toggle hostel status (with access check).
+     */
     public function toggleStatus($id)
     {
-        $hostel = Hostel::find($id);
-
-        if (!$hostel) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hostel not found.',
-            ], 404);
-        }
-
         try {
+            $hostel = Hostel::findOrFail($id);
+
+            if (! auth()->user()->hasAccessToHostel($hostel->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have access to this hostel.',
+                ], 403);
+            }
+
             $hostel->status = $hostel->status === 'active' ? 'inactive' : 'active';
             $hostel->save();
 
             return response()->json([
                 'success' => true,
-                'message' => "Hostel marked as {$hostel->status}.",
+                'message' => 'Hostel status updated!',
                 'status'  => $hostel->status,
             ]);
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update status: ' . $e->getMessage(),
+                'message' => 'Failed to update status',
             ], 500);
         }
     }
@@ -200,8 +276,6 @@ class AdminHostelController extends Controller
 
     /**
      * Force hostel_type into one of the safe, valid values.
-     * Accepts: male / female / co-ed (case-insensitive, trimmed).
-     * Falls back to 'male' if nothing matches.
      */
     protected function normalizeType($value): string
     {
@@ -220,31 +294,5 @@ class AdminHostelController extends Controller
 
             default                          => 'male',
         };
-    }
-
-    protected function rules(?int $ignoreId = null): array
-    {
-        $uniqueCode = 'unique:hostels,hostel_code';
-        if ($ignoreId) {
-            $uniqueCode .= ',' . $ignoreId;
-        }
-
-        return [
-            'hostel_code'             => "required|string|max:50|{$uniqueCode}",
-            'hostel_name'             => 'required|string|max:150',
-            'hostel_type'             => 'required|in:male,female,co-ed',
-            'status'                  => 'required|in:active,inactive',
-            'address'                 => 'nullable|string|max:500',
-            'phone'                   => 'nullable|string|max:20',
-            'email'                   => 'nullable|email|max:150',
-            'biometric_device_id'     => 'nullable|string|max:100',
-            'biometric_device_name'   => 'nullable|string|max:150',
-            'biometric_ip_address'    => 'nullable|string|max:45',
-            'biometric_port'          => 'nullable|integer|min:1|max:65535',
-            'biometric_location_code' => 'nullable|string|max:100',
-            'employee_code_prefix'    => 'nullable|string|max:50',
-            'upi_id'                  => 'nullable|string|max:150',
-            'upi_payee_name'          => 'nullable|string|max:150',
-        ];
     }
 }
