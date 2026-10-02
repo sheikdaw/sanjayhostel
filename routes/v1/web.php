@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AdminHostelController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BedController;
 use App\Http\Controllers\HostelController;
@@ -18,46 +19,22 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', function () {
-    return view('view.home');
-})->name('home');
-
-Route::get('/about', function () {
-    return view('view.about');
-})->name('about');
-
-Route::get('/rooms', function () {
-    return view('view.rooms');
-})->name('rooms');
-
-Route::get('/gallery', function () {
-    return view('view.gallery');
-})->name('gallery');
+Route::get('/', fn () => view('view.home'))->name('home');
+Route::get('/about', fn () => view('view.about'))->name('about');
+Route::get('/rooms', fn () => view('view.rooms'))->name('rooms');
+Route::get('/gallery', fn () => view('view.gallery'))->name('gallery');
 
 // Contact page — both /contact and /contacts resolve to the same view.
-Route::get('/contact', function () {
-    return view('view.contact');
-})->name('contact');
+Route::get('/contact', fn () => view('view.contact'))->name('contact');
+Route::get('/contacts', fn () => view('view.contatct'))->name('contact.submit');
 
-Route::get('/contacts', function () {
-    return view('view.contatct');
-})->name('contact.submit');
-
-Route::get('/privacy-policy', function () {
-    return view('view.privacy');
-})->name('privacy');
-
-Route::get('/terms', function () {
-    return view('view.terms');
-})->name('terms');
-
-Route::get('/refund-policy', function () {
-    return view('view.refund-policy');
-})->name('refund.policy');
+Route::get('/privacy-policy', fn () => view('view.privacy'))->name('privacy');
+Route::get('/terms', fn () => view('view.terms'))->name('terms');
+Route::get('/refund-policy', fn () => view('view.refund-policy'))->name('refund.policy');
 
 /*
 |--------------------------------------------------------------------------
-| Hostel / Property Routes (public)
+| Public Hostel / Property Routes
 |--------------------------------------------------------------------------
 */
 
@@ -122,69 +99,69 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // ----- Hostels -----
     Route::prefix('hostels')->name('hostels.')->group(function () {
-        Route::get('/', [HostelController::class, 'index'])->name('index');
-        Route::post('/', [HostelController::class, 'store'])->name('store');
-        Route::get('/{id}', [HostelController::class, 'show'])->name('show');
-        Route::put('/{id}', [HostelController::class, 'update'])->name('update');
-        Route::delete('/{id}', [HostelController::class, 'destroy'])->name('destroy');
-        Route::patch('/{id}/toggle-status', [HostelController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/',               [AdminHostelController::class, 'index'])->name('index');
+        Route::post('/',              [AdminHostelController::class, 'store'])->name('store');
+        Route::get('/{id}',           [AdminHostelController::class, 'show'])->name('show');
+        Route::put('/{id}',           [AdminHostelController::class, 'update'])->name('update');
+        Route::delete('/{id}',        [AdminHostelController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/toggle-status', [AdminHostelController::class, 'toggleStatus'])->name('toggle-status');
     });
 
     // ----- Room Types -----
     Route::prefix('room-types')->name('room-types.')->group(function () {
-        Route::get('/', [RoomTypeController::class, 'index'])->name('index');
-        Route::post('/', [RoomTypeController::class, 'store'])->name('store');
-        Route::get('/{id}', [RoomTypeController::class, 'show'])->name('show');
-        Route::put('/{id}', [RoomTypeController::class, 'update'])->name('update');
-        Route::delete('/{id}', [RoomTypeController::class, 'destroy'])->name('destroy');
+        Route::get('/',               [RoomTypeController::class, 'index'])->name('index');
+        Route::post('/',              [RoomTypeController::class, 'store'])->name('store');
+        Route::get('/{id}',           [RoomTypeController::class, 'show'])->name('show');
+        Route::put('/{id}',           [RoomTypeController::class, 'update'])->name('update');
+        Route::delete('/{id}',        [RoomTypeController::class, 'destroy'])->name('destroy');
         Route::patch('/{id}/toggle-status', [RoomTypeController::class, 'toggleStatus'])->name('toggle-status');
     });
 
     // ----- Rooms -----
     Route::prefix('rooms')->name('rooms.')->group(function () {
-        Route::get('/', [RoomController::class, 'index'])->name('index');
-        Route::post('/', [RoomController::class, 'store'])->name('store');
-        Route::get('/{id}', [RoomController::class, 'show'])->name('show');
-        Route::put('/{id}', [RoomController::class, 'update'])->name('update');
+        Route::get('/',      [RoomController::class, 'index'])->name('index');
+        Route::post('/',     [RoomController::class, 'store'])->name('store');
+        Route::get('/{id}',  [RoomController::class, 'show'])->name('show');
+        Route::put('/{id}',  [RoomController::class, 'update'])->name('update');
         Route::delete('/{id}', [RoomController::class, 'destroy'])->name('destroy');
     });
 
     // ----- Beds -----
     Route::prefix('beds')->name('beds.')->group(function () {
-        Route::get('/', [BedController::class, 'index'])->name('index');
-        Route::post('/', [BedController::class, 'store'])->name('store');
-        Route::get('/{id}', [BedController::class, 'show'])->name('show');
-        Route::put('/{id}', [BedController::class, 'update'])->name('update');
+        Route::get('/',      [BedController::class, 'index'])->name('index');
+        Route::post('/',     [BedController::class, 'store'])->name('store');
+        Route::get('/{id}',  [BedController::class, 'show'])->name('show');
+        Route::put('/{id}',  [BedController::class, 'update'])->name('update');
         Route::delete('/{id}', [BedController::class, 'destroy'])->name('destroy');
         Route::patch('/{id}/toggle-status', [BedController::class, 'toggleStatus'])->name('toggle-status');
     });
 
     // ----- Residents -----
     Route::prefix('residents')->name('residents.')->group(function () {
-        Route::get('/', [ResidentController::class, 'index'])->name('index');
-        Route::post('/', [ResidentController::class, 'store'])->name('store');
-        Route::get('/{id}', [ResidentController::class, 'show'])->name('show');
-        Route::put('/{id}', [ResidentController::class, 'update'])->name('update');
+        Route::get('/',      [ResidentController::class, 'index'])->name('index');
+        Route::post('/',     [ResidentController::class, 'store'])->name('store');
+        Route::get('/{id}',  [ResidentController::class, 'show'])->name('show');
+        Route::put('/{id}',  [ResidentController::class, 'update'])->name('update');
         Route::delete('/{id}', [ResidentController::class, 'destroy'])->name('destroy');
-        Route::patch('/{id}/vacate', [ResidentController::class, 'vacate'])->name('vacate');
+        Route::patch('/{id}/vacate',     [ResidentController::class, 'vacate'])->name('vacate');
         Route::patch('/{id}/reactivate', [ResidentController::class, 'reactivate'])->name('reactivate');
         Route::get('/vacant-beds/{roomId}', [ResidentController::class, 'getVacantBeds'])->name('vacant-beds');
     });
 
     // ----- Payments -----
     Route::prefix('payments')->name('payments.')->group(function () {
-        Route::get('/', [PaymentController::class, 'index'])->name('index');
-        Route::post('/filter', [PaymentController::class, 'filter'])->name('filter');
-        Route::get('/export/csv', [PaymentController::class, 'exportCsv'])->name('export.csv');
-        Route::get('/export/pdf', [PaymentController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/',                 [PaymentController::class, 'index'])->name('index');
+        Route::post('/filter',          [PaymentController::class, 'filter'])->name('filter');
+        Route::get('/export/csv',       [PaymentController::class, 'exportCsv'])->name('export.csv');
+        Route::get('/export/pdf',       [PaymentController::class, 'exportPdf'])->name('export.pdf');
 
         // Dropdown helpers for manual payment entry
-        Route::get('/rooms/{hostelId}', [PaymentController::class, 'roomsByHostel'])->name('rooms');
+        Route::get('/rooms/{hostelId}',   [PaymentController::class, 'roomsByHostel'])->name('rooms');
         Route::get('/residents/{roomId}', [PaymentController::class, 'residentsByRoom'])->name('residents');
 
-        Route::post('/', [PaymentController::class, 'store'])->name('store');
-        Route::get('/{id}', [PaymentController::class, 'show'])->name('show');
-        Route::put('/{id}', [PaymentController::class, 'update'])->name('update');
+        Route::post('/',     [PaymentController::class, 'store'])->name('store');
+        Route::get('/{id}',  [PaymentController::class, 'show'])->name('show');
+        Route::put('/{id}',  [PaymentController::class, 'update'])->name('update');
         Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
     });
 
