@@ -8,28 +8,31 @@ use Illuminate\Support\Facades\Validator;
 
 class AdminHostelController extends Controller
 {
-    /**
-     * Admin: list hostels in the office grid.
-     */
+    /* =========================================================
+     |  INDEX
+     ========================================================= */
     public function index()
     {
         $hostels = Hostel::withCount(['rooms', 'residents'])
             ->orderBy('hostel_name')
-            ->get()
-            ->map(function ($hostel) {
-                $hostel->type_icon  = $this->typeIcon($hostel->hostel_type);
-                $hostel->type_label = $this->typeLabel($hostel->hostel_type);
-                return $hostel;
-            });
+            ->get();
 
         return view('admin.hostels.index', compact('hostels'));
     }
 
-    /**
-     * Admin: create a new hostel.
-     */
+    /* =========================================================
+     |  STORE
+     ========================================================= */
     public function store(Request $request)
     {
+        // 🔧 Normalize BEFORE validation
+        $request->merge([
+            'hostel_type' => $this->normalizeType($request->input('hostel_type')),
+            'status'      => strtolower(trim((string) $request->input('status', 'active'))),
+            'hostel_code' => trim((string) $request->input('hostel_code')),
+            'hostel_name' => trim((string) $request->input('hostel_name')),
+        ]);
+
         $validator = Validator::make($request->all(), $this->rules());
 
         if ($validator->fails()) {
@@ -56,9 +59,9 @@ class AdminHostelController extends Controller
         }
     }
 
-    /**
-     * Admin: return a hostel as JSON (used by edit modal).
-     */
+    /* =========================================================
+     |  SHOW
+     ========================================================= */
     public function show($id)
     {
         $hostel = Hostel::withCount(['rooms', 'residents'])->find($id);
@@ -70,18 +73,15 @@ class AdminHostelController extends Controller
             ], 404);
         }
 
-        $hostel->type_icon  = $this->typeIcon($hostel->hostel_type);
-        $hostel->type_label = $this->typeLabel($hostel->hostel_type);
-
         return response()->json([
             'success' => true,
             'hostel'  => $hostel,
         ]);
     }
 
-    /**
-     * Admin: update a hostel.
-     */
+    /* =========================================================
+     |  UPDATE
+     ========================================================= */
     public function update(Request $request, $id)
     {
         $hostel = Hostel::find($id);
@@ -92,6 +92,14 @@ class AdminHostelController extends Controller
                 'message' => 'Hostel not found.',
             ], 404);
         }
+
+        // 🔧 Normalize BEFORE validation
+        $request->merge([
+            'hostel_type' => $this->normalizeType($request->input('hostel_type')),
+            'status'      => strtolower(trim((string) $request->input('status', $hostel->status))),
+            'hostel_code' => trim((string) $request->input('hostel_code')),
+            'hostel_name' => trim((string) $request->input('hostel_name')),
+        ]);
 
         $validator = Validator::make($request->all(), $this->rules($id));
 
@@ -119,9 +127,9 @@ class AdminHostelController extends Controller
         }
     }
 
-    /**
-     * Admin: delete a hostel.
-     */
+    /* =========================================================
+     |  DESTROY
+     ========================================================= */
     public function destroy($id)
     {
         $hostel = Hostel::find($id);
@@ -133,7 +141,6 @@ class AdminHostelController extends Controller
             ], 404);
         }
 
-        // Block deletion when residents still exist.
         if ($hostel->residents()->exists()) {
             return response()->json([
                 'success' => false,
@@ -156,9 +163,9 @@ class AdminHostelController extends Controller
         }
     }
 
-    /**
-     * Admin: toggle active/inactive status.
-     */
+    /* =========================================================
+     |  TOGGLE STATUS
+     ========================================================= */
     public function toggleStatus($id)
     {
         $hostel = Hostel::find($id);
@@ -191,6 +198,30 @@ class AdminHostelController extends Controller
      |  HELPERS
      ========================================================= */
 
+    /**
+     * Force hostel_type into one of the safe, valid values.
+     * Accepts: male / female / co-ed (case-insensitive, trimmed).
+     * Falls back to 'male' if nothing matches.
+     */
+    protected function normalizeType($value): string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return match (true) {
+            str_contains($value, 'female'),
+            str_contains($value, 'women'),
+            str_contains($value, 'girl'),
+            str_contains($value, 'ladies')  => 'female',
+
+            str_contains($value, 'co-ed'),
+            str_contains($value, 'coed'),
+            str_contains($value, 'mixed'),
+            str_contains($value, 'unisex')  => 'co-ed',
+
+            default                          => 'male',
+        };
+    }
+
     protected function rules(?int $ignoreId = null): array
     {
         $uniqueCode = 'unique:hostels,hostel_code';
@@ -215,25 +246,5 @@ class AdminHostelController extends Controller
             'upi_id'                  => 'nullable|string|max:150',
             'upi_payee_name'          => 'nullable|string|max:150',
         ];
-    }
-
-    protected function typeIcon(?string $type): string
-    {
-        return match ($type) {
-            'male'   => 'gender-male',
-            'female' => 'gender-female',
-            'co-ed'  => 'people',
-            default  => 'building',
-        };
-    }
-
-    protected function typeLabel(?string $type): string
-    {
-        return match ($type) {
-            'male'   => 'Men',
-            'female' => 'Women',
-            'co-ed'  => 'Co-ed',
-            default  => 'Unknown',
-        };
     }
 }
