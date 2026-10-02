@@ -34,37 +34,13 @@ class AdminHostelController extends Controller
 
     /**
      * Store new hostel.
-     * Auto-assigns to current user if not admin.
      */
     public function store(Request $request)
     {
-        // Normalize before validation
-        $request->merge([
-            'hostel_type' => $this->normalizeType($request->input('hostel_type')),
-            'status'      => strtolower(trim((string) $request->input('status', 'active'))),
-            'hostel_code' => trim((string) $request->input('hostel_code')),
-            'hostel_name' => trim((string) $request->input('hostel_name')),
-        ]);
+        // Normalize EVERYTHING before validation
+        $this->normalizeRequest($request);
 
-        $validator = Validator::make($request->all(), [
-            'hostel_code' => 'required|string|max:50|unique:hostels,hostel_code',
-            'hostel_name' => 'required|string|max:255',
-            'hostel_type' => 'required|in:male,female,co-ed',
-            'address'     => 'nullable|string|max:500',
-            'phone'       => 'nullable|string|max:20',
-            'email'       => 'nullable|email|max:255',
-            'status'      => 'required|in:active,inactive',
-
-            'biometric_device_id'     => 'nullable|string|max:100',
-            'biometric_device_name'   => 'nullable|string|max:255',
-            'biometric_ip_address'    => 'nullable|string|max:50',
-            'biometric_port'          => 'nullable|integer|min:1|max:65535',
-            'biometric_location_code' => 'nullable|string|max:50',
-            'employee_code_prefix'    => 'nullable|string|max:20',
-
-            'upi_id'         => 'nullable|string|max:100',
-            'upi_payee_name' => 'nullable|string|max:255',
-        ]);
+        $validator = Validator::make($request->all(), $this->rules());
 
         if ($validator->fails()) {
             return response()->json([
@@ -139,36 +115,10 @@ class AdminHostelController extends Controller
             ], 403);
         }
 
-        // Normalize before validation
-        $request->merge([
-            'hostel_type' => $this->normalizeType($request->input('hostel_type')),
-            'status'      => strtolower(trim((string) $request->input('status', $hostel->status))),
-            'hostel_code' => trim((string) $request->input('hostel_code')),
-            'hostel_name' => trim((string) $request->input('hostel_name')),
-        ]);
+        // Normalize EVERYTHING before validation
+        $this->normalizeRequest($request, $hostel);
 
-        $validator = Validator::make($request->all(), [
-            'hostel_code' => [
-                'required', 'string', 'max:50',
-                Rule::unique('hostels', 'hostel_code')->ignore($id),
-            ],
-            'hostel_name' => 'required|string|max:255',
-            'hostel_type' => 'required|in:male,female,co-ed',
-            'address'     => 'nullable|string|max:500',
-            'phone'       => 'nullable|string|max:20',
-            'email'       => 'nullable|email|max:255',
-            'status'      => 'required|in:active,inactive',
-
-            'biometric_device_id'     => 'nullable|string|max:100',
-            'biometric_device_name'   => 'nullable|string|max:255',
-            'biometric_ip_address'    => 'nullable|string|max:50',
-            'biometric_port'          => 'nullable|integer|min:1|max:65535',
-            'biometric_location_code' => 'nullable|string|max:50',
-            'employee_code_prefix'    => 'nullable|string|max:20',
-
-            'upi_id'         => 'nullable|string|max:100',
-            'upi_payee_name' => 'nullable|string|max:255',
-        ]);
+        $validator = Validator::make($request->all(), $this->rules($id));
 
         if ($validator->fails()) {
             return response()->json([
@@ -275,7 +225,92 @@ class AdminHostelController extends Controller
      ========================================================= */
 
     /**
-     * Force hostel_type into one of the safe, valid values.
+     * Validation rules shared by store + update.
+     */
+    protected function rules(?int $ignoreId = null): array
+    {
+        $codeRule = 'required|string|max:50';
+        $codeRule .= $ignoreId
+            ? '|' . Rule::unique('hostels', 'hostel_code')->ignore($ignoreId)->__toString()
+            : '|unique:hostels,hostel_code';
+
+        return [
+            'hostel_code' => $codeRule,
+            'hostel_name' => 'required|string|max:255',
+            'hostel_type' => 'required|in:male,female,co-ed',
+            'address'     => 'nullable|string|max:500',
+            'phone'       => 'nullable|string|max:20',
+            'email'       => 'nullable|email|max:255',
+            'status'      => 'required|in:active,inactive',
+
+            'biometric_device_id'     => 'nullable|string|max:100',
+            'biometric_device_name'   => 'nullable|string|max:255',
+            'biometric_ip_address'    => 'nullable|string|max:50',
+            'biometric_port'          => 'nullable|integer|min:1|max:65535',
+            'biometric_location_code' => 'nullable|string|max:50',
+            'employee_code_prefix'    => 'nullable|string|max:20',
+
+            'upi_id'         => 'nullable|string|max:100',
+            'upi_payee_name' => 'nullable|string|max:255',
+        ];
+    }
+
+    /**
+     * Clean + normalize the request payload.
+     * 🔑 Converts empty strings → null (fixes ENUM truncation errors).
+     * 🔑 Forces valid values for hostel_type & status.
+     */
+    protected function normalizeRequest(Request $request, ?Hostel $hostel = null): void
+    {
+        // ----- Enum-safe values -----
+        $hostelType = $this->normalizeType($request->input('hostel_type'));
+        $status     = $this->normalizeStatus(
+            $request->input('status', $hostel->status ?? 'active')
+        );
+
+        // ----- Trimmed strings (nullable → null) -----
+        $clean = [
+            'hostel_type' => $hostelType,
+            'status'      => $status,
+            'hostel_code' => $this->clean($request->input('hostel_code')),
+            'hostel_name' => $this->clean($request->input('hostel_name')),
+            'address'     => $this->clean($request->input('address')),
+            'phone'       => $this->clean($request->input('phone')),
+            'email'       => $this->clean($request->input('email')),
+
+            'biometric_device_id'     => $this->clean($request->input('biometric_device_id')),
+            'biometric_device_name'   => $this->clean($request->input('biometric_device_name')),
+            'biometric_ip_address'    => $this->clean($request->input('biometric_ip_address')),
+            'biometric_location_code' => $this->clean($request->input('biometric_location_code')),
+            'employee_code_prefix'    => $this->clean($request->input('employee_code_prefix')),
+
+            'upi_id'         => $this->clean($request->input('upi_id')),
+            'upi_payee_name' => $this->clean($request->input('upi_payee_name')),
+        ];
+
+        // ----- Port: empty string → null, otherwise integer -----
+        $port = $request->input('biometric_port');
+        $clean['biometric_port'] = ($port === '' || $port === null) ? null : (int) $port;
+
+        $request->merge($clean);
+    }
+
+    /**
+     * Trim a value; convert empty string to null.
+     */
+    protected function clean($value)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * Force hostel_type into a valid lowercase value.
      */
     protected function normalizeType($value): string
     {
@@ -294,5 +329,15 @@ class AdminHostelController extends Controller
 
             default                          => 'male',
         };
+    }
+
+    /**
+     * Force status into 'active' or 'inactive'.
+     */
+    protected function normalizeStatus($value): string
+    {
+        $value = strtolower(trim((string) $value));
+
+        return str_contains($value, 'inactive') ? 'inactive' : 'active';
     }
 }
