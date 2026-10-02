@@ -15,8 +15,8 @@ use Illuminate\Validation\Rule;
 class ResidentController extends Controller
 {
     /**
-     * Display resident management page
-     * Vacated residents are HIDDEN by default (only shown when filter applied)
+     * Display resident management page.
+     * Vacated residents are HIDDEN by default (only shown when filter applied).
      */
     public function index(Request $request)
     {
@@ -45,7 +45,7 @@ class ResidentController extends Controller
         }
         $hostels = $hostelQuery->get(['id', 'hostel_name', 'hostel_code']);
 
-        // Rooms + vacant beds (for resident assignment)
+        // Rooms + vacant beds
         $roomQuery = Room::with(['hostel', 'beds' => function ($q) {
             $q->where('status', 'VACANT')->orderBy('bed_no');
         }])->orderBy('room_no');
@@ -55,7 +55,6 @@ class ResidentController extends Controller
         }
         $rooms = $roomQuery->get();
 
-        // ✅ Pre-compute JSON array for JS (avoids @json multi-line Blade bug)
         $roomsJson = [];
         foreach ($rooms as $r) {
             $bedsArr = [];
@@ -76,20 +75,36 @@ class ResidentController extends Controller
             ];
         }
 
+        // 🔑 Preview the NEXT auto-generated codes for the modal
+        $nextResidentCode = $this->generateResidentCode();
+        $nextEmployeeCode = $this->generateEmployeeCode();
+
         return view('admin.residents.index', compact(
             'residents',
             'hostels',
             'rooms',
             'roomsJson',
-            'statusFilter'
+            'statusFilter',
+            'nextResidentCode',
+            'nextEmployeeCode'
         ));
     }
 
     /**
-     * Store new resident
+     * Store new resident — codes are auto-generated.
      */
     public function store(Request $request)
     {
+        // 🔑 Generate codes BEFORE validation
+        $autoResidentCode = $this->generateResidentCode();
+        $autoEmployeeCode = $this->generateEmployeeCode();
+
+        // Force-set them (ignore whatever came from the client)
+        $request->merge([
+            'resident_code' => $autoResidentCode,
+            'employee_code' => $autoEmployeeCode,
+        ]);
+
         $validator = Validator::make($request->all(), [
             'hostel_id' => [
                 'required', 'exists:hostels,id',
@@ -169,7 +184,7 @@ class ResidentController extends Controller
 
             return response()->json([
                 'success'  => true,
-                'message'  => 'Resident registered successfully!',
+                'message'  => 'Resident registered successfully! Code: ' . $resident->resident_code,
                 'resident' => $resident
             ]);
 
@@ -183,7 +198,7 @@ class ResidentController extends Controller
     }
 
     /**
-     * Show single resident
+     * Show single resident.
      */
     public function show($id)
     {
@@ -204,7 +219,7 @@ class ResidentController extends Controller
     }
 
     /**
-     * Update resident
+     * Update resident — codes remain unchanged.
      */
     public function update(Request $request, $id)
     {
@@ -213,6 +228,12 @@ class ResidentController extends Controller
         if (!auth()->user()->hasAccessToHostel($resident->hostel_id)) {
             return response()->json(['success' => false, 'message' => 'No access'], 403);
         }
+
+        // 🔒 Preserve existing codes — ignore any client changes
+        $request->merge([
+            'resident_code' => $resident->resident_code,
+            'employee_code' => $resident->employee_code,
+        ]);
 
         $validator = Validator::make($request->all(), [
             'hostel_id' => 'required|exists:hostels,id',
@@ -322,7 +343,7 @@ class ResidentController extends Controller
     }
 
     /**
-     * Delete resident
+     * Delete resident.
      */
     public function destroy($id)
     {
@@ -374,7 +395,7 @@ class ResidentController extends Controller
     }
 
     /**
-     * Vacate resident
+     * Vacate resident.
      */
     public function vacate($id)
     {
@@ -392,9 +413,9 @@ class ResidentController extends Controller
             DB::beginTransaction();
             try {
                 $resident->update([
-                    'status'      => 'VACATED',
-                    'vacate_date' => now()->format('Y-m-d'),
-                    'biometric_access' => false,
+                    'status'             => 'VACATED',
+                    'vacate_date'        => now()->format('Y-m-d'),
+                    'biometric_access'   => false,
                     'access_disabled_at' => now(),
                 ]);
 
@@ -421,7 +442,7 @@ class ResidentController extends Controller
     }
 
     /**
-     * Reactivate vacated resident
+     * Reactivate vacated resident.
      */
     public function reactivate($id)
     {
@@ -447,9 +468,9 @@ class ResidentController extends Controller
             DB::beginTransaction();
             try {
                 $resident->update([
-                    'status'      => 'ACTIVE',
-                    'vacate_date' => null,
-                    'biometric_access' => true,
+                    'status'            => 'ACTIVE',
+                    'vacate_date'       => null,
+                    'biometric_access'  => true,
                     'access_enabled_at' => now(),
                 ]);
 
@@ -476,7 +497,7 @@ class ResidentController extends Controller
     }
 
     /**
-     * Get vacant beds for a room (AJAX)
+     * Get vacant beds for a room (AJAX).
      */
     public function getVacantBeds($roomId)
     {
@@ -493,9 +514,71 @@ class ResidentController extends Controller
         return response()->json(['success' => true, 'beds' => $beds]);
     }
 
-    // ═══════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════
+    /* =========================================================
+     |  🔑 AUTO-GENERATORS
+     ========================================================= */
+
+    /**
+     * Generate the next resident code: RES-0001, RES-0002, ...
+     */
+    protected function generateResidentCode(): string
+    {
+        $prefix = 'RES-';
+        $padding = 4;
+
+        // Find the highest existing numeric suffix
+        $last = Resident::where('resident_code', 'like', $prefix . '%')
+            ->orderByRaw('CAST(SUBSTRING(resident_code, ' . (strlen($prefix) + 1) . ') AS UNSIGNED) DESC')
+            ->value('resident_code');
+
+        $nextNumber = 1;
+        if ($last) {
+            $num = (int) substr($last, strlen($prefix));
+            $nextNumber = $num + 1;
+        }
+
+        $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
+
+        // Safety: in case of race condition, loop until unique
+        while (Resident::where('resident_code', $code)->exists()) {
+            $nextNumber++;
+            $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
+        }
+
+        return $code;
+    }
+
+    /**
+     * Generate the next employee code: EMP-0001, EMP-0002, ...
+     */
+    protected function generateEmployeeCode(): string
+    {
+        $prefix = 'EMP-';
+        $padding = 4;
+
+        $last = Resident::where('employee_code', 'like', $prefix . '%')
+            ->orderByRaw('CAST(SUBSTRING(employee_code, ' . (strlen($prefix) + 1) . ') AS UNSIGNED) DESC')
+            ->value('employee_code');
+
+        $nextNumber = 1;
+        if ($last) {
+            $num = (int) substr($last, strlen($prefix));
+            $nextNumber = $num + 1;
+        }
+
+        $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
+
+        while (Resident::where('employee_code', $code)->exists()) {
+            $nextNumber++;
+            $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
+        }
+
+        return $code;
+    }
+
+    /* =========================================================
+     |  HELPERS
+     ========================================================= */
 
     protected function saveFile($file, $prefix): string
     {

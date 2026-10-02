@@ -419,8 +419,21 @@
     }
     .rs-form-control::placeholder { color: #9ca3af; }
     .rs-form-control.is-invalid { border-color: #ef4444; }
+    .rs-form-control[readonly] {
+        background: #f9fafb;
+        cursor: not-allowed;
+        font-family: 'DM Mono', monospace;
+        font-weight: 600;
+        color: var(--sanjay-primary);
+    }
     .rs-form-error { font-size: 0.7rem; color: #ef4444; margin-top: 0.25rem; display: none; }
     .rs-form-error.show { display: block; }
+    .rs-form-hint {
+        color: #9ca3af;
+        font-size: 0.68rem;
+        margin-top: 4px;
+        display: block;
+    }
     select.rs-form-control {
         appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
@@ -435,6 +448,13 @@
     }
     @media (max-width: 576px) {
         .rs-form-row { grid-template-columns: 1fr; }
+    }
+
+    .rs-auto-badge {
+        color: var(--sanjay-gold);
+        font-size: 0.65rem;
+        font-weight: 700;
+        margin-left: 4px;
     }
 
     .rs-file-input {
@@ -611,11 +631,11 @@
         @endforeach
     </select>
 
-    <select class="rs-filter-select {{ $statusFilter === 'vacated' ? 'active-filter' : '' }}"
+    <select class="rs-filter-select {{ ($statusFilter ?? 'active') === 'vacated' ? 'active-filter' : '' }}"
             id="rsStatusFilter">
-        <option value="active" {{ $statusFilter === 'active' ? 'selected' : '' }}>Active Only</option>
-        <option value="vacated" {{ $statusFilter === 'vacated' ? 'selected' : '' }}>Vacated Only</option>
-        <option value="all" {{ $statusFilter === 'all' ? 'selected' : '' }}>All Residents</option>
+        <option value="active"  {{ ($statusFilter ?? 'active') === 'active'  ? 'selected' : '' }}>Active Only</option>
+        <option value="vacated" {{ ($statusFilter ?? 'active') === 'vacated' ? 'selected' : '' }}>Vacated Only</option>
+        <option value="all"     {{ ($statusFilter ?? 'active') === 'all'     ? 'selected' : '' }}>All Residents</option>
     </select>
 
     <select class="rs-filter-select" id="rsFoodFilter">
@@ -760,9 +780,9 @@
         </div>
         <h5>No Residents</h5>
         <p>
-            @if($statusFilter === 'active')
+            @if(($statusFilter ?? 'active') === 'active')
                 No active residents. Try changing the Status filter to "All Residents".
-            @elseif($statusFilter === 'vacated')
+            @elseif(($statusFilter ?? 'active') === 'vacated')
                 No vacated residents found.
             @else
                 Get started by adding your first resident.
@@ -801,8 +821,17 @@
 
                         <div class="rs-form-row">
                             <div class="rs-form-group">
-                                <label class="rs-form-label">Resident Code <span class="required">*</span></label>
-                                <input type="text" class="rs-form-control" id="resident_code" name="resident_code" placeholder="e.g., RES-001" required>
+                                <label class="rs-form-label">
+                                    Resident Code
+                                    <span class="rs-auto-badge"><i class="bi bi-magic"></i> AUTO</span>
+                                </label>
+                                <input type="text" class="rs-form-control"
+                                       id="resident_code" name="resident_code"
+                                       value="{{ $nextResidentCode ?? '' }}"
+                                       readonly>
+                                <small class="rs-form-hint">
+                                    <i class="bi bi-info-circle"></i> Auto-generated on save
+                                </small>
                                 <div class="rs-form-error" id="error_resident_code"></div>
                             </div>
                             <div class="rs-form-group">
@@ -845,8 +874,17 @@
                                 <div class="rs-form-error" id="error_aadhaar_no"></div>
                             </div>
                             <div class="rs-form-group">
-                                <label class="rs-form-label">Employee Code</label>
-                                <input type="text" class="rs-form-control" id="employee_code" name="employee_code" placeholder="e.g., EMP-001">
+                                <label class="rs-form-label">
+                                    Employee Code
+                                    <span class="rs-auto-badge"><i class="bi bi-magic"></i> AUTO</span>
+                                </label>
+                                <input type="text" class="rs-form-control"
+                                       id="employee_code" name="employee_code"
+                                       value="{{ $nextEmployeeCode ?? '' }}"
+                                       readonly>
+                                <small class="rs-form-hint">
+                                    <i class="bi bi-info-circle"></i> Auto-generated on save
+                                </small>
                                 <div class="rs-form-error" id="error_employee_code"></div>
                             </div>
                         </div>
@@ -890,7 +928,7 @@
                                 <option value="">Select Room First</option>
                             </select>
                             <div class="rs-form-error" id="error_bed_id"></div>
-                            <small style="color:#9ca3af; font-size:0.68rem; margin-top:4px; display:block;">
+                            <small class="rs-form-hint">
                                 <i class="bi bi-info-circle"></i> Only vacant beds are shown
                             </small>
                         </div>
@@ -962,21 +1000,19 @@
                             <label class="rs-form-label">Profile Photo</label>
                             <input type="file" class="rs-file-input" id="profile_image" name="profile_image" accept="image/*">
                             <img id="profilePreview" class="rs-image-preview" alt="Preview">
-                            <small style="color:#9ca3af; font-size:0.68rem; margin-top:4px; display:block;">
-                                JPG, PNG, WEBP • Max 2MB
-                            </small>
+                            <small class="rs-form-hint">JPG, PNG, WEBP • Max 2MB</small>
                         </div>
 
                         <div class="rs-form-row">
                             <div class="rs-form-group">
                                 <label class="rs-form-label">Aadhaar Document</label>
                                 <input type="file" class="rs-file-input" id="aadhar_document" name="aadhar_document" accept="image/*,application/pdf">
-                                <small style="color:#9ca3af; font-size:0.68rem; margin-top:4px; display:block;">JPG, PNG, PDF • Max 5MB</small>
+                                <small class="rs-form-hint">JPG, PNG, PDF • Max 5MB</small>
                             </div>
                             <div class="rs-form-group">
                                 <label class="rs-form-label">Application Document</label>
                                 <input type="file" class="rs-file-input" id="application_document" name="application_document" accept="image/*,application/pdf">
-                                <small style="color:#9ca3af; font-size:0.68rem; margin-top:4px; display:block;">JPG, PNG, PDF • Max 5MB</small>
+                                <small class="rs-form-hint">JPG, PNG, PDF • Max 5MB</small>
                             </div>
                         </div>
                     </div>
@@ -1079,11 +1115,15 @@ const allRooms = {!! json_encode($roomsJson) !!};
 
 const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 const BASE_URL = "{{ url('admin/residents') }}";
+const NEXT_RESIDENT_CODE = @json($nextResidentCode ?? '');
+const NEXT_EMPLOYEE_CODE = @json($nextEmployeeCode ?? '');
+
 let currentDeleteId = null;
 let currentVacateId = null;
 let currentContextId = null;
 
-function showToast(message, type = 'success') {
+function showToast(message, type) {
+    type = type || 'success';
     if (typeof showFlashMessage === 'function') {
         showFlashMessage(message, type);
     } else {
@@ -1091,7 +1131,8 @@ function showToast(message, type = 'success') {
     }
 }
 
-function loadRoomsForHostel(hostelId, selectedRoomId = null) {
+function loadRoomsForHostel(hostelId, selectedRoomId) {
+    selectedRoomId = selectedRoomId || null;
     const $roomSelect = document.getElementById('room_id');
     $roomSelect.innerHTML = '<option value="">Select Room</option>';
     $roomSelect.disabled = false;
@@ -1104,14 +1145,14 @@ function loadRoomsForHostel(hostelId, selectedRoomId = null) {
         return;
     }
 
-    const rooms = allRooms.filter(r => r.hostel_id == hostelId);
+    const rooms = allRooms.filter(function(r) { return r.hostel_id == hostelId; });
 
     if (rooms.length === 0) {
         $roomSelect.innerHTML = '<option value="">No rooms in this hostel</option>';
         return;
     }
 
-    rooms.forEach(r => {
+    rooms.forEach(function(r) {
         const opt = document.createElement('option');
         opt.value = r.id;
         opt.textContent = 'Room ' + r.room_no;
@@ -1134,13 +1175,13 @@ function loadBedsForRoom(roomId) {
         return;
     }
 
-    const room = allRooms.find(r => r.id == roomId);
+    const room = allRooms.find(function(r) { return r.id == roomId; });
     if (!room || room.beds.length === 0) {
         $bedSelect.innerHTML = '<option value="">No vacant beds</option>';
         return;
     }
 
-    room.beds.forEach(b => {
+    room.beds.forEach(function(b) {
         const opt = document.createElement('option');
         opt.value = b.id;
         opt.textContent = 'Bed ' + b.bed_no + ' (' + b.bed_type + ')';
@@ -1151,13 +1192,18 @@ function loadBedsForRoom(roomId) {
 
 function openCreateModal() {
     resetForm();
-    document.getElementById('residentModalTitle').innerHTML = '<i class="bi bi-person-plus"></i> Add New Resident';
+    document.getElementById('residentModalTitle').innerHTML =
+        '<i class="bi bi-person-plus"></i> Add New Resident';
     document.getElementById('residentSubmitText').textContent = 'Save Resident';
     document.getElementById('residentId').value = '';
     document.getElementById('biometric_access').checked = true;
     document.getElementById('deposit_amount').value = 0;
     document.getElementById('status').value = 'ACTIVE';
     document.getElementById('joining_date').value = '{{ now()->format("Y-m-d") }}';
+
+    // 🔑 Show the next auto-generated codes
+    document.getElementById('resident_code').value = NEXT_RESIDENT_CODE;
+    document.getElementById('employee_code').value = NEXT_EMPLOYEE_CODE;
 
     new bootstrap.Modal(document.getElementById('residentModal')).show();
 }
@@ -1174,7 +1220,8 @@ async function openEditModal(id) {
         if (data.success) {
             const r = data.resident;
 
-            document.getElementById('residentModalTitle').innerHTML = '<i class="bi bi-pencil-square"></i> Edit Resident';
+            document.getElementById('residentModalTitle').innerHTML =
+                '<i class="bi bi-pencil-square"></i> Edit Resident';
             document.getElementById('residentSubmitText').textContent = 'Update Resident';
             document.getElementById('residentId').value = r.id;
 
@@ -1196,7 +1243,7 @@ async function openEditModal(id) {
             document.getElementById('hostel_id').value = r.hostel_id;
             loadRoomsForHostel(r.hostel_id, r.room_id);
 
-            // Manually add current bed (it's occupied, so not in list)
+            // Manually add current bed (occupied, so not in vacant list)
             setTimeout(function() {
                 var $bedSelect = document.getElementById('bed_id');
                 if ($bedSelect && r.bed) {
@@ -1222,6 +1269,10 @@ async function openEditModal(id) {
 function resetForm() {
     document.getElementById('residentForm').reset();
     document.getElementById('residentId').value = '';
+
+    // 🔑 Re-apply auto codes (form.reset() would clear them)
+    document.getElementById('resident_code').value = NEXT_RESIDENT_CODE;
+    document.getElementById('employee_code').value = NEXT_EMPLOYEE_CODE;
 
     document.getElementById('room_id').innerHTML = '<option value="">Select Hostel First</option>';
     document.getElementById('room_id').disabled = true;
