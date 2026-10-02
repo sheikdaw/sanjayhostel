@@ -179,7 +179,7 @@
                         <i class="bi bi-credit-card"></i>
                         <span class="ol-nav-label">Payments</span>
                     </a>
-                    <a href="{{ route('payment-links.index') }}"
+                    <a href="{{ route('admin.payment-links.index') }}"
                         class="ol-nav-item {{ request()->routeIs('payment-links.*') ? 'active' : '' }}">
                         <i class="bi bi-link-45deg"></i>
                         <span class="ol-nav-label">Payment Links</span>
