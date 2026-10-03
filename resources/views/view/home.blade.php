@@ -22,91 +22,91 @@
 
     <script type="application/ld+json">
 {
-    "@context": "https://schema.org",
-    "@graph": [
+    "@@context": "https://schema.org",
+    "@@graph": [
 
         {
-            "@type": "Organization",
-            "@id": "{{ url('/') }}#organization",
+            "@@type": "Organization",
+            "@@id": "{{ url('/') }}#organization",
             "name": "Sanjay & Harini Hostels",
             "url": "{{ url('/') }}",
             "telephone": "{{ config('hostel.phone') }}",
             "email": "{{ config('hostel.email') }}",
             "areaServed": {
-                "@type": "City",
+                "@@type": "City",
                 "name": "Chennai"
             }
         },
 
         {
-            "@type": "WebSite",
-            "@id": "{{ url('/') }}#website",
+            "@@type": "WebSite",
+            "@@id": "{{ url('/') }}#website",
             "url": "{{ url('/') }}",
             "name": "Sanjay & Harini Hostels",
             "publisher": {
-                "@id": "{{ url('/') }}#organization"
+                "@@id": "{{ url('/') }}#organization"
             },
             "inLanguage": "en-IN"
         },
 
         {
-            "@type": "WebPage",
-            "@id": "{{ url('/') }}#webpage",
+            "@@type": "WebPage",
+            "@@id": "{{ url('/') }}#webpage",
             "url": "{{ url('/') }}",
             "name": "Sanjay & Harini Hostels | Boys & Girls PG in Alandur & Perungalathur, Chennai",
             "description": "Boys and girls PG hostels in Alandur and Perungalathur, Chennai.",
             "isPartOf": {
-                "@id": "{{ url('/') }}#website"
+                "@@id": "{{ url('/') }}#website"
             },
             "about": {
-                "@id": "{{ url('/') }}#organization"
+                "@@id": "{{ url('/') }}#organization"
             },
             "inLanguage": "en-IN"
         },
 
         {
-            "@type": "ItemList",
-            "@id": "{{ url('/') }}#hostels",
+            "@@type": "ItemList",
+            "@@id": "{{ url('/') }}#hostels",
             "name": "Sanjay & Harini Hostel Locations",
             "itemListElement": [
 
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 1,
                     "name": "Pudupettai Street Alandur - Men's Hostel",
                     "url": "{{ url('/hostels/alandur') }}"
                 },
 
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 2,
                     "name": "Pudupettai Street Alandur - Women's Hostel 1",
                     "url": "{{ url('/hostels/alandur') }}"
                 },
 
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 3,
                     "name": "Pudupettai Street Alandur - Women's Hostel 2",
                     "url": "{{ url('/hostels/alandur') }}"
                 },
 
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 4,
                     "name": "M.K.N. Road Alandur - Men's Hostel",
                     "url": "{{ url('/hostels/alandur') }}"
                 },
 
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 5,
                     "name": "Raja Street Alandur - Ladies' Hostel",
                     "url": "{{ url('/hostels/alandur') }}"
                 },
 
                 {
-                    "@type": "ListItem",
+                    "@@type": "ListItem",
                     "position": 6,
                     "name": "Perungalathur - Boys' Hostel",
                     "url": "{{ url('/hostels/perungalathur') }}"
@@ -1659,11 +1659,11 @@
                 @foreach ([
             ['Where are Sanjay & Harini Hostels located?', 'Sanjay & Harini Hostels has six hostels across Alandur and Perungalathur in Chennai. The Alandur locations include Pudupettai Street, M.K.N. Road and Raja Street. There is also a boys hostel in Perungalathur.'],
 
-            ['How many hostels do you have in Alandur?', 'There are five hostels in Alandur: two women’s hostels and one men’s hostel on Pudupettai Street, one men’s hostel on M.K.N. Road and one ladies’ hostel on Raja Street.'],
+            ['How many hostels do you have in Alandur?', 'There are five hostels in Alandur: two women\'s hostels and one men\'s hostel on Pudupettai Street, one men\'s hostel on M.K.N. Road and one ladies\' hostel on Raja Street.'],
 
-            ['Do you provide boys PG accommodation in Alandur?', 'Yes. Sanjay & Harini Hostels has men’s PG accommodation in Alandur, including a men’s hostel at Pudupettai Street and another men’s hostel at M.K.N. Road.'],
+            ['Do you provide boys PG accommodation in Alandur?', 'Yes. Sanjay & Harini Hostels has men\'s PG accommodation in Alandur, including a men\'s hostel at Pudupettai Street and another men\'s hostel at M.K.N. Road.'],
 
-            ['Do you provide girls hostel accommodation in Alandur?', 'Yes. There are two women’s hostels at Pudupettai Street and one ladies’ hostel at Raja Street in Alandur.'],
+            ['Do you provide girls hostel accommodation in Alandur?', 'Yes. There are two women\'s hostels at Pudupettai Street and one ladies\' hostel at Raja Street in Alandur.'],
 
             ['Do you have a boys hostel in Perungalathur?', 'Yes. Sanjay & Harini Hostels operates a boys hostel in Perungalathur.'],
 
