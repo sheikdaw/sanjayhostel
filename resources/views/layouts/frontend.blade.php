@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-IN">
 
 <head>
     <meta charset="UTF-8">
@@ -11,23 +11,18 @@
     <meta name="theme-color" content="#0F2B46">
 
     {{-- SEO TITLE --}}
-    <title>
-        @yield(
-            'title',
-            'Sanjay & Harini Hostels | Boys & Girls PG in Alandur & Perungalathur, Chennai'
-        )
-    </title>
+    <title>@yield('title', 'Boys & Girls PG in Alandur & Perungalathur, Chennai | Sanjay & Harini Hostels')</title>
 
     {{-- META DESCRIPTION --}}
-    @hasSection('meta_description')
-        <meta name="description" content="@yield('meta_description')">
-    @else
-        <meta name="description"
-              content="Sanjay & Harini Hostels offers boys and girls PG accommodation in Alandur and Perungalathur, Chennai with AC and non-AC rooms, food, WiFi, CCTV, gym and convenient access to metro and railway stations.">
-    @endif
+    <meta name="description"
+          content="@yield('meta_description', 'Looking for PG in Alandur or Perungalathur? Sanjay & Harini Hostels offers boys & girls PG near Alandur Metro with AC rooms, food, WiFi, CCTV & gym. Monthly rent from ₹7,250. Call now for availability.')">
+
+    {{-- META KEYWORDS (still used by some local search engines) --}}
+    <meta name="keywords"
+          content="@yield('meta_keywords', 'PG in Alandur, PG in Perungalathur, boys PG Chennai, girls PG Chennai, working women hostel Chennai, PG near Alandur Metro, PG with food Chennai, AC PG rooms Alandur, hostel with gym Chennai, monthly PG Chennai')">
 
     {{-- ROBOTS --}}
-    <meta name="robots" content="@yield('robots', 'index, follow')">
+    <meta name="robots" content="@yield('robots', 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1')">
 
     {{-- CANONICAL --}}
     @hasSection('canonical')
@@ -35,6 +30,12 @@
     @else
         <link rel="canonical" href="{{ url()->current() }}">
     @endif
+
+    {{-- GEO TAGS FOR LOCAL SEO --}}
+    <meta name="geo.region" content="IN-TN">
+    <meta name="geo.placename" content="Alandur, Chennai">
+    <meta name="geo.position" content="13.0045;80.2015">
+    <meta name="ICBM" content="13.0045, 80.2015">
 
     {{-- OPEN GRAPH --}}
     @hasSection('og_title')
@@ -45,6 +46,9 @@
 
         @hasSection('og_image')
             <meta property="og:image" content="@yield('og_image')">
+            <meta property="og:image:width" content="1200">
+            <meta property="og:image:height" content="630">
+            <meta property="og:image:alt" content="@yield('og_title')">
         @endif
 
         <meta property="og:site_name" content="Sanjay & Harini Hostels">
@@ -106,7 +110,7 @@
     {{-- ICON SPRITE --}}
     <svg width="0"
          height="0"
-         style="position:absolute"
+         style="position:absolute;overflow:hidden"
          aria-hidden="true"
          focusable="false">
 
@@ -196,6 +200,10 @@
                      M19.1 7 4.9 17"/>
         </symbol>
 
+        <symbol id="i-star" viewBox="0 0 24 24">
+            <path d="M12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2z"/>
+        </symbol>
+
     </svg>
 
 
@@ -204,7 +212,7 @@
         <div class="wrap">
 
             <span>
-                Boys &amp; girls PG in Alandur and Perungalathur, Chennai
+                Boys &amp; girls PG in Alandur &amp; Perungalathur, Chennai — Near Metro
             </span>
 
             <span class="topbar-links">
@@ -217,7 +225,7 @@
                     {{ config('hostel.phone_display') }}
                 </a>
 
-                <a href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability"
+                <a href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability%20in%20Alandur%20%2F%20Perungalathur"
                    target="_blank"
                    rel="noopener noreferrer">
 
@@ -241,11 +249,12 @@
 
             <a class="brand"
                href="{{ route('home') }}"
-               aria-label="Sanjay and Harini Hostels">
+               aria-label="Sanjay and Harini Hostels — Boys and Girls PG in Chennai">
 
                 <svg class="brand-mark"
                      viewBox="0 0 36 36"
-                     aria-hidden="true">
+                     aria-hidden="true"
+                     focusable="false">
 
                     <circle cx="14"
                             cy="18"
@@ -381,7 +390,8 @@
 
                         <svg class="brand-mark"
                              viewBox="0 0 36 36"
-                             aria-hidden="true">
+                             aria-hidden="true"
+                             focusable="false">
 
                             <circle cx="14"
                                     cy="18"
@@ -405,8 +415,9 @@
 
                     <p>
                         Boys and girls PG accommodation in Alandur and
-                        Perungalathur, Chennai with comfortable rooms,
-                        food, WiFi, CCTV and resident facilities.
+                        Perungalathur, Chennai with AC rooms, home-style
+                        food, high-speed WiFi, CCTV security and free
+                        gym access for residents.
                     </p>
 
                 </div>
@@ -459,13 +470,67 @@
 
                         <li>
                             <a href="{{ route('about') }}">
-                                About
+                                About Us
                             </a>
                         </li>
 
                         <li>
                             <a href="{{ route('contact') }}">
                                 Contact / Book Now
+                            </a>
+                        </li>
+
+                    </ul>
+
+                </div>
+
+
+                {{-- POPULAR SEARCHES (SEO GOLD) --}}
+                <div>
+
+                    <h5>Popular PG Searches</h5>
+
+                    <ul>
+
+                        <li>
+                            <a href="{{ route('hostels.alandur') }}">
+                                PG near Alandur Metro
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('hostels.alandur') }}">
+                                Working Women Hostel Chennai
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('hostels.alandur') }}">
+                                Gents PG near Guindy
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('hostels.alandur') }}">
+                                Ladies Hostel near St. Thomas Mount
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('hostels.perungalathur') }}">
+                                Boys PG near Tambaram
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('rooms') }}">
+                                AC PG Rooms in Chennai
+                            </a>
+                        </li>
+
+                        <li>
+                            <a href="{{ route('rooms') }}">
+                                Budget PG with Food
                             </a>
                         </li>
 
@@ -481,11 +546,13 @@
 
                     <ul>
 
-                        <li>
-                            <a href="{{ route('terms') }}">
-                                Terms &amp; Conditions
-                            </a>
-                        </li>
+                        @if (Route::has('terms'))
+                            <li>
+                                <a href="{{ route('terms') }}">
+                                    Terms &amp; Conditions
+                                </a>
+                            </li>
+                        @endif
 
                         @if (Route::has('refund.policy'))
                             <li>
@@ -495,21 +562,18 @@
                             </li>
                         @endif
 
-                        <li>
-                            <a href="{{ route('privacy') }}">
-                                Privacy Policy
-                            </a>
-                        </li>
+                        @if (Route::has('privacy'))
+                            <li>
+                                <a href="{{ route('privacy') }}">
+                                    Privacy Policy
+                                </a>
+                            </li>
+                        @endif
 
                     </ul>
 
-                </div>
 
-
-                {{-- CONTACT --}}
-                <div>
-
-                    <h5>Contact</h5>
+                    <h5 style="margin-top:24px;">Contact</h5>
 
                     <ul>
 
@@ -526,7 +590,8 @@
                         </li>
 
                         <li>
-                            Alandur &amp; Perungalathur, Chennai, Tamil Nadu
+                            Alandur &amp; Perungalathur,<br>
+                            Chennai, Tamil Nadu
                         </li>
 
                     </ul>
@@ -545,9 +610,7 @@
                 </span>
 
                 <span>
-                    Developed with
-                    <span style="color:#D95C92;">♥</span>
-                    sheik
+                    Boys &amp; Girls PG in Alandur &amp; Perungalathur, Chennai
                 </span>
 
             </div>
@@ -571,7 +634,7 @@
         </a>
 
         <a class="wa"
-           href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability"
+           href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability%20in%20Alandur%20%2F%20Perungalathur"
            target="_blank"
            rel="noopener noreferrer">
 
@@ -612,10 +675,24 @@
 
                 });
 
+                document.addEventListener('keydown', function (e) {
+
+                    if (e.key === 'Escape' && menu.classList.contains('open')) {
+
+                        menu.classList.remove('open');
+
+                        toggle.setAttribute('aria-expanded', 'false');
+
+                        toggle.focus();
+
+                    }
+
+                });
+
             }
 
 
-            /* FAQ */
+            /* FAQ ACCORDION */
             document.querySelectorAll('.faq-q')
                 .forEach(function (btn) {
 
@@ -625,13 +702,28 @@
 
                         if (!item) return;
 
-                        var open =
-                            item.classList.toggle('open');
+                        var isOpen = item.classList.contains('open');
 
-                        this.setAttribute(
-                            'aria-expanded',
-                            open ? 'true' : 'false'
-                        );
+                        /* Close all */
+                        document.querySelectorAll('.faq-item.open')
+                            .forEach(function (i) {
+
+                                i.classList.remove('open');
+
+                                var q = i.querySelector('.faq-q');
+
+                                if (q) q.setAttribute('aria-expanded', 'false');
+
+                            });
+
+                        /* Toggle current */
+                        if (!isOpen) {
+
+                            item.classList.add('open');
+
+                            this.setAttribute('aria-expanded', 'true');
+
+                        }
 
                     });
 
