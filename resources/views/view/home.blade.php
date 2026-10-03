@@ -17,8 +17,9 @@
 
 @section('og_type', 'website')
 
-
 @section('schema')
+
+    @verbatim
 
     <script type="application/ld+json">
 {
@@ -121,10 +122,9 @@
 
 @endsection
 
+    @endverbatim
 
-@section('content')
-
-
+@endsection
     {{-- =========================================================
      HERO
 ========================================================= --}}
