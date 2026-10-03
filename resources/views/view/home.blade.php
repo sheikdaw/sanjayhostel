@@ -1,324 +1,1948 @@
 @extends('layouts.frontend')
 
-@section('title', "Sanjay & Harini Hostels | Men's & Women's PG in Chennai")
-@section('meta_description', "Men's and women's PG hostels in Alandur and Perungalathur, Chennai. Furnished rooms, home-style food, WiFi, CCTV and gym. Call or WhatsApp to book a visit.")
+@section('title',
+    "Sanjay & Harini Hostels | Boys & Girls PG in Alandur & Perungalathur, Chennai"
+)
+
+@section('meta_description',
+    "Sanjay & Harini Hostels offers boys and girls PG accommodation in Alandur and Perungalathur, Chennai. AC and non-AC rooms, food, WiFi, CCTV, gym and convenient access to metro and railway stations."
+)
+
 @section('canonical', \App\Support\Seo::url('/'))
-@section('og_title', "Men's & Women's PG Hostels in Alandur & Perungalathur, Chennai")
-@section('og_description', "Six men's and women's PG hostels in Alandur and Perungalathur. Furnished AC and non-AC rooms, home-style food, WiFi and CCTV.")
+
+@section('og_title',
+    "Sanjay & Harini Hostels | Boys & Girls PG in Alandur & Perungalathur"
+)
+
+@section('og_description',
+    "Six boys and girls hostels across Alandur and Perungalathur, Chennai with comfortable rooms, food, WiFi, CCTV and gym facilities."
+)
+
+@section('og_url', \App\Support\Seo::url('/'))
+
+@section('og_type', 'website')
+
+
+@section('schema')
+
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@graph": [
+
+        {
+            "@type": "Organization",
+            "@id": "{{ url('/') }}#organization",
+            "name": "Sanjay & Harini Hostels",
+            "url": "{{ url('/') }}",
+            "telephone": "{{ config('hostel.phone') }}",
+            "email": "{{ config('hostel.email') }}",
+            "areaServed": {
+                "@type": "City",
+                "name": "Chennai"
+            }
+        },
+
+        {
+            "@type": "WebSite",
+            "@id": "{{ url('/') }}#website",
+            "url": "{{ url('/') }}",
+            "name": "Sanjay & Harini Hostels",
+            "publisher": {
+                "@id": "{{ url('/') }}#organization"
+            },
+            "inLanguage": "en-IN"
+        },
+
+        {
+            "@type": "WebPage",
+            "@id": "{{ url('/') }}#webpage",
+            "url": "{{ url('/') }}",
+            "name": "Sanjay & Harini Hostels | Boys & Girls PG in Alandur & Perungalathur, Chennai",
+            "description": "Boys and girls PG hostels in Alandur and Perungalathur, Chennai.",
+            "isPartOf": {
+                "@id": "{{ url('/') }}#website"
+            },
+            "about": {
+                "@id": "{{ url('/') }}#organization"
+            },
+            "inLanguage": "en-IN"
+        },
+
+        {
+            "@type": "ItemList",
+            "@id": "{{ url('/') }}#hostels",
+            "name": "Sanjay & Harini Hostel Locations",
+            "itemListElement": [
+
+                {
+                    "@type": "ListItem",
+                    "position": 1,
+                    "name": "Pudupettai Street Alandur - Men's Hostel",
+                    "url": "{{ url('/hostels/alandur') }}"
+                },
+
+                {
+                    "@type": "ListItem",
+                    "position": 2,
+                    "name": "Pudupettai Street Alandur - Women's Hostel 1",
+                    "url": "{{ url('/hostels/alandur') }}"
+                },
+
+                {
+                    "@type": "ListItem",
+                    "position": 3,
+                    "name": "Pudupettai Street Alandur - Women's Hostel 2",
+                    "url": "{{ url('/hostels/alandur') }}"
+                },
+
+                {
+                    "@type": "ListItem",
+                    "position": 4,
+                    "name": "M.K.N. Road Alandur - Men's Hostel",
+                    "url": "{{ url('/hostels/alandur') }}"
+                },
+
+                {
+                    "@type": "ListItem",
+                    "position": 5,
+                    "name": "Raja Street Alandur - Ladies' Hostel",
+                    "url": "{{ url('/hostels/alandur') }}"
+                },
+
+                {
+                    "@type": "ListItem",
+                    "position": 6,
+                    "name": "Perungalathur - Boys' Hostel",
+                    "url": "{{ url('/hostels/perungalathur') }}"
+                }
+
+            ]
+        }
+
+    ]
+}
+</script>
+
+@endsection
+
 
 @section('content')
 
-{{-- ===== HERO: headline + quick enquiry form ===== --}}
-<section class="hero" aria-labelledby="hero-title">
-    <img class="hero-photo" src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&q=70&w=1200"
-         alt="" width="1200" height="675" loading="lazy" fetchpriority="low" decoding="async">
+
+{{-- =========================================================
+     HERO
+========================================================= --}}
+
+<section class="hero"
+         aria-labelledby="hero-title">
+
+    <img class="hero-photo"
+         src="{{ asset('images/hostel/hero.jpg') }}"
+         alt="Sanjay and Harini PG hostels in Alandur and Perungalathur Chennai"
+         width="1200"
+         height="675"
+         fetchpriority="high"
+         decoding="async">
+
+
     <div class="wrap hero-grid">
+
         <div>
-            <span class="hero-kicker"><svg class="i"><use href="#i-pin"/></svg> Alandur &amp; Perungalathur, Chennai</span>
-            <h1 id="hero-title">Men's and women's PG hostels in Alandur and Perungalathur</h1>
-            <p class="sub">We run six separate men's and women's hostels in Alandur and Perungalathur, with luxury and budget rooms, home-style food, WiFi and 24/7 security. Made for IT professionals, students and airport staff.</p>
+
+            <span class="hero-kicker">
+
+                <svg class="i">
+                    <use href="#i-pin"/>
+                </svg>
+
+                Alandur &amp; Perungalathur, Chennai
+
+            </span>
+
+
+            <h1 id="hero-title">
+                Boys &amp; Girls PG Hostels in Alandur &amp; Perungalathur, Chennai
+            </h1>
+
+
+            <p class="sub">
+                Sanjay &amp; Harini Hostels operates six hostels across
+                Alandur and Perungalathur, Chennai, with separate
+                accommodation for men and women. Choose from comfortable
+                PG rooms with food, WiFi, CCTV, gym facilities and
+                convenient access to local transport.
+            </p>
+
+
             <ul class="hero-points">
-                <li><svg class="i"><use href="#i-check"/></svg> AC and non-AC rooms</li>
-                <li><svg class="i"><use href="#i-check"/></svg> 4 home-style meals a day</li>
-                <li><svg class="i"><use href="#i-check"/></svg> High-speed WiFi</li>
-                <li><svg class="i"><use href="#i-check"/></svg> 24/7 CCTV and warden</li>
-                <li><svg class="i"><use href="#i-check"/></svg> Gym in the building</li>
-                <li><svg class="i"><use href="#i-check"/></svg> Close to metro and rail</li>
+
+                <li>
+                    <svg class="i">
+                        <use href="#i-check"/>
+                    </svg>
+                    AC and non-AC room options
+                </li>
+
+                <li>
+                    <svg class="i">
+                        <use href="#i-check"/>
+                    </svg>
+                    Home-style meals
+                </li>
+
+                <li>
+                    <svg class="i">
+                        <use href="#i-check"/>
+                    </svg>
+                    High-speed WiFi
+                </li>
+
+                <li>
+                    <svg class="i">
+                        <use href="#i-check"/>
+                    </svg>
+                    CCTV and hostel security
+                </li>
+
+                <li>
+                    <svg class="i">
+                        <use href="#i-check"/>
+                    </svg>
+                    Gym access for residents
+                </li>
+
+                <li>
+                    <svg class="i">
+                        <use href="#i-check"/>
+                    </svg>
+                    Convenient locations in Chennai
+                </li>
+
             </ul>
+
+
             <div class="hero-actions">
-                <a href="tel:{{ config('hostel.phone') }}" class="btn btn-primary"><svg class="i"><use href="#i-phone"/></svg> Call {{ config('hostel.phone_display') }}</a>
-                <a href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability" class="btn btn-ghost" target="_blank" rel="noopener"><svg class="i"><use href="#i-chat"/></svg> WhatsApp us</a>
+
+                <a href="tel:{{ config('hostel.phone') }}"
+                   class="btn btn-primary">
+
+                    <svg class="i">
+                        <use href="#i-phone"/>
+                    </svg>
+
+                    Call {{ config('hostel.phone_display') }}
+
+                </a>
+
+
+                <a href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability"
+                   class="btn btn-ghost"
+                   target="_blank"
+                   rel="noopener noreferrer">
+
+                    <svg class="i">
+                        <use href="#i-chat"/>
+                    </svg>
+
+                    WhatsApp Us
+
+                </a>
+
             </div>
+
         </div>
 
-        <div class="enquiry form-shell" id="enquire">
-            <h2>Check room availability</h2>
-            <p>Leave your number and we'll call you back with rooms and rates.</p>
-            <form action="{{ route('contact.submit') }}" method="POST">
+
+        {{-- ENQUIRY FORM --}}
+
+        <div class="enquiry form-shell"
+             id="enquire">
+
+            <h2>
+                Check PG Room Availability
+            </h2>
+
+            <p>
+                Tell us what you are looking for and we will contact you
+                with current room availability and pricing.
+            </p>
+
+
+            <form action="{{ route('contact.submit') }}"
+                  method="POST">
+
                 @csrf
+
+
                 <div class="form-row">
-                    <div><label for="hq-name">Full name</label><input id="hq-name" type="text" name="name" required autocomplete="name"></div>
-                    <div><label for="hq-phone">Phone</label><input id="hq-phone" type="tel" name="phone" required autocomplete="tel" placeholder="+91"></div>
+
+                    <div>
+
+                        <label for="hq-name">
+                            Full Name
+                        </label>
+
+                        <input id="hq-name"
+                               type="text"
+                               name="name"
+                               required
+                               autocomplete="name">
+
+                    </div>
+
+
+                    <div>
+
+                        <label for="hq-phone">
+                            Phone
+                        </label>
+
+                        <input id="hq-phone"
+                               type="tel"
+                               name="phone"
+                               required
+                               autocomplete="tel"
+                               placeholder="+91">
+
+                    </div>
+
                 </div>
+
+
                 <div class="form-row">
-                    <div><label for="hq-interest">I'm looking for</label>
-                        <select id="hq-interest" name="interest">
-                            <option value="sanjay_room">Boys PG (Sanjay)</option>
-                            <option value="harini_room">Girls PG (Harini)</option>
-                            <option value="lunch_box">Lunch box delivery</option>
-                            <option value="general">Something else</option>
+
+                    <div>
+
+                        <label for="hq-interest">
+                            I am looking for
+                        </label>
+
+                        <select id="hq-interest"
+                                name="interest">
+
+                            <option value="sanjay_room">
+                                Boys PG
+                            </option>
+
+                            <option value="harini_room">
+                                Girls PG
+                            </option>
+
+                            <option value="lunch_box">
+                                Lunch Box Delivery
+                            </option>
+
+                            <option value="general">
+                                General Enquiry
+                            </option>
+
                         </select>
+
                     </div>
-                    <div><label for="hq-branch">Branch</label>
-                        <select id="hq-branch" name="branch">
-                            <option value="alandur">Alandur</option>
-                            <option value="st_thomas_mount">St. Thomas Mount</option>
-                            <option value="perungalathur">Perungalathur (boys only)</option>
+
+
+                    <div>
+
+                        <label for="hq-branch">
+                            Preferred Location
+                        </label>
+
+                        <select id="hq-branch"
+                                name="branch">
+
+                            <option value="pudupettai_alandur">
+                                Pudupettai Street, Alandur
+                            </option>
+
+                            <option value="mkn_road_alandur">
+                                M.K.N. Road, Alandur
+                            </option>
+
+                            <option value="raja_street_alandur">
+                                Raja Street, Alandur
+                            </option>
+
+                            <option value="perungalathur">
+                                Perungalathur
+                            </option>
+
                         </select>
+
                     </div>
+
                 </div>
-                <input type="hidden" name="message" value="Quick enquiry from home page">
-                <button type="submit" class="form-submit">Get a call back</button>
-                <p class="form-note">No booking fee. We only use your number to reply to this enquiry.</p>
+
+
+                <input type="hidden"
+                       name="message"
+                       value="Quick PG room enquiry from the home page">
+
+
+                <button type="submit"
+                        class="form-submit">
+
+                    Get a Call Back
+
+                </button>
+
+
+                <p class="form-note">
+                    No booking fee. We only use your contact details
+                    to respond to this enquiry.
+                </p>
+
             </form>
+
         </div>
+
     </div>
+
 </section>
 
-{{-- ===== TRUST STRIP ===== --}}
-<section class="trust" aria-label="Highlights">
+
+
+{{-- =========================================================
+     TRUST
+========================================================= --}}
+
+<section class="trust"
+         aria-label="Hostel highlights">
+
     <div class="wrap trust-grid">
-        <div class="trust-item"><span class="ic"><svg class="i"><use href="#i-pin"/></svg></span><div><strong>6 hostels</strong><span>Men's and women's, in Alandur and Perungalathur</span></div></div>
-        <div class="trust-item"><span class="ic"><svg class="i"><use href="#i-shield"/></svg></span><div><strong>24/7 security</strong><span>CCTV, biometric entry, on-site warden</span></div></div>
-        <div class="trust-item"><span class="ic"><svg class="i"><use href="#i-food"/></svg></span><div><strong>4 meals a day</strong><span>Veg and non-veg, home style</span></div></div>
-        <div class="trust-item"><span class="ic"><svg class="i"><use href="#i-train"/></svg></span><div><strong>Near metro and rail</strong><span>Alandur Metro, St. Thomas Mount, Perungalathur</span></div></div>
+
+
+        <div class="trust-item">
+
+            <span class="ic">
+
+                <svg class="i">
+                    <use href="#i-pin"/>
+                </svg>
+
+            </span>
+
+            <div>
+
+                <strong>
+                    6 Hostels
+                </strong>
+
+                <span>
+                    Men and women hostels across Alandur and Perungalathur
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="trust-item">
+
+            <span class="ic">
+
+                <svg class="i">
+                    <use href="#i-shield"/>
+                </svg>
+
+            </span>
+
+            <div>
+
+                <strong>
+                    Hostel Security
+                </strong>
+
+                <span>
+                    CCTV and resident security arrangements
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="trust-item">
+
+            <span class="ic">
+
+                <svg class="i">
+                    <use href="#i-food"/>
+                </svg>
+
+            </span>
+
+            <div>
+
+                <strong>
+                    Food Available
+                </strong>
+
+                <span>
+                    Home-style vegetarian and non-vegetarian meals
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <div class="trust-item">
+
+            <span class="ic">
+
+                <svg class="i">
+                    <use href="#i-train"/>
+                </svg>
+
+            </span>
+
+            <div>
+
+                <strong>
+                    Connected Locations
+                </strong>
+
+                <span>
+                    Convenient access to metro, railway and major roads
+                </span>
+
+            </div>
+
+        </div>
+
     </div>
+
 </section>
 
-{{-- ===== ROOM CATEGORIES ===== --}}
-<section class="panel-ivory" id="rooms" aria-labelledby="categories-title">
+
+
+{{-- =========================================================
+     ROOM CATEGORIES
+========================================================= --}}
+
+<section class="panel-ivory"
+         id="rooms"
+         aria-labelledby="categories-title">
+
     <div class="wrap">
+
         <div class="section-head">
-            <span class="eyebrow">Rooms and rates</span>
-            <h2 id="categories-title">Pick luxury or budget. Both include food and WiFi.</h2>
-            <p>Monthly rent per person. Luxury gives you an attached bathroom and AC. Normal keeps it simple and affordable. Gym is free in both.</p>
+
+            <span class="eyebrow">
+                Rooms &amp; Pricing
+            </span>
+
+            <h2 id="categories-title">
+                PG Rooms for Students and Working Professionals
+            </h2>
+
+            <p>
+                Choose between Luxury PG and Normal PG options based on
+                your room requirements and budget.
+            </p>
+
         </div>
+
 
         <div class="category-grid">
+
+
+            {{-- LUXURY --}}
+
             <div class="category-card luxury">
-                <span class="cat-tag">Premium</span>
-                <h3>Luxury PG</h3>
-                <p>Top-tier amenities for those who want the best.</p>
+
+                <span class="cat-tag">
+                    Premium
+                </span>
+
+                <h3>
+                    Luxury PG
+                </h3>
+
+                <p>
+                    A premium PG option with additional room facilities
+                    and attached bathroom.
+                </p>
+
+
                 <div class="price-block">
-                    <div class="price">₹12,000 <span>/ month</span></div>
-                    <div class="price-note">EB bill included up to 200 units. Extra units ₹8 each.</div>
+
+                    <div class="price">
+                        ₹12,000
+                        <span>/ month</span>
+                    </div>
+
+                    <div class="price-note">
+                        EB bill included up to 200 units.
+                        Extra units ₹8 each.
+                    </div>
+
                 </div>
+
+
                 <ul class="amenities-list">
-                    <li><svg class="i check"><use href="#i-check"/></svg><span><span class="highlight-text">Premium bed</span> (6×2 ft) with premium mattress</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span><span class="highlight-text">Attached bathroom</span> with geyser</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span>AC room with 43" smart TV</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span><span class="highlight-text">Free gym access</span> with premium equipment</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span>Gourmet meals, veg and non-veg</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span>Fibre WiFi (100 Mbps)</span></li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        <span>
+                            Premium bed (6×2 ft)
+                            with premium mattress
+                        </span>
+                    </li>
+
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        <span>
+                            Attached bathroom with geyser
+                        </span>
+                    </li>
+
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        <span>
+                            AC room with 43&quot; smart TV
+                        </span>
+                    </li>
+
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        <span>
+                            Free gym access
+                        </span>
+                    </li>
+
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        <span>
+                            Veg and non-veg meals
+                        </span>
+                    </li>
+
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        <span>
+                            Fibre WiFi (100 Mbps)
+                        </span>
+                    </li>
+
                 </ul>
+
+
                 <details class="more">
-                    <summary>See everything included</summary>
+
+                    <summary>
+                        See everything included
+                    </summary>
+
                     <ul class="amenities-list">
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>Induction stove for personal cooking</span></li>
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>Washing machine (in-room or shared)</span></li>
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>Water heater and RO purified water</span></li>
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>24/7 concierge and housekeeping</span></li>
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>Study desk, wardrobe and power backup</span></li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Induction stove
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Washing machine
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Water heater and RO water
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Housekeeping
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Study desk and wardrobe
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Power backup
+                        </li>
+
                     </ul>
+
                 </details>
-                <div class="card-foot"><a href="{{ route('contact') }}" class="btn btn-primary btn-block">Enquire about luxury</a></div>
+
+
+                <div class="card-foot">
+
+                    <a href="{{ route('contact') }}"
+                       class="btn btn-primary btn-block">
+
+                        Enquire About Luxury PG
+
+                    </a>
+
+                </div>
+
             </div>
+
+
+
+            {{-- NORMAL --}}
 
             <div class="category-card normal">
-                <span class="cat-tag">Budget friendly</span>
-                <h3>Normal PG</h3>
-                <p>Comfortable, well-kept rooms for students and working professionals.</p>
+
+                <span class="cat-tag">
+                    Budget Friendly
+                </span>
+
+                <h3>
+                    Normal PG
+                </h3>
+
+                <p>
+                    Comfortable and affordable accommodation for
+                    students and working professionals.
+                </p>
+
+
                 <div class="price-block">
-                    <div class="price">₹7,250 <span>/ month</span></div>
-                    <div class="price-note">EB bill extra, on meter reading. Free gym access included.</div>
+
+                    <div class="price">
+                        ₹7,250
+                        <span>/ month</span>
+                    </div>
+
+                    <div class="price-note">
+                        EB bill extra according to meter reading.
+                    </div>
+
                 </div>
+
+
                 <ul class="amenities-list">
-                    <li><svg class="i check"><use href="#i-check"/></svg><span><span class="highlight-text">Comfortable bed</span> (6×2 ft) with good mattress</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span><span class="highlight-text">Shared bathroom</span>, well maintained</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span>AC or non-AC room options</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span>Home-style meals, veg and non-veg</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span><span class="highlight-text">Free gym access</span></span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span>High-speed WiFi and 24/7 CCTV</span></li>
-                    <li><svg class="i check"><use href="#i-check"/></svg><span>Daily housekeeping and power backup</span></li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        Comfortable bed with mattress
+                    </li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        Shared bathroom
+                    </li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        AC and non-AC options
+                    </li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        Home-style meals
+                    </li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        Free gym access
+                    </li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        WiFi and CCTV
+                    </li>
+
+                    <li>
+                        <svg class="i check">
+                            <use href="#i-check"/>
+                        </svg>
+
+                        Housekeeping and power backup
+                    </li>
+
                 </ul>
+
+
                 <details class="more">
-                    <summary>See everything included</summary>
+
+                    <summary>
+                        See everything included
+                    </summary>
+
                     <ul class="amenities-list">
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>Induction stove in the common kitchen</span></li>
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>Washing machine in the common area</span></li>
-                        <li><svg class="i check"><use href="#i-check"/></svg><span>Water heater and RO purified water</span></li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Common kitchen
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Induction stove
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Common washing machine
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            Water heater
+                        </li>
+
+                        <li>
+                            <svg class="i check">
+                                <use href="#i-check"/>
+                            </svg>
+                            RO purified water
+                        </li>
+
                     </ul>
+
                 </details>
-                <div class="card-foot"><a href="{{ route('contact') }}" class="btn btn-dark btn-block">Enquire about normal</a></div>
+
+
+                <div class="card-foot">
+
+                    <a href="{{ route('contact') }}"
+                       class="btn btn-dark btn-block">
+
+                        Enquire About Normal PG
+
+                    </a>
+
+                </div>
+
             </div>
+
         </div>
-        <p class="price-note" style="margin-top:16px;">See single, double, triple and dormitory rates on the <a href="{{ route('rooms') }}" style="color:var(--boys);font-weight:700;text-decoration:underline;">rooms and pricing page</a>.</p>
+
+
+        <p class="price-note"
+           style="margin-top:16px;">
+
+            For single, double, triple and dormitory room options,
+            visit our
+            <a href="{{ route('rooms') }}"
+               style="color:var(--boys);font-weight:700;text-decoration:underline;">
+                rooms and pricing page
+            </a>.
+
+        </p>
+
     </div>
+
 </section>
 
-{{-- ===== LOCATIONS ===== --}}
+
+
+{{-- =========================================================
+     SIX HOSTELS
+========================================================= --}}
+
 <section aria-labelledby="locations-title">
+
     <div class="wrap">
+
         <div class="section-head">
-            <span class="eyebrow">Our hostels</span>
-            <h2 id="locations-title">Six hostels across Alandur and Perungalathur</h2>
-            <p>We operate multiple men's and women's hostels in two areas of Chennai. Choose the area closest to your office or college.</p>
+
+            <span class="eyebrow">
+                Our Locations
+            </span>
+
+            <h2 id="locations-title">
+                6 Hostels in Alandur and Perungalathur
+            </h2>
+
+            <p>
+                Sanjay &amp; Harini Hostels operates separate men's and
+                women's hostels at multiple locations in Alandur and
+                Perungalathur, Chennai.
+            </p>
+
         </div>
-        <div class="location-grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));">
+
+
+        <div class="location-grid"
+             style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));">
+
+
+            {{-- PUDUPETTAI --}}
+
             <div class="location-card">
-                <div class="who"><span class="pill">Men</span><span class="pill girls">Women</span></div>
-                <h3>Hostels in Alandur</h3>
-                <p>Five hostels on Pudupettai Street, M.K.N. Road and Raja Street, for men and for women. Alandur Metro, Guindy and St. Thomas Mount are all on this side of Chennai.</p>
-                <a class="go" href="{{ route('hostels.alandur') }}">See PG in Alandur <svg class="i"><use href="#i-arrow"/></svg></a>
+
+                <div class="who">
+
+                    <span class="pill">
+                        Men
+                    </span>
+
+                    <span class="pill girls">
+                        Women
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    Pudupettai Street, Alandur
+                </h3>
+
+
+                <p>
+                    Three hostels at Pudupettai Street in Alandur:
+                    two women's hostels and one men's hostel.
+                    This location is suitable for students and working
+                    professionals looking for PG accommodation in Alandur.
+                </p>
+
+
+                <a class="go"
+                   href="{{ route('hostels.alandur') }}">
+
+                    Explore Alandur Hostels
+
+                    <svg class="i">
+                        <use href="#i-arrow"/>
+                    </svg>
+
+                </a>
+
             </div>
+
+
+
+            {{-- MKN --}}
+
             <div class="location-card">
-                <div class="who"><span class="pill">Men</span></div>
-                <h3>Hostel in Perungalathur</h3>
-                <p>A men's hostel between Tambaram and Vandalur, on the suburban rail line and GST Road. Normal PG rooms.</p>
-                <a class="go" href="{{ route('hostels.perungalathur') }}">See the Perungalathur hostel <svg class="i"><use href="#i-arrow"/></svg></a>
+
+                <div class="who">
+
+                    <span class="pill">
+                        Men
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    M.K.N. Road, Alandur
+                </h3>
+
+
+                <p>
+                    Men's PG accommodation on M.K.N. Road, Alandur,
+                    near the Lalitha Thanga Maligai area.
+                    The branch is suitable for working professionals,
+                    students and commuters.
+                </p>
+
+
+                <a class="go"
+                   href="{{ route('hostels.alandur') }}">
+
+                    View Alandur PG
+
+                    <svg class="i">
+                        <use href="#i-arrow"/>
+                    </svg>
+
+                </a>
+
             </div>
+
+
+
+            {{-- RAJA STREET --}}
+
+            <div class="location-card">
+
+                <div class="who">
+
+                    <span class="pill girls">
+                        Women
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    Raja Street, Alandur
+                </h3>
+
+
+                <p>
+                    Ladies' hostel accommodation in Raja Street,
+                    Alandur for women looking for a convenient and
+                    comfortable place to stay in Chennai.
+                </p>
+
+
+                <a class="go"
+                   href="{{ route('hostels.alandur') }}">
+
+                    View Alandur Hostels
+
+                    <svg class="i">
+                        <use href="#i-arrow"/>
+                    </svg>
+
+                </a>
+
+            </div>
+
+
+
+            {{-- PERUNGALATHUR --}}
+
+            <div class="location-card">
+
+                <div class="who">
+
+                    <span class="pill">
+                        Boys
+                    </span>
+
+                </div>
+
+
+                <h3>
+                    Boys Hostel in Perungalathur
+                </h3>
+
+
+                <p>
+                    Boys PG accommodation in Perungalathur,
+                    convenient for students and working professionals
+                    travelling around Tambaram, Vandalur and GST Road.
+                </p>
+
+
+                <a class="go"
+                   href="{{ route('hostels.perungalathur') }}">
+
+                    View Perungalathur Hostel
+
+                    <svg class="i">
+                        <use href="#i-arrow"/>
+                    </svg>
+
+                </a>
+
+            </div>
+
         </div>
-        <p class="price-note" style="margin-top:16px;">Want to compare everything in one place? See <a href="{{ route('hostels.index') }}" style="color:var(--boys);font-weight:700;text-decoration:underline;">all our hostels</a>.</p>
+
+
+        <p class="price-note"
+           style="margin-top:16px;">
+
+            View all branches and hostel details on our
+            <a href="{{ route('hostels.index') }}"
+               style="color:var(--boys);font-weight:700;text-decoration:underline;">
+                hostels page
+            </a>.
+
+        </p>
+
     </div>
+
 </section>
 
-{{-- ===== GYM ===== --}}
-<section class="panel-ivory" aria-labelledby="gym-title">
-    <div class="wrap">
-        <div class="gym-grid">
-            <div class="gym-content">
-                <span class="eyebrow">In-house gym</span>
-                <h2 id="gym-title">Work out without leaving the building</h2>
-                <p>A fully equipped gym for residents, open 6 AM to 10 PM. Whether you're starting out or training regularly, everything you need is downstairs.</p>
-                <div class="gym-features">
-                    <div class="gf"><svg class="i"><use href="#i-gym"/></svg> Cardio equipment</div>
-                    <div class="gf"><svg class="i"><use href="#i-gym"/></svg> Weight training area</div>
-                    <div class="gf"><svg class="i"><use href="#i-gym"/></svg> Treadmill and cross trainer</div>
-                    <div class="gf"><svg class="i"><use href="#i-gym"/></svg> Yoga and stretching zone</div>
-                    <div class="gf"><svg class="i"><use href="#i-check"/></svg> 6 AM to 10 PM access</div>
-                    <div class="gf"><svg class="i"><use href="#i-users"/></svg> Trainer available</div>
-                </div>
-                <div class="gym-rate"><span><b>Free for all residents</b>, luxury and normal</span></div>
-                <a href="{{ route('contact') }}" class="btn btn-primary">Check gym availability</a>
-            </div>
-            <div class="gym-visual">
-                <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=70&w=600" alt="Gym with cardio and weight equipment" width="300" height="240" loading="lazy" decoding="async">
-                <img src="https://images.unsplash.com/photo-1549060279-7e168fcee0c2?auto=format&fit=crop&q=70&w=600" alt="Cardio machines in a hostel gym" width="300" height="240" loading="lazy" decoding="async">
-                <img class="full" src="https://images.unsplash.com/photo-1538805060514-97d9cc17730c?auto=format&fit=crop&q=70&w=600" alt="Weight training area in the PG hostel gym" width="600" height="200" loading="lazy" decoding="async">
-            </div>
-        </div>
-    </div>
-</section>
 
-{{-- ===== ABOUT ===== --}}
-<section id="about" aria-labelledby="about-title">
-    <div class="wrap">
-        <div class="about-wrap">
-            <div class="about-copy">
-                <span class="eyebrow">About us</span>
-                <h2 id="about-title">Men's and women's PG hostels in Chennai</h2>
-                <p>Sanjay &amp; Harini Hostels operates six men's and women's hostels in <a href="{{ route('hostels.alandur') }}">Alandur</a> and <a href="{{ route('hostels.perungalathur') }}">Perungalathur</a>, with luxury and normal rooms, a gym, AC and non-AC options and home-style meals.</p>
-                <p>Our hostels suit IT employees, working professionals, college students, airport staff and metro commuters, with 24/7 security, high-speed WiFi and daily housekeeping.</p>
-                <div class="about-stats">
-                    <div class="stat"><div class="num">6</div><div class="label">Hostels</div></div>
-                    <div class="stat"><div class="num">Gym</div><div class="label">In the building</div></div>
-                    <div class="stat"><div class="num">24/7</div><div class="label">Security and support</div></div>
-                    <div class="stat"><div class="num">2</div><div class="label">Areas in Chennai</div></div>
-                </div>
-                <a href="{{ route('about') }}">Learn more about us</a>
-            </div>
-            <div class="about-visual">
-                <img class="tall" src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&q=70&w=800" alt="Hostel room with a bed and study area" width="400" height="340" loading="lazy" decoding="async">
-                <div class="col">
-                    <img src="https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&q=70&w=600" alt="Hostel common lounge" width="300" height="240" loading="lazy" decoding="async">
-                    <img src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&q=70&w=600" alt="Hostel dining area" width="300" height="240" loading="lazy" decoding="async">
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
 
-{{-- ===== WHY CHOOSE US ===== --}}
-<section class="panel-ivory" aria-labelledby="why-title">
+{{-- =========================================================
+     NEARBY AREAS
+========================================================= --}}
+
+<section class="panel-ivory"
+         aria-labelledby="areas-title">
+
     <div class="wrap">
+
         <div class="section-head">
-            <span class="eyebrow">Why residents choose us</span>
-            <h2 id="why-title">Everything a PG stay needs, in one place</h2>
+
+            <span class="eyebrow">
+                Chennai Locations
+            </span>
+
+            <h2 id="areas-title">
+                Convenient for Work, College and Daily Travel
+            </h2>
+
+            <p>
+                Our Alandur and Perungalathur locations can be useful
+                for residents travelling to nearby business areas,
+                colleges, railway stations, metro stations and major
+                roads in Chennai.
+            </p>
+
         </div>
+
+
         <div class="why-grid">
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-bed"/></svg></span><p>Luxury and normal options</p></div>
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-gym"/></svg></span><p>Free gym for all residents</p></div>
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-train"/></svg></span><p>Near metro and railway</p></div>
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-snow"/></svg></span><p>AC and non-AC rooms</p></div>
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-wifi"/></svg></span><p>High-speed WiFi</p></div>
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-shield"/></svg></span><p>24/7 CCTV security</p></div>
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-food"/></svg></span><p>Home-style food</p></div>
-            <div class="why-item"><span class="tick-circ"><svg class="i"><use href="#i-users"/></svg></span><p>Separate, safe hostel for women</p></div>
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-pin"/>
+                    </svg>
+                </span>
+
+                <p>
+                    Alandur
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-train"/>
+                    </svg>
+                </span>
+
+                <p>
+                    Alandur Metro
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-train"/>
+                    </svg>
+                </span>
+
+                <p>
+                    Guindy
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-pin"/>
+                    </svg>
+                </span>
+
+                <p>
+                    St. Thomas Mount area
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-pin"/>
+                    </svg>
+                </span>
+
+                <p>
+                    Ekkatuthangal
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-pin"/>
+                    </svg>
+                </span>
+
+                <p>
+                    Nanganallur
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-train"/>
+                    </svg>
+                </span>
+
+                <p>
+                    Tambaram
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+                    <svg class="i">
+                        <use href="#i-pin"/>
+                    </svg>
+                </span>
+
+                <p>
+                    Vandalur &amp; GST Road
+                </p>
+
+            </div>
+
         </div>
+
     </div>
+
 </section>
 
-{{-- ===== FAQ ===== --}}
-<section aria-labelledby="faq-title">
+
+
+{{-- =========================================================
+     GYM
+========================================================= --}}
+
+<section aria-labelledby="gym-title">
+
     <div class="wrap">
-        <div class="section-head">
-            <span class="eyebrow">FAQs</span>
-            <h2 id="faq-title">Questions we hear most</h2>
-        </div>
-        <div class="faq-list">
-            @foreach ([
-                ['What is included in the Luxury PG?', 'Luxury PG includes a premium bed (6×2 ft), attached bathroom, induction stove, washing machine, water heater, EB bill up to 200 units, free gym access, AC room with smart TV, high-speed WiFi and gourmet meals.'],
-                ['What is included in the Normal PG?', 'Normal PG includes a comfortable bed (6×2 ft), shared bathroom, common kitchen with induction stove, common washing machine, water heater with RO water, AC or non-AC options, free gym access, WiFi, CCTV and home-style meals. EB bill is extra.'],
-                ['Is the gym free for all residents?', 'Yes. Gym access is free for both Luxury and Normal PG residents.'],
-                ['How does the EB bill work?', 'For Luxury PG, EB bill is included up to 200 units per month, and extra units are charged at ₹8 per unit. For Normal PG, EB bill is charged as per your individual meter reading.'],
-                ['Do you provide a washing machine and induction stove?', 'Yes. Luxury rooms have an in-room washing machine and induction stove. Normal PG has a common washing machine and a common kitchen with an induction stove.'],
-                ['Do you provide boys PG accommodation in Alandur?', 'Yes. We have two men\'s hostels in Alandur, on Pudupettai Street and M.K.N. Road, and a men\'s hostel in Perungalathur.'],
-                ['Do you provide girls hostel accommodation?', 'Yes. We have three women\'s hostels in Alandur: two on Pudupettai Street and a ladies\' hostel on Raja Street, all with 24/7 security.'],
-                ['What are the food options?', 'We serve home-style meals with vegetarian and non-vegetarian options daily. Luxury residents get gourmet meal options.'],
-            ] as $faq)
-                <div class="faq-item">
-                    <button class="faq-q" aria-expanded="false">{{ $faq[0] }}<span class="plus" aria-hidden="true">+</span></button>
-                    <div class="faq-a">{{ $faq[1] }}</div>
+
+        <div class="gym-grid">
+
+            <div class="gym-content">
+
+                <span class="eyebrow">
+                    Resident Facility
+                </span>
+
+                <h2 id="gym-title">
+                    Free Gym Access for Residents
+                </h2>
+
+                <p>
+                    Residents can use the in-house gym facility without
+                    leaving the hostel building. The facility is designed
+                    for everyday workouts and fitness routines.
+                </p>
+
+
+                <div class="gym-features">
+
+                    <div class="gf">
+                        <svg class="i">
+                            <use href="#i-gym"/>
+                        </svg>
+                        Cardio equipment
+                    </div>
+
+                    <div class="gf">
+                        <svg class="i">
+                            <use href="#i-gym"/>
+                        </svg>
+                        Weight training
+                    </div>
+
+                    <div class="gf">
+                        <svg class="i">
+                            <use href="#i-gym"/>
+                        </svg>
+                        Treadmill
+                    </div>
+
+                    <div class="gf">
+                        <svg class="i">
+                            <use href="#i-gym"/>
+                        </svg>
+                        Exercise area
+                    </div>
+
+                    <div class="gf">
+                        <svg class="i">
+                            <use href="#i-check"/>
+                        </svg>
+                        Resident access
+                    </div>
+
                 </div>
-            @endforeach
+
+
+                <div class="gym-rate">
+
+                    <span>
+                        <b>
+                            Free gym access
+                        </b>
+                        for residents
+                    </span>
+
+                </div>
+
+
+                <a href="{{ route('contact') }}"
+                   class="btn btn-primary">
+
+                    Ask About Availability
+
+                </a>
+
+            </div>
+
+
+            <div class="gym-visual">
+
+                <img src="{{ asset('images/hostel/gym-1.jpg') }}"
+                     alt="Gym facility at Sanjay and Harini Hostels"
+                     width="300"
+                     height="240"
+                     loading="lazy"
+                     decoding="async">
+
+
+                <img src="{{ asset('images/hostel/gym-2.jpg') }}"
+                     alt="Fitness equipment for hostel residents"
+                     width="300"
+                     height="240"
+                     loading="lazy"
+                     decoding="async">
+
+
+                <img class="full"
+                     src="{{ asset('images/hostel/gym-3.jpg') }}"
+                     alt="Hostel gym and workout area"
+                     width="600"
+                     height="200"
+                     loading="lazy"
+                     decoding="async">
+
+            </div>
+
         </div>
+
     </div>
+
 </section>
 
-{{-- ===== TESTIMONIALS (hidden until they are verified, see config/hostel.php) ===== --}}
-@if (config('hostel.show_testimonials'))
-<section class="panel-ivory" aria-labelledby="testimonials-title">
+
+
+{{-- =========================================================
+     ABOUT
+========================================================= --}}
+
+<section id="about"
+         aria-labelledby="about-title">
+
     <div class="wrap">
-        <div class="section-head">
-            <span class="eyebrow">Resident reviews</span>
-            <h2 id="testimonials-title">What our residents say</h2>
+
+        <div class="about-wrap">
+
+            <div class="about-copy">
+
+                <span class="eyebrow">
+                    About Sanjay &amp; Harini
+                </span>
+
+
+                <h2 id="about-title">
+                    Boys and Girls PG Accommodation in Chennai
+                </h2>
+
+
+                <p>
+                    Sanjay &amp; Harini Hostels operates six hostels
+                    across Alandur and Perungalathur, Chennai.
+                    Our locations include separate accommodation for
+                    men and women.
+                </p>
+
+
+                <p>
+                    We provide different room options along with
+                    facilities such as food, WiFi, CCTV, housekeeping
+                    and gym access, depending on the hostel and room plan.
+                </p>
+
+
+                <div class="about-stats">
+
+                    <div class="stat">
+                        <div class="num">
+                            6
+                        </div>
+
+                        <div class="label">
+                            Hostels
+                        </div>
+                    </div>
+
+
+                    <div class="stat">
+                        <div class="num">
+                            2
+                        </div>
+
+                        <div class="label">
+                            Main Areas
+                        </div>
+                    </div>
+
+
+                    <div class="stat">
+                        <div class="num">
+                            Gym
+                        </div>
+
+                        <div class="label">
+                            Resident Facility
+                        </div>
+                    </div>
+
+
+                    <div class="stat">
+                        <div class="num">
+                            WiFi
+                        </div>
+
+                        <div class="label">
+                            Available
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <a href="{{ route('about') }}">
+                    Learn More About Us
+                </a>
+
+            </div>
+
+
+            <div class="about-visual">
+
+                <img class="tall"
+                     src="{{ asset('images/hostel/room.jpg') }}"
+                     alt="PG hostel room at Sanjay and Harini Hostels Chennai"
+                     width="400"
+                     height="340"
+                     loading="lazy"
+                     decoding="async">
+
+
+                <div class="col">
+
+                    <img src="{{ asset('images/hostel/common-area.jpg') }}"
+                         alt="Common area at Sanjay and Harini Hostel"
+                         width="300"
+                         height="240"
+                         loading="lazy"
+                         decoding="async">
+
+
+                    <img src="{{ asset('images/hostel/dining.jpg') }}"
+                         alt="Dining area at Sanjay and Harini Hostel"
+                         width="300"
+                         height="240"
+                         loading="lazy"
+                         decoding="async">
+
+                </div>
+
+            </div>
+
         </div>
-        <div class="testi-grid">
-            <div class="testi-card">
-                <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
-                <p class="quote">"The luxury PG is amazing! Premium bed, attached bathroom and an induction stove made cooking so easy. Best PG in Alandur!"</p>
-                <div class="who">Arun Kumar, Luxury resident, Alandur</div>
-            </div>
-            <div class="testi-card">
-                <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
-                <p class="quote">"Safe, affordable, and the gym is a bonus! Harini Girls Hostel is perfect for working women in Chennai."</p>
-                <div class="who">Priya Sharma, Harini Girls Hostel</div>
-            </div>
-            <div class="testi-card">
-                <div class="stars" aria-label="5 out of 5 stars">★★★★★</div>
-                <p class="quote">"Great location near St. Thomas Mount station. The gym and WiFi are excellent. Highly recommend!"</p>
-                <div class="who">Suresh Raj, Sanjay Boys Hostel, St. Thomas Mount</div>
-            </div>
-        </div>
+
     </div>
+
+</section>
+
+
+
+{{-- =========================================================
+     WHY CHOOSE US
+========================================================= --}}
+
+<section class="panel-ivory"
+         aria-labelledby="why-title">
+
+    <div class="wrap">
+
+        <div class="section-head">
+
+            <span class="eyebrow">
+                Hostel Facilities
+            </span>
+
+            <h2 id="why-title">
+                Comfortable PG Living in Chennai
+            </h2>
+
+            <p>
+                Facilities vary by branch and room category.
+                Contact us to confirm current availability.
+            </p>
+
+        </div>
+
+
+        <div class="why-grid">
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-bed"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    Luxury and Normal PG options
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-gym"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    Gym access
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-train"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    Convenient transport access
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-snow"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    AC and non-AC options
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-wifi"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    High-speed WiFi
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-shield"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    CCTV security
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-food"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    Home-style food
+                </p>
+
+            </div>
+
+
+            <div class="why-item">
+
+                <span class="tick-circ">
+
+                    <svg class="i">
+                        <use href="#i-users"/>
+                    </svg>
+
+                </span>
+
+                <p>
+                    Separate accommodation for women
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+{{-- =========================================================
+     FAQ
+========================================================= --}}
+
+<section aria-labelledby="faq-title">
+
+    <div class="wrap">
+
+        <div class="section-head">
+
+            <span class="eyebrow">
+                FAQs
+            </span>
+
+            <h2 id="faq-title">
+                Frequently Asked Questions About Our PG Hostels
+            </h2>
+
+        </div>
+
+
+        <div class="faq-list">
+
+
+            @foreach ([
+
+                [
+                    'Where are Sanjay & Harini Hostels located?',
+                    'Sanjay & Harini Hostels has six hostels across Alandur and Perungalathur in Chennai. The Alandur locations include Pudupettai Street, M.K.N. Road and Raja Street. There is also a boys hostel in Perungalathur.'
+                ],
+
+                [
+                    'How many hostels do you have in Alandur?',
+                    'There are five hostels in Alandur: two women’s hostels and one men’s hostel on Pudupettai Street, one men’s hostel on M.K.N. Road and one ladies’ hostel on Raja Street.'
+                ],
+
+                [
+                    'Do you provide boys PG accommodation in Alandur?',
+                    'Yes. Sanjay & Harini Hostels has men’s PG accommodation in Alandur, including a men’s hostel at Pudupettai Street and another men’s hostel at M.K.N. Road.'
+                ],
+
+                [
+                    'Do you provide girls hostel accommodation in Alandur?',
+                    'Yes. There are two women’s hostels at Pudupettai Street and one ladies’ hostel at Raja Street in Alandur.'
+                ],
+
+                [
+                    'Do you have a boys hostel in Perungalathur?',
+                    'Yes. Sanjay & Harini Hostels operates a boys hostel in Perungalathur.'
+                ],
+
+                [
+                    'What room options are available?',
+                    'Room options include Luxury PG and Normal PG categories. Depending on the branch, room types may include single, double, triple or shared accommodation. Contact us for current availability.'
+                ],
+
+                [
+                    'Do you provide food?',
+                    'Yes. Home-style vegetarian and non-vegetarian meal options are available according to the hostel and accommodation plan.'
+                ],
+
+                [
+                    'Is WiFi available?',
+                    'WiFi is available as part of the hostel facilities. Please confirm the current plan and availability for the branch you are interested in.'
+                ],
+
+                [
+                    'Is gym access available?',
+                    'Gym access is available for residents. Please confirm the current gym timings and facilities when you enquire.'
+                ],
+
+                [
+                    'How can I check room availability?',
+                    'You can call us, send a WhatsApp message or submit the enquiry form on this website. We can then provide the available room options and current pricing.'
+                ]
+
+            ] as $faq)
+
+                <div class="faq-item">
+
+                    <button class="faq-q"
+                            type="button"
+                            aria-expanded="false">
+
+                        {{ $faq[0] }}
+
+                        <span class="plus"
+                              aria-hidden="true">
+                            +
+                        </span>
+
+                    </button>
+
+
+                    <div class="faq-a">
+                        {{ $faq[1] }}
+                    </div>
+
+                </div>
+
+            @endforeach
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+{{-- =========================================================
+     TESTIMONIALS
+========================================================= --}}
+
+{{--
+    Do NOT publish made-up reviews.
+    Keep this section disabled until you have genuine resident reviews.
+--}}
+
+@if (config('hostel.show_testimonials'))
+
+<section class="panel-ivory"
+         aria-labelledby="testimonials-title">
+
+    <div class="wrap">
+
+        <div class="section-head">
+
+            <span class="eyebrow">
+                Resident Reviews
+            </span>
+
+            <h2 id="testimonials-title">
+                What Our Residents Say
+            </h2>
+
+        </div>
+
+
+        <div class="testi-grid">
+
+            {{-- Add ONLY genuine resident reviews here. --}}
+
+            {{-- Example structure:
+
+            <div class="testi-card">
+
+                <div class="stars">
+                    ★★★★★
+                </div>
+
+                <p class="quote">
+                    "Actual resident review goes here."
+                </p>
+
+                <div class="who">
+                    Resident name, branch
+                </div>
+
+            </div>
+
+            --}}
+
+        </div>
+
+    </div>
+
 </section>
 
 @endif
 
-{{-- ===== FINAL CTA ===== --}}
-<section class="final-cta" aria-labelledby="cta-title">
+
+
+{{-- =========================================================
+     FINAL CTA
+========================================================= --}}
+
+<section class="final-cta"
+         aria-labelledby="cta-title">
+
     <div class="wrap">
+
         <div>
-            <div class="strap">Visit before you decide</div>
-            <h2 id="cta-title">See a room this week</h2>
-            <p class="lead">Call or message us to check what's free at your branch, then visit before you decide. Luxury or normal, gym and food included in the plan you choose.</p>
+
+            <div class="strap">
+                Check availability
+            </div>
+
+            <h2 id="cta-title">
+                Looking for a PG in Alandur or Perungalathur?
+            </h2>
+
+            <p class="lead">
+                Tell us your preferred location, room type and
+                accommodation requirement. We can help you check
+                the available hostel options and current pricing.
+            </p>
+
         </div>
+
+
         <div class="hero-actions">
-            <a href="tel:{{ config('hostel.phone') }}" class="btn btn-primary"><svg class="i"><use href="#i-phone"/></svg> Call {{ config('hostel.phone_display') }}</a>
-            <a href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability" class="btn btn-wa" target="_blank" rel="noopener"><svg class="i"><use href="#i-chat"/></svg> Message on WhatsApp</a>
-            <a href="{{ route('contact') }}" class="btn btn-ghost">Send an enquiry</a>
+
+
+            <a href="tel:{{ config('hostel.phone') }}"
+               class="btn btn-primary">
+
+                <svg class="i">
+                    <use href="#i-phone"/>
+                </svg>
+
+                Call {{ config('hostel.phone_display') }}
+
+            </a>
+
+
+            <a href="https://wa.me/{{ config('hostel.whatsapp') }}?text=Hi%2C%20I%20want%20to%20check%20PG%20room%20availability"
+               class="btn btn-wa"
+               target="_blank"
+               rel="noopener noreferrer">
+
+                <svg class="i">
+                    <use href="#i-chat"/>
+                </svg>
+
+                WhatsApp
+
+            </a>
+
+
+            <a href="{{ route('contact') }}"
+               class="btn btn-ghost">
+
+                Send an Enquiry
+
+            </a>
+
         </div>
+
     </div>
+
 </section>
+
 
 @endsection
