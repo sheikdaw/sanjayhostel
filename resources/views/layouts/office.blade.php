@@ -170,6 +170,12 @@
                         <i class="bi bi-people"></i>
                         <span class="ol-nav-label">Residents</span>
                     </a>
+                    <a href="{{ route('admin.essl.residents') }}"
+                        class="ol-nav-item {{ request()->routeIs('admin.residents.*') ? 'active' : '' }}">
+                        <i class="bi bi-people"></i>
+                        <span class="ol-nav-label">Residents Essl</span>
+                    </a>
+
 
                     {{-- Financial Management --}}
                     <div class="ol-nav-section">Financial Management</div>
