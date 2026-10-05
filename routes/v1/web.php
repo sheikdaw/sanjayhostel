@@ -136,24 +136,36 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     });
 
     // ----- Residents -----
+    // ⚠️ ORDER MATTERS: specific (static) routes MUST come before /{id} wildcards.
     Route::prefix('residents')->name('residents.')->group(function () {
-        Route::get('/',      [ResidentController::class, 'index'])->name('index');
-        Route::post('/',     [ResidentController::class, 'store'])->name('store');
-        Route::get('/{id}',  [ResidentController::class, 'show'])->name('show');
-        Route::put('/{id}',  [ResidentController::class, 'update'])->name('update');
-        Route::delete('/{id}', [ResidentController::class, 'destroy'])->name('destroy');
-        Route::patch('/{id}/vacate',     [ResidentController::class, 'vacate'])->name('vacate');
-        Route::patch('/{id}/reactivate', [ResidentController::class, 'reactivate'])->name('reactivate');
-        Route::get('/vacant-beds/{roomId}', [ResidentController::class, 'getVacantBeds'])->name('vacant-beds');
 
-        // 🔑 Employee-code regeneration
-        Route::patch('/{id}/regenerate-employee-code',
-            [ResidentController::class, 'regenerateEmployeeCode'])
-            ->name('regenerate-employee-code');
-
+        // 🔑 SPECIFIC ROUTES FIRST
         Route::patch('/regenerate-all-employee-codes',
             [ResidentController::class, 'regenerateAllEmployeeCodes'])
             ->name('regenerate-all-employee-codes');
+
+        Route::get('/vacant-beds/{roomId}',
+            [ResidentController::class, 'getVacantBeds'])
+            ->name('vacant-beds');
+
+        // ----- Standard CRUD -----
+        Route::get('/',      [ResidentController::class, 'index'])->name('index');
+        Route::post('/',     [ResidentController::class, 'store'])->name('store');
+
+        // 🔑 WILDCARD ROUTES AFTER
+        Route::get('/{id}',  [ResidentController::class, 'show'])->name('show');
+        Route::put('/{id}',  [ResidentController::class, 'update'])->name('update');
+        Route::delete('/{id}', [ResidentController::class, 'destroy'])->name('destroy');
+
+        Route::patch('/{id}/vacate',
+            [ResidentController::class, 'vacate'])->name('vacate');
+
+        Route::patch('/{id}/reactivate',
+            [ResidentController::class, 'reactivate'])->name('reactivate');
+
+        Route::patch('/{id}/regenerate-employee-code',
+            [ResidentController::class, 'regenerateEmployeeCode'])
+            ->name('regenerate-employee-code');
     });
 
     // ----- Payments -----
