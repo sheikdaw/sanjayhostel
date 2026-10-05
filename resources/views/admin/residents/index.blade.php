@@ -593,13 +593,6 @@
     .rs-context-item.success:hover { background: #f0fdf4; }
     .rs-context-item i { font-size: 0.85rem; width: 16px; }
 
-    @media (max-width: 768px) {
-        .rs-page-header { flex-direction: column; align-items: flex-start; }
-        .rs-toolbar { flex-direction: column; align-items: stretch; }
-        .rs-search-box { max-width: none; }
-        .rs-grid { grid-template-columns: 1fr; }
-    }
-
     /* 🔑 Employee-code regenerate button */
     #regenerateEmpCodeBtn {
         padding: 0 0.85rem;
@@ -618,6 +611,23 @@
     }
     #regenerateEmpCodeBtn.spinning {
         pointer-events: none;
+    }
+
+    /* 🔑 Regen All button */
+    #regenAllBtn.spinning i {
+        display: inline-block;
+        animation: rs-spin 0.8s linear infinite;
+    }
+    #regenAllBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    @media (max-width: 768px) {
+        .rs-page-header { flex-direction: column; align-items: flex-start; }
+        .rs-toolbar { flex-direction: column; align-items: stretch; }
+        .rs-search-box { max-width: none; }
+        .rs-grid { grid-template-columns: 1fr; }
     }
 </style>
 @endpush
@@ -663,6 +673,15 @@
         <option value="WITH_FOOD">With Food</option>
         <option value="WITHOUT_FOOD">Without Food</option>
     </select>
+
+    {{-- 🔑 REGEN ALL BUTTON --}}
+    <button type="button"
+            id="regenAllBtn"
+            class="rs-btn rs-btn-outline"
+            onclick="regenerateAllEmployeeCodes()"
+            title="Regenerate employee codes for all residents (format: {hostel prefix}{resident id})">
+        <i class="bi bi-arrow-repeat"></i> Regen All
+    </button>
 
     <span style="margin-left:auto; font-size:0.75rem; color:#9ca3af;" id="rsCountLabel">
         {{ $residents->count() }} residents
@@ -1237,7 +1256,6 @@ function openCreateModal() {
     document.getElementById('resident_code').value = NEXT_RESIDENT_CODE;
     document.getElementById('employee_code').value = NEXT_EMPLOYEE_CODE;
 
-    // Reset the regenerate button state (create mode → will show toast)
     var hint = document.getElementById('empCodeHint');
     if (hint) hint.innerHTML = '<i class="bi bi-info-circle"></i> Auto-generated on save';
 
@@ -1525,7 +1543,7 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async func
 });
 
 /* =========================================================
- |  🔑 REGENERATE EMPLOYEE CODE
+ |  🔑 REGENERATE EMPLOYEE CODE (single resident)
  ========================================================= */
 
 async function regenerateEmployeeCode() {
@@ -1577,8 +1595,21 @@ async function regenerateEmployeeCode() {
     }
 }
 
+/* =========================================================
+ |  🔑 REGENERATE ALL EMPLOYEE CODES (bulk)
+ ========================================================= */
+
 async function regenerateAllEmployeeCodes() {
-    if (!confirm('Regenerate employee codes for ALL residents?\nFormat: {hostel prefix}{resident id}')) return;
+    if (!confirm('Regenerate employee codes for ALL residents?\n\nFormat: {hostel prefix}{resident id}\nExample: 1000 + id 5 = 10005')) {
+        return;
+    }
+
+    const btn = document.getElementById('regenAllBtn');
+    const originalHTML = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.classList.add('spinning');
+    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Regenerating...';
 
     try {
         const res = await fetch(BASE_URL + '/regenerate-all-employee-codes', {
@@ -1595,11 +1626,15 @@ async function regenerateAllEmployeeCodes() {
             showToast(data.message, 'success');
             setTimeout(function () { window.location.reload(); }, 900);
         } else {
-            showToast(data.message || 'Failed', 'error');
+            showToast(data.message || 'Failed to regenerate', 'error');
         }
     } catch (err) {
         console.error(err);
         showToast('Network error', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('spinning');
+        btn.innerHTML = originalHTML;
     }
 }
 
