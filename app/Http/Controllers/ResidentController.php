@@ -655,19 +655,19 @@ class ResidentController extends Controller
      * Matches existing data: "1000" + 5 → "10005"; "1000" + 40 → "10040".
      */
     protected function generateEmployeeCode($hostelId, int $residentId): string
-    {
-        $prefix = '1000'; // default fallback
+{
+    $prefix = 1000; // default fallback (integer now)
 
-        if ($hostelId) {
-            $hostel = Hostel::find($hostelId);
-            if ($hostel && !empty($hostel->employee_code_prefix)) {
-                $prefix = (string) $hostel->employee_code_prefix;
-            }
+    if ($hostelId) {
+        $hostel = Hostel::find($hostelId);
+        if ($hostel && !empty($hostel->employee_code_prefix)) {
+            $prefix = (int) $hostel->employee_code_prefix;
         }
-
-        return $prefix . $residentId;
     }
 
+    // ➕ ADD instead of concatenate
+    return (string) ($prefix + $residentId);
+}
     /**
      * Ensure the generated employee code is unique.
      * @param  string    $code
