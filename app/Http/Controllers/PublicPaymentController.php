@@ -12,6 +12,22 @@ use Carbon\Carbon;
 class PublicPaymentController extends Controller
 {
     /**
+     * ============================================================
+     * DISCOUNT SLABS  (edit these numbers anytime)
+     * ------------------------------------------------------------
+     *  Key = minimum months stayed, Value = discount percentage
+     *  Slabs are matched from highest to lowest.
+     * ============================================================
+     */
+    private const DISCOUNT_SLABS = [
+        // months_stayed => discount_percentage
+        10 => 15,   // 10+ months  → 15%
+        5  => 10,   // 5 to <10    → 10%
+        1  => 5,    // 1 to <5     → 5%
+        0  => 0,    // 0 months    → 0%
+    ];
+
+    /**
      * Show public payment lookup page
      * URL: /pay/{encodedHostelId}
      */
@@ -33,7 +49,7 @@ class PublicPaymentController extends Controller
 
     /**
      * AJAX: Lookup resident by phone + hostel
-     * Returns current month + previous pending details
+     * Returns current month + previous pending details WITH discount slabs
      */
     public function lookup(Request $request, string $encodedHostelId)
     {
@@ -53,7 +69,7 @@ class PublicPaymentController extends Controller
         }
 
         // Search resident by phone (last 10 digits)
-        $phone = preg_replace('/[^0-9]/', '', $request->phone);
+        $phone  = preg_replace('/[^0-9]/', '', $request->phone);
         $last10 = substr($phone, -10);
 
         $resident = Resident::with(['room', 'bed'])
@@ -73,31 +89,39 @@ class PublicPaymentController extends Controller
         }
 
         // Current month/year
-        $now = Carbon::now();
+        $now          = Carbon::now();
         $currentMonth = (int) $now->month;
         $currentYear  = (int) $now->year;
 
-        // ---- Previous Pending ----
+        // ------------------------------------------------------------
+        // 1) PREVIOUS PENDING  (with slab discount applied per month)
+        // ------------------------------------------------------------
         $previousPending = 0;
-        $previousMonths = [];
+        $previousMonths  = [];
 
-        $joinMonth = Carbon::parse($resident->joining_date)->startOfMonth();
+        $joinMonth         = Carbon::parse($resident->joining_date)->startOfMonth();
         $currentMonthStart = Carbon::create($currentYear, $currentMonth, 1)->startOfMonth();
 
         $cursor = $joinMonth->copy();
         while ($cursor->lt($currentMonthStart)) {
+
             $payments = Payment::where('resident_id', $resident->id)
                 ->where('month', $cursor->month)
                 ->where('year', $cursor->year)
                 ->get();
 
             if ($payments->count() > 0) {
+                // Trust saved balance_amount from records
                 $due = 0;
                 foreach ($payments as $p) {
                     $due += (float) $p->balance_amount;
                 }
             } else {
-                $due = (float) $resident->rent_amount;
+                // No record → compute due for that month WITH slab discount
+                $monthsAtThatTime = $joinMonth->diffInMonths($cursor);
+                $discountPct      = $this->getDiscountPercentage($monthsAtThatTime);
+                $discountAmt      = ((float) $resident->rent_amount) * ($discountPct / 100);
+                $due              = max(0, (float) $resident->rent_amount - $discountAmt);
             }
 
             if ($due > 0) {
@@ -111,16 +135,18 @@ class PublicPaymentController extends Controller
             $cursor->addMonth();
         }
 
-        // ---- Current Month ----
+        // ------------------------------------------------------------
+        // 2) CURRENT MONTH
+        // ------------------------------------------------------------
         $currentPayments = Payment::where('resident_id', $resident->id)
             ->where('month', $currentMonth)
             ->where('year', $currentYear)
             ->get();
 
-        $currentPaid = 0;
-        $currentBalance = 0;
+        $currentPaid     = 0;
+        $currentBalance  = 0;
         $currentDiscount = 0;
-        $currentFine = 0;
+        $currentFine     = 0;
 
         if ($currentPayments->count() > 0) {
             foreach ($currentPayments as $p) {
@@ -129,12 +155,27 @@ class PublicPaymentController extends Controller
                 $currentDiscount += (float) $p->discount_amount;
                 $currentFine     += (float) $p->fine_amount;
             }
-        } else {
-            $currentBalance = (float) $resident->rent_amount;
         }
 
         $currentRent = (float) $resident->rent_amount;
-        $currentDue  = max(0, $currentRent + $currentFine - $currentDiscount);
+
+        // ---- Slab discount for current month ----
+        $monthsStayed = $joinMonth->diffInMonths($currentMonthStart);
+        $slabDiscountPct = $this->getDiscountPercentage($monthsStayed);
+        $slabDiscount    = $currentRent * ($slabDiscountPct / 100);
+
+        // Total discount = manual (from payment record) + auto slab discount
+        $totalDiscount = $currentDiscount + $slabDiscount;
+
+        // Current due = rent + fine - total discount
+        $currentDue = max(0, $currentRent + $currentFine - $totalDiscount);
+
+        // Recompute balance using the corrected due
+        if ($currentPayments->count() > 0) {
+            $currentBalance = max(0, $currentDue - $currentPaid);
+        } else {
+            $currentBalance = $currentDue;
+        }
 
         // Status
         if ($currentPayments->count() === 0) {
@@ -147,11 +188,12 @@ class PublicPaymentController extends Controller
 
         $totalDue = $previousPending + $currentBalance;
 
-        // UPI info
-        $upiId = $hostel->upi_id ?? null;
+        // ------------------------------------------------------------
+        // 3) UPI LINK
+        // ------------------------------------------------------------
+        $upiId        = $hostel->upi_id ?? null;
         $upiPayeeName = $hostel->upi_payee_name ?? $hostel->hostel_name;
 
-        // Build UPI deep link
         $upiLink = null;
         if ($upiId && $totalDue > 0) {
             $rawUpiId = $upiId;
@@ -172,27 +214,31 @@ class PublicPaymentController extends Controller
         }
 
         return response()->json([
-            'success' => true,
+            'success'  => true,
             'resident' => [
-                'id'          => $resident->id,
-                'name'        => $resident->name,
-                'code'        => $resident->resident_code,
-                'phone'       => $resident->phone,
-                'hostel_name' => $hostel->hostel_name,
-                'room_no'     => $resident->room->room_no ?? 'N/A',
-                'bed_no'      => $resident->bed->bed_no ?? 'N/A',
-                'joining_date'=> Carbon::parse($resident->joining_date)->format('d M Y'),
-                'rent_amount' => $currentRent,
+                'id'            => $resident->id,
+                'name'          => $resident->name,
+                'code'          => $resident->resident_code,
+                'phone'         => $resident->phone,
+                'hostel_name'   => $hostel->hostel_name,
+                'room_no'       => $resident->room->room_no ?? 'N/A',
+                'bed_no'        => $resident->bed->bed_no ?? 'N/A',
+                'joining_date'  => Carbon::parse($resident->joining_date)->format('d M Y'),
+                'rent_amount'   => $currentRent,
+                'months_stayed' => $monthsStayed,
             ],
             'current_month' => [
-                'month'    => Carbon::create($currentYear, $currentMonth, 1)->format('F Y'),
-                'rent'     => round($currentRent, 2),
-                'discount' => round($currentDiscount, 2),
-                'fine'     => round($currentFine, 2),
-                'paid'     => round($currentPaid, 2),
-                'balance'  => round($currentBalance, 2),
-                'due'      => round($currentDue, 2),
-                'status'   => $currentStatus,
+                'month'             => Carbon::create($currentYear, $currentMonth, 1)->format('F Y'),
+                'rent'              => round($currentRent, 2),
+                'manual_discount'   => round($currentDiscount, 2),
+                'slab_discount_pct' => round($slabDiscountPct, 2),
+                'slab_discount'     => round($slabDiscount, 2),
+                'total_discount'    => round($totalDiscount, 2),
+                'fine'              => round($currentFine, 2),
+                'paid'              => round($currentPaid, 2),
+                'balance'           => round($currentBalance, 2),
+                'due'               => round($currentDue, 2),
+                'status'            => $currentStatus,
             ],
             'previous_pending' => [
                 'total'  => round($previousPending, 2),
@@ -206,7 +252,36 @@ class PublicPaymentController extends Controller
             ],
         ]);
     }
-     public function index()
+
+    /**
+     * Return the applicable discount percentage for a given months-stayed count.
+     *
+     * Uses self::DISCOUNT_SLABS — matched from highest slab down.
+     * Example with defaults:
+     *   0 months   → 0%
+     *   1–4 months → 5%
+     *   5–9 months → 10%
+     *   10+ months → 15%
+     */
+    private function getDiscountPercentage(int $monthsStayed): float
+    {
+        // Slabs are stored descending by months, so first match wins
+        $slabs = self::DISCOUNT_SLABS;
+        krsort($slabs); // ensure descending order
+
+        foreach ($slabs as $minMonths => $percent) {
+            if ($monthsStayed >= $minMonths) {
+                return (float) $percent;
+            }
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Show public index page with QR codes for each hostel
+     */
+    public function index()
     {
         $user = auth()->user();
 
@@ -220,7 +295,7 @@ class PublicPaymentController extends Controller
         // Build payment link + QR for each hostel
         $links = $hostels->map(function ($hostel) {
             $encodedId = Crypt::encryptString($hostel->id);
-            $url = url('/pay/' . $encodedId);
+            $url       = url('/pay/' . $encodedId);
 
             return [
                 'id'     => $hostel->id,

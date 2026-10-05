@@ -34,5 +34,12 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'essl' => [
+        'url'      => env('EBIOSERVER_URL'),
+        'api_key'  => env('EBIOSERVER_API_KEY', '1'),
+        'username' => env('EBIOSERVER_USERNAME'),
+        'password' => env('EBIOSERVER_PASSWORD'),
+        'mock'     => env('USE_MOCK_SERVICE', false),
+    ],
 
 ];

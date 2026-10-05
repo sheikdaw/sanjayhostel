@@ -51,4 +51,8 @@ class Hostel extends Model
     {
         return $this->belongsToMany(User::class, 'user_hostels');
     }
+    public function hasEsslDevice(): bool
+    {
+        return !empty($this->biometric_device_id);
+    }
 }
