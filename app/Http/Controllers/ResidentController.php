@@ -43,7 +43,12 @@ class ResidentController extends Controller
         if (!$user->isAdmin()) {
             $hostelQuery->whereIn('id', $user->hostel_ids ?? []);
         }
-        $hostels = $hostelQuery->get(['id', 'hostel_name', 'hostel_code']);
+        $hostels = $hostelQuery->get([
+            'id',
+            'hostel_name',
+            'hostel_code',
+            'employee_code_prefix',
+        ]);
 
         // Rooms + vacant beds
         $roomQuery = Room::with(['hostel', 'beds' => function ($q) {
@@ -75,9 +80,10 @@ class ResidentController extends Controller
             ];
         }
 
-        // 🔑 Preview the NEXT auto-generated codes for the modal
+        // Preview the next resident code (employee code is generated AFTER insert
+        // because it depends on resident.id — show a placeholder in the UI).
         $nextResidentCode = $this->generateResidentCode();
-        $nextEmployeeCode = $this->generateEmployeeCode();
+        $nextEmployeeCode = 'Auto-generated on save';
 
         return view('admin.residents.index', compact(
             'residents',
@@ -92,17 +98,20 @@ class ResidentController extends Controller
 
     /**
      * Store new resident — codes are auto-generated.
+     *
+     * resident_code : RES-0001, RES-0002, ...
+     * employee_code : {hostel.employee_code_prefix}{resident.id}  → e.g. 10005, 10040
      */
     public function store(Request $request)
     {
-        // 🔑 Generate codes BEFORE validation
+        // Generate resident code BEFORE validation
         $autoResidentCode = $this->generateResidentCode();
-        $autoEmployeeCode = $this->generateEmployeeCode();
 
-        // Force-set them (ignore whatever came from the client)
+        // Force-set it (ignore whatever came from the client).
+        // employee_code is NOT set here — it will be generated after insert
+        // because it depends on the newly-created resident id.
         $request->merge([
             'resident_code' => $autoResidentCode,
-            'employee_code' => $autoEmployeeCode,
         ]);
 
         $validator = Validator::make($request->all(), [
@@ -127,20 +136,19 @@ class ResidentController extends Controller
                     }
                 },
             ],
-            'resident_code' => 'required|string|max:50|unique:residents,resident_code',
-            'name'          => 'required|string|max:255',
-            'phone'         => 'required|string|max:20',
-            'parentsphone'  => 'nullable|string|max:20',
-            'email'         => 'nullable|email|max:255',
-            'aadhaar_no'    => 'nullable|string|max:20',
-            'address'       => 'nullable|string|max:500',
-            'dob'           => 'required|date',
-            'joining_date'  => 'required|date',
-            'food_status'   => 'required|in:WITH_FOOD,WITHOUT_FOOD',
-            'rent_amount'   => 'required|numeric|min:0',
-            'deposit_amount'=> 'nullable|numeric|min:0',
-            'status'        => 'nullable|in:ACTIVE,VACATED',
-            'employee_code' => 'nullable|string|max:50|unique:residents,employee_code',
+            'resident_code'    => 'required|string|max:50|unique:residents,resident_code',
+            'name'             => 'required|string|max:255',
+            'phone'            => 'required|string|max:20',
+            'parentsphone'     => 'nullable|string|max:20',
+            'email'            => 'nullable|email|max:255',
+            'aadhaar_no'       => 'nullable|string|max:20',
+            'address'          => 'nullable|string|max:500',
+            'dob'              => 'required|date',
+            'joining_date'     => 'required|date',
+            'food_status'      => 'required|in:WITH_FOOD,WITHOUT_FOOD',
+            'rent_amount'      => 'required|numeric|min:0',
+            'deposit_amount'   => 'nullable|numeric|min:0',
+            'status'           => 'nullable|in:ACTIVE,VACATED',
             'biometric_access' => 'nullable|boolean',
 
             'profile_image'        => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
@@ -151,7 +159,7 @@ class ResidentController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors'  => $validator->errors()
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -169,11 +177,20 @@ class ResidentController extends Controller
                 $data['application_document'] = $this->saveFile($request->file('application_document'), 'application');
             }
 
-            $data['status'] = $data['status'] ?? 'ACTIVE';
+            $data['status']           = $data['status'] ?? 'ACTIVE';
             $data['biometric_access'] = $request->has('biometric_access') ? (bool) $request->biometric_access : true;
-            $data['deposit_amount'] = $data['deposit_amount'] ?? 0;
+            $data['deposit_amount']   = $data['deposit_amount'] ?? 0;
 
+            // Step 1 — insert with employee_code = null (column is nullable)
+            $data['employee_code'] = null;
             $resident = Resident::create($data);
+
+            // Step 2 — now we know the id, build the employee code
+            $employeeCode = $this->generateEmployeeCode($resident->hostel_id, $resident->id);
+            $employeeCode = $this->ensureUniqueEmployeeCode($employeeCode);
+
+            // Step 3 — persist it
+            $resident->update(['employee_code' => $employeeCode]);
 
             $this->markBedOccupied($resident->bed_id);
             $this->updateRoomStatus($resident->room_id);
@@ -185,14 +202,14 @@ class ResidentController extends Controller
             return response()->json([
                 'success'  => true,
                 'message'  => 'Resident registered successfully! Code: ' . $resident->resident_code,
-                'resident' => $resident
+                'resident' => $resident,
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to register resident: ' . $e->getMessage()
+                'message' => 'Failed to register resident: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -211,7 +228,7 @@ class ResidentController extends Controller
 
             return response()->json([
                 'success'  => true,
-                'resident' => $resident
+                'resident' => $resident,
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Not found'], 404);
@@ -229,7 +246,7 @@ class ResidentController extends Controller
             return response()->json(['success' => false, 'message' => 'No access'], 403);
         }
 
-        // 🔒 Preserve existing codes — ignore any client changes
+        // Lock both codes — ignore any client-supplied values
         $request->merge([
             'resident_code' => $resident->resident_code,
             'employee_code' => $resident->employee_code,
@@ -241,24 +258,24 @@ class ResidentController extends Controller
             'bed_id'    => 'required|exists:beds,id',
             'resident_code' => [
                 'required', 'string', 'max:50',
-                Rule::unique('residents', 'resident_code')->ignore($id)
+                Rule::unique('residents', 'resident_code')->ignore($id),
             ],
-            'name'          => 'required|string|max:255',
-            'phone'         => 'required|string|max:20',
-            'parentsphone'  => 'nullable|string|max:20',
-            'email'         => 'nullable|email|max:255',
-            'aadhaar_no'    => 'nullable|string|max:20',
-            'address'       => 'nullable|string|max:500',
-            'dob'           => 'required|date',
-            'joining_date'  => 'required|date',
-            'vacate_date'   => 'nullable|date',
-            'food_status'   => 'required|in:WITH_FOOD,WITHOUT_FOOD',
-            'rent_amount'   => 'required|numeric|min:0',
-            'deposit_amount'=> 'nullable|numeric|min:0',
-            'status'        => 'required|in:ACTIVE,VACATED',
-            'employee_code' => [
+            'name'             => 'required|string|max:255',
+            'phone'            => 'required|string|max:20',
+            'parentsphone'     => 'nullable|string|max:20',
+            'email'            => 'nullable|email|max:255',
+            'aadhaar_no'       => 'nullable|string|max:20',
+            'address'          => 'nullable|string|max:500',
+            'dob'              => 'required|date',
+            'joining_date'     => 'required|date',
+            'vacate_date'      => 'nullable|date',
+            'food_status'      => 'required|in:WITH_FOOD,WITHOUT_FOOD',
+            'rent_amount'      => 'required|numeric|min:0',
+            'deposit_amount'   => 'nullable|numeric|min:0',
+            'status'           => 'required|in:ACTIVE,VACATED',
+            'employee_code'    => [
                 'nullable', 'string', 'max:50',
-                Rule::unique('residents', 'employee_code')->ignore($id)
+                Rule::unique('residents', 'employee_code')->ignore($id),
             ],
             'biometric_access' => 'nullable|boolean',
 
@@ -293,7 +310,7 @@ class ResidentController extends Controller
             }
 
             $data['biometric_access'] = $request->has('biometric_access') ? (bool) $request->biometric_access : false;
-            $data['deposit_amount'] = $data['deposit_amount'] ?? 0;
+            $data['deposit_amount']   = $data['deposit_amount'] ?? 0;
 
             if ($data['status'] === 'VACATED' && empty($data['vacate_date'])) {
                 $data['vacate_date'] = now()->format('Y-m-d');
@@ -330,14 +347,14 @@ class ResidentController extends Controller
             return response()->json([
                 'success'  => true,
                 'message'  => 'Resident updated successfully!',
-                'resident' => $resident
+                'resident' => $resident,
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update: ' . $e->getMessage()
+                'message' => 'Failed to update: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -357,7 +374,7 @@ class ResidentController extends Controller
             if ($resident->payments()->count() > 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot delete resident with payment history. Use "Vacate" instead.'
+                    'message' => 'Cannot delete resident with payment history. Use "Vacate" instead.',
                 ], 422);
             }
 
@@ -379,7 +396,7 @@ class ResidentController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Resident deleted successfully!'
+                    'message' => 'Resident deleted successfully!',
                 ]);
             } catch (\Exception $e) {
                 DB::rollBack();
@@ -389,7 +406,7 @@ class ResidentController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete: ' . $e->getMessage()
+                'message' => 'Failed to delete: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -426,7 +443,7 @@ class ResidentController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Resident vacated successfully! Bed is now available.'
+                    'message' => 'Resident vacated successfully! Bed is now available.',
                 ]);
             } catch (\Exception $e) {
                 DB::rollBack();
@@ -436,7 +453,7 @@ class ResidentController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to vacate: ' . $e->getMessage()
+                'message' => 'Failed to vacate: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -461,7 +478,7 @@ class ResidentController extends Controller
             if (!$bed || $bed->status !== 'VACANT') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot reactivate — the assigned bed is no longer vacant. Please reassign.'
+                    'message' => 'Cannot reactivate — the assigned bed is no longer vacant. Please reassign.',
                 ], 422);
             }
 
@@ -481,7 +498,7 @@ class ResidentController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Resident reactivated successfully!'
+                    'message' => 'Resident reactivated successfully!',
                 ]);
             } catch (\Exception $e) {
                 DB::rollBack();
@@ -491,7 +508,7 @@ class ResidentController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to reactivate: ' . $e->getMessage()
+                'message' => 'Failed to reactivate: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -515,7 +532,7 @@ class ResidentController extends Controller
     }
 
     /* =========================================================
-     |  🔑 AUTO-GENERATORS
+     |  AUTO-GENERATORS
      ========================================================= */
 
     /**
@@ -523,7 +540,7 @@ class ResidentController extends Controller
      */
     protected function generateResidentCode(): string
     {
-        $prefix = 'RES-';
+        $prefix  = 'RES-';
         $padding = 4;
 
         // Find the highest existing numeric suffix
@@ -549,31 +566,52 @@ class ResidentController extends Controller
     }
 
     /**
-     * Generate the next employee code: EMP-0001, EMP-0002, ...
+     * Generate the employee code as {hostel.employee_code_prefix}{resident.id}.
+     *
+     * Matches the existing data pattern in the residents table:
+     *   prefix = "1000", resident id = 5   → "10005"
+     *   prefix = "1000", resident id = 40  → "10040"
+     *   prefix = "1000", resident id = 65  → "10065"
+     *   prefix = "2000", resident id = 5   → "20005"
+     *
+     * NOTE: The id is NOT zero-padded — just concatenated as-is.
+     *
+     * @param  int|string|null  $hostelId
+     * @param  int              $residentId
+     * @return string
      */
-    protected function generateEmployeeCode(): string
+    protected function generateEmployeeCode($hostelId, int $residentId): string
     {
-        $prefix = 'EMP-';
-        $padding = 4;
+        $prefix = '1000'; // default fallback
 
-        $last = Resident::where('employee_code', 'like', $prefix . '%')
-            ->orderByRaw('CAST(SUBSTRING(employee_code, ' . (strlen($prefix) + 1) . ') AS UNSIGNED) DESC')
-            ->value('employee_code');
-
-        $nextNumber = 1;
-        if ($last) {
-            $num = (int) substr($last, strlen($prefix));
-            $nextNumber = $num + 1;
+        if ($hostelId) {
+            $hostel = Hostel::find($hostelId);
+            if ($hostel && !empty($hostel->employee_code_prefix)) {
+                $prefix = (string) $hostel->employee_code_prefix;
+            }
         }
 
-        $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
+        return $prefix . $residentId;
+    }
 
-        while (Resident::where('employee_code', $code)->exists()) {
-            $nextNumber++;
-            $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
+    /**
+     * Ensure the generated employee code is unique.
+     * Handles the edge case where two hostels share the same prefix —
+     * in that case we append "-1", "-2", ... until unique.
+     */
+    protected function ensureUniqueEmployeeCode(string $code): string
+    {
+        if (!Resident::where('employee_code', $code)->exists()) {
+            return $code;
         }
 
-        return $code;
+        $suffix = 1;
+        do {
+            $candidate = $code . '-' . $suffix;
+            $suffix++;
+        } while (Resident::where('employee_code', $candidate)->exists());
+
+        return $candidate;
     }
 
     /* =========================================================

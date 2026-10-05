@@ -185,26 +185,29 @@ Route::post('/pay/{encodedHostelId}/lookup', [PublicPaymentController::class, 'l
 
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
-use App\Http\Controllers\EsslController;
+use App\Http\Controllers\EsslController;   // ← move this to the top with other imports
 
 Route::middleware(['auth'])
     ->prefix('admin/essl')
     ->name('admin.essl.')
     ->group(function () {
 
+        // Diagnostics (GET)
+        Route::get('/diagnose', [EsslController::class, 'diagnose'])->name('diagnose');
+
         // Page
         Route::get('/residents', [EsslController::class, 'residents'])->name('residents');
 
         // Sync
-        Route::post('/resident/sync',        [EsslController::class, 'syncResident'])->name('resident.sync');
-        Route::post('/hostel/sync',          [EsslController::class, 'syncHostel'])->name('hostel.sync');
+        Route::post('/resident/sync', [EsslController::class, 'syncResident'])->name('resident.sync');
+        Route::post('/hostel/sync',   [EsslController::class, 'syncHostel'])->name('hostel.sync');
 
         // Enroll
         Route::post('/resident/enroll-fp',   [EsslController::class, 'enrollFingerprint'])->name('resident.enroll.fp');
         Route::post('/resident/enroll-face', [EsslController::class, 'enrollFace'])->name('resident.enroll.face');
 
         // Block / Unblock
-        Route::post('/resident/block',       [EsslController::class, 'blockUser'])->name('resident.block');
+        Route::post('/resident/block', [EsslController::class, 'blockUser'])->name('resident.block');
 
         // Utilities
         Route::get('/test',           [EsslController::class, 'test'])->name('test');

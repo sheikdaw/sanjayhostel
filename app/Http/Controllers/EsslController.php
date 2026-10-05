@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Resident;
 use App\Models\Hostel;
 use Illuminate\Http\Client\Response;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -14,11 +15,15 @@ class EsslController extends Controller
     private const NS = 'http://tempuri.org/';
 
     private string $baseUrl;
-    private array $auth;
+    private array  $auth;
+    private int    $connectTimeout;
+    private int    $timeout;
 
     public function __construct()
     {
-        $this->baseUrl = rtrim((string) config('services.essl.url'), '?');
+        $this->baseUrl        = rtrim((string) config('services.essl.url'), '?');
+        $this->connectTimeout = (int) config('services.essl.connect_timeout', 5);
+        $this->timeout        = (int) config('services.essl.timeout', 30);
 
         $this->auth = [
             'api_key'  => (string) config('services.essl.api_key'),
@@ -31,7 +36,7 @@ class EsslController extends Controller
      |  CORE: SOAP CALL
      ========================================================= */
 
-    private function soapCall(string $method, array $params = [], int $timeout = 30): Response
+    private function soapCall(string $method, array $params = [], ?int $timeout = null): Response
     {
         if (config('services.essl.mock')) {
             return $this->mockResponse($method);
@@ -39,7 +44,10 @@ class EsslController extends Controller
 
         $inner = '';
         foreach ($params as $name => $value) {
-            $safe = is_int($value)
+            if (is_bool($value)) {
+                $value = $value ? 'true' : 'false';
+            }
+            $safe = is_int($value) || is_float($value)
                 ? (string) $value
                 : htmlspecialchars((string) ($value ?? ''), ENT_XML1 | ENT_QUOTES, 'UTF-8');
 
@@ -56,12 +64,17 @@ class EsslController extends Controller
             . '</soap:Envelope>';
 
         Log::debug('eSSL SOAP Request', [
-            'url' => $this->baseUrl,
-            'xml' => $xml,
+            'url'    => $this->baseUrl,
+            'method' => $method,
+            'xml'    => $xml,
         ]);
 
-        return Http::timeout($timeout)
-            ->withHeaders(['SOAPAction' => '"' . self::NS . $method . '"'])
+        return Http::connectTimeout($this->connectTimeout)
+            ->timeout($timeout ?? $this->timeout)
+            ->withHeaders([
+                'SOAPAction' => '"' . self::NS . $method . '"',
+                'Content-Type' => 'text/xml; charset=utf-8',
+            ])
             ->withBody($xml, 'text/xml; charset=utf-8')
             ->post($this->baseUrl);
     }
@@ -240,102 +253,121 @@ class EsslController extends Controller
             'errors'  => $errors,
         ]);
     }
-public function blockUser(Request $request)
-{
-    $data = $request->validate([
-        'resident_id' => 'required|exists:residents,id',
-        'block'       => 'required|boolean',
-    ]);
 
-    $resident = Resident::with('hostel')->findOrFail($data['resident_id']);
+    /* =========================================================
+     |  BLOCK / UNBLOCK
+     ========================================================= */
 
-    if (!auth()->user()->hasAccessToHostel($resident->hostel_id)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'You do not have access to this resident.',
-        ], 403);
-    }
-
-    if (empty($resident->employee_code)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Resident has no employee code.',
-        ], 422);
-    }
-
-    $serial = $resident->hostel->biometric_device_id ?? null;
-
-    if (empty($serial)) {
-        return response()->json([
-            'success' => false,
-            'message' => "Hostel \"{$resident->hostel->hostel_name}\" has no eSSL device configured.",
-        ], 422);
-    }
-
-    $isBlock = (bool) $data['block'];
-
-    try {
-        $response = $this->soapCall('BlockUnblockUser', [
-            'APIKey'       => $this->auth['api_key'],
-            'EmployeeCode' => $resident->employee_code,
-            'EmployeeName' => $resident->name,
-            'SerialNumber' => $serial,
-            'IsBlock'      => $isBlock ? 'true' : 'false',  // ✅ lowercase
-            'UserName'     => $this->auth['username'],
-            'UserPassword' => $this->auth['password'],
-            'CommandId'    => 0,
+    public function blockUser(Request $request)
+    {
+        $data = $request->validate([
+            'resident_id' => 'required|exists:residents,id',
+            'block'       => 'required|boolean',
         ]);
 
-        Log::info('eSSL BlockUnblockUser', [
-            'resident_id'   => $resident->id,
-            'employee_code' => $resident->employee_code,
-            'serial'        => $serial,
-            'is_block'      => $isBlock,
-            'http_status'   => $response->status(),
-            'body'          => $response->body(),
-        ]);
+        $resident = Resident::with('hostel')->findOrFail($data['resident_id']);
 
-        if (!$response->successful()) {
+        if (!auth()->user()->hasAccessToHostel($resident->hostel_id)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Device error: HTTP ' . $response->status(),
-                'body'    => $response->body(),
-            ], 500);
+                'message' => 'You do not have access to this resident.',
+            ], 403);
         }
 
-        $result    = $this->extractTag($response, 'BlockUnblockUserResult');
-        $commandId = $this->extractTag($response, 'CommandId');
-
-        if (!$this->resultIsSuccess($result)) {
+        if (empty($resident->employee_code)) {
             return response()->json([
                 'success' => false,
-                'message' => 'eSSL replied: ' . ($result ?: 'empty response'),
+                'message' => 'Resident has no employee code.',
             ], 422);
         }
 
-        $resident->update(['biometric_access' => !$isBlock]);
+        $serial = $resident->hostel->biometric_device_id ?? null;
 
-        $action = $isBlock ? 'blocked' : 'unblocked';
+        if (empty($serial)) {
+            return response()->json([
+                'success' => false,
+                'message' => "Hostel \"{$resident->hostel->hostel_name}\" has no eSSL device configured.",
+            ], 422);
+        }
 
-        return response()->json([
-            'success'          => true,
-            'message'          => "{$resident->name} ({$resident->employee_code}) {$action} on device {$serial}.",
-            'command_id'       => $commandId,
-            'blocked'          => $isBlock,
-            'biometric_access' => (bool) $resident->biometric_access,
-        ]);
-    } catch (\Throwable $e) {
-        Log::error('eSSL BlockUnblockUser failed', [
-            'resident_id' => $resident->id,
-            'error'       => $e->getMessage(),
-        ]);
+        $isBlock = (bool) $data['block'];
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Device unreachable: ' . $e->getMessage(),
-        ], 500);
+        try {
+            $response = $this->soapCall('BlockUnblockUser', [
+                'APIKey'       => $this->auth['api_key'],
+                'EmployeeCode' => $resident->employee_code,
+                'EmployeeName' => $resident->name,
+                'SerialNumber' => $serial,
+                'IsBlock'      => $isBlock ? 'true' : 'false',
+                'UserName'     => $this->auth['username'],
+                'UserPassword' => $this->auth['password'],
+                'CommandId'    => 0,
+            ]);
+
+            Log::info('eSSL BlockUnblockUser', [
+                'resident_id'   => $resident->id,
+                'employee_code' => $resident->employee_code,
+                'serial'        => $serial,
+                'is_block'      => $isBlock,
+                'http_status'   => $response->status(),
+                'body'          => $response->body(),
+            ]);
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Device error: HTTP ' . $response->status(),
+                    'body'    => $response->body(),
+                ], 500);
+            }
+
+            $result    = $this->extractTag($response, 'BlockUnblockUserResult');
+            $commandId = $this->extractTag($response, 'CommandId');
+
+            if (!$this->resultIsSuccess($result)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'eSSL replied: ' . ($result ?: 'empty response'),
+                ], 422);
+            }
+
+            $resident->update(['biometric_access' => !$isBlock]);
+
+            $action = $isBlock ? 'blocked' : 'unblocked';
+
+            return response()->json([
+                'success'          => true,
+                'message'          => "{$resident->name} ({$resident->employee_code}) {$action} on device {$serial}.",
+                'command_id'       => $commandId,
+                'blocked'          => $isBlock,
+                'biometric_access' => (bool) $resident->biometric_access,
+            ]);
+        } catch (ConnectionException $e) {
+            Log::error('eSSL BlockUnblockUser connection failed', [
+                'resident_id' => $resident->id,
+                'error'       => $e->getMessage(),
+                'url'         => $this->baseUrl,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Device unreachable at ' . $this->baseUrl
+                    . '. Check IP/port, network, and device power.',
+                'detail'  => $e->getMessage(),
+            ], 504);
+        } catch (\Throwable $e) {
+            Log::error('eSSL BlockUnblockUser failed', [
+                'resident_id' => $resident->id,
+                'error'       => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Device error: ' . $e->getMessage(),
+            ], 500);
+        }
     }
-}
+
     /* =========================================================
      |  REUSABLE PUSH
      ========================================================= */
@@ -376,10 +408,24 @@ public function blockUser(Request $request)
             $result    = $this->extractTag($response, 'AddEmployeeResult');
             $commandId = $this->extractTag($response, 'CommandId');
 
+            $ok = $this->resultIsSuccess($result);
+
             return [
-                'success'    => $this->resultIsSuccess($result),
-                'error'      => $this->resultIsSuccess($result) ? null : ($result ?: 'empty'),
+                'success'    => $ok,
+                'error'      => $ok ? null : ($result ?: 'empty'),
                 'command_id' => $commandId,
+            ];
+        } catch (ConnectionException $e) {
+            Log::error('eSSL AddEmployee connection failed', [
+                'serial' => $serial,
+                'url'    => $this->baseUrl,
+                'error'  => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error'   => 'Device unreachable at ' . $this->baseUrl
+                    . ' — check IP/port/network. (' . $e->getMessage() . ')',
             ];
         } catch (\Throwable $e) {
             Log::error('eSSL AddEmployee failed', [
@@ -394,84 +440,139 @@ public function blockUser(Request $request)
         }
     }
 
-   public function enrollFingerprint(Request $request)
-{
-    $data = $request->validate([
-        'resident_id'  => 'required|exists:residents,id',
-        'finger_index' => 'nullable|integer|min:0|max:9',
-    ]);
-
-    $resident = Resident::with('hostel')->findOrFail($data['resident_id']);
-    $serial   = $resident->hostel->biometric_device_id ?? null;
-
-    if (empty($serial)) {
-        return response()->json(['success' => false, 'message' => 'Hostel has no device.'], 422);
-    }
-
-    try {
-        $response = $this->soapCall('EnrollUserFP', [
-            'APIKey'            => $this->auth['api_key'],
-            'EmployeeCode'      => $resident->employee_code,
-            'FingerIndexNumber' => $data['finger_index'] ?? 1,
-            'isOverWrite'       => 'true',  // ✅ lowercase
-            'SerialNumber'      => $serial,
-            'UserName'          => $this->auth['username'],
-            'UserPassword'      => $this->auth['password'],
-            'CommandId'         => 0,
-        ]);
-
-        $result = $this->extractTag($response, 'EnrollUserFPResult');
-
-        return response()->json([
-            'success' => $this->resultIsSuccess($result),
-            'result'  => $result,
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
-    }
-}
-
-   public function enrollFace(Request $request)
-{
-    $data = $request->validate([
-        'resident_id' => 'required|exists:residents,id',
-    ]);
-
-    $resident = Resident::with('hostel')->findOrFail($data['resident_id']);
-    $serial   = $resident->hostel->biometric_device_id ?? null;
-
-    if (empty($serial)) {
-        return response()->json(['success' => false, 'message' => 'Hostel has no device.'], 422);
-    }
-
-    try {
-        $response = $this->soapCall('EnrollUserFace', [
-            'APIKey'       => $this->auth['api_key'],
-            'EmployeeCode' => $resident->employee_code,
-            'isOverWrite'  => 'true',  // ✅ lowercase
-            'SerialNumber' => $serial,
-            'UserName'     => $this->auth['username'],
-            'UserPassword' => $this->auth['password'],
-            'CommandId'    => 0,
-        ]);
-
-        $result = $this->extractTag($response, 'EnrollUserFaceResult');
-
-        return response()->json([
-            'success' => $this->resultIsSuccess($result),
-            'result'  => $result,
-        ]);
-    } catch (\Throwable $e) {
-        return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
-    }
-}
     /* =========================================================
-     |  UTILITIES
+     |  FINGERPRINT / FACE ENROLL
+     ========================================================= */
+
+    public function enrollFingerprint(Request $request)
+    {
+        $data = $request->validate([
+            'resident_id'  => 'required|exists:residents,id',
+            'finger_index' => 'nullable|integer|min:0|max:9',
+        ]);
+
+        $resident = Resident::with('hostel')->findOrFail($data['resident_id']);
+        $serial   = $resident->hostel->biometric_device_id ?? null;
+
+        if (empty($serial)) {
+            return response()->json(['success' => false, 'message' => 'Hostel has no device.'], 422);
+        }
+
+        try {
+            $response = $this->soapCall('EnrollUserFP', [
+                'APIKey'            => $this->auth['api_key'],
+                'EmployeeCode'      => $resident->employee_code,
+                'FingerIndexNumber' => $data['finger_index'] ?? 1,
+                'isOverWrite'       => 'true',
+                'SerialNumber'      => $serial,
+                'UserName'          => $this->auth['username'],
+                'UserPassword'      => $this->auth['password'],
+                'CommandId'         => 0,
+            ]);
+
+            $result = $this->extractTag($response, 'EnrollUserFPResult');
+
+            return response()->json([
+                'success' => $this->resultIsSuccess($result),
+                'result'  => $result,
+            ]);
+        } catch (ConnectionException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Device unreachable at ' . $this->baseUrl,
+                'detail'  => $e->getMessage(),
+            ], 504);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function enrollFace(Request $request)
+    {
+        $data = $request->validate([
+            'resident_id' => 'required|exists:residents,id',
+        ]);
+
+        $resident = Resident::with('hostel')->findOrFail($data['resident_id']);
+        $serial   = $resident->hostel->biometric_device_id ?? null;
+
+        if (empty($serial)) {
+            return response()->json(['success' => false, 'message' => 'Hostel has no device.'], 422);
+        }
+
+        try {
+            $response = $this->soapCall('EnrollUserFace', [
+                'APIKey'       => $this->auth['api_key'],
+                'EmployeeCode' => $resident->employee_code,
+                'isOverWrite'  => 'true',
+                'SerialNumber' => $serial,
+                'UserName'     => $this->auth['username'],
+                'UserPassword' => $this->auth['password'],
+                'CommandId'    => 0,
+            ]);
+
+            $result = $this->extractTag($response, 'EnrollUserFaceResult');
+
+            return response()->json([
+                'success' => $this->resultIsSuccess($result),
+                'result'  => $result,
+            ]);
+        } catch (ConnectionException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Device unreachable at ' . $this->baseUrl,
+                'detail'  => $e->getMessage(),
+            ], 504);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    /* =========================================================
+     |  UTILITIES / DIAGNOSTICS
      ========================================================= */
 
     public function test(Request $request)
     {
         return $this->commandStatus($request);
+    }
+
+    /**
+     * Diagnostic endpoint: reports the configured URL, reachability,
+     * and the raw SOAP response from the device.
+     */
+    public function diagnose(Request $request)
+    {
+        $url  = $this->baseUrl;
+        $host = parse_url($url, PHP_URL_HOST);
+        $port = parse_url($url, PHP_URL_PORT) ?: 80;
+
+        $tcpOpen = false;
+        $tcpErr  = null;
+
+        $fp = @fsockopen($host, $port, $errno, $errstr, 5);
+        if ($fp) {
+            $tcpOpen = true;
+            fclose($fp);
+        } else {
+            $tcpErr = "{$errno}: {$errstr}";
+        }
+
+        return response()->json([
+            'configured_url'   => $url,
+            'host'             => $host,
+            'port'             => $port,
+            'tcp_open'         => $tcpOpen,
+            'tcp_error'        => $tcpErr,
+            'username'         => $this->auth['username'],
+            'api_key_set'      => $this->auth['api_key'] !== '',
+            'mock'             => (bool) config('services.essl.mock'),
+            'connect_timeout'  => $this->connectTimeout,
+            'request_timeout'  => $this->timeout,
+            'hint'             => $tcpOpen
+                ? 'TCP reachable. If SOAP still fails, verify SOAPAction / path / credentials.'
+                : 'TCP NOT reachable. Fix IP/port/network/firewall, or check that the device is powered on.',
+        ]);
     }
 
     public function transactions(Request $request)
