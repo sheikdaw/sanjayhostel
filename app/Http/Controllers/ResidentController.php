@@ -25,12 +25,10 @@ class ResidentController extends Controller
         $query = Resident::with(['hostel', 'room', 'bed'])
             ->orderBy('created_at', 'desc');
 
-        // Role-based filtering
         if (!$user->isAdmin()) {
             $query->whereIn('hostel_id', $user->hostel_ids ?? []);
         }
 
-        // Status filter — DEFAULT is 'active' (hides vacated)
         $statusFilter = $request->input('status', 'active');
         if ($statusFilter && $statusFilter !== 'all') {
             $query->where('status', strtoupper($statusFilter));
@@ -38,19 +36,14 @@ class ResidentController extends Controller
 
         $residents = $query->get();
 
-        // Accessible hostels for dropdown
         $hostelQuery = Hostel::orderBy('hostel_name');
         if (!$user->isAdmin()) {
             $hostelQuery->whereIn('id', $user->hostel_ids ?? []);
         }
         $hostels = $hostelQuery->get([
-            'id',
-            'hostel_name',
-            'hostel_code',
-            'employee_code_prefix',
+            'id', 'hostel_name', 'hostel_code', 'employee_code_prefix',
         ]);
 
-        // Rooms + vacant beds
         $roomQuery = Room::with(['hostel', 'beds' => function ($q) {
             $q->where('status', 'VACANT')->orderBy('bed_no');
         }])->orderBy('room_no');
@@ -70,7 +63,6 @@ class ResidentController extends Controller
                     'bed_type' => $b->bed_type,
                 ];
             }
-
             $roomsJson[] = [
                 'id'           => $r->id,
                 'hostel_id'    => $r->hostel_id,
@@ -80,8 +72,6 @@ class ResidentController extends Controller
             ];
         }
 
-        // Preview the next resident code (employee code is generated AFTER insert
-        // because it depends on resident.id — show a placeholder in the UI).
         $nextResidentCode = $this->generateResidentCode();
         $nextEmployeeCode = 'Auto-generated on save';
 
@@ -98,21 +88,11 @@ class ResidentController extends Controller
 
     /**
      * Store new resident — codes are auto-generated.
-     *
-     * resident_code : RES-0001, RES-0002, ...
-     * employee_code : {hostel.employee_code_prefix}{resident.id}  → e.g. 10005, 10040
      */
     public function store(Request $request)
     {
-        // Generate resident code BEFORE validation
         $autoResidentCode = $this->generateResidentCode();
-
-        // Force-set it (ignore whatever came from the client).
-        // employee_code is NOT set here — it will be generated after insert
-        // because it depends on the newly-created resident id.
-        $request->merge([
-            'resident_code' => $autoResidentCode,
-        ]);
+        $request->merge(['resident_code' => $autoResidentCode]);
 
         $validator = Validator::make($request->all(), [
             'hostel_id' => [
@@ -185,9 +165,9 @@ class ResidentController extends Controller
             $data['employee_code'] = null;
             $resident = Resident::create($data);
 
-            // Step 2 — now we know the id, build the employee code
+            // Step 2 — build the employee code from hostel prefix + resident id
             $employeeCode = $this->generateEmployeeCode($resident->hostel_id, $resident->id);
-            $employeeCode = $this->ensureUniqueEmployeeCode($employeeCode);
+            $employeeCode = $this->ensureUniqueEmployeeCode($employeeCode, $resident->id);
 
             // Step 3 — persist it
             $resident->update(['employee_code' => $employeeCode]);
@@ -246,7 +226,6 @@ class ResidentController extends Controller
             return response()->json(['success' => false, 'message' => 'No access'], 403);
         }
 
-        // Lock both codes — ignore any client-supplied values
         $request->merge([
             'resident_code' => $resident->resident_code,
             'employee_code' => $resident->employee_code,
@@ -532,6 +511,114 @@ class ResidentController extends Controller
     }
 
     /* =========================================================
+     |  🔑 EMPLOYEE CODE REGENERATION
+     ========================================================= */
+
+    /**
+     * Regenerate the employee_code for a single resident.
+     * Format: {hostel.employee_code_prefix}{resident.id}
+     * Example: prefix "1000" + id 5 → "10005"
+     */
+    public function regenerateEmployeeCode($id)
+    {
+        try {
+            $resident = Resident::findOrFail($id);
+
+            if (!auth()->user()->hasAccessToHostel($resident->hostel_id)) {
+                return response()->json(['success' => false, 'message' => 'No access'], 403);
+            }
+
+            DB::beginTransaction();
+            try {
+                $newCode = $this->generateEmployeeCode($resident->hostel_id, $resident->id);
+                $newCode = $this->ensureUniqueEmployeeCode($newCode, $resident->id);
+
+                if ($resident->employee_code === $newCode) {
+                    DB::commit();
+                    return response()->json([
+                        'success'       => true,
+                        'message'       => 'Employee code is already up to date.',
+                        'employee_code' => $newCode,
+                    ]);
+                }
+
+                $resident->update(['employee_code' => $newCode]);
+
+                DB::commit();
+
+                return response()->json([
+                    'success'       => true,
+                    'message'       => 'Employee code regenerated: ' . $newCode,
+                    'employee_code' => $newCode,
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to regenerate: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Regenerate employee_codes for all residents (optionally filtered by hostel).
+     */
+    public function regenerateAllEmployeeCodes(Request $request)
+    {
+        $user = auth()->user();
+
+        $query = Resident::query();
+        if (!$user->isAdmin()) {
+            $query->whereIn('hostel_id', $user->hostel_ids ?? []);
+        }
+        if ($request->filled('hostel_id')) {
+            $query->where('hostel_id', $request->hostel_id);
+        }
+
+        $residents = $query->get();
+        $updated = 0;
+        $failed  = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($residents as $resident) {
+                try {
+                    $newCode = $this->generateEmployeeCode($resident->hostel_id, $resident->id);
+                    $newCode = $this->ensureUniqueEmployeeCode($newCode, $resident->id);
+
+                    if ($resident->employee_code !== $newCode) {
+                        $resident->update(['employee_code' => $newCode]);
+                        $updated++;
+                    }
+                } catch (\Exception $e) {
+                    $failed[] = ['id' => $resident->id, 'error' => $e->getMessage()];
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Regenerated {$updated} employee code(s).",
+                'updated' => $updated,
+                'failed'  => $failed,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Bulk regeneration failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /* =========================================================
      |  AUTO-GENERATORS
      ========================================================= */
 
@@ -543,7 +630,6 @@ class ResidentController extends Controller
         $prefix  = 'RES-';
         $padding = 4;
 
-        // Find the highest existing numeric suffix
         $last = Resident::where('resident_code', 'like', $prefix . '%')
             ->orderByRaw('CAST(SUBSTRING(resident_code, ' . (strlen($prefix) + 1) . ') AS UNSIGNED) DESC')
             ->value('resident_code');
@@ -556,7 +642,6 @@ class ResidentController extends Controller
 
         $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
 
-        // Safety: in case of race condition, loop until unique
         while (Resident::where('resident_code', $code)->exists()) {
             $nextNumber++;
             $code = $prefix . str_pad($nextNumber, $padding, '0', STR_PAD_LEFT);
@@ -566,19 +651,8 @@ class ResidentController extends Controller
     }
 
     /**
-     * Generate the employee code as {hostel.employee_code_prefix}{resident.id}.
-     *
-     * Matches the existing data pattern in the residents table:
-     *   prefix = "1000", resident id = 5   → "10005"
-     *   prefix = "1000", resident id = 40  → "10040"
-     *   prefix = "1000", resident id = 65  → "10065"
-     *   prefix = "2000", resident id = 5   → "20005"
-     *
-     * NOTE: The id is NOT zero-padded — just concatenated as-is.
-     *
-     * @param  int|string|null  $hostelId
-     * @param  int              $residentId
-     * @return string
+     * Generate employee code = {hostel.employee_code_prefix}{resident.id}.
+     * Matches existing data: "1000" + 5 → "10005"; "1000" + 40 → "10040".
      */
     protected function generateEmployeeCode($hostelId, int $residentId): string
     {
@@ -596,12 +670,20 @@ class ResidentController extends Controller
 
     /**
      * Ensure the generated employee code is unique.
-     * Handles the edge case where two hostels share the same prefix —
-     * in that case we append "-1", "-2", ... until unique.
+     * @param  string    $code
+     * @param  int|null  $ignoreId  Skip this resident id (for updates)
      */
-    protected function ensureUniqueEmployeeCode(string $code): string
+    protected function ensureUniqueEmployeeCode(string $code, ?int $ignoreId = null): string
     {
-        if (!Resident::where('employee_code', $code)->exists()) {
+        $check = function ($candidate) use ($ignoreId) {
+            $q = Resident::where('employee_code', $candidate);
+            if ($ignoreId) {
+                $q->where('id', '!=', $ignoreId);
+            }
+            return $q->exists();
+        };
+
+        if (!$check($code)) {
             return $code;
         }
 
@@ -609,7 +691,7 @@ class ResidentController extends Controller
         do {
             $candidate = $code . '-' . $suffix;
             $suffix++;
-        } while (Resident::where('employee_code', $candidate)->exists());
+        } while ($check($candidate));
 
         return $candidate;
     }

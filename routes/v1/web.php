@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminHostelController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BedController;
+use App\Http\Controllers\EsslController;
 use App\Http\Controllers\HostelController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PublicPaymentController;
@@ -24,7 +25,6 @@ Route::get('/about', fn () => view('view.about'))->name('about');
 Route::get('/rooms', fn () => view('view.rooms'))->name('rooms');
 Route::get('/gallery', fn () => view('view.gallery'))->name('gallery');
 
-// Contact page — both /contact and /contacts resolve to the same view.
 Route::get('/contact', fn () => view('view.contact'))->name('contact');
 Route::get('/contacts', fn () => view('view.contatct'))->name('contact.submit');
 
@@ -42,7 +42,6 @@ Route::get('/hostels', [HostelController::class, 'index'])->name('hostels.index'
 Route::get('/hostels/alandur', [HostelController::class, 'alandur'])->name('hostels.alandur');
 Route::get('/hostels/perungalathur', [HostelController::class, 'perungalathur'])->name('hostels.perungalathur');
 
-// Individual property pages — only published ones (has_page = true) resolve.
 Route::get('/hostels/{area}/{slug}', [HostelController::class, 'property'])
     ->whereIn('area', ['alandur', 'perungalathur'])
     ->name('hostels.property');
@@ -146,6 +145,15 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::patch('/{id}/vacate',     [ResidentController::class, 'vacate'])->name('vacate');
         Route::patch('/{id}/reactivate', [ResidentController::class, 'reactivate'])->name('reactivate');
         Route::get('/vacant-beds/{roomId}', [ResidentController::class, 'getVacantBeds'])->name('vacant-beds');
+
+        // 🔑 Employee-code regeneration
+        Route::patch('/{id}/regenerate-employee-code',
+            [ResidentController::class, 'regenerateEmployeeCode'])
+            ->name('regenerate-employee-code');
+
+        Route::patch('/regenerate-all-employee-codes',
+            [ResidentController::class, 'regenerateAllEmployeeCodes'])
+            ->name('regenerate-all-employee-codes');
     });
 
     // ----- Payments -----
@@ -155,7 +163,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/export/csv',       [PaymentController::class, 'exportCsv'])->name('export.csv');
         Route::get('/export/pdf',       [PaymentController::class, 'exportPdf'])->name('export.pdf');
 
-        // Dropdown helpers for manual payment entry
         Route::get('/rooms/{hostelId}',   [PaymentController::class, 'roomsByHostel'])->name('rooms');
         Route::get('/residents/{roomId}', [PaymentController::class, 'residentsByRoom'])->name('residents');
 
@@ -165,7 +172,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/{id}', [PaymentController::class, 'destroy'])->name('destroy');
     });
 
-    // ----- Payment Links (admin view of public links) -----
+    // ----- Payment Links -----
     Route::prefix('payment-links')->name('payment-links.')->group(function () {
         Route::get('/', [PublicPaymentController::class, 'index'])->name('index');
     });
@@ -173,7 +180,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
 /*
 |--------------------------------------------------------------------------
-| Public Payment Routes (no auth — residents open these)
+| Public Payment Routes
 |--------------------------------------------------------------------------
 */
 
@@ -185,31 +192,29 @@ Route::post('/pay/{encodedHostelId}/lookup', [PublicPaymentController::class, 'l
 
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
-use App\Http\Controllers\EsslController;   // ← move this to the top with other imports
+
+/*
+|--------------------------------------------------------------------------
+| Essl / Biometric Routes
+|--------------------------------------------------------------------------
+*/
 
 Route::middleware(['auth'])
     ->prefix('admin/essl')
     ->name('admin.essl.')
     ->group(function () {
 
-        // Diagnostics (GET)
         Route::get('/diagnose', [EsslController::class, 'diagnose'])->name('diagnose');
-
-        // Page
         Route::get('/residents', [EsslController::class, 'residents'])->name('residents');
 
-        // Sync
         Route::post('/resident/sync', [EsslController::class, 'syncResident'])->name('resident.sync');
         Route::post('/hostel/sync',   [EsslController::class, 'syncHostel'])->name('hostel.sync');
 
-        // Enroll
         Route::post('/resident/enroll-fp',   [EsslController::class, 'enrollFingerprint'])->name('resident.enroll.fp');
         Route::post('/resident/enroll-face', [EsslController::class, 'enrollFace'])->name('resident.enroll.face');
 
-        // Block / Unblock
         Route::post('/resident/block', [EsslController::class, 'blockUser'])->name('resident.block');
 
-        // Utilities
         Route::get('/test',           [EsslController::class, 'test'])->name('test');
         Route::get('/command-status', [EsslController::class, 'commandStatus'])->name('command-status');
         Route::get('/transactions',   [EsslController::class, 'transactions'])->name('transactions');

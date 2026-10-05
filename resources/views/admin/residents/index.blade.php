@@ -599,6 +599,26 @@
         .rs-search-box { max-width: none; }
         .rs-grid { grid-template-columns: 1fr; }
     }
+
+    /* 🔑 Employee-code regenerate button */
+    #regenerateEmpCodeBtn {
+        padding: 0 0.85rem;
+        flex-shrink: 0;
+    }
+    #regenerateEmpCodeBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    #regenerateEmpCodeBtn i {
+        display: inline-block;
+        transition: transform 0.6s;
+    }
+    #regenerateEmpCodeBtn.spinning i {
+        transform: rotate(360deg);
+    }
+    #regenerateEmpCodeBtn.spinning {
+        pointer-events: none;
+    }
 </style>
 @endpush
 
@@ -878,11 +898,24 @@
                                     Employee Code
                                     <span class="rs-auto-badge"><i class="bi bi-magic"></i> AUTO</span>
                                 </label>
-                                <input type="text" class="rs-form-control"
-                                       id="employee_code" name="employee_code"
-                                       value="{{ $nextEmployeeCode ?? '' }}"
-                                       readonly>
-                                <small class="rs-form-hint">
+
+                                <div style="display:flex; gap:0.4rem; align-items:stretch;">
+                                    <input type="text" class="rs-form-control"
+                                           id="employee_code" name="employee_code"
+                                           value="{{ $nextEmployeeCode ?? '' }}"
+                                           readonly
+                                           style="flex:1;">
+
+                                    <button type="button"
+                                            id="regenerateEmpCodeBtn"
+                                            class="rs-btn rs-btn-outline"
+                                            title="Regenerate from hostel prefix + resident id"
+                                            onclick="regenerateEmployeeCode()">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                </div>
+
+                                <small class="rs-form-hint" id="empCodeHint">
                                     <i class="bi bi-info-circle"></i> Auto-generated on save
                                 </small>
                                 <div class="rs-form-error" id="error_employee_code"></div>
@@ -1201,9 +1234,12 @@ function openCreateModal() {
     document.getElementById('status').value = 'ACTIVE';
     document.getElementById('joining_date').value = '{{ now()->format("Y-m-d") }}';
 
-    // 🔑 Show the next auto-generated codes
     document.getElementById('resident_code').value = NEXT_RESIDENT_CODE;
     document.getElementById('employee_code').value = NEXT_EMPLOYEE_CODE;
+
+    // Reset the regenerate button state (create mode → will show toast)
+    var hint = document.getElementById('empCodeHint');
+    if (hint) hint.innerHTML = '<i class="bi bi-info-circle"></i> Auto-generated on save';
 
     new bootstrap.Modal(document.getElementById('residentModal')).show();
 }
@@ -1243,7 +1279,6 @@ async function openEditModal(id) {
             document.getElementById('hostel_id').value = r.hostel_id;
             loadRoomsForHostel(r.hostel_id, r.room_id);
 
-            // Manually add current bed (occupied, so not in vacant list)
             setTimeout(function() {
                 var $bedSelect = document.getElementById('bed_id');
                 if ($bedSelect && r.bed) {
@@ -1255,6 +1290,9 @@ async function openEditModal(id) {
                     $bedSelect.disabled = false;
                 }
             }, 100);
+
+            var hint = document.getElementById('empCodeHint');
+            if (hint) hint.innerHTML = '<i class="bi bi-info-circle"></i> Click 🔄 to regenerate from hostel prefix + id';
 
             new bootstrap.Modal(document.getElementById('residentModal')).show();
         } else {
@@ -1270,7 +1308,6 @@ function resetForm() {
     document.getElementById('residentForm').reset();
     document.getElementById('residentId').value = '';
 
-    // 🔑 Re-apply auto codes (form.reset() would clear them)
     document.getElementById('resident_code').value = NEXT_RESIDENT_CODE;
     document.getElementById('employee_code').value = NEXT_EMPLOYEE_CODE;
 
@@ -1289,6 +1326,9 @@ function resetForm() {
     document.querySelectorAll('.rs-form-control').forEach(function(el) {
         el.classList.remove('is-invalid');
     });
+
+    var hint = document.getElementById('empCodeHint');
+    if (hint) hint.innerHTML = '<i class="bi bi-info-circle"></i> Auto-generated on save';
 }
 
 document.getElementById('hostel_id').addEventListener('change', function() {
@@ -1484,7 +1524,89 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async func
     }
 });
 
-// Status filter (server-side)
+/* =========================================================
+ |  🔑 REGENERATE EMPLOYEE CODE
+ ========================================================= */
+
+async function regenerateEmployeeCode() {
+    const id = document.getElementById('residentId').value;
+
+    if (!id) {
+        showToast('Save the resident first before regenerating the employee code.', 'error');
+        return;
+    }
+
+    const btn  = document.getElementById('regenerateEmpCodeBtn');
+    const inp  = document.getElementById('employee_code');
+    const hint = document.getElementById('empCodeHint');
+
+    btn.disabled = true;
+    btn.classList.add('spinning');
+    const oldHint = hint.innerHTML;
+    hint.innerHTML = '<i class="bi bi-hourglass-split"></i> Regenerating...';
+
+    try {
+        const res = await fetch(BASE_URL + '/' + id + '/regenerate-employee-code', {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+            },
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            inp.value = data.employee_code;
+            showToast(data.message, 'success');
+            hint.innerHTML =
+                '<i class="bi bi-check-circle" style="color:#10b981;"></i> Updated: ' +
+                data.employee_code;
+            setTimeout(function () { hint.innerHTML = oldHint; }, 3000);
+        } else {
+            showToast(data.message || 'Failed to regenerate', 'error');
+            hint.innerHTML = oldHint;
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Network error', 'error');
+        hint.innerHTML = oldHint;
+    } finally {
+        btn.disabled = false;
+        btn.classList.remove('spinning');
+    }
+}
+
+async function regenerateAllEmployeeCodes() {
+    if (!confirm('Regenerate employee codes for ALL residents?\nFormat: {hostel prefix}{resident id}')) return;
+
+    try {
+        const res = await fetch(BASE_URL + '/regenerate-all-employee-codes', {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-TOKEN': CSRF_TOKEN,
+                'Accept': 'application/json',
+            },
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(function () { window.location.reload(); }, 900);
+        } else {
+            showToast(data.message || 'Failed', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Network error', 'error');
+    }
+}
+
+/* =========================================================
+ |  FILTERS
+ ========================================================= */
+
 var statusFilter = document.getElementById('rsStatusFilter');
 statusFilter.addEventListener('change', function() {
     var url = new URL(window.location.href);
@@ -1492,7 +1614,6 @@ statusFilter.addEventListener('change', function() {
     window.location.href = url.toString();
 });
 
-// Client-side filters
 var searchInput = document.getElementById('rsSearchInput');
 var hostelFilter = document.getElementById('rsHostelFilter');
 var foodFilter = document.getElementById('rsFoodFilter');
@@ -1540,7 +1661,10 @@ searchInput.addEventListener('input', applyClientFilters);
 hostelFilter.addEventListener('change', applyClientFilters);
 foodFilter.addEventListener('change', applyClientFilters);
 
-// Context menu
+/* =========================================================
+ |  CONTEXT MENU
+ ========================================================= */
+
 var contextMenu = document.getElementById('cardContextMenu');
 
 function toggleCardMenu(event, id) {
