@@ -516,8 +516,8 @@ class ResidentController extends Controller
 
     /**
      * Regenerate the employee_code for a single resident.
-     * Format: {hostel.employee_code_prefix}{resident.id}
-     * Example: prefix "1000" + id 5 → "10005"
+     * Format: {hostel.employee_code_prefix} + {resident.id}  (numeric addition)
+     * Example: prefix 1000 + id 5 → 1005
      */
     public function regenerateEmployeeCode($id)
     {
@@ -651,23 +651,27 @@ class ResidentController extends Controller
     }
 
     /**
-     * Generate employee code = {hostel.employee_code_prefix}{resident.id}.
-     * Matches existing data: "1000" + 5 → "10005"; "1000" + 40 → "10040".
+     * Generate employee code = {hostel.employee_code_prefix} + {resident.id}.
+     *
+     * ⚠️ NOTE: This is NUMERIC ADDITION (not concatenation).
+     * Example: prefix 1000 + id 5 → 1005
+     *          prefix 1000 + id 40 → 1040
      */
     protected function generateEmployeeCode($hostelId, int $residentId): string
-{
-    $prefix = 1000; // default fallback (integer now)
+    {
+        $prefix = 1000; // default fallback (integer)
 
-    if ($hostelId) {
-        $hostel = Hostel::find($hostelId);
-        if ($hostel && !empty($hostel->employee_code_prefix)) {
-            $prefix = (int) $hostel->employee_code_prefix;
+        if ($hostelId) {
+            $hostel = Hostel::find($hostelId);
+            if ($hostel && $hostel->employee_code_prefix !== null && $hostel->employee_code_prefix !== '') {
+                $prefix = (int) $hostel->employee_code_prefix;
+            }
         }
+
+        // ➕ NUMERIC ADDITION (not string concatenation)
+        return (string) ($prefix + $residentId);
     }
 
-    // ➕ ADD instead of concatenate
-    return (string) ($prefix + $residentId);
-}
     /**
      * Ensure the generated employee code is unique.
      * @param  string    $code
@@ -687,6 +691,7 @@ class ResidentController extends Controller
             return $code;
         }
 
+        // If collision, append suffix -1, -2, ...
         $suffix = 1;
         do {
             $candidate = $code . '-' . $suffix;
