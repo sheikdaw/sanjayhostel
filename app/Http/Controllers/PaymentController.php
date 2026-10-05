@@ -15,6 +15,15 @@ use Illuminate\Support\Str;
 class PaymentController extends Controller
 {
     /**
+     * Flat date-based discount rules (edit here anytime)
+     *   Day 1-5   → ₹250
+     *   Day 6-10  → ₹125
+     *   Day 11+   → ₹0
+     */
+    private const DATE_DISCOUNT_1_5  = 250.0;
+    private const DATE_DISCOUNT_6_10 = 125.0;
+
+    /**
      * Payment page
      */
     public function index()
@@ -28,6 +37,22 @@ class PaymentController extends Controller
         $hostels = $hostelQuery->get(['id', 'hostel_name', 'hostel_code']);
 
         return view('admin.payments.index', compact('hostels'));
+    }
+
+    /**
+     * Return the date-based discount amount based on TODAY's date.
+     */
+    private function getDateBasedDiscount(?Carbon $asOf = null): float
+    {
+        $day = (int) ($asOf ?? Carbon::now())->day;
+
+        if ($day >= 1 && $day <= 5) {
+            return self::DATE_DISCOUNT_1_5;
+        }
+        if ($day >= 6 && $day <= 10) {
+            return self::DATE_DISCOUNT_6_10;
+        }
+        return 0.0;
     }
 
     /**
@@ -97,9 +122,13 @@ class PaymentController extends Controller
             'total_balance' => 0,
             'paid_amount' => 0, 'partial_amount' => 0,
             'unpaid_amount' => 0, 'pending_amount' => 0,
+            'total_date_discount' => 0,
         ];
 
         $selectedKey = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
+
+        // Date discount applies to the CURRENT month only (today's date)
+        $dateDiscount = $this->getDateBasedDiscount();
 
         foreach ($residents as $resident) {
             // Skip if not joined by end of month
@@ -155,7 +184,7 @@ class PaymentController extends Controller
 
             $currentPaid = 0;
             $currentRent = (float) $resident->rent_amount;
-            $currentDiscount = 0;
+            $currentDiscount = 0;   // manual discount from DB
             $currentFine = 0;
             $currentBalanceFromRecords = 0;
             $paymentId = null;
@@ -176,13 +205,25 @@ class PaymentController extends Controller
                 $remark          = $p->remark;
             }
 
+            // ---- Apply date-based discount for current month ----
+            // If a payment already exists for this month, we TRUST the DB discount
+            // (so admin edited values are not overwritten). Otherwise we apply
+            // today's date discount for preview/display.
             if (count($currentPayments) > 0) {
-                $currentBalance = $currentBalanceFromRecords;
+                $dateDiscountForRow = 0;   // already captured in $currentDiscount
             } else {
-                $currentBalance = $currentRent;
+                $dateDiscountForRow = $dateDiscount;
             }
 
-            $currentDue = $currentRent + $currentFine - $currentDiscount;
+            $totalDiscount = $currentDiscount + $dateDiscountForRow;
+            $currentDue    = max(0, $currentRent + $currentFine - $totalDiscount);
+
+            if (count($currentPayments) > 0) {
+                // recompute balance using the (possibly) updated due
+                $currentBalance = max(0, $currentDue - $currentPaid);
+            } else {
+                $currentBalance = $currentDue;
+            }
 
             // FIXED STATUS LOGIC — multiple flags per resident
             $hasPreviousPending = ($previousPending > 0);
@@ -236,7 +277,10 @@ class PaymentController extends Controller
                 'remark'            => $remark,
 
                 'rent_amount'       => round($currentRent, 2),
-                'discount_amount'   => round($currentDiscount, 2),
+                'manual_discount'   => round($currentDiscount, 2),
+                'date_discount'     => round($dateDiscountForRow, 2),
+                'total_discount'    => round($totalDiscount, 2),
+                'discount_amount'   => round($totalDiscount, 2),  // kept for backward compat
                 'fine_amount'       => round($currentFine, 2),
                 'current_paid'      => round($currentPaid, 2),
                 'current_due'       => round($currentDue, 2),
@@ -259,6 +303,7 @@ class PaymentController extends Controller
             $stats['total_rent']    += $currentRent;
             $stats['total_paid']    += $currentPaid;
             $stats['total_balance'] += $previousPending + $currentBalance;
+            $stats['total_date_discount'] += $dateDiscountForRow;
 
             if ($hasCurrentPaid) {
                 $stats['paid']++;
@@ -272,7 +317,7 @@ class PaymentController extends Controller
 
             if ($hasCurrentUnpaid) {
                 $stats['unpaid']++;
-                $stats['unpaid_amount'] += $currentRent;
+                $stats['unpaid_amount'] += $currentDue;
             }
 
             if ($hasPreviousPending) {
@@ -382,13 +427,14 @@ class PaymentController extends Controller
             fputcsv($out, ['Partial', $stats['partial'], '₹' . number_format($stats['partial_amount'], 2)]);
             fputcsv($out, ['Unpaid', $stats['unpaid'], '₹' . number_format($stats['unpaid_amount'], 2)]);
             fputcsv($out, ['Pending (Previous)', $stats['pending'], '₹' . number_format($stats['pending_amount'], 2)]);
+            fputcsv($out, ['Date Discount (Total)', '', '₹' . number_format($stats['total_date_discount'], 2)]);
             fputcsv($out, ['Total Residents', $stats['total'], 'Balance: ₹' . number_format($stats['total_balance'], 2)]);
             fputcsv($out, []);
 
             fputcsv($out, [
                 'S.No', 'Resident Code', 'Resident Name', 'Phone', 'Hostel', 'Room', 'Bed',
-                'Month', 'Year', 'Rent', 'Discount', 'Fine', 'Paid',
-                'Current Balance', 'Previous Pending', 'Total Due', 'Status',
+                'Month', 'Year', 'Rent', 'Manual Discount', 'Date Discount', 'Total Discount',
+                'Fine', 'Paid', 'Current Balance', 'Previous Pending', 'Total Due', 'Status',
                 'Payment Date', 'Receipt No', 'Remark',
             ]);
 
@@ -405,7 +451,9 @@ class PaymentController extends Controller
                     $r['month_label'],
                     $r['year'],
                     $r['rent_amount'],
-                    $r['discount_amount'],
+                    $r['manual_discount'],
+                    $r['date_discount'],
+                    $r['total_discount'],
                     $r['fine_amount'],
                     $r['current_paid'],
                     $r['current_balance'],
@@ -512,7 +560,11 @@ class PaymentController extends Controller
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            $payable   = max(0, $rent + $fine - $discount);
+            // Auto-add date discount for THIS month (only if admin didn't already include it)
+            // Payment date-ku badhila TODAY's date use pannuthu
+            $dateDiscount = $this->getDateBasedDiscount();
+
+            $payable   = max(0, $rent + $fine - $discount - $dateDiscount);
             $totalPaid = $cash + $upi;
             $balance   = max(0, $payable - $totalPaid);
 
@@ -535,7 +587,7 @@ class PaymentController extends Controller
             if ($existing) {
                 $existing->update([
                     'rent_amount'      => $rent,
-                    'discount_amount'  => $discount,
+                    'discount_amount'  => $discount + $dateDiscount,   // store combined
                     'fine_amount'      => $fine,
                     'cash_paid_amount' => $cash,
                     'upi_paid_amount'  => $upi,
@@ -554,7 +606,7 @@ class PaymentController extends Controller
                     'month'            => $request->month,
                     'year'             => $request->year,
                     'rent_amount'      => $rent,
-                    'discount_amount'  => $discount,
+                    'discount_amount'  => $discount + $dateDiscount,   // store combined
                     'fine_amount'      => $fine,
                     'cash_paid_amount' => $cash,
                     'upi_paid_amount'  => $upi,
@@ -571,8 +623,10 @@ class PaymentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Payment saved! Receipt: ' . $payment->receipt_no,
+                'message' => 'Payment saved! Receipt: ' . $payment->receipt_no
+                             . ($dateDiscount > 0 ? ' (Date discount ₹' . $dateDiscount . ' applied)' : ''),
                 'payment' => $payment,
+                'date_discount_applied' => $dateDiscount,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -627,6 +681,7 @@ class PaymentController extends Controller
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
+            // Date discount is NOT auto-applied on update — admin has full control here
             $payable   = max(0, $rent + $fine - $discount);
             $totalPaid = $cash + $upi;
             $balance   = max(0, $payable - $totalPaid);

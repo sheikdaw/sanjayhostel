@@ -12,20 +12,13 @@ use Carbon\Carbon;
 class PublicPaymentController extends Controller
 {
     /**
-     * ============================================================
-     * DISCOUNT SLABS  (edit these numbers anytime)
-     * ------------------------------------------------------------
-     *  Key = minimum months stayed, Value = discount percentage
-     *  Slabs are matched from highest to lowest.
-     * ============================================================
+     * Flat date-based discount rules (MUST MATCH PaymentController)
+     *   Day 1-5   → ₹250
+     *   Day 6-10  → ₹125
+     *   Day 11+   → ₹0
      */
-    private const DISCOUNT_SLABS = [
-        // months_stayed => discount_percentage
-        10 => 15,   // 10+ months  → 15%
-        5  => 10,   // 5 to <10    → 10%
-        1  => 5,    // 1 to <5     → 5%
-        0  => 0,    // 0 months    → 0%
-    ];
+    private const DATE_DISCOUNT_1_5  = 250.0;
+    private const DATE_DISCOUNT_6_10 = 125.0;
 
     /**
      * Show public payment lookup page
@@ -48,8 +41,24 @@ class PublicPaymentController extends Controller
     }
 
     /**
+     * Return the date-based discount amount based on TODAY's date.
+     */
+    private function getDateBasedDiscount(?Carbon $asOf = null): float
+    {
+        $day = (int) ($asOf ?? Carbon::now())->day;
+
+        if ($day >= 1 && $day <= 5) {
+            return self::DATE_DISCOUNT_1_5;
+        }
+        if ($day >= 6 && $day <= 10) {
+            return self::DATE_DISCOUNT_6_10;
+        }
+        return 0.0;
+    }
+
+    /**
      * AJAX: Lookup resident by phone + hostel
-     * Returns current month + previous pending details WITH discount slabs
+     * Returns current month + previous pending details WITH date-based discount
      */
     public function lookup(Request $request, string $encodedHostelId)
     {
@@ -94,7 +103,7 @@ class PublicPaymentController extends Controller
         $currentYear  = (int) $now->year;
 
         // ------------------------------------------------------------
-        // 1) PREVIOUS PENDING  (with slab discount applied per month)
+        // 1) PREVIOUS PENDING  (no date discount for old months)
         // ------------------------------------------------------------
         $previousPending = 0;
         $previousMonths  = [];
@@ -104,24 +113,19 @@ class PublicPaymentController extends Controller
 
         $cursor = $joinMonth->copy();
         while ($cursor->lt($currentMonthStart)) {
-
             $payments = Payment::where('resident_id', $resident->id)
                 ->where('month', $cursor->month)
                 ->where('year', $cursor->year)
                 ->get();
 
             if ($payments->count() > 0) {
-                // Trust saved balance_amount from records
                 $due = 0;
                 foreach ($payments as $p) {
                     $due += (float) $p->balance_amount;
                 }
             } else {
-                // No record → compute due for that month WITH slab discount
-                $monthsAtThatTime = $joinMonth->diffInMonths($cursor);
-                $discountPct      = $this->getDiscountPercentage($monthsAtThatTime);
-                $discountAmt      = ((float) $resident->rent_amount) * ($discountPct / 100);
-                $due              = max(0, (float) $resident->rent_amount - $discountAmt);
+                // No record → full rent is pending (no discount for past months)
+                $due = (float) $resident->rent_amount;
             }
 
             if ($due > 0) {
@@ -144,14 +148,12 @@ class PublicPaymentController extends Controller
             ->get();
 
         $currentPaid     = 0;
-        $currentBalance  = 0;
-        $currentDiscount = 0;
+        $currentDiscount = 0;   // manual discount from DB
         $currentFine     = 0;
 
         if ($currentPayments->count() > 0) {
             foreach ($currentPayments as $p) {
                 $currentPaid     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
-                $currentBalance  += (float) $p->balance_amount;
                 $currentDiscount += (float) $p->discount_amount;
                 $currentFine     += (float) $p->fine_amount;
             }
@@ -159,18 +161,20 @@ class PublicPaymentController extends Controller
 
         $currentRent = (float) $resident->rent_amount;
 
-        // ---- Slab discount for current month ----
-        $monthsStayed = $joinMonth->diffInMonths($currentMonthStart);
-        $slabDiscountPct = $this->getDiscountPercentage($monthsStayed);
-        $slabDiscount    = $currentRent * ($slabDiscountPct / 100);
+        // ---- Date-based flat discount (₹250 / ₹125 / ₹0) ----
+        // Applied only when there is NO existing payment for this month.
+        // If a payment record exists, we trust the DB discount_amount
+        // (which already includes the date discount the admin saved).
+        if ($currentPayments->count() > 0) {
+            $dateDiscount = 0;
+            $totalDiscount = $currentDiscount;
+        } else {
+            $dateDiscount = $this->getDateBasedDiscount();
+            $totalDiscount = $currentDiscount + $dateDiscount;
+        }
 
-        // Total discount = manual (from payment record) + auto slab discount
-        $totalDiscount = $currentDiscount + $slabDiscount;
-
-        // Current due = rent + fine - total discount
         $currentDue = max(0, $currentRent + $currentFine - $totalDiscount);
 
-        // Recompute balance using the corrected due
         if ($currentPayments->count() > 0) {
             $currentBalance = max(0, $currentDue - $currentPaid);
         } else {
@@ -216,29 +220,27 @@ class PublicPaymentController extends Controller
         return response()->json([
             'success'  => true,
             'resident' => [
-                'id'            => $resident->id,
-                'name'          => $resident->name,
-                'code'          => $resident->resident_code,
-                'phone'         => $resident->phone,
-                'hostel_name'   => $hostel->hostel_name,
-                'room_no'       => $resident->room->room_no ?? 'N/A',
-                'bed_no'        => $resident->bed->bed_no ?? 'N/A',
-                'joining_date'  => Carbon::parse($resident->joining_date)->format('d M Y'),
-                'rent_amount'   => $currentRent,
-                'months_stayed' => $monthsStayed,
+                'id'           => $resident->id,
+                'name'         => $resident->name,
+                'code'         => $resident->resident_code,
+                'phone'        => $resident->phone,
+                'hostel_name'  => $hostel->hostel_name,
+                'room_no'      => $resident->room->room_no ?? 'N/A',
+                'bed_no'       => $resident->bed->bed_no ?? 'N/A',
+                'joining_date' => Carbon::parse($resident->joining_date)->format('d M Y'),
+                'rent_amount'  => $currentRent,
             ],
             'current_month' => [
-                'month'             => Carbon::create($currentYear, $currentMonth, 1)->format('F Y'),
-                'rent'              => round($currentRent, 2),
-                'manual_discount'   => round($currentDiscount, 2),
-                'slab_discount_pct' => round($slabDiscountPct, 2),
-                'slab_discount'     => round($slabDiscount, 2),
-                'total_discount'    => round($totalDiscount, 2),
-                'fine'              => round($currentFine, 2),
-                'paid'              => round($currentPaid, 2),
-                'balance'           => round($currentBalance, 2),
-                'due'               => round($currentDue, 2),
-                'status'            => $currentStatus,
+                'month'           => Carbon::create($currentYear, $currentMonth, 1)->format('F Y'),
+                'rent'            => round($currentRent, 2),
+                'manual_discount' => round($currentDiscount, 2),
+                'date_discount'   => round($dateDiscount, 2),
+                'total_discount'  => round($totalDiscount, 2),
+                'fine'            => round($currentFine, 2),
+                'paid'            => round($currentPaid, 2),
+                'balance'         => round($currentBalance, 2),
+                'due'             => round($currentDue, 2),
+                'status'          => $currentStatus,
             ],
             'previous_pending' => [
                 'total'  => round($previousPending, 2),
@@ -251,31 +253,6 @@ class PublicPaymentController extends Controller
                 'link'       => $upiLink,
             ],
         ]);
-    }
-
-    /**
-     * Return the applicable discount percentage for a given months-stayed count.
-     *
-     * Uses self::DISCOUNT_SLABS — matched from highest slab down.
-     * Example with defaults:
-     *   0 months   → 0%
-     *   1–4 months → 5%
-     *   5–9 months → 10%
-     *   10+ months → 15%
-     */
-    private function getDiscountPercentage(int $monthsStayed): float
-    {
-        // Slabs are stored descending by months, so first match wins
-        $slabs = self::DISCOUNT_SLABS;
-        krsort($slabs); // ensure descending order
-
-        foreach ($slabs as $minMonths => $percent) {
-            if ($monthsStayed >= $minMonths) {
-                return (float) $percent;
-            }
-        }
-
-        return 0.0;
     }
 
     /**
@@ -292,7 +269,6 @@ class PublicPaymentController extends Controller
 
         $hostels = $hostelQuery->get();
 
-        // Build payment link + QR for each hostel
         $links = $hostels->map(function ($hostel) {
             $encodedId = Crypt::encryptString($hostel->id);
             $url       = url('/pay/' . $encodedId);
