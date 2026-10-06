@@ -12,7 +12,7 @@
                 <i class="fas fa-fingerprint text-primary"></i> eSSL Device Sync
             </h1>
             <p class="text-muted small mb-0">
-                Each resident is pushed to <strong>their hostel's</strong> biometric device.
+                Only <strong>ACTIVE</strong> residents are synced. Others stay blocked.
             </p>
         </div>
 
@@ -21,8 +21,7 @@
                 <select name="hostel_id" class="form-select" onchange="this.form.submit()">
                     <option value="">All Hostels</option>
                     @foreach($hostels as $hostel)
-                        <option value="{{ $hostel->id }}"
-                            @selected($selectedHostel == $hostel->id)>
+                        <option value="{{ $hostel->id }}" @selected($selectedHostel == $hostel->id)>
                             {{ $hostel->hostel_name }}
                             @if($hostel->biometric_device_id)
                                 — {{ $hostel->biometric_device_id }}
@@ -35,17 +34,14 @@
             </form>
 
             @if($selectedHostel)
-                <button type="button"
-                        id="btn-sync-hostel"
-                        data-hostel="{{ $selectedHostel }}"
-                        class="btn btn-warning">
+                <button type="button" id="btn-sync-hostel" data-hostel="{{ $selectedHostel }}" class="btn btn-warning">
                     <i class="fas fa-cloud-upload-alt"></i> Sync Entire Hostel
                 </button>
             @endif
         </div>
     </div>
 
-    {{-- Hostel device status cards --}}
+    {{-- Hostel devices --}}
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body">
             <h6 class="text-uppercase text-muted small mb-2">Hostel Devices</h6>
@@ -55,17 +51,38 @@
                         <div class="border rounded p-2 small">
                             <div class="fw-semibold">{{ $hostel->hostel_name }}</div>
                             @if($hostel->biometric_device_id)
-                                <span class="badge bg-success">
-                                    <i class="fas fa-check"></i> {{ $hostel->biometric_device_id }}
-                                </span>
+                                <span class="badge bg-success"><i class="fas fa-check"></i> {{ $hostel->biometric_device_id }}</span>
                             @else
-                                <span class="badge bg-danger">
-                                    <i class="fas fa-times"></i> No device configured
-                                </span>
+                                <span class="badge bg-danger"><i class="fas fa-times"></i> No device</span>
                             @endif
                         </div>
                     </div>
                 @endforeach
+            </div>
+        </div>
+    </div>
+
+    {{-- Bulk Action Bar --}}
+    <div id="bulk-bar" class="card border-0 shadow-sm mb-3 d-none"
+         style="background: linear-gradient(90deg,#eef5ff,#f6fbff); border-left: 4px solid #0d6efd !important;">
+        <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <i class="fas fa-check-square text-primary"></i>
+                <strong id="bulk-count">0</strong> resident(s) selected
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-primary" id="btn-bulk-sync">
+                    <i class="fas fa-fingerprint"></i> Sync Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" id="btn-bulk-block">
+                    <i class="fas fa-ban"></i> Block Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-success" id="btn-bulk-unblock">
+                    <i class="fas fa-unlock"></i> Unblock Selected
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-bulk-clear">
+                    <i class="fas fa-times"></i> Clear
+                </button>
             </div>
         </div>
     </div>
@@ -77,28 +94,33 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;">
+                                <input type="checkbox" id="check-all" class="form-check-input">
+                            </th>
                             <th style="width:60px;">#</th>
                             <th>Resident</th>
                             <th>Employee Code</th>
+                            <th>Status</th>
                             <th>Hostel / Room / Bed</th>
                             <th>Device</th>
                             <th>Access</th>
                             <th>Last Sync</th>
-                            <th class="text-end" style="width:280px;">Action</th>
+                            <th class="text-end" style="width:220px;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                     @forelse($residents as $i => $resident)
                         <tr data-row="{{ $resident->id }}">
+                            <td>
+                                <input type="checkbox" class="form-check-input row-check" value="{{ $resident->id }}">
+                            </td>
                             <td>{{ $i + 1 }}</td>
 
-                            {{-- Resident --}}
                             <td>
                                 <div class="fw-semibold">{{ $resident->name }}</div>
                                 <div class="text-muted small">{{ $resident->resident_code }}</div>
                             </td>
 
-                            {{-- Employee Code --}}
                             <td>
                                 @if($resident->employee_code)
                                     <span class="badge bg-dark">{{ $resident->employee_code }}</span>
@@ -107,85 +129,65 @@
                                 @endif
                             </td>
 
-                            {{-- Hostel / Room / Bed --}}
+                            <td>
+                                @if($resident->status === 'ACTIVE')
+                                    <span class="badge bg-success">ACTIVE</span>
+                                @else
+                                    <span class="badge bg-secondary">{{ $resident->status }}</span>
+                                @endif
+                            </td>
+
                             <td class="small">
                                 {{ $resident->hostel->hostel_name ?? '—' }}
                                 @if($resident->room) / {{ $resident->room->room_no }} @endif
                                 @if($resident->bed) / {{ $resident->bed->bed_no }} @endif
                             </td>
 
-                            {{-- Device serial --}}
                             <td class="small">
                                 @if($resident->hostel && $resident->hostel->biometric_device_id)
-                                    <span class="badge bg-info">
-                                        {{ $resident->hostel->biometric_device_id }}
-                                    </span>
+                                    <span class="badge bg-info">{{ $resident->hostel->biometric_device_id }}</span>
                                 @else
                                     <span class="badge bg-danger">No device</span>
                                 @endif
                             </td>
 
-                            {{-- Access status badge --}}
                             <td class="access-cell">
                                 @if($resident->biometric_access)
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check"></i> Active
-                                    </span>
+                                    <span class="badge bg-success"><i class="fas fa-check"></i> Active</span>
                                 @else
-                                    <span class="badge bg-danger">
-                                        <i class="fas fa-ban"></i> Blocked
-                                    </span>
+                                    <span class="badge bg-danger"><i class="fas fa-ban"></i> Blocked</span>
                                 @endif
                             </td>
 
-                            {{-- Last sync --}}
                             <td class="last-sync-cell small text-muted">
-                                {{ $resident->last_sync_at
-                                    ? $resident->last_sync_at->format('d M Y, h:i A')
-                                    : 'Never' }}
+                                {{ $resident->last_sync_at ? $resident->last_sync_at->format('d M Y, h:i A') : 'Never' }}
                             </td>
 
-                            {{-- Actions --}}
                             <td class="text-end">
-                                {{-- Add to Device --}}
-                                <button type="button"
-                                        class="btn btn-sm btn-primary btn-sync"
-                                        data-id="{{ $resident->id }}"
-                                        @if(
-                                            !$resident->employee_code ||
-                                            !$resident->hostel ||
-                                            !$resident->hostel->biometric_device_id
-                                        ) disabled @endif>
-                                    <i class="fas fa-fingerprint"></i> Add
-                                </button>
+                                @if($resident->status === 'ACTIVE' && $resident->employee_code && $resident->hostel && $resident->hostel->biometric_device_id)
+                                    <button type="button" class="btn btn-sm btn-primary btn-sync" data-id="{{ $resident->id }}">
+                                        <i class="fas fa-fingerprint"></i> Add
+                                    </button>
 
-                                {{-- Block / Unblock --}}
-                                @if($resident->employee_code && $resident->hostel && $resident->hostel->biometric_device_id)
                                     @if($resident->biometric_access)
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger btn-block-toggle"
-                                                data-id="{{ $resident->id }}"
-                                                data-block="1"
-                                                data-name="{{ $resident->name }}">
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-block-toggle"
+                                                data-id="{{ $resident->id }}" data-block="1" data-name="{{ $resident->name }}">
                                             <i class="fas fa-ban"></i> Block
                                         </button>
                                     @else
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-success btn-block-toggle"
-                                                data-id="{{ $resident->id }}"
-                                                data-block="0"
-                                                data-name="{{ $resident->name }}">
+                                        <button type="button" class="btn btn-sm btn-outline-success btn-block-toggle"
+                                                data-id="{{ $resident->id }}" data-block="0" data-name="{{ $resident->name }}">
                                             <i class="fas fa-unlock"></i> Unblock
                                         </button>
                                     @endif
+                                @else
+                                    <span class="badge bg-secondary">Not ACTIVE</span>
                                 @endif
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">
-                                No residents found.
-                            </td>
+                            <td colspan="10" class="text-center py-4 text-muted">No residents found.</td>
                         </tr>
                     @endforelse
                     </tbody>
@@ -200,8 +202,7 @@
     <div id="appToast" class="toast align-items-center text-white bg-success border-0" role="alert">
         <div class="d-flex">
             <div class="toast-body" id="appToastMsg">Done</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto"
-                    data-bs-dismiss="toast"></button>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
     </div>
 </div>
@@ -211,7 +212,6 @@
 <script>
 (function () {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
-
     const toastEl  = document.getElementById('appToast');
     const toastMsg = document.getElementById('appToastMsg');
     const toast    = new bootstrap.Toast(toastEl, { delay: 3500 });
@@ -236,32 +236,58 @@
         return { ok: res.ok, data: await res.json().catch(() => ({})) };
     }
 
-    /* ── Sync one resident ─────────────────────────── */
+    /* ── Select All / Row checkboxes ─────────────── */
+    const checkAll  = document.getElementById('check-all');
+    const bulkBar   = document.getElementById('bulk-bar');
+    const bulkCount = document.getElementById('bulk-count');
+    const rowChecks = () => document.querySelectorAll('.row-check');
+
+    function selectedIds() {
+        return Array.from(rowChecks())
+            .filter(c => c.checked)
+            .map(c => parseInt(c.value, 10));
+    }
+
+    function refreshBulkBar() {
+        const ids = selectedIds();
+        bulkCount.textContent = ids.length;
+        bulkBar.classList.toggle('d-none', ids.length === 0);
+        if (checkAll) {
+            checkAll.indeterminate = ids.length > 0 && ids.length < rowChecks().length;
+            checkAll.checked       = ids.length > 0 && ids.length === rowChecks().length;
+        }
+    }
+
+    if (checkAll) {
+        checkAll.addEventListener('change', function () {
+            rowChecks().forEach(c => c.checked = this.checked);
+            refreshBulkBar();
+        });
+    }
+
+    document.querySelectorAll('.row-check').forEach(c => {
+        c.addEventListener('change', refreshBulkBar);
+    });
+
+    document.getElementById('btn-bulk-clear').addEventListener('click', () => {
+        rowChecks().forEach(c => c.checked = false);
+        if (checkAll) checkAll.checked = false;
+        refreshBulkBar();
+    });
+
+    /* ── Single: Sync ────────────────────────────── */
     document.querySelectorAll('.btn-sync').forEach(btn => {
         btn.addEventListener('click', async function () {
             const id = this.dataset.id;
             const original = this.innerHTML;
-
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
-                const { data } = await postJSON(
-                    '{{ route("admin.essl.resident.sync") }}',
-                    { resident_id: id }
-                );
-
+                const { data } = await postJSON('{{ route("admin.essl.resident.sync") }}', { resident_id: id });
                 if (data.success) {
-                    this.innerHTML = '<i class="fas fa-check"></i> Synced';
-                    this.classList.remove('btn-primary');
-                    this.classList.add('btn-success');
-
-                    const row = document.querySelector(`[data-row="${id}"]`);
-                    if (row) {
-                        row.querySelector('.last-sync-cell').textContent = data.synced_at;
-                    }
-
                     showToast('✅ ' + data.message, true);
+                    setTimeout(() => location.reload(), 900);
                 } else {
                     this.disabled = false;
                     this.innerHTML = original;
@@ -275,7 +301,7 @@
         });
     });
 
-    /* ── Block / Unblock ──────────────────────────── */
+    /* ── Single: Block / Unblock ─────────────────── */
     document.querySelectorAll('.btn-block-toggle').forEach(btn => {
         btn.addEventListener('click', async function () {
             const id     = this.dataset.id;
@@ -283,34 +309,17 @@
             const name   = this.dataset.name;
             const action = block ? 'Block' : 'Unblock';
 
-            if (!confirm(`${action} "${name}" on the device?`)) return;
+            if (!confirm(`${action} "${name}"?`)) return;
 
             const original = this.innerHTML;
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
-                const { data } = await postJSON(
-                    '{{ route("admin.essl.resident.block") }}',
-                    { resident_id: id, block: block }
-                );
-
+                const { data } = await postJSON('{{ route("admin.essl.resident.block") }}', { resident_id: id, block: block });
                 if (data.success) {
                     showToast('✅ ' + data.message, true);
-
-                    // Update badge
-                    const row = document.querySelector(`[data-row="${id}"]`);
-                    if (row) {
-                        const cell = row.querySelector('.access-cell');
-                        if (cell) {
-                            cell.innerHTML = block
-                                ? '<span class="badge bg-danger"><i class="fas fa-ban"></i> Blocked</span>'
-                                : '<span class="badge bg-success"><i class="fas fa-check"></i> Active</span>';
-                        }
-                    }
-
-                    // Reload to update button state cleanly
-                    setTimeout(() => location.reload(), 1000);
+                    setTimeout(() => location.reload(), 900);
                 } else {
                     this.disabled = false;
                     this.innerHTML = original;
@@ -324,29 +333,84 @@
         });
     });
 
-    /* ── Sync entire hostel ───────────────────────── */
+    /* ── Bulk: Sync Selected ─────────────────────── */
+    document.getElementById('btn-bulk-sync').addEventListener('click', async function () {
+        const ids = selectedIds();
+        if (ids.length === 0) return;
+        if (!confirm(`Sync ${ids.length} resident(s)?`)) return;
+
+        const original = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+
+        try {
+            const { data } = await postJSON('{{ route("admin.essl.resident.bulk-sync") }}', { resident_ids: ids });
+            showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
+            setTimeout(() => location.reload(), 1200);
+        } catch (err) {
+            this.disabled = false;
+            this.innerHTML = original;
+            showToast('❌ ' + err.message, false);
+        }
+    });
+
+    /* ── Bulk: Block Selected ────────────────────── */
+    document.getElementById('btn-bulk-block').addEventListener('click', async function () {
+        const ids = selectedIds();
+        if (ids.length === 0) return;
+        if (!confirm(`Block ${ids.length} resident(s)?`)) return;
+
+        const original = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Blocking...';
+
+        try {
+            const { data } = await postJSON('{{ route("admin.essl.resident.bulk-block") }}', { resident_ids: ids, block: true });
+            showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
+            setTimeout(() => location.reload(), 1200);
+        } catch (err) {
+            this.disabled = false;
+            this.innerHTML = original;
+            showToast('❌ ' + err.message, false);
+        }
+    });
+
+    /* ── Bulk: Unblock Selected ──────────────────── */
+    document.getElementById('btn-bulk-unblock').addEventListener('click', async function () {
+        const ids = selectedIds();
+        if (ids.length === 0) return;
+        if (!confirm(`Unblock ${ids.length} resident(s)?`)) return;
+
+        const original = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unblocking...';
+
+        try {
+            const { data } = await postJSON('{{ route("admin.essl.resident.bulk-block") }}', { resident_ids: ids, block: false });
+            showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
+            setTimeout(() => location.reload(), 1200);
+        } catch (err) {
+            this.disabled = false;
+            this.innerHTML = original;
+            showToast('❌ ' + err.message, false);
+        }
+    });
+
+    /* ── Sync entire hostel ──────────────────────── */
     const syncHostelBtn = document.getElementById('btn-sync-hostel');
     if (syncHostelBtn) {
         syncHostelBtn.addEventListener('click', async function () {
             const hostelId = this.dataset.hostel;
             const original = this.innerHTML;
-
-            if (!confirm('Push ALL active residents of this hostel to its device?')) return;
+            if (!confirm('Sync all ACTIVE residents of this hostel?')) return;
 
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
 
             try {
-                const { data } = await postJSON(
-                    '{{ route("admin.essl.hostel.sync") }}',
-                    { hostel_id: hostelId }
-                );
-
+                const { data } = await postJSON('{{ route("admin.essl.hostel.sync") }}', { hostel_id: hostelId });
                 showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
-
-                if ((data.synced || 0) > 0) {
-                    setTimeout(() => location.reload(), 1500);
-                }
+                if ((data.synced || 0) > 0) setTimeout(() => location.reload(), 1500);
             } catch (err) {
                 showToast('❌ ' + err.message, false);
             } finally {

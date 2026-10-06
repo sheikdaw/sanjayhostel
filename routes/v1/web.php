@@ -211,24 +211,21 @@ Route::get('/pay/success', [PublicPaymentController::class, 'success'])
 |--------------------------------------------------------------------------
 */
 
+
 Route::middleware(['auth'])
     ->prefix('admin/essl')
     ->name('admin.essl.')
     ->group(function () {
 
-        Route::get('/diagnose', [EsslController::class, 'diagnose'])->name('diagnose');
+        // Page
         Route::get('/residents', [EsslController::class, 'residents'])->name('residents');
 
-        Route::post('/resident/sync', [EsslController::class, 'syncResident'])->name('resident.sync');
-        Route::post('/hostel/sync',   [EsslController::class, 'syncHostel'])->name('hostel.sync');
+        // Sync
+        Route::post('/resident/sync',       [EsslController::class, 'syncResident'])->name('resident.sync');
+        Route::post('/hostel/sync',         [EsslController::class, 'syncHostel'])->name('hostel.sync');
+        Route::post('/resident/bulk-sync',  [EsslController::class, 'bulkSync'])->name('resident.bulk-sync');
 
-        Route::post('/resident/enroll-fp',   [EsslController::class, 'enrollFingerprint'])->name('resident.enroll.fp');
-        Route::post('/resident/enroll-face', [EsslController::class, 'enrollFace'])->name('resident.enroll.face');
-
-        Route::post('/resident/block', [EsslController::class, 'blockUser'])->name('resident.block');
-
-        Route::get('/test',           [EsslController::class, 'test'])->name('test');
-        Route::get('/command-status', [EsslController::class, 'commandStatus'])->name('command-status');
-        Route::get('/transactions',   [EsslController::class, 'transactions'])->name('transactions');
-        Route::post('/employee',      [EsslController::class, 'addEmployee'])->name('employee.add');
+        // Block / Unblock
+        Route::post('/resident/block',       [EsslController::class, 'blockUser'])->name('resident.block');
+        Route::post('/resident/bulk-block',  [EsslController::class, 'bulkBlock'])->name('resident.bulk-block');
     });
