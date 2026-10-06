@@ -337,12 +337,17 @@ class EsslController extends Controller
             ->whereNotNull('employee_code')
             ->get();
 
-        $ok = 0; $fail = 0; $errors = [];
+        $ok = 0;
+        $fail = 0;
+        $errors = [];
 
         foreach ($residents as $resident) {
             $r = $this->syncResidentAccess($resident, false);
             if ($r['success']) $ok++;
-            else { $fail++; $errors[] = "{$resident->employee_code}: {$r['message']}"; }
+            else {
+                $fail++;
+                $errors[] = "{$resident->employee_code}: {$r['message']}";
+            }
         }
 
         return response()->json([
@@ -372,17 +377,24 @@ class EsslController extends Controller
             ->whereNotNull('employee_code')
             ->get();
 
-        $ok = 0; $fail = 0; $errors = [];
+        $ok = 0;
+        $fail = 0;
+        $errors = [];
 
         foreach ($residents as $resident) {
             if (!$user->hasAccessToHostel($resident->hostel_id)) {
-                $fail++; $errors[] = "{$resident->name}: no access"; continue;
+                $fail++;
+                $errors[] = "{$resident->name}: no access";
+                continue;
             }
 
             $r = $this->syncResidentAccess($resident, false);
 
             if (!empty($r['success'])) $ok++;
-            else { $fail++; $errors[] = "{$resident->employee_code}: " . ($r['message'] ?? 'failed'); }
+            else {
+                $fail++;
+                $errors[] = "{$resident->employee_code}: " . ($r['message'] ?? 'failed');
+            }
         }
 
         return response()->json([
@@ -442,17 +454,24 @@ class EsslController extends Controller
             ->whereIn('id', $data['resident_ids'])
             ->get();
 
-        $ok = 0; $fail = 0; $errors = [];
+        $ok = 0;
+        $fail = 0;
+        $errors = [];
 
         foreach ($residents as $resident) {
             if (!$user->hasAccessToHostel($resident->hostel_id)) {
-                $fail++; $errors[] = "{$resident->name}: no access"; continue;
+                $fail++;
+                $errors[] = "{$resident->name}: no access";
+                continue;
             }
 
             $result = $this->syncResidentAccess($resident, $isBlock);
 
             if (!empty($result['success'])) $ok++;
-            else { $fail++; $errors[] = "{$resident->employee_code}: " . ($result['message'] ?? 'failed'); }
+            else {
+                $fail++;
+                $errors[] = "{$resident->employee_code}: " . ($result['message'] ?? 'failed');
+            }
         }
 
         $action = $isBlock ? 'blocked' : 'unblocked';
