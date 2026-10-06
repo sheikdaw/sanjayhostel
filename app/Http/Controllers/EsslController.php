@@ -123,14 +123,6 @@ class EsslController extends Controller
         return $r === 'success' || $r === '1' || $r === 'true' || strpos($r, 'success') !== false;
     }
 
-    /* =========================================================
-     |  CORE LOGIC
-     |
-     |  RULES:
-     |    - resident.status === 'ACTIVE'  → sync (unblock) on device
-     |    - resident.status !== 'ACTIVE'  → block (DB only)
-     |    - NEVER call DeleteUser — templates always preserved
-     ========================================================= */
 
     public function syncResidentAccess(Resident $resident, bool $block): array
     {
