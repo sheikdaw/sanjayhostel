@@ -225,17 +225,22 @@ Route::middleware(['auth'])
     ->name('admin.essl.')
     ->group(function () {
 
-        Route::get('/residents',     [EsslController::class, 'residents'])->name('residents');
-        Route::get('/get-residents', [EsslController::class, 'getResidents'])->name('get-residents');
+        Route::get('/residents', [EsslController::class, 'residents'])->name('residents');
+        Route::get(
+            '/get-residents',
+            [EsslController::class, 'getResidents']
+        )->name('get-residents');
 
-        // Sync
+        Route::get('/command-status', [EsslController::class, 'commandStatus'])->name('command-status');
+
         Route::post('/resident/sync',      [EsslController::class, 'syncResident'])->name('resident.sync');
+        Route::post('/hostel/sync',        [EsslController::class, 'syncHostel'])->name('hostel.sync');
         Route::post('/resident/bulk-sync', [EsslController::class, 'bulkSync'])->name('resident.bulk-sync');
 
-        // Block / Unblock
         Route::post('/resident/block',      [EsslController::class, 'blockUser'])->name('resident.block');
         Route::post('/resident/bulk-block', [EsslController::class, 'bulkBlock'])->name('resident.bulk-block');
     });
+
 
 use App\Http\Controllers\EsslTestController;
 
