@@ -12,7 +12,7 @@
                 <i class="fas fa-fingerprint text-primary"></i> eSSL Device Sync
             </h1>
             <p class="text-muted small mb-0">
-                Only <strong>ACTIVE</strong> residents are synced. Others stay blocked.
+                Only <strong>ACTIVE</strong> residents are synced. Block / Unblock only disables access on the device — nothing is ever deleted.
             </p>
         </div>
 
@@ -94,9 +94,7 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th style="width:40px;">
-                                <input type="checkbox" id="check-all" class="form-check-input">
-                            </th>
+                            <th style="width:40px;"><input type="checkbox" id="check-all" class="form-check-input"></th>
                             <th style="width:60px;">#</th>
                             <th>Resident</th>
                             <th>Employee Code</th>
@@ -110,10 +108,11 @@
                     </thead>
                     <tbody>
                     @forelse($residents as $i => $resident)
+                        @php
+                            $hasDevice = $resident->employee_code && $resident->hostel && $resident->hostel->biometric_device_id;
+                        @endphp
                         <tr data-row="{{ $resident->id }}">
-                            <td>
-                                <input type="checkbox" class="form-check-input row-check" value="{{ $resident->id }}">
-                            </td>
+                            <td><input type="checkbox" class="form-check-input row-check" value="{{ $resident->id }}"></td>
                             <td>{{ $i + 1 }}</td>
 
                             <td>
@@ -164,24 +163,30 @@
                             </td>
 
                             <td class="text-end">
-                                @if($resident->status === 'ACTIVE' && $resident->employee_code && $resident->hostel && $resident->hostel->biometric_device_id)
-                                    <button type="button" class="btn btn-sm btn-primary btn-sync" data-id="{{ $resident->id }}">
-                                        <i class="fas fa-fingerprint"></i> Add
-                                    </button>
+                                @if($hasDevice)
+                                    {{-- Add: ACTIVE residents only --}}
+                                    @if($resident->status === 'ACTIVE')
+                                        <button type="button" class="btn btn-sm btn-primary btn-sync" data-id="{{ $resident->id }}">
+                                            <i class="fas fa-fingerprint"></i> Add
+                                        </button>
+                                    @endif
 
+                                    {{-- Block: any status. Unblock: ACTIVE only. Never deletes. --}}
                                     @if($resident->biometric_access)
                                         <button type="button" class="btn btn-sm btn-outline-danger btn-block-toggle"
                                                 data-id="{{ $resident->id }}" data-block="1" data-name="{{ $resident->name }}">
                                             <i class="fas fa-ban"></i> Block
                                         </button>
-                                    @else
+                                    @elseif($resident->status === 'ACTIVE')
                                         <button type="button" class="btn btn-sm btn-outline-success btn-block-toggle"
                                                 data-id="{{ $resident->id }}" data-block="0" data-name="{{ $resident->name }}">
                                             <i class="fas fa-unlock"></i> Unblock
                                         </button>
+                                    @else
+                                        <span class="badge bg-secondary">Blocked / Not ACTIVE</span>
                                     @endif
                                 @else
-                                    <span class="badge bg-secondary">Not ACTIVE</span>
+                                    <span class="badge bg-secondary">No code / device</span>
                                 @endif
                             </td>
                         </tr>
@@ -214,7 +219,7 @@
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const toastEl  = document.getElementById('appToast');
     const toastMsg = document.getElementById('appToastMsg');
-    const toast    = new bootstrap.Toast(toastEl, { delay: 3500 });
+    const toast    = new bootstrap.Toast(toastEl, { delay: 4500 });
 
     function showToast(message, success = true) {
         toastEl.classList.remove('bg-success', 'bg-danger');
@@ -233,19 +238,22 @@
             },
             body: JSON.stringify(payload)
         });
-        return { ok: res.ok, data: await res.json().catch(() => ({})) };
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok && !data.message) {
+            data.message = data.errors ? Object.values(data.errors).flat().join(' ') : ('HTTP ' + res.status);
+            data.success = false;
+        }
+        return { ok: res.ok, data };
     }
 
-    /* ── Select All / Row checkboxes ─────────────── */
+    /* ── Select All / Row checkboxes ── */
     const checkAll  = document.getElementById('check-all');
     const bulkBar   = document.getElementById('bulk-bar');
     const bulkCount = document.getElementById('bulk-count');
     const rowChecks = () => document.querySelectorAll('.row-check');
 
     function selectedIds() {
-        return Array.from(rowChecks())
-            .filter(c => c.checked)
-            .map(c => parseInt(c.value, 10));
+        return Array.from(rowChecks()).filter(c => c.checked).map(c => parseInt(c.value, 10));
     }
 
     function refreshBulkBar() {
@@ -264,10 +272,7 @@
             refreshBulkBar();
         });
     }
-
-    document.querySelectorAll('.row-check').forEach(c => {
-        c.addEventListener('change', refreshBulkBar);
-    });
+    document.querySelectorAll('.row-check').forEach(c => c.addEventListener('change', refreshBulkBar));
 
     document.getElementById('btn-bulk-clear').addEventListener('click', () => {
         rowChecks().forEach(c => c.checked = false);
@@ -275,7 +280,7 @@
         refreshBulkBar();
     });
 
-    /* ── Single: Sync ────────────────────────────── */
+    /* ── Single: Sync ── */
     document.querySelectorAll('.btn-sync').forEach(btn => {
         btn.addEventListener('click', async function () {
             const id = this.dataset.id;
@@ -301,7 +306,7 @@
         });
     });
 
-    /* ── Single: Block / Unblock ─────────────────── */
+    /* ── Single: Block / Unblock ── */
     document.querySelectorAll('.btn-block-toggle').forEach(btn => {
         btn.addEventListener('click', async function () {
             const id     = this.dataset.id;
@@ -333,70 +338,34 @@
         });
     });
 
-    /* ── Bulk: Sync Selected ─────────────────────── */
-    document.getElementById('btn-bulk-sync').addEventListener('click', async function () {
-        const ids = selectedIds();
-        if (ids.length === 0) return;
-        if (!confirm(`Sync ${ids.length} resident(s)?`)) return;
+    /* ── Bulk helper ── */
+    function bulkAction(btnId, label, busyText, url, extra) {
+        document.getElementById(btnId).addEventListener('click', async function () {
+            const ids = selectedIds();
+            if (ids.length === 0) return;
+            if (!confirm(`${label} ${ids.length} resident(s)?`)) return;
 
-        const original = this.innerHTML;
-        this.disabled = true;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+            const original = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + busyText;
 
-        try {
-            const { data } = await postJSON('{{ route("admin.essl.resident.bulk-sync") }}', { resident_ids: ids });
-            showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
-            setTimeout(() => location.reload(), 1200);
-        } catch (err) {
-            this.disabled = false;
-            this.innerHTML = original;
-            showToast('❌ ' + err.message, false);
-        }
-    });
+            try {
+                const { data } = await postJSON(url, Object.assign({ resident_ids: ids }, extra));
+                showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
+                setTimeout(() => location.reload(), 1800);
+            } catch (err) {
+                this.disabled = false;
+                this.innerHTML = original;
+                showToast('❌ ' + err.message, false);
+            }
+        });
+    }
 
-    /* ── Bulk: Block Selected ────────────────────── */
-    document.getElementById('btn-bulk-block').addEventListener('click', async function () {
-        const ids = selectedIds();
-        if (ids.length === 0) return;
-        if (!confirm(`Block ${ids.length} resident(s)?`)) return;
+    bulkAction('btn-bulk-sync',    'Sync',    'Syncing...',    '{{ route("admin.essl.resident.bulk-sync") }}',  {});
+    bulkAction('btn-bulk-block',   'Block',   'Blocking...',   '{{ route("admin.essl.resident.bulk-block") }}', { block: true });
+    bulkAction('btn-bulk-unblock', 'Unblock', 'Unblocking...', '{{ route("admin.essl.resident.bulk-block") }}', { block: false });
 
-        const original = this.innerHTML;
-        this.disabled = true;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Blocking...';
-
-        try {
-            const { data } = await postJSON('{{ route("admin.essl.resident.bulk-block") }}', { resident_ids: ids, block: true });
-            showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
-            setTimeout(() => location.reload(), 1200);
-        } catch (err) {
-            this.disabled = false;
-            this.innerHTML = original;
-            showToast('❌ ' + err.message, false);
-        }
-    });
-
-    /* ── Bulk: Unblock Selected ──────────────────── */
-    document.getElementById('btn-bulk-unblock').addEventListener('click', async function () {
-        const ids = selectedIds();
-        if (ids.length === 0) return;
-        if (!confirm(`Unblock ${ids.length} resident(s)?`)) return;
-
-        const original = this.innerHTML;
-        this.disabled = true;
-        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unblocking...';
-
-        try {
-            const { data } = await postJSON('{{ route("admin.essl.resident.bulk-block") }}', { resident_ids: ids, block: false });
-            showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
-            setTimeout(() => location.reload(), 1200);
-        } catch (err) {
-            this.disabled = false;
-            this.innerHTML = original;
-            showToast('❌ ' + err.message, false);
-        }
-    });
-
-    /* ── Sync entire hostel ──────────────────────── */
+    /* ── Sync entire hostel ── */
     const syncHostelBtn = document.getElementById('btn-sync-hostel');
     if (syncHostelBtn) {
         syncHostelBtn.addEventListener('click', async function () {
@@ -410,7 +379,7 @@
             try {
                 const { data } = await postJSON('{{ route("admin.essl.hostel.sync") }}', { hostel_id: hostelId });
                 showToast((data.success ? '✅ ' : '⚠️ ') + data.message, data.success !== false);
-                if ((data.synced || 0) > 0) setTimeout(() => location.reload(), 1500);
+                if ((data.synced || 0) > 0) setTimeout(() => location.reload(), 1800);
             } catch (err) {
                 showToast('❌ ' + err.message, false);
             } finally {

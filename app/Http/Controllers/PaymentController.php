@@ -54,7 +54,7 @@ class PaymentController extends Controller
     }
 
     /* =========================================================
-     |  BUILD ROWS
+     |  BUILD ROWS  (FIXED — no DB change)
      ========================================================= */
 
     private function buildRows(Request $request): array
@@ -115,8 +115,8 @@ class PaymentController extends Controller
             'total_date_discount' => 0,
         ];
 
-        $selectedKey = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
-        $dateDiscount = $this->getDateBasedDiscount();
+        $selectedKey   = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
+        $todayDiscount = $this->getDateBasedDiscount();   // only used for UNPAID rows
 
         foreach ($residents as $resident) {
             $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth();
@@ -131,16 +131,16 @@ class PaymentController extends Controller
                 }
             }
 
-            // ── Previous pending calculation ──
-            $previousPending = 0;
+            /* ────────── Previous pending ────────── */
+            $previousPending       = 0;
             $previousPendingMonths = [];
 
-            $joinMonth = Carbon::parse($resident->joining_date)->startOfMonth();
+            $joinMonth          = Carbon::parse($resident->joining_date)->startOfMonth();
             $selectedMonthStart = Carbon::create($year, $month, 1)->startOfMonth();
 
             $cursor = $joinMonth->copy();
             while ($cursor->lt($selectedMonthStart)) {
-                $key = $cursor->format('Y-m');
+                $key      = $cursor->format('Y-m');
                 $payments = $paymentsByResident[$resident->id][$key] ?? [];
 
                 if (count($payments) > 0) {
@@ -165,39 +165,71 @@ class PaymentController extends Controller
                 $cursor->addMonth();
             }
 
-            // ── Current month ──
+            /* ────────── Current month ────────── */
             $currentPayments = $paymentsByResident[$resident->id][$selectedKey] ?? [];
 
-            $currentPaid = 0;
-            $currentRent = (float) $resident->rent_amount;
-            $currentDiscount = 0;
-            $currentFine = 0;
-            $paymentId = null;
-            $receiptNo = 'N/A';
-            $paymentDate = null;
-            $paymentType = null;
-            $remark = null;
+            $currentPaid     = 0;
+            $currentRent     = (float) $resident->rent_amount;
+            $storedDiscount  = 0;   // ✅ what's saved in DB (manual + date combined)
+            $currentFine     = 0;
+            $paymentId       = null;
+            $receiptNo       = 'N/A';
+            $paymentDate     = null;
+            $paymentType     = null;
+            $remark          = null;
 
             foreach ($currentPayments as $p) {
-                $currentPaid     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
-                $currentDiscount += (float) $p->discount_amount;
-                $currentFine     += (float) $p->fine_amount;
-                $paymentId       = $p->id;
-                $receiptNo       = $p->receipt_no;
-                $paymentDate     = $p->payment_date;
-                $paymentType     = $p->payment_type;
-                $remark          = $p->remark;
+                $currentPaid    += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
+                $storedDiscount += (float) $p->discount_amount;   // already includes date discount
+                $currentFine    += (float) $p->fine_amount;
+
+                $paymentId   = $p->id;
+                $receiptNo   = $p->receipt_no;
+                $paymentDate = $p->payment_date;
+                $paymentType = $p->payment_type;
+                $remark      = $p->remark;
             }
 
-            $dateDiscountForRow = count($currentPayments) > 0 ? 0 : $dateDiscount;
+            /* ✅ KEY FIX:
+             |  - If a payment row EXISTS → use the discount stored in DB as-is
+             |    (do NOT recompute date discount → no more 250 + 125 = 375)
+             |  - If NO payment row yet   → apply TODAY's date discount as a preview
+             */
+            if (count($currentPayments) > 0) {
+                $totalDiscount = $storedDiscount;
+            } else {
+                $totalDiscount = $todayDiscount;
+            }
 
-            $totalDiscount = $currentDiscount + $dateDiscountForRow;
-            $currentDue    = max(0, $currentRent + $currentFine - $totalDiscount);
+            $currentDue = max(0, $currentRent + $currentFine - $totalDiscount);
 
             if (count($currentPayments) > 0) {
                 $currentBalance = max(0, $currentDue - $currentPaid);
             } else {
                 $currentBalance = $currentDue;
+            }
+
+            /* Split for display only (no DB storage) */
+            $manualDiscount = 0;
+            $dateDiscount   = 0;
+
+            if (count($currentPayments) > 0) {
+                // Best effort split using the SAVED payment_date
+                $savedDateDisc = $this->getDateBasedDiscount(
+                    $paymentDate ? Carbon::parse($paymentDate) : null
+                );
+                // The saved discount = manual + date at time of saving
+                // So manual = stored − date at saving time (if >= 0)
+                if ($storedDiscount >= $savedDateDisc) {
+                    $manualDiscount = $storedDiscount - $savedDateDisc;
+                    $dateDiscount   = $savedDateDisc;
+                } else {
+                    $manualDiscount = 0;
+                    $dateDiscount   = $storedDiscount;
+                }
+            } else {
+                $manualDiscount = 0;
+                $dateDiscount   = $todayDiscount;
             }
 
             $hasPreviousPending = ($previousPending > 0);
@@ -249,8 +281,8 @@ class PaymentController extends Controller
                 'remark'            => $remark,
 
                 'rent_amount'       => round($currentRent, 2),
-                'manual_discount'   => round($currentDiscount, 2),
-                'date_discount'     => round($dateDiscountForRow, 2),
+                'manual_discount'   => round($manualDiscount, 2),
+                'date_discount'     => round($dateDiscount, 2),
                 'total_discount'    => round($totalDiscount, 2),
                 'discount_amount'   => round($totalDiscount, 2),
                 'fine_amount'       => round($currentFine, 2),
@@ -258,10 +290,10 @@ class PaymentController extends Controller
                 'current_due'       => round($currentDue, 2),
                 'current_balance'   => round($currentBalance, 2),
 
-                'previous_pending'  => round($previousPending, 2),
+                'previous_pending'        => round($previousPending, 2),
                 'previous_pending_months' => $previousPendingMonths,
 
-                'total_due'         => round($previousPending + $currentBalance, 2),
+                'total_due' => round($previousPending + $currentBalance, 2),
 
                 'status'               => $status,
                 'has_previous_pending' => $hasPreviousPending,
@@ -274,7 +306,7 @@ class PaymentController extends Controller
             $stats['total_rent']    += $currentRent;
             $stats['total_paid']    += $currentPaid;
             $stats['total_balance'] += $previousPending + $currentBalance;
-            $stats['total_date_discount'] += $dateDiscountForRow;
+            $stats['total_date_discount'] += $dateDiscount;
 
             if ($hasCurrentPaid) {
                 $stats['paid']++;
@@ -338,11 +370,11 @@ class PaymentController extends Controller
 
     private function buildFilterLabel(array $result): string
     {
-        $parts = [];
+        $parts   = [];
         $parts[] = $result['month_label'];
 
         if ($result['hostel_id']) {
-            $hostel = Hostel::find($result['hostel_id']);
+            $hostel  = Hostel::find($result['hostel_id']);
             $parts[] = $hostel ? $hostel->hostel_name : 'Hostel';
         } else {
             $parts[] = 'All Hostels';
@@ -355,17 +387,17 @@ class PaymentController extends Controller
         }
 
         if ($result['room_no']) $parts[] = 'Room: ' . $result['room_no'];
-        if ($result['bed_no']) $parts[] = 'Bed: ' . $result['bed_no'];
-        if ($result['search']) $parts[] = 'Search: ' . $result['search'];
+        if ($result['bed_no'])  $parts[] = 'Bed: '  . $result['bed_no'];
+        if ($result['search'])  $parts[] = 'Search: ' . $result['search'];
 
         return implode(' | ', $parts);
     }
 
     public function exportCsv(Request $request)
     {
-        $result = $this->buildRows($request);
-        $rows = $result['rows'];
-        $stats = $result['stats'];
+        $result      = $this->buildRows($request);
+        $rows        = $result['rows'];
+        $stats       = $result['stats'];
         $filterLabel = $this->buildFilterLabel($result);
 
         $filename = 'payments-' . date('Y-m-d-His') . '.csv';
@@ -385,12 +417,12 @@ class PaymentController extends Controller
             fputcsv($out, []);
 
             fputcsv($out, ['SUMMARY']);
-            fputcsv($out, ['Fully Paid', $stats['paid'], '₹' . number_format($stats['paid_amount'], 2)]);
-            fputcsv($out, ['Partial', $stats['partial'], '₹' . number_format($stats['partial_amount'], 2)]);
-            fputcsv($out, ['Unpaid', $stats['unpaid'], '₹' . number_format($stats['unpaid_amount'], 2)]);
-            fputcsv($out, ['Pending (Previous)', $stats['pending'], '₹' . number_format($stats['pending_amount'], 2)]);
-            fputcsv($out, ['Date Discount (Total)', '', '₹' . number_format($stats['total_date_discount'], 2)]);
-            fputcsv($out, ['Total Residents', $stats['total'], 'Balance: ₹' . number_format($stats['total_balance'], 2)]);
+            fputcsv($out, ['Fully Paid',            $stats['paid'],    '₹' . number_format($stats['paid_amount'], 2)]);
+            fputcsv($out, ['Partial',               $stats['partial'], '₹' . number_format($stats['partial_amount'], 2)]);
+            fputcsv($out, ['Unpaid',                $stats['unpaid'],  '₹' . number_format($stats['unpaid_amount'], 2)]);
+            fputcsv($out, ['Pending (Previous)',    $stats['pending'], '₹' . number_format($stats['pending_amount'], 2)]);
+            fputcsv($out, ['Date Discount (Total)', '',                '₹' . number_format($stats['total_date_discount'], 2)]);
+            fputcsv($out, ['Total Residents',       $stats['total'],   'Balance: ₹' . number_format($stats['total_balance'], 2)]);
             fputcsv($out, []);
 
             fputcsv($out, [
@@ -436,9 +468,9 @@ class PaymentController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $result = $this->buildRows($request);
-        $rows = $result['rows'];
-        $stats = $result['stats'];
+        $result      = $this->buildRows($request);
+        $rows        = $result['rows'];
+        $stats       = $result['stats'];
         $filterLabel = $this->buildFilterLabel($result);
 
         return view('admin.payments.export-pdf', [
@@ -513,66 +545,68 @@ class PaymentController extends Controller
         DB::beginTransaction();
         try {
             $rent     = (float) $request->rent_amount;
-            $discount = (float) ($request->discount_amount ?? 0);
+            $discount = (float) ($request->discount_amount ?? 0);   // manual only
             $fine     = (float) ($request->fine_amount ?? 0);
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            $dateDiscount = $this->getDateBasedDiscount();
+            // ✅ Date discount computed ONCE based on payment_date (or today)
+            $dateDiscount = $this->getDateBasedDiscount(
+                $request->payment_date ? Carbon::parse($request->payment_date) : null
+            );
 
             $payable   = max(0, $rent + $fine - $discount - $dateDiscount);
             $totalPaid = $cash + $upi;
             $balance   = max(0, $payable - $totalPaid);
 
-            if ($totalPaid <= 0) $status = 'PENDING';
-            elseif ($balance > 0) $status = 'PARTIAL';
-            else $status = 'PAID';
+            if ($totalPaid <= 0) {
+                $status = 'PENDING';
+            } elseif ($balance > 0) {
+                $status = 'PARTIAL';
+            } else {
+                $status = 'PAID';
+            }
 
             $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
             while (Payment::where('receipt_no', $receiptNo)->exists()) {
                 $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
             }
 
-            $paymentType = $cash > 0 && $upi > 0 ? 'both' : ($cash > 0 ? 'cash' : ($upi > 0 ? 'upi' : 'none'));
+            $paymentType = $cash > 0 && $upi > 0
+                ? 'both'
+                : ($cash > 0 ? 'cash' : ($upi > 0 ? 'upi' : 'none'));
 
             $existing = Payment::where('resident_id', $resident->id)
                 ->where('month', $request->month)
                 ->where('year', $request->year)
                 ->first();
 
+            // ✅ Store COMBINED discount in existing discount_amount column
+            //    (manual + date). This is what gets read back later.
+            $payload = [
+                'rent_amount'      => $rent,
+                'discount_amount'  => $discount + $dateDiscount,
+                'fine_amount'      => $fine,
+                'cash_paid_amount' => $cash,
+                'upi_paid_amount'  => $upi,
+                'balance_amount'   => $balance,
+                'payment_date'     => $request->payment_date,
+                'transaction_id'   => $request->transaction_id,
+                'payment_type'     => $paymentType,
+                'remark'           => $request->remark,
+                'status'           => $status,
+            ];
+
             if ($existing) {
-                $existing->update([
-                    'rent_amount'      => $rent,
-                    'discount_amount'  => $discount + $dateDiscount,
-                    'fine_amount'      => $fine,
-                    'cash_paid_amount' => $cash,
-                    'upi_paid_amount'  => $upi,
-                    'balance_amount'   => $balance,
-                    'payment_date'     => $request->payment_date,
-                    'transaction_id'   => $request->transaction_id,
-                    'payment_type'     => $paymentType,
-                    'remark'           => $request->remark,
-                    'status'           => $status,
-                ]);
+                $existing->update($payload);
                 $payment = $existing;
             } else {
-                $payment = Payment::create([
-                    'resident_id'      => $resident->id,
-                    'receipt_no'       => $receiptNo,
-                    'month'            => $request->month,
-                    'year'             => $request->year,
-                    'rent_amount'      => $rent,
-                    'discount_amount'  => $discount + $dateDiscount,
-                    'fine_amount'      => $fine,
-                    'cash_paid_amount' => $cash,
-                    'upi_paid_amount'  => $upi,
-                    'balance_amount'   => $balance,
-                    'payment_date'     => $request->payment_date,
-                    'transaction_id'   => $request->transaction_id,
-                    'payment_type'     => $paymentType,
-                    'remark'           => $request->remark,
-                    'status'           => $status,
-                ]);
+                $payment = Payment::create(array_merge($payload, [
+                    'resident_id' => $resident->id,
+                    'receipt_no'  => $receiptNo,
+                    'month'       => $request->month,
+                    'year'        => $request->year,
+                ]));
             }
 
             DB::commit();
@@ -642,19 +676,31 @@ class PaymentController extends Controller
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            $payable   = max(0, $rent + $fine - $discount);
+            // ✅ Keep the SAME date discount that was originally saved
+            $originalDateDisc = $this->getDateBasedDiscount(
+                $payment->payment_date ? Carbon::parse($payment->payment_date) : null
+            );
+
+            $payable   = max(0, $rent + $fine - $discount - $originalDateDisc);
             $totalPaid = $cash + $upi;
             $balance   = max(0, $payable - $totalPaid);
 
-            if ($totalPaid <= 0) $status = 'PENDING';
-            elseif ($balance > 0) $status = 'PARTIAL';
-            else $status = 'PAID';
+            if ($totalPaid <= 0) {
+                $status = 'PENDING';
+            } elseif ($balance > 0) {
+                $status = 'PARTIAL';
+            } else {
+                $status = 'PAID';
+            }
 
-            $paymentType = $cash > 0 && $upi > 0 ? 'both' : ($cash > 0 ? 'cash' : ($upi > 0 ? 'upi' : 'none'));
+            $paymentType = $cash > 0 && $upi > 0
+                ? 'both'
+                : ($cash > 0 ? 'cash' : ($upi > 0 ? 'upi' : 'none'));
 
             $payment->update([
                 'rent_amount'      => $rent,
-                'discount_amount'  => $discount,
+                // ✅ Re-store COMBINED discount (manual + same date discount)
+                'discount_amount'  => $discount + $originalDateDisc,
                 'fine_amount'      => $fine,
                 'cash_paid_amount' => $cash,
                 'upi_paid_amount'  => $upi,
@@ -671,7 +717,11 @@ class PaymentController extends Controller
             // ✅ AUTO-SYNC ACCESS
             $this->syncAccessAfterPayment($payment->resident);
 
-            return response()->json(['success' => true, 'message' => 'Payment updated!', 'payment' => $payment]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment updated!',
+                'payment' => $payment,
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -699,15 +749,7 @@ class PaymentController extends Controller
     }
 
     /* =========================================================
-     |  🔑 KEY METHOD — Auto-Sync Access
-     |
-     |  RULES:
-     |    Current month FULLY PAID  +  Previous month FULLY PAID  →  UNBLOCK
-     |    Otherwise                                                →  BLOCK
-     |
-     |  "Previous month" = the month before current month.
-     |  Only checks these 2 months. If joined recently, previous
-     |  month check is skipped (newly joined resident is OK).
+     |  🔑 Auto-Sync Access
      ========================================================= */
 
     private function syncAccessAfterPayment(Resident $resident): void
@@ -716,43 +758,38 @@ class PaymentController extends Controller
             /** @var EsslController $essl */
             $essl = app(EsslController::class);
 
-            // ── Compute current + previous month ──
-            $now            = now();
-            $currentMonth   = (int) $now->month;
-            $currentYear    = (int) $now->year;
+            $now          = now();
+            $currentMonth = (int) $now->month;
+            $currentYear  = (int) $now->year;
 
-            $prevDate       = $now->copy()->subMonthNoOverflow();
-            $prevMonth      = (int) $prevDate->month;
-            $prevYear       = (int) $prevDate->year;
+            $prevDate  = $now->copy()->subMonthNoOverflow();
+            $prevMonth = (int) $prevDate->month;
+            $prevYear  = (int) $prevDate->year;
 
-            // ── Check current month ──
             $currentPaid = $this->isMonthFullyPaid($resident, $currentMonth, $currentYear);
 
-            // ── Check previous month ──
-            // Skip previous-month check if resident joined ON or AFTER current month
             $joinDate = $resident->joining_date
                 ? Carbon::parse($resident->joining_date)
                 : null;
 
             $checkPrevMonth = true;
             if ($joinDate && $joinDate->year === $currentYear && $joinDate->month === $currentMonth) {
-                // Joined this month → no previous month to check
                 $checkPrevMonth = false;
             }
 
             $prevPaid = $checkPrevMonth
                 ? $this->isMonthFullyPaid($resident, $prevMonth, $prevYear)
-                : true;   // newly joined → treat previous month as OK
+                : true;
 
             $shouldUnblock = $currentPaid && $prevPaid;
 
             Log::info('syncAccessAfterPayment decision', [
-                'resident_id'   => $resident->id,
-                'current_paid'  => $currentPaid,
-                'prev_paid'     => $prevPaid,
-                'should_unblock'=> $shouldUnblock,
-                'current'       => "{$currentYear}-{$currentMonth}",
-                'previous'      => "{$prevYear}-{$prevMonth}",
+                'resident_id'    => $resident->id,
+                'current_paid'   => $currentPaid,
+                'prev_paid'      => $prevPaid,
+                'should_unblock' => $shouldUnblock,
+                'current'        => "{$currentYear}-{$currentMonth}",
+                'previous'       => "{$prevYear}-{$prevMonth}",
             ]);
 
             if ($shouldUnblock) {
@@ -770,9 +807,6 @@ class PaymentController extends Controller
 
     /**
      * Is the given month fully paid for the resident?
-     *   - payment row exists
-     *   - balance_amount <= 0
-     *   - at least some amount paid (cash + upi > 0)
      */
     private function isMonthFullyPaid(Resident $resident, int $month, int $year): bool
     {

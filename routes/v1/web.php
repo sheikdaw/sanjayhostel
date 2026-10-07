@@ -210,22 +210,29 @@ Route::get('/pay/success', [PublicPaymentController::class, 'success'])
 | Essl / Biometric Routes
 |--------------------------------------------------------------------------
 */
-
-
 Route::middleware(['auth'])
     ->prefix('admin/essl')
     ->name('admin.essl.')
     ->group(function () {
 
-        // Page
         Route::get('/residents', [EsslController::class, 'residents'])->name('residents');
 
-        // Sync
-        Route::post('/resident/sync',       [EsslController::class, 'syncResident'])->name('resident.sync');
-        Route::post('/hostel/sync',         [EsslController::class, 'syncHostel'])->name('hostel.sync');
-        Route::post('/resident/bulk-sync',  [EsslController::class, 'bulkSync'])->name('resident.bulk-sync');
+        Route::get('/command-status', [EsslController::class, 'commandStatus'])->name('command-status');
 
-        // Block / Unblock
-        Route::post('/resident/block',       [EsslController::class, 'blockUser'])->name('resident.block');
-        Route::post('/resident/bulk-block',  [EsslController::class, 'bulkBlock'])->name('resident.bulk-block');
+        Route::post('/resident/sync',      [EsslController::class, 'syncResident'])->name('resident.sync');
+        Route::post('/hostel/sync',        [EsslController::class, 'syncHostel'])->name('hostel.sync');
+        Route::post('/resident/bulk-sync', [EsslController::class, 'bulkSync'])->name('resident.bulk-sync');
+
+        Route::post('/resident/block',      [EsslController::class, 'blockUser'])->name('resident.block');
+        Route::post('/resident/bulk-block', [EsslController::class, 'bulkBlock'])->name('resident.bulk-block');
     });
+
+
+    use App\Http\Controllers\EsslTestController;
+
+Route::middleware(['auth'])->prefix('essl-test')->name('essl-test.')->group(function () {
+    Route::get('/',              [EsslTestController::class, 'index'])  ->name('index');
+    Route::post('/add-all',      [EsslTestController::class, 'addAll']) ->name('add-all');
+    Route::post('/add-one/{id}', [EsslTestController::class, 'addOne']) ->name('add-one');
+    Route::get('/command/{id}',  [EsslTestController::class, 'command'])->name('command');
+});

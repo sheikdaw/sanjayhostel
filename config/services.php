@@ -25,27 +25,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | eSSL Biometric Device
+    | eSSL Biometric Device  (eTimetracklite Web API Service)
     |--------------------------------------------------------------------------
     */
     'essl' => [
-        // Full SOAP endpoint — device is at 192.168.0.111, port 83
-        'url'      => env('ESSL_URL', 'http://192.168.0.111:83/webservice.asmx'),
+        'url'      => env('ESSL_URL', 'http://192.168.0.111:83/iclock/WebAPIService.asmx'),
 
-        // SOAP auth
-        'api_key'  => env('ESSL_API_KEY', ''),
+        'api_key'  => env('ESSL_API_KEY', '11'),
         'username' => env('ESSL_USERNAME', 'Admin'),
-        'password' => env('ESSL_PASSWORD', 'Admin@123'),
+        'password' => env('ESSL_PASSWORD', ''),
 
-        // Timeouts (seconds)
         'connect_timeout' => (int) env('ESSL_CONNECT_TIMEOUT', 5),
         'timeout'         => (int) env('ESSL_TIMEOUT', 30),
 
-        // Toggle for local testing without a device
-        'mock'     => (bool) env('ESSL_MOCK', false),
-
-        // Default port (used if URL has no explicit port)
+        'mock'         => filter_var(env('ESSL_MOCK', false), FILTER_VALIDATE_BOOLEAN),
         'default_port' => (int) env('ESSL_DEFAULT_PORT', 83),
+
+        // ── AddMultipleEmployeesToDB masters ──
+        // ⚠️ MUST match eTimetracklite desktop Short Names exactly (case-sensitive)
+        'company_sname'    => env('ESSL_COMPANY_SNAME', 'Default'),
+        'department_sname' => env('ESSL_DEPARTMENT_SNAME', 'Default'),
+        'sub_department'   => env('ESSL_SUB_DEPARTMENT', ''),
+        'location'         => env('ESSL_LOCATION', ''),
+        'designation'      => env('ESSL_DESIGNATION', ''),
+        'division'         => env('ESSL_DIVISION', ''),
+        'grade'            => env('ESSL_GRADE', ''),
+        'employment_type'  => env('ESSL_EMPLOYMENT_TYPE', 'Permanent'),
+        'gender'           => env('ESSL_DEFAULT_GENDER', 'Male'),
     ],
 
 ];
