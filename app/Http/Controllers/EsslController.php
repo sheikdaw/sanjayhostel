@@ -28,12 +28,17 @@ class EsslController extends Controller
     {
         $hostelId = $request->query('hostel_id', 'all');
 
-        $residents = Resident::with(['hostel', 'room', 'bed'])
-            ->when($hostelId !== 'all', function ($query) use ($hostelId) {
-                $query->where('hostel_id', $hostelId);
-            })
+        $residents = Resident::with([
+                'hostel:id,hostel_name,biometric_device_id',
+                'room:id,room_no',
+                'bed:id,bed_no',
+            ])
+            ->when($hostelId !== 'all', fn($q) => $q->where('hostel_id', $hostelId))
             ->orderBy('name')
-            ->get();
+            ->get([
+                'id', 'name', 'employee_code', 'hostel_id', 'room_id', 'bed_id',
+                'status', 'biometric_access', 'last_sync_at',
+            ]);
 
         return response()->json([
             'success'   => true,
@@ -51,8 +56,7 @@ class EsslController extends Controller
         ]);
 
         $resident = Resident::with('hostel')->findOrFail($data['resident_id']);
-
-        $r = $this->doSync($resident);
+        $r        = $this->doSync($resident);
 
         return response()->json($this->singleResponse($resident, $r));
     }
@@ -62,11 +66,13 @@ class EsslController extends Controller
         set_time_limit(300);
 
         $data = $request->validate([
-            'resident_ids'   => 'required|array|min:1',
+            'resident_ids'   => 'required|array|min:1|max:100',
             'resident_ids.*' => 'integer|exists:residents,id',
         ]);
 
-        $residents = Resident::with('hostel')->whereIn('id', $data['resident_ids'])->get();
+        $residents = Resident::with('hostel')
+            ->whereIn('id', $data['resident_ids'])
+            ->get();
 
         return $this->summarise($residents, fn($r) => $this->doSync($r), 'synced');
     }
@@ -119,13 +125,15 @@ class EsslController extends Controller
         set_time_limit(300);
 
         $data = $request->validate([
-            'resident_ids'   => 'required|array|min:1',
+            'resident_ids'   => 'required|array|min:1|max:100',
             'resident_ids.*' => 'integer|exists:residents,id',
             'block'          => 'required|boolean',
         ]);
 
         $block     = (bool) $data['block'];
-        $residents = Resident::with('hostel')->whereIn('id', $data['resident_ids'])->get();
+        $residents = Resident::with('hostel')
+            ->whereIn('id', $data['resident_ids'])
+            ->get();
 
         return $this->summarise(
             $residents,
@@ -157,11 +165,15 @@ class EsslController extends Controller
     }
 
     /**
-     * STEP 1: AddMultipleEmployeesToDB → Web DB
-     * STEP 2: AddEmployee              → device queue
-     * STEP 3: GetCommandStatus         → verify
+     * STEP 1: AddMultipleEmployeesToDB (first sync only)
+     * STEP 2: AddEmployee → device queue
+     * STEP 3 (FIX #1): If DB says biometric_access = false,
+     *                  immediately block on device after add.
+     *
+     * @param bool $keepBlocked  When true, re-apply block if resident is
+     *                           currently marked blocked in DB.
      */
-    private function doSync(Resident $resident): array
+    private function doSync(Resident $resident, bool $keepBlocked = true): array
     {
         if ($resident->status !== 'ACTIVE') {
             return ['success' => false, 'message' => "{$resident->name}: not ACTIVE, skipped."];
@@ -170,26 +182,35 @@ class EsslController extends Controller
             return ['success' => false, 'message' => "{$resident->name}: {$err}"];
         }
 
-        // STEP 1
-        $db = $this->essl->addEmployeeToDb([
-            'code'        => $resident->employee_code,
-            'name'        => $resident->name,
-            'gender'      => $resident->gender ?? null,
-            'join_date'   => optional($resident->joining_date)->format('Y-m-d') ?? now()->format('Y-m-d'),
-            'status'      => 'Working',
-            'resign_date' => '',
-        ]);
+        $firstSync = empty($resident->last_sync_at);
+        $wasBlocked = !$resident->biometric_access;
 
-        if (!$db['success']) {
-            Log::warning('eSSL DB add failed', [
-                'resident_id' => $resident->id,
+        // STEP 1
+        if ($firstSync) {
+            $db = $this->essl->addEmployeeToDb([
                 'code'        => $resident->employee_code,
-                'result'      => $db,
+                'name'        => $resident->name,
+                'gender'      => $resident->gender ?? null,
+                'join_date'   => optional($resident->joining_date)->format('Y-m-d')
+                                 ?? now()->format('Y-m-d'),
+                'status'      => 'Working',
+                'resign_date' => '',
             ]);
-            return ['success' => false, 'message' => "{$resident->name}: DB add failed - {$db['message']}"];
+
+            if (!$db['success']) {
+                Log::warning('eSSL DB add failed', [
+                    'resident_id' => $resident->id,
+                    'code'        => $resident->employee_code,
+                    'result'      => $db,
+                ]);
+                return [
+                    'success' => false,
+                    'message' => "{$resident->name}: DB add failed - {$db['message']}",
+                ];
+            }
         }
 
-        // STEP 2
+        // STEP 2 — device add
         $res = $this->essl->addEmployee(
             (string) $resident->employee_code,
             $resident->name,
@@ -197,35 +218,45 @@ class EsslController extends Controller
             (string) ($resident->card_number ?? '')
         );
 
-        if (!empty($res['success'])) {
-            $resident->last_sync_at = now();
-            $resident->save();
+        if (empty($res['success'])) {
+            $msg = ($firstSync ? 'Added to web DB' : 'Re-synced')
+                 . ', device FAILED: ' . ($res['message'] ?? 'unknown');
+            $cmdId = $res['server_command_id'] ?? $res['sent_command_id'] ?? null;
+            if ($cmdId) $msg .= " (Cmd#{$cmdId})";
+
+            return ['success' => false, 'message' => "{$resident->name}: {$msg}"];
         }
 
-        // STEP 3
-        $msg = 'Added to web DB';
-        if (!empty($res['success'])) {
-            $msg .= ' + queued to device';
-        } else {
-            $msg .= ', device FAILED: ' . ($res['message'] ?? 'unknown');
+        $resident->last_sync_at = now();
+        $resident->save();
+
+        // STEP 3 (FIX #1) — re-apply block on device if DB says blocked
+        $blockMsg = '';
+        if ($keepBlocked && $wasBlocked) {
+            $b = $this->essl->blockUnblock(
+                (string) $resident->employee_code,
+                $resident->name,
+                $resident->hostel->biometric_device_id,
+                true
+            );
+            $blockMsg = !empty($b['success'])
+                ? ' + re-blocked on device'
+                : ' (re-block failed: ' . ($b['message'] ?? 'unknown') . ')';
         }
 
-        $cmdId = $res['command_id'] ?? $res['sent_command_id'] ?? null;
-        $cmdSt = $res['command_status']['message'] ?? null;
-
+        $msg = ($firstSync ? 'Added to web DB' : 'Re-synced') . ' + queued to device' . $blockMsg;
+        $cmdId = $res['server_command_id'] ?? $res['sent_command_id'] ?? null;
         if ($cmdId) $msg .= " (Cmd#{$cmdId})";
-        if ($cmdSt) $msg .= " — {$cmdSt}";
 
-        return ['success' => !empty($res['success']), 'message' => "{$resident->name}: {$msg}"];
+        return ['success' => true, 'message' => "{$resident->name}: {$msg}"];
     }
 
     /**
-     * Block / Unblock on the device. Never deletes the user.
-     * ACTIVE illaadha resident → permanent block (unblock reject).
+     * Block / Unblock on the device.
+     * Non-ACTIVE resident → permanent block (unblock rejected).
      */
     private function doBlock(Resident $resident, bool $block): array
     {
-        // Permanent block rule
         if ($resident->status !== 'ACTIVE' && !$block) {
             return [
                 'success' => false,
@@ -240,24 +271,39 @@ class EsslController extends Controller
         $serial = $resident->hostel->biometric_device_id;
         $code   = (string) $resident->employee_code;
 
-        // Device-ku innum sync aagala
+        // Not yet synced
         if (!$resident->last_sync_at) {
             if ($block) {
                 $resident->update([
                     'biometric_access'   => false,
                     'access_disabled_at' => now(),
                 ]);
-                return ['success' => true, 'message' => "{$resident->name}: marked blocked (not on device yet)."];
+                return [
+                    'success' => true,
+                    'message' => "{$resident->name}: marked blocked (not on device yet).",
+                ];
             }
 
-            // Unblock → first device-ku sync
-            $add = $this->doSync($resident);
+            // Unblock → must first push (FIX #2: keepBlocked=false so no extra block)
+            $add = $this->doSync($resident, false);
             if (!$add['success']) return $add;
 
             $resident->refresh();
         }
 
         $res = $this->essl->blockUnblock($code, $resident->name, $serial, $block);
+
+        // Fallback: unblock failed → employee not on device → sync, retry
+        if (!$block
+            && empty($res['success'])
+            && stripos($res['message'] ?? '', 'not found') !== false) {
+
+            $add = $this->doSync($resident, false);   // FIX #2
+            if ($add['success']) {
+                $resident->refresh();
+                $res = $this->essl->blockUnblock($code, $resident->name, $serial, false);
+            }
+        }
 
         if (!empty($res['success'])) {
             $resident->biometric_access = !$block;
@@ -273,33 +319,29 @@ class EsslController extends Controller
         }
 
         $msg = $res['message'] ?? 'unknown';
-        if (!empty($res['command_id'])) {
-            $msg .= " (Cmd#{$res['command_id']})";
-        }
+        $cmdId = $res['server_command_id'] ?? $res['command_id'] ?? null;
+        if ($cmdId) $msg .= " (Cmd#{$cmdId})";
 
         return ['success' => !empty($res['success']), 'message' => "{$resident->name}: {$msg}"];
     }
 
     /* ───────────── Helpers ───────────── */
 
-    /**
-     * Current DB state (JS button update-ku).
-     * Non-ACTIVE → always unblocked = false.
-     */
     private function stateOf(Resident $resident): array
     {
-        $fresh = Resident::find($resident->id) ?? $resident;
-
         return [
-            'id'               => $fresh->id,
-            'biometric_access' => (bool) $fresh->biometric_access,
-            'unblocked'        => $fresh->status === 'ACTIVE' && (bool) $fresh->biometric_access,
-            'last_sync_at'     => optional($fresh->last_sync_at)->toDateTimeString(),
+            'id'               => $resident->id,
+            'biometric_access' => (bool) $resident->biometric_access,
+            'unblocked'        => $resident->status === 'ACTIVE'
+                                  && (bool) $resident->biometric_access,
+            'last_sync_at'     => optional($resident->last_sync_at)->toDateTimeString(),
         ];
     }
 
     private function singleResponse(Resident $resident, array $r): array
     {
+        $resident->refresh();
+
         return array_merge(
             ['success' => $r['success'], 'message' => $r['message']],
             $this->stateOf($resident)
@@ -332,11 +374,11 @@ class EsslController extends Controller
 
         if ($failed) {
             $message .= ' Failed: ' . implode(' | ', array_slice($failed, 0, 3))
-                . (count($failed) > 3 ? ' …' : '');
+                      . (count($failed) > 3 ? ' …' : '');
         }
 
         return response()->json([
-            'success' => $ok > 0 && !$failed,
+            'success' => $ok > 0 && empty($failed),
             'message' => $message,
             'synced'  => $ok,
             'failed'  => count($failed),

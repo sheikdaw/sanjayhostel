@@ -5,14 +5,6 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-/**
- * eTimetracklite Web API (SOAP 1.1) client.
- *
- * KEY BEHAVIOUR DISCOVERED:
- *   eSSL server IGNORES the CommandId we send and returns its own
- *   internal CommandId (a small int like 1257).
- *   → GetCommandStatus MUST be called with the SERVER-returned CommandId.
- */
 class EsslService
 {
     private const NS        = 'http://tempuri.org/';
@@ -29,21 +21,26 @@ class EsslService
     public function __construct()
     {
         $c = config('services.essl');
-        $this->url            = $c['url'];
-        $this->apiKey         = (string) $c['api_key'];
-        $this->username       = (string) $c['username'];
-        $this->password       = (string) $c['password'];
-        $this->connectTimeout = $c['connect_timeout'] ?? 5;
-        $this->timeout        = $c['timeout'] ?? 30;
-        $this->mock           = (bool) ($c['mock'] ?? false);
+
+        // Graceful: don't throw — let page load with a friendly error
+        $this->url            = (string) ($c['url']            ?? '');
+        $this->apiKey         = (string) ($c['api_key']        ?? '11');
+        $this->username       = (string) ($c['username']       ?? '');
+        $this->password       = (string) ($c['password']       ?? '');
+        $this->connectTimeout = (int)    ($c['connect_timeout'] ?? 5);
+        $this->timeout        = (int)    ($c['timeout']         ?? 30);
+        $this->mock           = (bool)   ($c['mock']            ?? false);
+    }
+
+    public function isConfigured(): bool
+    {
+        return $this->url !== ''
+            && $this->username !== ''
+            && $this->password !== '';
     }
 
     /* ════════════════ Public API ════════════════ */
 
-    /**
-     * Add employee to DEVICE (queues command).
-     * Uses server-returned CommandId for status verification.
-     */
     public function addEmployee(string $employeeCode, string $name, string $serial, string $cardNumber = ''): array
     {
         $sentCommandId = (string) random_int(1, self::INT32_MAX);
@@ -60,27 +57,12 @@ class EsslService
         ]);
 
         $result['sent_command_id'] = $sentCommandId;
-
-        // ⚠️ Use the CommandId RETURNED by the server, not the one we sent
-        $serverCommandId = $result['command_id'] ?? null;
-
-        if (!empty($result['success']) && $serverCommandId) {
-            $result['server_command_id'] = $serverCommandId;
-            $result['command_status']    = $this->getCommandStatus($serverCommandId);
-
-            Log::info('AddEmployee — GetCommandStatus', [
-                'sent_command_id'   => $sentCommandId,
-                'server_command_id' => $serverCommandId,
-                'status'            => $result['command_status'],
-            ]);
+        if (!empty($result['success']) && !empty($result['command_id'])) {
+            $result['server_command_id'] = $result['command_id'];
         }
-
         return $result;
     }
 
-    /**
-     * Block / Unblock user on device. Never deletes fingerprints.
-     */
     public function blockUnblock(string $employeeCode, string $name, string $serial, bool $block): array
     {
         $sentCommandId = (string) random_int(1, self::INT32_MAX);
@@ -97,27 +79,12 @@ class EsslService
         ]);
 
         $result['sent_command_id'] = $sentCommandId;
-
-        $serverCommandId = $result['command_id'] ?? null;
-
-        if (!empty($result['success']) && $serverCommandId) {
-            $result['server_command_id'] = $serverCommandId;
-            $result['command_status']    = $this->getCommandStatus($serverCommandId);
-
-            Log::info('BlockUnblockUser — GetCommandStatus', [
-                'sent_command_id'   => $sentCommandId,
-                'server_command_id' => $serverCommandId,
-                'is_block'          => $block,
-                'status'            => $result['command_status'],
-            ]);
+        if (!empty($result['success']) && !empty($result['command_id'])) {
+            $result['server_command_id'] = $result['command_id'];
         }
-
         return $result;
     }
 
-    /**
-     * Add / update employee in eTimetracklite WEB database.
-     */
     public function addEmployeeToDb(array $emp): array
     {
         $c = config('services.essl');
@@ -130,11 +97,11 @@ class EsslService
             'EmployeeName'    => (string) $emp['name'],
             'CompanySName'    => $company,
             'DepartmentSName' => $department,
-            'SubDepartment'   => (string) ($c['sub_department'] ?? ''),
-            'Location'        => (string) ($c['location']       ?? ''),
-            'Designation'     => (string) ($c['designation']    ?? ''),
-            'Division'        => (string) ($c['division']       ?? ''),
-            'Grade'           => (string) ($c['grade']          ?? ''),
+            'SubDepartment'   => (string) ($c['sub_department']  ?? ''),
+            'Location'        => (string) ($c['location']        ?? ''),
+            'Designation'     => (string) ($c['designation']     ?? ''),
+            'Division'        => (string) ($c['division']        ?? ''),
+            'Grade'           => (string) ($c['grade']           ?? ''),
             'EmploymentType'  => (string) ($c['employment_type'] ?? 'Permanent'),
             'Gender'          => $emp['gender'] ?? ($c['gender'] ?? 'Male'),
             'DateOfJoin'      => $emp['join_date'],
@@ -154,16 +121,16 @@ class EsslService
         }
 
         return $this->call('AddMultipleEmployeesToDB', [
-            'EmployeesDataInJsonFormat' => json_encode([$row], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'EmployeesDataInJsonFormat' => json_encode(
+                [$row],
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            ),
             'UserName'                  => $this->username,
             'UserPassword'              => $this->password,
             'ErrorMessage'              => '',
         ]);
     }
 
-    /**
-     * Get command status by CommandId (must be the SERVER-returned one).
-     */
     public function getCommandStatus(string $commandId): array
     {
         return $this->call('GetCommandStatus', [
@@ -177,8 +144,11 @@ class EsslService
 
     private function validateDbRow(array $row): array
     {
-        $required = ['EmployeeCode', 'EmployeeName', 'CompanySName', 'DepartmentSName', 'EmploymentType', 'Gender'];
-        $missing  = [];
+        $required = [
+            'EmployeeCode', 'EmployeeName', 'CompanySName',
+            'DepartmentSName', 'EmploymentType', 'Gender',
+        ];
+        $missing = [];
         foreach ($required as $key) {
             if (empty($row[$key])) $missing[] = $key;
         }
@@ -189,6 +159,15 @@ class EsslService
 
     private function call(string $method, array $params): array
     {
+        if (!$this->isConfigured() && !$this->mock) {
+            return [
+                'success'    => false,
+                'message'    => 'eSSL not configured (check ESSL_URL / ESSL_USERNAME / ESSL_PASSWORD).',
+                'command_id' => null,
+                'raw'        => null,
+            ];
+        }
+
         if ($this->mock) {
             return [
                 'success'    => true,
@@ -232,15 +211,22 @@ class EsslService
 
         $raw = $res->body();
 
+        $safeXml = preg_replace(
+            '/<UserPassword>.*?<\/UserPassword>/s',
+            '<UserPassword>***</UserPassword>',
+            $xml
+        );
+
         Log::info("eSSL {$method}", [
             'status'   => $res->status(),
-            'request'  => $xml,
+            'request'  => $safeXml,
             'response' => $raw,
         ]);
 
         if (!$res->successful()) {
-            $fault = $this->extract($raw, 'faultstring') ?? mb_substr(strip_tags($raw), 0, 300);
-            Log::error("eSSL {$method} HTTP {$res->status()}", ['fault' => $fault, 'request' => $xml]);
+            $fault = $this->extract($raw, 'faultstring')
+                  ?? mb_substr(strip_tags($raw), 0, 300);
+            Log::error("eSSL {$method} HTTP {$res->status()}", ['fault' => $fault]);
             return [
                 'success'    => false,
                 'message'    => "eSSL HTTP {$res->status()}: " . trim($fault),
@@ -249,7 +235,6 @@ class EsslService
             ];
         }
 
-        // Try all known result tag patterns
         $result = $this->extract($raw, "{$method}Result")
                ?? $this->extract($raw, 'AddMultipleEmployeeToDBResult')
                ?? $this->extract($raw, 'AddMultipleEmployeesToDBResult');
@@ -267,13 +252,16 @@ class EsslService
         }
 
         $errStatus = $errStatus !== null ? trim($errStatus) : '';
-        $hasError  = $errStatus !== '';
+        $resultStr = trim((string) $result);
+
+        // ── Stronger success detection ──
+        $hasError = $errStatus !== '' || $this->looksLikeError($resultStr);
 
         $ok = !$hasError;
 
-        $message = trim((string) $result);
-        if ($hasError) {
-            $message .= ' | ErrorStatus: ' . $errStatus;
+        $message = $resultStr;
+        if ($errStatus !== '') {
+            $message .= ($message ? ' | ' : '') . 'ErrorStatus: ' . $errStatus;
         }
 
         return [
@@ -282,6 +270,35 @@ class EsslService
             'command_id' => $commandId,
             'raw'        => $raw,
         ];
+    }
+
+    /**
+     * Detect failure even when ErrorStatus is empty but Result text
+     * contains an obvious error phrase.
+     */
+    private function looksLikeError(string $text): bool
+    {
+        if ($text === '') return false;
+
+        $needles = [
+            'authentication fail',
+            'authentication failed',
+            'invalid user',
+            'invalid password',
+            'user not found',
+            'employee not found',
+            'device not found',
+            'serial number not',
+            'failed',
+            'error',
+            'not exist',
+        ];
+
+        $lower = strtolower($text);
+        foreach ($needles as $n) {
+            if (str_contains($lower, $n)) return true;
+        }
+        return false;
     }
 
     private function xmlEscape(string $v): string
@@ -295,7 +312,8 @@ class EsslService
 
     private function extract(string $xml, string $tag): ?string
     {
-        $pattern = '/<(?:\w+:)?' . preg_quote($tag, '/') . '\b[^>]*>(.*?)<\/(?:\w+:)?' . preg_quote($tag, '/') . '>/s';
+        $pattern = '/<(?:\w+:)?' . preg_quote($tag, '/') . '\b[^>]*>(.*?)<\/(?:\w+:)?'
+                 . preg_quote($tag, '/') . '>/s';
         if (preg_match($pattern, $xml, $m)) {
             return html_entity_decode(trim($m[1]), ENT_QUOTES | ENT_XML1, 'UTF-8');
         }
