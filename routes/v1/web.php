@@ -20,17 +20,17 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn () => view('view.home'))->name('home');
-Route::get('/about', fn () => view('view.about'))->name('about');
-Route::get('/rooms', fn () => view('view.rooms'))->name('rooms');
-Route::get('/gallery', fn () => view('view.gallery'))->name('gallery');
+Route::get('/', fn() => view('view.home'))->name('home');
+Route::get('/about', fn() => view('view.about'))->name('about');
+Route::get('/rooms', fn() => view('view.rooms'))->name('rooms');
+Route::get('/gallery', fn() => view('view.gallery'))->name('gallery');
 
-Route::get('/contact', fn () => view('view.contact'))->name('contact');
-Route::get('/contacts', fn () => view('view.contatct'))->name('contact.submit');
+Route::get('/contact', fn() => view('view.contact'))->name('contact');
+Route::get('/contacts', fn() => view('view.contatct'))->name('contact.submit');
 
-Route::get('/privacy-policy', fn () => view('view.privacy'))->name('privacy');
-Route::get('/terms', fn () => view('view.terms'))->name('terms');
-Route::get('/refund-policy', fn () => view('view.refund-policy'))->name('refund.policy');
+Route::get('/privacy-policy', fn() => view('view.privacy'))->name('privacy');
+Route::get('/terms', fn() => view('view.terms'))->name('terms');
+Route::get('/refund-policy', fn() => view('view.refund-policy'))->name('refund.policy');
 
 /*
 |--------------------------------------------------------------------------
@@ -140,12 +140,16 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::prefix('residents')->name('residents.')->group(function () {
 
         // 🔑 SPECIFIC ROUTES FIRST
-        Route::patch('/regenerate-all-employee-codes',
-            [ResidentController::class, 'regenerateAllEmployeeCodes'])
+        Route::patch(
+            '/regenerate-all-employee-codes',
+            [ResidentController::class, 'regenerateAllEmployeeCodes']
+        )
             ->name('regenerate-all-employee-codes');
 
-        Route::get('/vacant-beds/{roomId}',
-            [ResidentController::class, 'getVacantBeds'])
+        Route::get(
+            '/vacant-beds/{roomId}',
+            [ResidentController::class, 'getVacantBeds']
+        )
             ->name('vacant-beds');
 
         // ----- Standard CRUD -----
@@ -157,14 +161,20 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::put('/{id}',  [ResidentController::class, 'update'])->name('update');
         Route::delete('/{id}', [ResidentController::class, 'destroy'])->name('destroy');
 
-        Route::patch('/{id}/vacate',
-            [ResidentController::class, 'vacate'])->name('vacate');
+        Route::patch(
+            '/{id}/vacate',
+            [ResidentController::class, 'vacate']
+        )->name('vacate');
 
-        Route::patch('/{id}/reactivate',
-            [ResidentController::class, 'reactivate'])->name('reactivate');
+        Route::patch(
+            '/{id}/reactivate',
+            [ResidentController::class, 'reactivate']
+        )->name('reactivate');
 
-        Route::patch('/{id}/regenerate-employee-code',
-            [ResidentController::class, 'regenerateEmployeeCode'])
+        Route::patch(
+            '/{id}/regenerate-employee-code',
+            [ResidentController::class, 'regenerateEmployeeCode']
+        )
             ->name('regenerate-employee-code');
     });
 
@@ -216,6 +226,10 @@ Route::middleware(['auth'])
     ->group(function () {
 
         Route::get('/residents', [EsslController::class, 'residents'])->name('residents');
+        Route::get(
+            '/get-residents',
+            [EsslController::class, 'getResidents']
+        )->name('get-residents');
 
         Route::get('/command-status', [EsslController::class, 'commandStatus'])->name('command-status');
 
@@ -228,11 +242,11 @@ Route::middleware(['auth'])
     });
 
 
-    use App\Http\Controllers\EsslTestController;
+use App\Http\Controllers\EsslTestController;
 
 Route::middleware(['auth'])->prefix('essl-test')->name('essl-test.')->group(function () {
-    Route::get('/',              [EsslTestController::class, 'index'])  ->name('index');
-    Route::post('/add-all',      [EsslTestController::class, 'addAll']) ->name('add-all');
-    Route::post('/add-one/{id}', [EsslTestController::class, 'addOne']) ->name('add-one');
+    Route::get('/',              [EsslTestController::class, 'index'])->name('index');
+    Route::post('/add-all',      [EsslTestController::class, 'addAll'])->name('add-all');
+    Route::post('/add-one/{id}', [EsslTestController::class, 'addOne'])->name('add-one');
     Route::get('/command/{id}',  [EsslTestController::class, 'command'])->name('command');
 });

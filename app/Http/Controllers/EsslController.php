@@ -16,18 +16,53 @@ class EsslController extends Controller
     /* ───────────── Page ───────────── */
 
     public function residents(Request $request)
-    {
-        $hostels        = Hostel::orderBy('hostel_name')->get();
-        $selectedHostel = $request->query('hostel_id');
+{
+    $hostels = Hostel::where('status', 'active')
+        ->orderBy('hostel_name')
+        ->get();
 
-        $residents = Resident::with(['hostel', 'room', 'bed'])
-            ->when($selectedHostel, fn ($q) => $q->where('hostel_id', $selectedHostel))
-            ->orderBy('name')
-            ->get();
+    $selectedHostel = 'all';
 
-        return view('admin.essl.residents', compact('hostels', 'residents', 'selectedHostel'));
-    }
+    $residents = Resident::with([
+        'hostel',
+        'room',
+        'bed'
+    ])
+    ->orderBy('name')
+    ->get();
 
+    return view(
+        'admin.essl.residents',
+        compact(
+            'hostels',
+            'residents',
+            'selectedHostel'
+        )
+    );
+}public function getResidents(Request $request)
+{
+    $hostelId = $request->query('hostel_id', 'all');
+
+    $residents = Resident::with([
+        'hostel',
+        'room',
+        'bed'
+    ])
+    ->when(
+        $hostelId !== 'all',
+        function ($query) use ($hostelId) {
+            $query->where('hostel_id', $hostelId);
+        }
+    )
+    ->orderBy('name')
+    ->get();
+
+    return response()->json([
+        'success' => true,
+        'residents' => $residents,
+        'total' => $residents->count(),
+    ]);
+}
     /* ───────────── Sync ───────────── */
 
     public function syncResident(Request $request): JsonResponse
@@ -47,7 +82,7 @@ class EsslController extends Controller
         ]);
 
         $residents = Resident::with('hostel')->whereIn('id', $data['resident_ids'])->get();
-        return $this->summarise($residents, fn ($r) => $this->doSync($r), 'synced');
+        return $this->summarise($residents, fn($r) => $this->doSync($r), 'synced');
     }
 
     public function syncHostel(Request $request): JsonResponse
@@ -67,7 +102,7 @@ class EsslController extends Controller
             ]);
         }
 
-        return $this->summarise($residents, fn ($r) => $this->doSync($r), 'synced');
+        return $this->summarise($residents, fn($r) => $this->doSync($r), 'synced');
     }
 
     /* ───────────── Block / Unblock ───────────── */
@@ -99,7 +134,7 @@ class EsslController extends Controller
 
         return $this->summarise(
             $residents,
-            fn ($r) => $this->doBlock($r, $block),
+            fn($r) => $this->doBlock($r, $block),
             $block ? 'blocked' : 'unblocked'
         );
     }
@@ -258,7 +293,7 @@ class EsslController extends Controller
         $message = "{$ok}/{$total} {$verb}.";
         if ($failed) {
             $message .= ' Failed: ' . implode(' | ', array_slice($failed, 0, 3))
-                      . (count($failed) > 3 ? ' …' : '');
+                . (count($failed) > 3 ? ' …' : '');
         }
 
         return response()->json([
