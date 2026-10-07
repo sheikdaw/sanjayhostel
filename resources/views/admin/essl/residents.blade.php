@@ -31,13 +31,17 @@
         th { background: #f4f4f4; }
         tr:hover { background: #fafafa; }
         tr.selected { background: #eff6ff; }
+        tr.inactive { background: #fafafa; color: #888; }
 
         .status-btn { border: 0; padding: 7px 14px; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; }
         .status-btn.unblocked { background: #dcfce7; color: #15803d; }
         .status-btn.blocked { background: #fee2e2; color: #dc2626; }
         .status-btn.syncing { background: #e5e7eb; color: #555; cursor: wait; }
+        .status-btn.permanent { background: #e5e7eb; color: #6b7280; cursor: not-allowed; }
+
         .sync-btn { border: 1px solid #2563eb; background: #fff; color: #2563eb; padding: 6px 12px; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; }
         .sync-btn:disabled, .status-btn:disabled { opacity: .6; cursor: wait; }
+        .status-btn.permanent:disabled { opacity: 1; cursor: not-allowed; }
 
         .empty { background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 6px; }
         .total { margin-top: 15px; }
@@ -107,7 +111,7 @@
     }
 
     function setStatusBtn(id, unblocked) {
-        $(`.status-btn[data-id="${id}"]`)
+        $(`.status-btn[data-id="${id}"]:not(.permanent)`)
             .removeClass('blocked unblocked syncing')
             .addClass(unblocked ? 'unblocked' : 'blocked')
             .text(unblocked ? 'UNBLOCKED' : 'BLOCKED')
@@ -133,9 +137,7 @@
     }
 
     function errMsg(xhr) {
-        if (xhr.responseJSON) {
-            if (xhr.responseJSON.message) return xhr.responseJSON.message;
-        }
+        if (xhr.responseJSON && xhr.responseJSON.message) return xhr.responseJSON.message;
         return 'Something went wrong.';
     }
 
@@ -183,10 +185,31 @@
                 <tbody>`;
 
         residents.forEach(function (r, i) {
-            const un = isUnblocked(r);
+            const isActive  = r.status === 'ACTIVE';
+            const isAllowed = isUnblocked(r);
+
+            // ACTIVE illana → permanent block
+            const accessCell = isActive
+                ? `<button type="button"
+                           class="status-btn ${isAllowed ? 'unblocked' : 'blocked'}"
+                           data-id="${r.id}">
+                       ${isAllowed ? 'UNBLOCKED' : 'BLOCKED'}
+                   </button>`
+                : `<button type="button" class="status-btn permanent" disabled
+                           title="Resident is ${esc(r.status)}">
+                       BLOCKED (${esc(r.status)})
+                   </button>`;
+
+            const syncCell = isActive
+                ? `<button type="button" class="sync-btn" data-id="${r.id}">Sync</button>`
+                : `<span class="muted">-</span>`;
+
             html += `
-                <tr data-id="${r.id}">
-                    <td><input type="checkbox" class="row-check" value="${r.id}"></td>
+                <tr data-id="${r.id}" class="${isActive ? '' : 'inactive'}">
+                    <td>
+                        <input type="checkbox" class="row-check" value="${r.id}"
+                               ${isActive ? '' : 'disabled'}>
+                    </td>
                     <td>${i + 1}</td>
                     <td>${esc(r.name)}</td>
                     <td>${esc(r.employee_code)}</td>
@@ -194,12 +217,8 @@
                     <td>${esc(r.room ? r.room.room_no : null)}</td>
                     <td>${esc(r.bed ? r.bed.bed_no : null)}</td>
                     <td class="last-sync">${fmtDate(r.last_sync_at)}</td>
-                    <td><button type="button" class="sync-btn" data-id="${r.id}">Sync</button></td>
-                    <td>
-                        <button type="button" class="status-btn ${un ? 'unblocked' : 'blocked'}" data-id="${r.id}">
-                            ${un ? 'UNBLOCKED' : 'BLOCKED'}
-                        </button>
-                    </td>
+                    <td>${syncCell}</td>
+                    <td>${accessCell}</td>
                 </tr>`;
         });
 
@@ -218,12 +237,12 @@
     /* ───────── selection ───────── */
 
     function selectedIds() {
-        return $('.row-check:checked').map(function () { return this.value; }).get();
+        return $('.row-check:checked:not(:disabled)').map(function () { return this.value; }).get();
     }
 
     function updateSelectedCount() {
         const ids   = selectedIds();
-        const total = $('.row-check').length;
+        const total = $('.row-check:not(:disabled)').length;
 
         $('#selectedCount').text(ids.length);
         $('#bulkBlock, #bulkUnblock, #bulkSync').prop('disabled', ids.length === 0);
@@ -231,8 +250,8 @@
     }
 
     $(document).on('change', '#selectAll', function () {
-        $('.row-check').prop('checked', this.checked);
-        $('#residentTable tbody tr').toggleClass('selected', this.checked);
+        $('.row-check:not(:disabled)').prop('checked', this.checked);
+        $('#residentTable tbody tr:not(.inactive)').toggleClass('selected', this.checked);
         updateSelectedCount();
     });
 
@@ -259,27 +278,27 @@
 
     function lockRows(ids) {
         ids.forEach(function (id) {
-            $(`.status-btn[data-id="${id}"]`).prop('disabled', true).addClass('syncing').text('SYNCING...');
+            $(`.status-btn[data-id="${id}"]:not(.permanent)`).prop('disabled', true).addClass('syncing').text('SYNCING...');
             $(`.sync-btn[data-id="${id}"]`).prop('disabled', true).text('...');
         });
     }
 
     function unlockRows(ids) {
         ids.forEach(function (id) {
-            $(`.status-btn[data-id="${id}"]`).prop('disabled', false).removeClass('syncing');
+            $(`.status-btn[data-id="${id}"]:not(.permanent)`).prop('disabled', false).removeClass('syncing');
             $(`.sync-btn[data-id="${id}"]`).prop('disabled', false).text('Sync');
         });
     }
 
     /* ───────── single block / unblock ───────── */
 
-    $(document).on('click', '.status-btn', function () {
+    $(document).on('click', '.status-btn:not(.permanent)', function () {
         const btn = $(this);
         if (btn.prop('disabled')) return;
 
         const id           = btn.data('id');
         const wasUnblocked = btn.hasClass('unblocked');
-        const block        = wasUnblocked ? 1 : 0;   // unblocked ah irundha → block pannanum
+        const block        = wasUnblocked ? 1 : 0;
 
         lockRows([id]);
 
@@ -345,7 +364,6 @@
             .fail(function (xhr) {
                 unlockRows(ids);
                 bulkMsg(errMsg(xhr), false);
-                // Original state theriyaadhu → fresh load
                 loadResidents($('#hostel_id').val() || 'all');
             })
             .always(function () {

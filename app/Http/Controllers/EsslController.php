@@ -21,7 +21,6 @@ class EsslController extends Controller
             ->orderBy('hostel_name')
             ->get();
 
-        // Table AJAX-la load aagum, so residents inga thevai illa
         return view('admin.essl.residents', compact('hostels'));
     }
 
@@ -60,6 +59,8 @@ class EsslController extends Controller
 
     public function bulkSync(Request $request): JsonResponse
     {
+        set_time_limit(300);
+
         $data = $request->validate([
             'resident_ids'   => 'required|array|min:1',
             'resident_ids.*' => 'integer|exists:residents,id',
@@ -72,6 +73,8 @@ class EsslController extends Controller
 
     public function syncHostel(Request $request): JsonResponse
     {
+        set_time_limit(300);
+
         $data = $request->validate([
             'hostel_id' => 'required|integer|exists:hostels,id',
         ]);
@@ -113,6 +116,8 @@ class EsslController extends Controller
 
     public function bulkBlock(Request $request): JsonResponse
     {
+        set_time_limit(300);
+
         $data = $request->validate([
             'resident_ids'   => 'required|array|min:1',
             'resident_ids.*' => 'integer|exists:residents,id',
@@ -216,9 +221,18 @@ class EsslController extends Controller
 
     /**
      * Block / Unblock on the device. Never deletes the user.
+     * ACTIVE illaadha resident → permanent block (unblock reject).
      */
     private function doBlock(Resident $resident, bool $block): array
     {
+        // Permanent block rule
+        if ($resident->status !== 'ACTIVE' && !$block) {
+            return [
+                'success' => false,
+                'message' => "{$resident->name}: {$resident->status} resident, cannot be unblocked.",
+            ];
+        }
+
         if ($err = $this->validateForDevice($resident)) {
             return ['success' => false, 'message' => "{$resident->name}: {$err}"];
         }
@@ -226,7 +240,7 @@ class EsslController extends Controller
         $serial = $resident->hostel->biometric_device_id;
         $code   = (string) $resident->employee_code;
 
-        // Device-ku innum sync aagala → DB-only block
+        // Device-ku innum sync aagala
         if (!$resident->last_sync_at) {
             if ($block) {
                 $resident->update([
@@ -236,7 +250,7 @@ class EsslController extends Controller
                 return ['success' => true, 'message' => "{$resident->name}: marked blocked (not on device yet)."];
             }
 
-            // Unblock → first device-ku sync pannanum
+            // Unblock → first device-ku sync
             $add = $this->doSync($resident);
             if (!$add['success']) return $add;
 
@@ -269,7 +283,8 @@ class EsslController extends Controller
     /* ───────────── Helpers ───────────── */
 
     /**
-     * Current DB state of a resident (JS button update-ku).
+     * Current DB state (JS button update-ku).
+     * Non-ACTIVE → always unblocked = false.
      */
     private function stateOf(Resident $resident): array
     {
