@@ -37,7 +37,7 @@ class PaymentController extends Controller
     }
 
     /* =========================================================
-     |  DATE DISCOUNT
+     |  DATE DISCOUNT (based on a given date)
      ========================================================= */
 
     private function getDateBasedDiscount(?Carbon $asOf = null): float
@@ -53,8 +53,19 @@ class PaymentController extends Controller
         return 0.0;
     }
 
+    /**
+     * Date discount for a HISTORICAL month.
+     * Uses day-01 of that month → since payment was expected early.
+     * If a payment row exists for that month, we trust the DB value instead.
+     */
+    private function getHistoricalMonthDiscount(int $month, int $year): float
+    {
+        $asOf = Carbon::create($year, $month, 1);
+        return $this->getDateBasedDiscount($asOf);
+    }
+
     /* =========================================================
-     |  BUILD ROWS  (FIXED — no DB change)
+     |  BUILD ROWS
      ========================================================= */
 
     private function buildRows(Request $request): array
@@ -116,7 +127,7 @@ class PaymentController extends Controller
         ];
 
         $selectedKey   = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
-        $todayDiscount = $this->getDateBasedDiscount();   // only used for UNPAID rows
+        $todayDiscount = $this->getDateBasedDiscount();
 
         foreach ($residents as $resident) {
             $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth();
@@ -131,7 +142,7 @@ class PaymentController extends Controller
                 }
             }
 
-            /* ────────── Previous pending ────────── */
+            /* ────────── Previous pending (with date discount) ────────── */
             $previousPending       = 0;
             $previousPendingMonths = [];
 
@@ -144,12 +155,18 @@ class PaymentController extends Controller
                 $payments = $paymentsByResident[$resident->id][$key] ?? [];
 
                 if (count($payments) > 0) {
+                    // Payment exists → read saved balance (already includes discount)
                     $dueThisMonth = 0;
                     foreach ($payments as $p) {
                         $dueThisMonth += (float) $p->balance_amount;
                     }
                 } else {
-                    $dueThisMonth = (float) $resident->rent_amount;
+                    // No payment → apply that month's discount (using day-01)
+                    $monthDiscount = $this->getHistoricalMonthDiscount(
+                        (int) $cursor->month,
+                        (int) $cursor->year
+                    );
+                    $dueThisMonth = max(0, (float) $resident->rent_amount - $monthDiscount);
                 }
 
                 if ($dueThisMonth > 0) {
@@ -168,19 +185,19 @@ class PaymentController extends Controller
             /* ────────── Current month ────────── */
             $currentPayments = $paymentsByResident[$resident->id][$selectedKey] ?? [];
 
-            $currentPaid     = 0;
-            $currentRent     = (float) $resident->rent_amount;
-            $storedDiscount  = 0;   // ✅ what's saved in DB (manual + date combined)
-            $currentFine     = 0;
-            $paymentId       = null;
-            $receiptNo       = 'N/A';
-            $paymentDate     = null;
-            $paymentType     = null;
-            $remark          = null;
+            $currentPaid    = 0;
+            $currentRent    = (float) $resident->rent_amount;
+            $storedDiscount = 0;
+            $currentFine    = 0;
+            $paymentId      = null;
+            $receiptNo      = 'N/A';
+            $paymentDate    = null;
+            $paymentType    = null;
+            $remark         = null;
 
             foreach ($currentPayments as $p) {
                 $currentPaid    += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
-                $storedDiscount += (float) $p->discount_amount;   // already includes date discount
+                $storedDiscount += (float) $p->discount_amount;
                 $currentFine    += (float) $p->fine_amount;
 
                 $paymentId   = $p->id;
@@ -191,9 +208,8 @@ class PaymentController extends Controller
             }
 
             /* ✅ KEY FIX:
-             |  - If a payment row EXISTS → use the discount stored in DB as-is
-             |    (do NOT recompute date discount → no more 250 + 125 = 375)
-             |  - If NO payment row yet   → apply TODAY's date discount as a preview
+             |  - Payment exists → use SAVED discount from DB (no recompute)
+             |  - No payment yet → apply TODAY's date discount as preview
              */
             if (count($currentPayments) > 0) {
                 $totalDiscount = $storedDiscount;
@@ -209,17 +225,16 @@ class PaymentController extends Controller
                 $currentBalance = $currentDue;
             }
 
-            /* Split for display only (no DB storage) */
+            /* Split for display */
             $manualDiscount = 0;
             $dateDiscount   = 0;
 
             if (count($currentPayments) > 0) {
-                // Best effort split using the SAVED payment_date
-                $savedDateDisc = $this->getDateBasedDiscount(
-                    $paymentDate ? Carbon::parse($paymentDate) : null
-                );
-                // The saved discount = manual + date at time of saving
-                // So manual = stored − date at saving time (if >= 0)
+                // Reconstruct split using payment_date's window
+                $savedDateDisc = $paymentDate
+                    ? $this->getDateBasedDiscount(Carbon::parse($paymentDate))
+                    : 0;
+
                 if ($storedDiscount >= $savedDateDisc) {
                     $manualDiscount = $storedDiscount - $savedDateDisc;
                     $dateDiscount   = $savedDateDisc;
@@ -545,17 +560,27 @@ class PaymentController extends Controller
         DB::beginTransaction();
         try {
             $rent     = (float) $request->rent_amount;
-            $discount = (float) ($request->discount_amount ?? 0);   // manual only
+            $discount = (float) ($request->discount_amount ?? 0);
             $fine     = (float) ($request->fine_amount ?? 0);
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            // ✅ Date discount computed ONCE based on payment_date (or today)
+            // Date discount based on payment_date
             $dateDiscount = $this->getDateBasedDiscount(
                 $request->payment_date ? Carbon::parse($request->payment_date) : null
             );
 
-            $payable   = max(0, $rent + $fine - $discount - $dateDiscount);
+            // ✅ SAFETY: avoid double-counting if frontend already sent combined value
+            $maxDateDiscount = self::DATE_DISCOUNT_1_5;
+            if ($discount >= $dateDiscount && $discount >= $maxDateDiscount) {
+                // Frontend likely already included date discount → trust it
+                $totalDiscount = $discount;
+                $dateDiscount  = 0;
+            } else {
+                $totalDiscount = $discount + $dateDiscount;
+            }
+
+            $payable   = max(0, $rent + $fine - $totalDiscount);
             $totalPaid = $cash + $upi;
             $balance   = max(0, $payable - $totalPaid);
 
@@ -581,11 +606,9 @@ class PaymentController extends Controller
                 ->where('year', $request->year)
                 ->first();
 
-            // ✅ Store COMBINED discount in existing discount_amount column
-            //    (manual + date). This is what gets read back later.
             $payload = [
                 'rent_amount'      => $rent,
-                'discount_amount'  => $discount + $dateDiscount,
+                'discount_amount'  => $totalDiscount,
                 'fine_amount'      => $fine,
                 'cash_paid_amount' => $cash,
                 'upi_paid_amount'  => $upi,
@@ -611,7 +634,6 @@ class PaymentController extends Controller
 
             DB::commit();
 
-            // ✅ AUTO-SYNC ACCESS
             $this->syncAccessAfterPayment($resident);
 
             return response()->json([
@@ -676,12 +698,19 @@ class PaymentController extends Controller
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            // ✅ Keep the SAME date discount that was originally saved
+            // Preserve the date discount based on ORIGINAL payment_date
             $originalDateDisc = $this->getDateBasedDiscount(
                 $payment->payment_date ? Carbon::parse($payment->payment_date) : null
             );
 
-            $payable   = max(0, $rent + $fine - $discount - $originalDateDisc);
+            // Safety: avoid double counting
+            if ($discount >= $originalDateDisc && $discount >= self::DATE_DISCOUNT_1_5) {
+                $totalDiscount = $discount;
+            } else {
+                $totalDiscount = $discount + $originalDateDisc;
+            }
+
+            $payable   = max(0, $rent + $fine - $totalDiscount);
             $totalPaid = $cash + $upi;
             $balance   = max(0, $payable - $totalPaid);
 
@@ -699,8 +728,7 @@ class PaymentController extends Controller
 
             $payment->update([
                 'rent_amount'      => $rent,
-                // ✅ Re-store COMBINED discount (manual + same date discount)
-                'discount_amount'  => $discount + $originalDateDisc,
+                'discount_amount'  => $totalDiscount,
                 'fine_amount'      => $fine,
                 'cash_paid_amount' => $cash,
                 'upi_paid_amount'  => $upi,
@@ -714,7 +742,6 @@ class PaymentController extends Controller
 
             DB::commit();
 
-            // ✅ AUTO-SYNC ACCESS
             $this->syncAccessAfterPayment($payment->resident);
 
             return response()->json([
@@ -742,7 +769,6 @@ class PaymentController extends Controller
         $resident = $payment->resident;
         $payment->delete();
 
-        // ✅ AUTO-SYNC ACCESS after delete
         $this->syncAccessAfterPayment($resident);
 
         return response()->json(['success' => true, 'message' => 'Payment deleted!']);
