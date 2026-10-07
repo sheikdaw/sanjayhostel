@@ -24,7 +24,7 @@ class EsslController extends Controller
             ->when($selectedHostel, fn ($q) => $q->where('hostel_id', $selectedHostel))
             ->orderBy('name')
             ->get();
-
+return response()->json($residents);
         return view('admin.essl.residents', compact('hostels', 'residents', 'selectedHostel'));
     }
 

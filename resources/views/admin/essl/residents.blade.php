@@ -10,7 +10,21 @@
 </head>
 <body>
     <h2>Active Residents with Employee Code</h2>
+ @if($hostels->isEmpty())
+    <p>No active hostels found.</p>
+@else
+    <form>
+        <select name="hostel" id="hostel">
+            <option value="all">All Hostels</option>
 
+            @foreach ($hostels as $hostel)
+                <option value="{{ $hostel->id }}">
+                    {{ $hostel->name }}
+                </option>
+            @endforeach
+        </select>
+    </form>
+@endif
     @if($residents->isEmpty())
         <p>No active residents found.</p>
     @else
