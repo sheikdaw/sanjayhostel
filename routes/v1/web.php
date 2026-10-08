@@ -212,7 +212,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 |--------------------------------------------------------------------------
 */
 
-
 Route::get('/pay/{encodedHostelId}', [PublicPaymentController::class, 'show'])
     ->name('public.payment.show');
 
@@ -225,11 +224,11 @@ Route::post('/pay/{encodedHostelId}/initiate', [PublicPaymentController::class, 
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
 
-// ── Axis callback paths ──
-Route::get('/guest/payment/callback', [PublicPaymentController::class, 'callback'])
+// ── Axis callback (user returns here after paying) ──
+Route::get('/pay/callback/axis', [PublicPaymentController::class, 'callback'])
     ->name('public.payment.callback');
 
-Route::get('/guest/payment/cancel', [PublicPaymentController::class, 'cancel'])
+Route::get('/pay/cancel/axis', [PublicPaymentController::class, 'cancel'])
     ->name('public.payment.cancel');
 
 // ── Webhook (server-to-server, no CSRF) ──
