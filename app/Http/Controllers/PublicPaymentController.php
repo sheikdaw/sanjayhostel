@@ -381,37 +381,5 @@ class PublicPaymentController extends Controller
 
         return view('public.index', compact('links'));
     }
-    /* =========================================================
- |  CALLBACK — User returns from Axis page (success)
- ========================================================= */
-
-public function callback(Request $request)
-{
-    $orderId = $request->query('order_id');
-
-    Log::info('Axis callback received', [
-        'order_id' => $orderId,
-        'query'    => $request->query(),
-    ]);
-
-    // Payment already recorded via webhook.
-    return redirect()->route('public.payment.success');
-}
-
-/* =========================================================
- |  CANCEL — User cancelled payment on Axis page
- ========================================================= */
-
-public function cancel(Request $request)
-{
-    $orderId = $request->query('order_id');
-
-    Log::info('Axis payment cancelled', [
-        'order_id' => $orderId,
-    ]);
-
-    return redirect()
-        ->route('public.payment.success')
-        ->with('error', 'Payment was cancelled.');
-}
+    
 }
