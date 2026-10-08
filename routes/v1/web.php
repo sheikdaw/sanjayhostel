@@ -224,18 +224,17 @@ Route::post('/pay/{encodedHostelId}/initiate', [PublicPaymentController::class, 
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
 
-// ── Axis callback (user returns here after paying) ──
+// ── Axis callback + cancel (NO {gateway} param) ──
 Route::get('/pay/callback/axis', [PublicPaymentController::class, 'callback'])
     ->name('public.payment.callback');
 
 Route::get('/pay/cancel/axis', [PublicPaymentController::class, 'cancel'])
     ->name('public.payment.cancel');
 
-// ── Webhook (server-to-server, no CSRF) ──
+// ── Webhook (WITH {gateway} param, no CSRF) ──
 Route::post('/pay/webhook/{gateway}', [PublicPaymentController::class, 'webhook'])
     ->name('public.payment.webhook')
     ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
-
 /*
 |--------------------------------------------------------------------------
 | Essl / Biometric Routes

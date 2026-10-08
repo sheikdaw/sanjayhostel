@@ -214,7 +214,7 @@ class PublicPaymentController extends Controller
                 'manual_discount' => round($currentDiscount, 2),
                 'date_discount'   => round($dateDiscount, 2),
                 'total_discount'  => round($totalDiscount, 2),
-                'discount'        => round($totalDiscount, 2), // alias for frontend
+                'discount'        => round($totalDiscount, 2),
                 'fine'            => round($currentFine, 2),
                 'paid'            => round($currentPaid, 2),
                 'balance'         => round($currentBalance, 2),
@@ -231,8 +231,6 @@ class PublicPaymentController extends Controller
 
     /* =========================================================
      |  INITIATE — Gateway choose pannum
-     |  - Axis configured → Axis page URL return
-     |  - Else → UPI deep-link return
      ========================================================= */
 
     public function initiate(Request $request, string $encodedHostelId)
@@ -274,7 +272,6 @@ class PublicPaymentController extends Controller
 
     /* =========================================================
      |  WEBHOOK — Gateway server-to-server callback
-     |  Axis / future gateways POST here
      ========================================================= */
 
     public function webhook(Request $request, string $gateway)
@@ -283,7 +280,7 @@ class PublicPaymentController extends Controller
         $headers = $request->headers->all();
 
         $driver = match ($gateway) {
-            'axis' => new \App\Services\Payment\AxisBankGateway(),
+            'axis'  => new \App\Services\Payment\AxisBankGateway(),
             default => null,
         };
 
@@ -329,13 +326,31 @@ class PublicPaymentController extends Controller
 
     /* =========================================================
      |  CALLBACK — User returns from Axis page
+     |  NOTE: No {gateway} param — route already fixed to /axis
      ========================================================= */
 
-    public function callback(Request $request, string $gateway)
+    public function callback(Request $request)
     {
-        // Payment already recorded via webhook.
-        // This just shows the success page.
+        Log::info('Payment callback received', [
+            'query' => $request->query(),
+        ]);
+
         return redirect()->route('public.payment.success');
+    }
+
+    /* =========================================================
+     |  CANCEL — User cancelled payment on Axis page
+     ========================================================= */
+
+    public function cancel(Request $request)
+    {
+        Log::info('Payment cancelled by user', [
+            'query' => $request->query(),
+        ]);
+
+        return redirect()
+            ->route('public.payment.success')
+            ->with('error', 'Payment was cancelled.');
     }
 
     /* =========================================================
@@ -381,5 +396,4 @@ class PublicPaymentController extends Controller
 
         return view('public.index', compact('links'));
     }
-    
 }
