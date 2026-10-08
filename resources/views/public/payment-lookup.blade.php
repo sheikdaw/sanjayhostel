@@ -89,13 +89,9 @@
             z-index: 1;
         }
 
-        .pay-body {
-            padding: 1.5rem;
-        }
+        .pay-body { padding: 1.5rem; }
 
-        .pay-form-group {
-            margin-bottom: 1rem;
-        }
+        .pay-form-group { margin-bottom: 1rem; }
 
         .pay-form-label {
             display: block;
@@ -107,9 +103,7 @@
             letter-spacing: 0.5px;
         }
 
-        .pay-input-wrap {
-            position: relative;
-        }
+        .pay-input-wrap { position: relative; }
 
         .pay-input-wrap i {
             position: absolute;
@@ -539,7 +533,6 @@
 <body>
 
 <div class="pay-card">
-    {{-- Header --}}
     <div class="pay-header">
         <div class="pay-logo">
             <i class="bi bi-house-heart-fill"></i>
@@ -548,10 +541,8 @@
         <p><i class="bi bi-shield-check"></i> Secure Rent Payment</p>
     </div>
 
-    {{-- Body --}}
     <div class="pay-body">
 
-        {{-- Lookup Form --}}
         <div id="lookupForm">
             <form id="phoneForm" autocomplete="off">
                 @csrf
@@ -573,7 +564,6 @@
             </form>
         </div>
 
-        {{-- Result Section --}}
         <div class="pay-result" id="resultSection">
             <div id="resultContent"></div>
 
@@ -586,7 +576,6 @@
 
     </div>
 
-    {{-- Footer --}}
     <div class="pay-footer">
         <i class="bi bi-lock-fill"></i> Powered by Sanjay PG Hostel Management
     </div>
@@ -616,7 +605,7 @@
        STATE
        ═══════════════════════════════════════════════════════════ */
     let currentTotalDue = 0;
-    let currentPhone    = '';   // ★ FIX: captured at lookup time, never read from hidden input
+    let currentPhone    = '';
 
     /* ═══════════════════════════════════════════════════════════
        LOOKUP FORM SUBMIT
@@ -652,7 +641,7 @@
                 return;
             }
 
-            renderResult(data, phone);   // ★ FIX: pass phone through
+            renderResult(data, phone);
 
         } catch (err) {
             console.error(err);
@@ -683,12 +672,11 @@
         const prev = data.previous_pending;
 
         currentTotalDue = parseFloat(data.total_due) || 0;
-        currentPhone    = phone;   // ★ FIX: stash for payNow()
+        currentPhone    = phone;
 
         const statusClass = (curr.status || 'unpaid').toLowerCase();
 
         let html = `
-            <!-- Resident Info -->
             <div class="resident-card">
                 <div class="resident-row">
                     <span class="label">Name</span>
@@ -789,10 +777,9 @@
     }
 
     /* ═══════════════════════════════════════════════════════════
-       PAY NOW — uses currentPhone, NOT the hidden input
+       PAY NOW
        ═══════════════════════════════════════════════════════════ */
     async function payNow() {
-        // ★ FIX: read from state, not from the hidden input
         const phone = (currentPhone || '').trim();
 
         if (!phone || phone.length < 10) {
@@ -815,7 +802,7 @@
                     'X-CSRF-TOKEN': CSRF_TOKEN,
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify({ phone })   // ★ FIX: valid phone guaranteed
+                body: JSON.stringify({ phone })
             });
 
             const data = await res.json();
@@ -983,7 +970,7 @@
         resultSection.style.display = 'none';
         lookupForm.style.display = 'block';
         currentTotalDue = 0;
-        currentPhone = '';   // ★ FIX: clear state too
+        currentPhone = '';
     }
 
     /* ═══════════════════════════════════════════════════════════

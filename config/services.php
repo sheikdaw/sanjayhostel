@@ -29,7 +29,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'essl' => [
-        'url'             => env('ESSL_URL', ''),          // http://192.168.1.140/iclock/WebAPIService.asmx
+        'url'             => env('ESSL_URL', ''),
         'api_key'         => env('ESSL_API_KEY', '11'),
         'username'        => env('ESSL_USERNAME', ''),
         'password'        => env('ESSL_PASSWORD', ''),
@@ -47,6 +47,26 @@ return [
         'grade'            => env('ESSL_GRADE', ''),
         'employment_type'  => env('ESSL_EMP_TYPE', 'Permanent'),
         'gender'           => env('ESSL_GENDER', 'Male'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Axis Bank Payment Gateway
+    |--------------------------------------------------------------------------
+    */
+    'axis' => [
+        'merchant_id'    => env('AXIS_MERCHANT_ID'),
+        'merchant_key'   => env('AXIS_MERCHANT_KEY'),
+        'secret_key'     => env('AXIS_MERCHANT_SECRET', env('AXIS_SECRET_KEY')),
+        'webhook_secret' => env('AXIS_WEBHOOK_SECRET'),
+        'mode'           => env('AXIS_MODE', 'sandbox'),
+        'base_url'       => env('AXIS_MODE', 'sandbox') === 'production'
+                                ? env('AXIS_BASE_URL')
+                                : env('AXIS_SANDBOX_URL'),
+        'payment_url'    => env('AXIS_PAYMENT_URL'),
+        'return_url'     => env('AXIS_RETURN_URL', '/pay/callback/axis'),
+        'cancel_url'     => env('AXIS_CANCEL_URL', '/pay/cancel/axis'),
+        'currency'       => env('AXIS_CURRENCY', 'INR'),
     ],
 
 ];

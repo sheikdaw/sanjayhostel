@@ -206,6 +206,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 |--------------------------------------------------------------------------
 */
 
+
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
 

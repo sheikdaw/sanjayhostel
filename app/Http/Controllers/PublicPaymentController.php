@@ -46,17 +46,32 @@ class PublicPaymentController extends Controller
 
         $success = $orderId !== '' && $this->isOrderAlreadyApplied($orderId);
 
-        return view('public.payment-success', compact('success', 'orderId'));
+        return view('public.payment-success', [
+            'success' => $success,
+            'orderId' => $orderId,
+        ]);
     }
 
     /** Admin: QR code index */
     public function index()
     {
         $user = auth()->user();
+        if (!$user) {
+            abort(403);
+        }
 
         $hostelQuery = Hostel::orderBy('hostel_name');
-        if (!$user->isAdmin()) {
-            $hostelQuery->whereIn('id', $user->hostel_ids ?? []);
+
+        // Non-admin users are scoped to their hostels.
+        // Use a null-safe check: if isAdmin() doesn't exist, fall back to scoping.
+        $isAdmin = method_exists($user, 'isAdmin') ? $user->isAdmin() : false;
+
+        if (!$isAdmin) {
+            $ids = is_array($user->hostel_ids ?? null)
+                ? $user->hostel_ids
+                : (array) ($user->hostel_ids ?? []);
+
+            $hostelQuery->whereIn('id', $ids ?: [0]);
         }
 
         $links = $hostelQuery->get()->map(function ($hostel) {
@@ -139,6 +154,7 @@ class PublicPaymentController extends Controller
             return response()->json(['success' => false, 'message' => 'Resident not found.'], 404);
         }
 
+        // Amount is ALWAYS computed on the server, never taken from the browser
         $dues = $this->calculateDues($resident, Carbon::now());
 
         if ($dues['total_due'] <= 0) {
@@ -175,7 +191,10 @@ class PublicPaymentController extends Controller
             abort(400, 'Invalid signature');
         }
 
-        $orderId = (string) $parsed['order_id'];
+        $orderId = (string) ($parsed['order_id'] ?? '');
+        if ($orderId === '') {
+            abort(400, 'Missing order id');
+        }
 
         $order = $this->parseOrderId($orderId);
         if (!$order) {
@@ -236,10 +255,10 @@ class PublicPaymentController extends Controller
             'merchant_id'    => config('services.axis.merchant_id'),
             'order_id'       => $orderId,
             'amount'         => number_format($amount, 2, '.', ''),
-            'currency'       => 'INR',
+            'currency'       => config('services.axis.currency', 'INR'),
             'customer_name'  => $resident->name,
             'customer_phone' => preg_replace('/\D/', '', (string) $resident->phone),
-            'return_url'     => route('public.payment.callback'),
+            'return_url'     => url(config('services.axis.return_url', '/pay/callback/axis')),
         ];
 
         // PLACEHOLDER signing: replace with Axis's exact checksum/encryption method
@@ -255,10 +274,20 @@ class PublicPaymentController extends Controller
     private function verifyCallback(array $data): ?array
     {
         $received = (string) ($data['signature'] ?? '');
-        $payload  = collect($data)->except(['signature', '_token'])->all();
+
+        // Only scalar fields participate in the signature.
+        $payload = [];
+        foreach ($data as $key => $value) {
+            if ($key === 'signature' || $key === '_token') {
+                continue;
+            }
+            if (is_scalar($value) || $value === null) {
+                $payload[$key] = $value;
+            }
+        }
 
         // PLACEHOLDER: use Axis's exact verification method
-        if (!hash_equals($this->sign($payload), $received)) {
+        if ($received === '' || !hash_equals($this->sign($payload), $received)) {
             return null;
         }
 
@@ -273,7 +302,15 @@ class PublicPaymentController extends Controller
     private function sign(array $fields): string
     {
         ksort($fields);
-        return hash_hmac('sha256', http_build_query($fields), (string) config('services.axis.secret_key'));
+
+        // Flatten to a stable string. Do NOT use http_build_query for signature
+        // because its URL-encoding can differ across PHP versions / settings.
+        $parts = [];
+        foreach ($fields as $k => $v) {
+            $parts[] = $k . '=' . (is_scalar($v) || $v === null ? (string) $v : json_encode($v));
+        }
+
+        return hash_hmac('sha256', implode('|', $parts), (string) config('services.axis.secret_key'));
     }
 
     /* =========================================================
@@ -300,7 +337,10 @@ class PublicPaymentController extends Controller
 
     private function isOrderAlreadyApplied(string $orderId): bool
     {
-        return Payment::where('remark', 'LIKE', '%Online ' . $orderId . '%')->exists();
+        // Escape LIKE wildcards in the order id (defensive; IDs are alphanumeric).
+        $needle = addcslashes($orderId, '%_\\');
+
+        return Payment::where('remark', 'LIKE', '%Online ' . $needle . '%')->exists();
     }
 
     /* =========================================================
@@ -321,7 +361,7 @@ class PublicPaymentController extends Controller
         $currentMonthStart = Carbon::create($currentYear, $currentMonth, 1)->startOfMonth();
 
         $paymentsByMonth = Payment::where('resident_id', $resident->id)->get()
-            ->groupBy(fn($p) => $p->year . '-' . str_pad($p->month, 2, '0', STR_PAD_LEFT));
+            ->groupBy(fn ($p) => $p->year . '-' . str_pad($p->month, 2, '0', STR_PAD_LEFT));
 
         while ($cursor->lt($currentMonthStart)) {
             $payments = $paymentsByMonth[$cursor->format('Y-m')] ?? collect();
@@ -444,6 +484,10 @@ class PublicPaymentController extends Controller
 
             if ($payment) {
                 $credit  = min($credit, (float) $payment->balance_amount);
+                if ($credit <= 0) {
+                    continue;
+                }
+
                 $balance = max(0, (float) $payment->balance_amount - $credit);
                 $cash    = (float) $payment->cash_paid_amount;
                 $upi     = (float) $payment->upi_paid_amount + $credit;
@@ -576,10 +620,12 @@ class PublicPaymentController extends Controller
     private function resolveHostel(string $encodedHostelId): ?Hostel
     {
         try {
-            return Hostel::find(Crypt::decryptString($encodedHostelId));
+            $id = Crypt::decryptString($encodedHostelId);
         } catch (\Exception $e) {
             return null;
         }
+
+        return $id !== null ? Hostel::find($id) : null;
     }
 
     private function findResident(int|string $hostelId, string $rawPhone): ?Resident
@@ -601,8 +647,12 @@ class PublicPaymentController extends Controller
     {
         $day = (int) ($asOf ?? Carbon::now())->day;
 
-        if ($day >= 1 && $day <= 5)  return self::DATE_DISCOUNT_1_5;
-        if ($day >= 6 && $day <= 10) return self::DATE_DISCOUNT_6_10;
+        if ($day >= 1 && $day <= 5) {
+            return self::DATE_DISCOUNT_1_5;
+        }
+        if ($day >= 6 && $day <= 10) {
+            return self::DATE_DISCOUNT_6_10;
+        }
 
         return 0.0;
     }
