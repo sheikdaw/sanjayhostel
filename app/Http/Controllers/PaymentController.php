@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Resident;
 use App\Models\Hostel;
 use App\Models\Room;
+use App\Http\Controllers\EsslController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -36,7 +37,7 @@ class PaymentController extends Controller
     }
 
     /* =========================================================
-     |  DATE DISCOUNT  (single source of truth)
+     |  DATE DISCOUNT (based on a given date)
      ========================================================= */
 
     private function getDateBasedDiscount(?Carbon $asOf = null): float
@@ -52,63 +53,15 @@ class PaymentController extends Controller
         return 0.0;
     }
 
+    /**
+     * Date discount for a HISTORICAL month.
+     * Uses day-01 of that month → since payment was expected early.
+     * If a payment row exists for that month, we trust the DB value instead.
+     */
     private function getHistoricalMonthDiscount(int $month, int $year): float
     {
         $asOf = Carbon::create($year, $month, 1);
         return $this->getDateBasedDiscount($asOf);
-    }
-
-    /**
-     * Resolve discount for a month.
-     *
-     * MUST BE IDENTICAL in PaymentController and PublicPaymentController.
-     *
-     * Rules:
-     *   1. Compute date-based discount from $asOf (today).
-     *   2. No payment row yet                 → use date rule.
-     *   3. Row exists and fully paid          → use stored discount (historical snapshot).
-     *   4. Row exists but partial (not settled) → use max(stored, date rule).
-     *
-     * @return array{date: float, total: float, applied: float, manual: float}
-     */
-    private function resolveDiscount(
-        float $storedDiscount,
-        bool $hasRow,
-        bool $isFullyPaid,
-        Carbon $asOf
-    ): array {
-        $dateDiscount = $this->getDateBasedDiscount($asOf);
-
-        // 2. No row yet
-        if (!$hasRow) {
-            return [
-                'date'    => $dateDiscount,
-                'total'   => $dateDiscount,
-                'applied' => $dateDiscount,
-                'manual'  => 0.0,
-            ];
-        }
-
-        // 3. Fully paid → historical snapshot wins
-        if ($isFullyPaid) {
-            return [
-                'date'    => $dateDiscount,
-                'total'   => $storedDiscount,
-                'applied' => 0.0,
-                'manual'  => $storedDiscount,
-            ];
-        }
-
-        // 4. Partial → better of stored vs today's rule
-        $total  = max($storedDiscount, $dateDiscount);
-        $manual = max(0, $total - $dateDiscount);
-
-        return [
-            'date'    => $dateDiscount,
-            'total'   => $total,
-            'applied' => max(0, $total - $storedDiscount),
-            'manual'  => $manual,
-        ];
     }
 
     /* =========================================================
@@ -138,10 +91,10 @@ class PaymentController extends Controller
             $residentQuery->where('hostel_id', $hostelId);
         }
         if ($roomNo) {
-            $residentQuery->whereHas('room', fn ($q) => $q->where('room_no', 'LIKE', "%{$roomNo}%"));
+            $residentQuery->whereHas('room', fn($q) => $q->where('room_no', 'LIKE', "%{$roomNo}%"));
         }
         if ($bedNo) {
-            $residentQuery->whereHas('bed', fn ($q) => $q->where('bed_no', 'LIKE', "%{$bedNo}%"));
+            $residentQuery->whereHas('bed', fn($q) => $q->where('bed_no', 'LIKE', "%{$bedNo}%"));
         }
         if ($search) {
             $residentQuery->where(function ($q) use ($search) {
@@ -173,12 +126,8 @@ class PaymentController extends Controller
             'total_date_discount' => 0,
         ];
 
-        $selectedKey = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
-
-        // Use the selected month's day-1 as the "as of" for the grid so the
-        // discount shown is stable across the month. (Adjust to Carbon::now()
-        // if you want the grid to track today's live rule.)
-        $asOfForRule = Carbon::create($year, $month, 1);
+        $selectedKey   = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
+        $todayDiscount = $this->getDateBasedDiscount();
 
         foreach ($residents as $resident) {
             $endOfMonth = Carbon::create($year, $month, 1)->endOfMonth();
@@ -193,7 +142,7 @@ class PaymentController extends Controller
                 }
             }
 
-            /* ────────── Previous pending ────────── */
+            /* ────────── Previous pending (with date discount) ────────── */
             $previousPending       = 0;
             $previousPendingMonths = [];
 
@@ -206,11 +155,13 @@ class PaymentController extends Controller
                 $payments = $paymentsByResident[$resident->id][$key] ?? [];
 
                 if (count($payments) > 0) {
+                    // Payment exists → read saved balance (already includes discount)
                     $dueThisMonth = 0;
                     foreach ($payments as $p) {
                         $dueThisMonth += (float) $p->balance_amount;
                     }
                 } else {
+                    // No payment → apply that month's discount (using day-01)
                     $monthDiscount = $this->getHistoricalMonthDiscount(
                         (int) $cursor->month,
                         (int) $cursor->year
@@ -256,37 +207,48 @@ class PaymentController extends Controller
                 $remark      = $p->remark;
             }
 
-            $hasRow = count($currentPayments) > 0;
-
-            // Fully paid = row exists AND paid covers what's owed after discount.
-            $isFullyPaid = false;
-            if ($hasRow) {
-                $paidAfterDiscount = max(0, $currentRent + $currentFine - $storedDiscount);
-                $isFullyPaid       = ($currentPaid > 0) && ($currentPaid >= $paidAfterDiscount);
+            /* ✅ KEY FIX:
+             |  - Payment exists → use SAVED discount from DB (no recompute)
+             |  - No payment yet → apply TODAY's date discount as preview
+             */
+            if (count($currentPayments) > 0) {
+                $totalDiscount = $storedDiscount;
+            } else {
+                $totalDiscount = $todayDiscount;
             }
-
-            // ⚠️ SAME resolveDiscount() used in PublicPaymentController.
-            $disc = $this->resolveDiscount(
-                $storedDiscount,
-                $hasRow,
-                $isFullyPaid,
-                $asOfForRule
-            );
-
-            $totalDiscount  = $disc['total'];
-            $dateDiscount   = $disc['date'];
-            $manualDiscount = $disc['manual'];
 
             $currentDue = max(0, $currentRent + $currentFine - $totalDiscount);
 
-            if ($hasRow) {
+            if (count($currentPayments) > 0) {
                 $currentBalance = max(0, $currentDue - $currentPaid);
             } else {
                 $currentBalance = $currentDue;
             }
 
+            /* Split for display */
+            $manualDiscount = 0;
+            $dateDiscount   = 0;
+
+            if (count($currentPayments) > 0) {
+                // Reconstruct split using payment_date's window
+                $savedDateDisc = $paymentDate
+                    ? $this->getDateBasedDiscount(Carbon::parse($paymentDate))
+                    : 0;
+
+                if ($storedDiscount >= $savedDateDisc) {
+                    $manualDiscount = $storedDiscount - $savedDateDisc;
+                    $dateDiscount   = $savedDateDisc;
+                } else {
+                    $manualDiscount = 0;
+                    $dateDiscount   = $storedDiscount;
+                }
+            } else {
+                $manualDiscount = 0;
+                $dateDiscount   = $todayDiscount;
+            }
+
             $hasPreviousPending = ($previousPending > 0);
-            $hasCurrentPayments = $hasRow;
+            $hasCurrentPayments = (count($currentPayments) > 0);
             $hasCurrentUnpaid   = !$hasCurrentPayments;
             $hasCurrentPartial  = ($hasCurrentPayments && $currentBalance > 0);
             $hasCurrentPaid     = ($hasCurrentPayments && $currentBalance == 0);
@@ -598,24 +560,24 @@ class PaymentController extends Controller
         DB::beginTransaction();
         try {
             $rent     = (float) $request->rent_amount;
-            $manual   = (float) ($request->discount_amount ?? 0);
+            $discount = (float) ($request->discount_amount ?? 0);
             $fine     = (float) ($request->fine_amount ?? 0);
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            // Date rule based on TODAY (payment date).
+            // Date discount based on payment_date
             $dateDiscount = $this->getDateBasedDiscount(
                 $request->payment_date ? Carbon::parse($request->payment_date) : null
             );
 
-            // Same rule as resolveDiscount() in buildRows():
-            // manual discount + date rule, unless manual alone >= best date rule.
-            if ($manual >= self::DATE_DISCOUNT_1_5) {
-                $totalDiscount = $manual;
-                $appliedDate   = 0.0;
+            // ✅ SAFETY: avoid double-counting if frontend already sent combined value
+            $maxDateDiscount = self::DATE_DISCOUNT_1_5;
+            if ($discount >= $dateDiscount && $discount >= $maxDateDiscount) {
+                // Frontend likely already included date discount → trust it
+                $totalDiscount = $discount;
+                $dateDiscount  = 0;
             } else {
-                $totalDiscount = $manual + $dateDiscount;
-                $appliedDate   = $dateDiscount;
+                $totalDiscount = $discount + $dateDiscount;
             }
 
             $payable   = max(0, $rent + $fine - $totalDiscount);
@@ -677,9 +639,9 @@ class PaymentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Payment saved! Receipt: ' . $payment->receipt_no
-                             . ($appliedDate > 0 ? ' (Date discount ₹' . $appliedDate . ' applied)' : ''),
+                             . ($dateDiscount > 0 ? ' (Date discount ₹' . $dateDiscount . ' applied)' : ''),
                 'payment' => $payment,
-                'date_discount_applied' => $appliedDate,
+                'date_discount_applied' => $dateDiscount,
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -730,22 +692,22 @@ class PaymentController extends Controller
 
         DB::beginTransaction();
         try {
-            $rent   = (float) $request->rent_amount;
-            $manual = (float) ($request->discount_amount ?? 0);
-            $fine   = (float) ($request->fine_amount ?? 0);
-            $cash   = (float) ($request->cash_paid_amount ?? 0);
-            $upi    = (float) ($request->upi_paid_amount ?? 0);
+            $rent     = (float) $request->rent_amount;
+            $discount = (float) ($request->discount_amount ?? 0);
+            $fine     = (float) ($request->fine_amount ?? 0);
+            $cash     = (float) ($request->cash_paid_amount ?? 0);
+            $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            // For updates, use the ORIGINAL payment date to determine the date rule,
-            // so the discount doesn't silently change when an admin edits a settled row.
-            $dateDiscount = $this->getDateBasedDiscount(
+            // Preserve the date discount based on ORIGINAL payment_date
+            $originalDateDisc = $this->getDateBasedDiscount(
                 $payment->payment_date ? Carbon::parse($payment->payment_date) : null
             );
 
-            if ($manual >= self::DATE_DISCOUNT_1_5) {
-                $totalDiscount = $manual;
+            // Safety: avoid double counting
+            if ($discount >= $originalDateDisc && $discount >= self::DATE_DISCOUNT_1_5) {
+                $totalDiscount = $discount;
             } else {
-                $totalDiscount = $manual + $dateDiscount;
+                $totalDiscount = $discount + $originalDateDisc;
             }
 
             $payable   = max(0, $rent + $fine - $totalDiscount);
@@ -813,30 +775,12 @@ class PaymentController extends Controller
     }
 
     /* =========================================================
-     |  AUTO-SYNC ACCESS
+     |  🔑 Auto-Sync Access
      ========================================================= */
 
     private function syncAccessAfterPayment(Resident $resident): void
     {
         try {
-            $resident->refresh();
-            $resident->load('hostel');
-
-            if ($resident->status !== 'ACTIVE') {
-                Log::info('syncAccessAfterPayment skipped (not ACTIVE)', [
-                    'resident_id' => $resident->id,
-                    'status'      => $resident->status,
-                ]);
-                return;
-            }
-
-            if (!$resident->hostel || !$resident->hostel->biometric_device_id) {
-                Log::info('syncAccessAfterPayment skipped (no device)', [
-                    'resident_id' => $resident->id,
-                ]);
-                return;
-            }
-
             /** @var EsslController $essl */
             $essl = app(EsslController::class);
 
@@ -875,19 +819,21 @@ class PaymentController extends Controller
             ]);
 
             if ($shouldUnblock) {
-                $essl->syncResidentAccess($resident, false);
+                $essl->syncResidentAccess($resident, false);  // UNBLOCK
             } else {
-                $essl->syncResidentAccess($resident, true);
+                $essl->syncResidentAccess($resident, true);   // BLOCK
             }
         } catch (\Throwable $e) {
             Log::error('syncAccessAfterPayment failed', [
                 'resident_id' => $resident->id,
                 'error'       => $e->getMessage(),
-                'trace'       => $e->getTraceAsString(),
             ]);
         }
     }
 
+    /**
+     * Is the given month fully paid for the resident?
+     */
     private function isMonthFullyPaid(Resident $resident, int $month, int $year): bool
     {
         $payment = Payment::where('resident_id', $resident->id)
