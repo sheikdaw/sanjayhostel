@@ -28,7 +28,6 @@ class PublicPaymentController extends Controller
      |  PAGES
      ========================================================= */
 
-    /** GET /pay/{encodedHostelId} */
     public function show(string $encodedHostelId)
     {
         $hostel = $this->resolveHostel($encodedHostelId);
@@ -39,7 +38,6 @@ class PublicPaymentController extends Controller
         return view('public.payment-lookup', compact('hostel', 'encodedHostelId'));
     }
 
-    /** GET /pay/success?order={order_id} */
     public function success(Request $request)
     {
         $orderId = (string) $request->query('order', '');
@@ -52,7 +50,6 @@ class PublicPaymentController extends Controller
         ]);
     }
 
-    /** Admin: QR code index */
     public function index()
     {
         $user = auth()->user();
@@ -112,7 +109,6 @@ class PublicPaymentController extends Controller
             ]);
         }
 
-        // Use app timezone explicitly so "today" is correct.
         $asOf = Carbon::now(config('app.timezone', 'Asia/Kolkata'));
         $dues = $this->calculateDues($resident, $asOf);
 
@@ -137,7 +133,7 @@ class PublicPaymentController extends Controller
     }
 
     /* =========================================================
-     |  INITIATE PAYMENT  (POST /pay/{enc}/initiate)
+     |  INITIATE PAYMENT
      ========================================================= */
 
     public function initiate(Request $request, string $encodedHostelId)
@@ -154,7 +150,6 @@ class PublicPaymentController extends Controller
             return response()->json(['success' => false, 'message' => 'Resident not found.'], 404);
         }
 
-        // Amount is ALWAYS computed on the server, never taken from the browser
         $asOf = Carbon::now(config('app.timezone', 'Asia/Kolkata'));
         $dues = $this->calculateDues($resident, $asOf);
 
@@ -262,7 +257,6 @@ class PublicPaymentController extends Controller
             'return_url'     => url(config('services.axis.return_url', '/pay/callback/axis')),
         ];
 
-        // PLACEHOLDER signing: replace with Axis's exact checksum/encryption method
         $fields['signature'] = $this->sign($fields);
 
         return [
@@ -276,7 +270,6 @@ class PublicPaymentController extends Controller
     {
         $received = (string) ($data['signature'] ?? '');
 
-        // Only scalar fields participate in the signature.
         $payload = [];
         foreach ($data as $key => $value) {
             if ($key === 'signature' || $key === '_token') {
@@ -287,7 +280,6 @@ class PublicPaymentController extends Controller
             }
         }
 
-        // PLACEHOLDER: use Axis's exact verification method
         if ($received === '' || !hash_equals($this->sign($payload), $received)) {
             return null;
         }
@@ -304,8 +296,6 @@ class PublicPaymentController extends Controller
     {
         ksort($fields);
 
-        // Flatten to a stable string. Do NOT use http_build_query for signature
-        // because its URL-encoding can differ across PHP versions / settings.
         $parts = [];
         foreach ($fields as $k => $v) {
             $parts[] = $k . '=' . (is_scalar($v) || $v === null ? (string) $v : json_encode($v));
@@ -341,6 +331,66 @@ class PublicPaymentController extends Controller
         $needle = addcslashes($orderId, '%_\\');
 
         return Payment::where('remark', 'LIKE', '%Online ' . $needle . '%')->exists();
+    }
+
+    /* =========================================================
+     |  DATE DISCOUNT  (single source of truth — same as PaymentController)
+     ========================================================= */
+
+    private function getDateBasedDiscount(?Carbon $asOf = null): float
+    {
+        $day = (int) ($asOf ?? Carbon::now())->day;
+
+        if ($day >= 1 && $day <= 5) {
+            return self::DATE_DISCOUNT_1_5;
+        }
+        if ($day >= 6 && $day <= 10) {
+            return self::DATE_DISCOUNT_6_10;
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Resolve discount for a month.
+     *
+     * MUST BE IDENTICAL to PaymentController::resolveDiscount().
+     */
+    private function resolveDiscount(
+        float $storedDiscount,
+        bool $hasRow,
+        bool $isFullyPaid,
+        Carbon $asOf
+    ): array {
+        $dateDiscount = $this->getDateBasedDiscount($asOf);
+
+        if (!$hasRow) {
+            return [
+                'date'    => $dateDiscount,
+                'total'   => $dateDiscount,
+                'applied' => $dateDiscount,
+                'manual'  => 0.0,
+            ];
+        }
+
+        if ($isFullyPaid) {
+            return [
+                'date'    => $dateDiscount,
+                'total'   => $storedDiscount,
+                'applied' => 0.0,
+                'manual'  => $storedDiscount,
+            ];
+        }
+
+        $total  = max($storedDiscount, $dateDiscount);
+        $manual = max(0, $total - $dateDiscount);
+
+        return [
+            'date'    => $dateDiscount,
+            'total'   => $total,
+            'applied' => max(0, $total - $storedDiscount),
+            'manual'  => $manual,
+        ];
     }
 
     /* =========================================================
@@ -397,35 +447,28 @@ class PublicPaymentController extends Controller
             $fine     += (float) $p->fine_amount;
         }
 
-        // ---------------------------------------------------------
-        // Discount resolution
-        // ---------------------------------------------------------
-        // Date-based discount applies ONLY when there is no payment
-        // row yet for the current month. Once a row exists, whatever
-        // `discount_amount` was stored on that row is authoritative.
-        //
-        // IMPORTANT: `date_discount` is reported separately so the UI
-        // can show the *date rule* value even when a manual discount
-        // (e.g. ₹250) already exists on the row.
-        // ---------------------------------------------------------
-        $dateDiscount = $this->getDateBasedDiscount($asOf);
+        $hasRow = $currentPayments->count() > 0;
 
-        if ($currentPayments->count() > 0) {
-            // Row exists → its stored discount wins; date rule is not applied.
-            $appliedDateDiscount = 0.0;
-            $totalDiscount       = $discount;
-        } else {
-            // No row yet → date rule applies on top of any manual discount (none).
-            $appliedDateDiscount = $dateDiscount;
-            $totalDiscount       = $discount + $dateDiscount;
+        // Fully paid = row exists AND paid covers what's owed after stored discount.
+        $isFullyPaid = false;
+        if ($hasRow) {
+            $paidAfterDiscount = max(0, $rent + $fine - $discount);
+            $isFullyPaid       = ($paid > 0) && ($paid >= $paidAfterDiscount);
         }
 
+        // ⚠️ SAME resolveDiscount() used in PaymentController.
+        $disc = $this->resolveDiscount($discount, $hasRow, $isFullyPaid, $asOf);
+
+        $dateDiscount        = $disc['date'];
+        $totalDiscount       = $disc['total'];
+        $appliedDateDiscount = $disc['applied'];
+
         $currentDue     = max(0, $rent + $fine - $totalDiscount);
-        $currentBalance = $currentPayments->count() > 0
+        $currentBalance = $hasRow
             ? max(0, $currentDue - $paid)
             : $currentDue;
 
-        if ($currentPayments->count() === 0) {
+        if (!$hasRow) {
             $status = 'UNPAID';
         } elseif ($currentBalance > 0) {
             $status = 'PARTIAL';
@@ -444,16 +487,13 @@ class PublicPaymentController extends Controller
             ];
         }
 
-        // ---------------------------------------------------------
-        // DEBUG: helps you see exactly what the server thinks today is
-        // and where the discount is coming from. Remove in production.
-        // ---------------------------------------------------------
         Log::info('calculateDues debug', [
             'resident_id'         => $resident->id,
             'as_of'               => $asOf->toDateTimeString(),
             'as_of_day'           => $asOf->day,
             'timezone'            => $asOf->timezoneName ?? config('app.timezone'),
-            'has_current_payment' => $currentPayments->count() > 0,
+            'has_current_payment' => $hasRow,
+            'is_fully_paid'       => $isFullyPaid,
             'stored_discount'     => round($discount, 2),
             'date_rule_discount'  => round($dateDiscount, 2),
             'applied_date_disc'   => round($appliedDateDiscount, 2),
@@ -466,17 +506,17 @@ class PublicPaymentController extends Controller
 
         return [
             'current_month' => [
-                'month'           => $currentMonthStart->format('F Y'),
-                'rent'            => round($rent, 2),
-                'manual_discount' => round($discount, 2),
-                'date_discount'   => round($dateDiscount, 2),          // rule value (125 on day 8)
-                'applied_date_discount' => round($appliedDateDiscount, 2), // what was actually applied
-                'total_discount'  => round($totalDiscount, 2),         // what reduced the bill
-                'fine'            => round($fine, 2),
-                'paid'            => round($paid, 2),
-                'balance'         => round($currentBalance, 2),
-                'due'             => round($currentDue, 2),
-                'status'          => $status,
+                'month'                 => $currentMonthStart->format('F Y'),
+                'rent'                  => round($rent, 2),
+                'manual_discount'       => round($disc['manual'], 2),
+                'date_discount'         => round($dateDiscount, 2),
+                'applied_date_discount' => round($appliedDateDiscount, 2),
+                'total_discount'        => round($totalDiscount, 2),
+                'fine'                  => round($fine, 2),
+                'paid'                  => round($paid, 2),
+                'balance'               => round($currentBalance, 2),
+                'due'                   => round($currentDue, 2),
+                'status'                => $status,
             ],
             'previous_pending' => [
                 'total'  => round($previousPending, 2),
@@ -519,7 +559,7 @@ class PublicPaymentController extends Controller
                 ->first();
 
             if ($payment) {
-                $credit  = min($credit, (float) $payment->balance_amount);
+                $credit = min($credit, (float) $payment->balance_amount);
                 if ($credit <= 0) {
                     continue;
                 }
@@ -579,7 +619,7 @@ class PublicPaymentController extends Controller
     }
 
     /* =========================================================
-     |  AUTO UNBLOCK / BLOCK
+     |  AUTO-SYNC ACCESS
      ========================================================= */
 
     private function syncAccessAfterPayment(?Resident $resident): void
@@ -677,19 +717,5 @@ class PublicPaymentController extends Controller
                   ->orWhere('phone', $phone);
             })
             ->first();
-    }
-
-    private function getDateBasedDiscount(?Carbon $asOf = null): float
-    {
-        $day = (int) ($asOf ?? Carbon::now())->day;
-
-        if ($day >= 1 && $day <= 5) {
-            return self::DATE_DISCOUNT_1_5;
-        }
-        if ($day >= 6 && $day <= 10) {
-            return self::DATE_DISCOUNT_6_10;
-        }
-
-        return 0.0;
     }
 }
