@@ -206,14 +206,24 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 |--------------------------------------------------------------------------
 */
 
+// ── Static routes FIRST (before the {encodedHostelId} wildcard) ──
+Route::get('/pay/success', [PublicPaymentController::class, 'success'])
+    ->name('public.payment.success');
+
+// ── Gateway callback (CSRF-exempt — the bank can't send a token) ──
+Route::post('/pay/axis/callback', [PublicPaymentController::class, 'callback'])
+    ->name('public.payment.callback')
+    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
+// ── Wildcard routes LAST ──
 Route::get('/pay/{encodedHostelId}', [PublicPaymentController::class, 'show'])
     ->name('public.payment.show');
 
 Route::post('/pay/{encodedHostelId}/lookup', [PublicPaymentController::class, 'lookup'])
     ->name('public.payment.lookup');
 
-Route::get('/pay/success', [PublicPaymentController::class, 'success'])
-    ->name('public.payment.success');
+Route::post('/pay/{encodedHostelId}/initiate', [PublicPaymentController::class, 'initiate'])
+    ->name('public.payment.initiate');
 
 /*
 |--------------------------------------------------------------------------
