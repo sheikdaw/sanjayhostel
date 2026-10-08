@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Hostel;
 use App\Models\Resident;
 use App\Models\Payment;
+use App\Services\Payment\PaymentGatewayManager;
+use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class PublicPaymentController extends Controller
@@ -20,10 +23,13 @@ class PublicPaymentController extends Controller
     private const DATE_DISCOUNT_1_5  = 250.0;
     private const DATE_DISCOUNT_6_10 = 125.0;
 
-    /**
-     * Show public payment lookup page
-     * URL: /pay/{encodedHostelId}
-     */
+    public function __construct(private PaymentService $paymentService) {}
+
+    /* =========================================================
+     |  SHOW — Public payment lookup page
+     |  URL: /pay/{encodedHostelId}
+     ========================================================= */
+
     public function show(string $encodedHostelId)
     {
         try {
@@ -40,9 +46,10 @@ class PublicPaymentController extends Controller
         return view('public.payment-lookup', compact('hostel', 'encodedHostelId'));
     }
 
-    /**
-     * Return the date-based discount amount based on TODAY's date.
-     */
+    /* =========================================================
+     |  DATE DISCOUNT helper
+     ========================================================= */
+
     private function getDateBasedDiscount(?Carbon $asOf = null): float
     {
         $day = (int) ($asOf ?? Carbon::now())->day;
@@ -56,10 +63,10 @@ class PublicPaymentController extends Controller
         return 0.0;
     }
 
-    /**
-     * AJAX: Lookup resident by phone + hostel
-     * Returns current month + previous pending details WITH date-based discount
-     */
+    /* =========================================================
+     |  LOOKUP — AJAX: Find resident by phone, return dues
+     ========================================================= */
+
     public function lookup(Request $request, string $encodedHostelId)
     {
         try {
@@ -103,7 +110,7 @@ class PublicPaymentController extends Controller
         $currentYear  = (int) $now->year;
 
         // ------------------------------------------------------------
-        // 1) PREVIOUS PENDING  (no date discount for old months)
+        // 1) PREVIOUS PENDING (no date discount for old months)
         // ------------------------------------------------------------
         $previousPending = 0;
         $previousMonths  = [];
@@ -124,7 +131,6 @@ class PublicPaymentController extends Controller
                     $due += (float) $p->balance_amount;
                 }
             } else {
-                // No record → full rent is pending (no discount for past months)
                 $due = (float) $resident->rent_amount;
             }
 
@@ -148,7 +154,7 @@ class PublicPaymentController extends Controller
             ->get();
 
         $currentPaid     = 0;
-        $currentDiscount = 0;   // manual discount from DB
+        $currentDiscount = 0;
         $currentFine     = 0;
 
         if ($currentPayments->count() > 0) {
@@ -161,15 +167,12 @@ class PublicPaymentController extends Controller
 
         $currentRent = (float) $resident->rent_amount;
 
-        // ---- Date-based flat discount (₹250 / ₹125 / ₹0) ----
-        // Applied only when there is NO existing payment for this month.
-        // If a payment record exists, we trust the DB discount_amount
-        // (which already includes the date discount the admin saved).
+        // ---- Date-based flat discount ----
         if ($currentPayments->count() > 0) {
-            $dateDiscount = 0;
+            $dateDiscount  = 0;
             $totalDiscount = $currentDiscount;
         } else {
-            $dateDiscount = $this->getDateBasedDiscount();
+            $dateDiscount  = $this->getDateBasedDiscount();
             $totalDiscount = $currentDiscount + $dateDiscount;
         }
 
@@ -192,31 +195,6 @@ class PublicPaymentController extends Controller
 
         $totalDue = $previousPending + $currentBalance;
 
-        // ------------------------------------------------------------
-        // 3) UPI LINK
-        // ------------------------------------------------------------
-        $upiId        = $hostel->upi_id ?? null;
-        $upiPayeeName = $hostel->upi_payee_name ?? $hostel->hostel_name;
-
-        $upiLink = null;
-        if ($upiId && $totalDue > 0) {
-            $rawUpiId = $upiId;
-            if (strpos($upiId, 'pa=') !== false) {
-                preg_match('/pa=([^&]+)/', $upiId, $matches);
-                if (isset($matches[1])) {
-                    $rawUpiId = urldecode($matches[1]);
-                }
-            }
-
-            $upiLink = 'upi://pay?' . http_build_query([
-                'pa' => $rawUpiId,
-                'pn' => $upiPayeeName,
-                'am' => number_format($totalDue, 2, '.', ''),
-                'cu' => 'INR',
-                'tn' => 'Rent - ' . $resident->name,
-            ]);
-        }
-
         return response()->json([
             'success'  => true,
             'resident' => [
@@ -236,6 +214,7 @@ class PublicPaymentController extends Controller
                 'manual_discount' => round($currentDiscount, 2),
                 'date_discount'   => round($dateDiscount, 2),
                 'total_discount'  => round($totalDiscount, 2),
+                'discount'        => round($totalDiscount, 2), // alias for frontend
                 'fine'            => round($currentFine, 2),
                 'paid'            => round($currentPaid, 2),
                 'balance'         => round($currentBalance, 2),
@@ -247,17 +226,131 @@ class PublicPaymentController extends Controller
                 'months' => $previousMonths,
             ],
             'total_due' => round($totalDue, 2),
-            'upi' => [
-                'id'         => $upiId,
-                'payee_name' => $upiPayeeName,
-                'link'       => $upiLink,
-            ],
         ]);
     }
 
-    /**
-     * Show public index page with QR codes for each hostel
-     */
+    /* =========================================================
+     |  INITIATE — Gateway choose pannum
+     |  - Axis configured → Axis page URL return
+     |  - Else → UPI deep-link return
+     ========================================================= */
+
+    public function initiate(Request $request, string $encodedHostelId)
+    {
+        try {
+            $hostelId = Crypt::decryptString($encodedHostelId);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
+        }
+
+        $request->validate([
+            'resident_id' => 'required|integer|exists:residents,id',
+            'amount'      => 'required|numeric|min:1',
+        ]);
+
+        $hostel   = Hostel::findOrFail($hostelId);
+        $resident = Resident::findOrFail($request->resident_id);
+
+        // Security: resident must belong to this hostel
+        if ((int) $resident->hostel_id !== (int) $hostel->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resident does not belong to this hostel.',
+            ], 403);
+        }
+
+        $amount  = (float) $request->amount;
+        $gateway = PaymentGatewayManager::driver();
+
+        $result = $gateway->createOrder($resident, $hostel, $amount, [
+            'resident_id' => $resident->id,
+            'hostel_id'   => $hostel->id,
+        ]);
+
+        $result['gateway'] = $gateway->getName();
+
+        return response()->json($result);
+    }
+
+    /* =========================================================
+     |  WEBHOOK — Gateway server-to-server callback
+     |  Axis / future gateways POST here
+     ========================================================= */
+
+    public function webhook(Request $request, string $gateway)
+    {
+        $rawBody = $request->getContent();
+        $headers = $request->headers->all();
+
+        $driver = match ($gateway) {
+            'axis' => new \App\Services\Payment\AxisBankGateway(),
+            default => null,
+        };
+
+        if (!$driver) {
+            return response()->json(['status' => 'unknown gateway'], 400);
+        }
+
+        // Verify signature
+        if (!$driver->verifyWebhook($headers, $rawBody)) {
+            Log::warning("Webhook signature failed: {$gateway}");
+            return response()->json(['status' => 'invalid signature'], 400);
+        }
+
+        $payload = json_decode($rawBody, true) ?? [];
+        $parsed  = $driver->parseWebhook($payload);
+
+        if (empty($parsed['success'])) {
+            return response()->json(['status' => 'ignored']);
+        }
+
+        // Find resident
+        $resident = null;
+        if (!empty($parsed['resident_id'])) {
+            $resident = Resident::find($parsed['resident_id']);
+        }
+
+        if (!$resident) {
+            Log::warning('Webhook: resident not found', $parsed);
+            return response()->json(['status' => 'resident not found']);
+        }
+
+        // Record payment + auto block/unblock
+        $this->paymentService->recordSuccessfulPayment(
+            $resident,
+            (float) $parsed['amount'],
+            $parsed['transaction_id'] ?: $parsed['order_id'],
+            $gateway,
+            $parsed
+        );
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /* =========================================================
+     |  CALLBACK — User returns from Axis page
+     ========================================================= */
+
+    public function callback(Request $request, string $gateway)
+    {
+        // Payment already recorded via webhook.
+        // This just shows the success page.
+        return redirect()->route('public.payment.success');
+    }
+
+    /* =========================================================
+     |  SUCCESS page
+     ========================================================= */
+
+    public function success()
+    {
+        return view('public.payment-success');
+    }
+
+    /* =========================================================
+     |  INDEX — Payment links list (admin panel)
+     ========================================================= */
+
     public function index()
     {
         $user = auth()->user();

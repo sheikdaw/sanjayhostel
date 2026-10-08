@@ -6,7 +6,6 @@ use App\Models\Payment;
 use App\Models\Resident;
 use App\Models\Hostel;
 use App\Models\Room;
-use App\Http\Controllers\EsslController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -37,7 +36,7 @@ class PaymentController extends Controller
     }
 
     /* =========================================================
-     |  DATE DISCOUNT (based on a given date)
+     |  DATE DISCOUNT
      ========================================================= */
 
     private function getDateBasedDiscount(?Carbon $asOf = null): float
@@ -53,11 +52,6 @@ class PaymentController extends Controller
         return 0.0;
     }
 
-    /**
-     * Date discount for a HISTORICAL month.
-     * Uses day-01 of that month → since payment was expected early.
-     * If a payment row exists for that month, we trust the DB value instead.
-     */
     private function getHistoricalMonthDiscount(int $month, int $year): float
     {
         $asOf = Carbon::create($year, $month, 1);
@@ -142,7 +136,7 @@ class PaymentController extends Controller
                 }
             }
 
-            /* ────────── Previous pending (with date discount) ────────── */
+            /* ────────── Previous pending ────────── */
             $previousPending       = 0;
             $previousPendingMonths = [];
 
@@ -155,13 +149,11 @@ class PaymentController extends Controller
                 $payments = $paymentsByResident[$resident->id][$key] ?? [];
 
                 if (count($payments) > 0) {
-                    // Payment exists → read saved balance (already includes discount)
                     $dueThisMonth = 0;
                     foreach ($payments as $p) {
                         $dueThisMonth += (float) $p->balance_amount;
                     }
                 } else {
-                    // No payment → apply that month's discount (using day-01)
                     $monthDiscount = $this->getHistoricalMonthDiscount(
                         (int) $cursor->month,
                         (int) $cursor->year
@@ -207,10 +199,6 @@ class PaymentController extends Controller
                 $remark      = $p->remark;
             }
 
-            /* ✅ KEY FIX:
-             |  - Payment exists → use SAVED discount from DB (no recompute)
-             |  - No payment yet → apply TODAY's date discount as preview
-             */
             if (count($currentPayments) > 0) {
                 $totalDiscount = $storedDiscount;
             } else {
@@ -225,12 +213,10 @@ class PaymentController extends Controller
                 $currentBalance = $currentDue;
             }
 
-            /* Split for display */
             $manualDiscount = 0;
             $dateDiscount   = 0;
 
             if (count($currentPayments) > 0) {
-                // Reconstruct split using payment_date's window
                 $savedDateDisc = $paymentDate
                     ? $this->getDateBasedDiscount(Carbon::parse($paymentDate))
                     : 0;
@@ -565,15 +551,12 @@ class PaymentController extends Controller
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            // Date discount based on payment_date
             $dateDiscount = $this->getDateBasedDiscount(
                 $request->payment_date ? Carbon::parse($request->payment_date) : null
             );
 
-            // ✅ SAFETY: avoid double-counting if frontend already sent combined value
             $maxDateDiscount = self::DATE_DISCOUNT_1_5;
             if ($discount >= $dateDiscount && $discount >= $maxDateDiscount) {
-                // Frontend likely already included date discount → trust it
                 $totalDiscount = $discount;
                 $dateDiscount  = 0;
             } else {
@@ -634,6 +617,7 @@ class PaymentController extends Controller
 
             DB::commit();
 
+            // 🔑 Auto block/unblock after payment
             $this->syncAccessAfterPayment($resident);
 
             return response()->json([
@@ -698,12 +682,10 @@ class PaymentController extends Controller
             $cash     = (float) ($request->cash_paid_amount ?? 0);
             $upi      = (float) ($request->upi_paid_amount ?? 0);
 
-            // Preserve the date discount based on ORIGINAL payment_date
             $originalDateDisc = $this->getDateBasedDiscount(
                 $payment->payment_date ? Carbon::parse($payment->payment_date) : null
             );
 
-            // Safety: avoid double counting
             if ($discount >= $originalDateDisc && $discount >= self::DATE_DISCOUNT_1_5) {
                 $totalDiscount = $discount;
             } else {
@@ -742,6 +724,7 @@ class PaymentController extends Controller
 
             DB::commit();
 
+            // 🔑 Auto block/unblock after update
             $this->syncAccessAfterPayment($payment->resident);
 
             return response()->json([
@@ -769,18 +752,48 @@ class PaymentController extends Controller
         $resident = $payment->resident;
         $payment->delete();
 
+        // 🔑 Auto block/unblock after delete
         $this->syncAccessAfterPayment($resident);
 
         return response()->json(['success' => true, 'message' => 'Payment deleted!']);
     }
 
     /* =========================================================
-     |  🔑 Auto-Sync Access
+     |  🔑 AUTO-SYNC ACCESS  (core logic)
      ========================================================= */
 
+    /**
+     * After every payment change:
+     *   - If current month AND previous month are fully paid → UNBLOCK
+     *   - Else → BLOCK
+     *
+     * Runs in a try-catch so payment save never fails because of
+     * biometric device errors.
+     */
     private function syncAccessAfterPayment(Resident $resident): void
     {
         try {
+            // Reload resident to get fresh relations
+            $resident->refresh();
+            $resident->load('hostel');
+
+            // Skip if resident is not ACTIVE (vacated etc.)
+            if ($resident->status !== 'ACTIVE') {
+                Log::info('syncAccessAfterPayment skipped (not ACTIVE)', [
+                    'resident_id' => $resident->id,
+                    'status'      => $resident->status,
+                ]);
+                return;
+            }
+
+            // Skip if no biometric device configured
+            if (!$resident->hostel || !$resident->hostel->biometric_device_id) {
+                Log::info('syncAccessAfterPayment skipped (no device)', [
+                    'resident_id' => $resident->id,
+                ]);
+                return;
+            }
+
             /** @var EsslController $essl */
             $essl = app(EsslController::class);
 
@@ -794,6 +807,7 @@ class PaymentController extends Controller
 
             $currentPaid = $this->isMonthFullyPaid($resident, $currentMonth, $currentYear);
 
+            // If joined this month, no need to check previous month
             $joinDate = $resident->joining_date
                 ? Carbon::parse($resident->joining_date)
                 : null;
@@ -816,6 +830,7 @@ class PaymentController extends Controller
                 'should_unblock' => $shouldUnblock,
                 'current'        => "{$currentYear}-{$currentMonth}",
                 'previous'       => "{$prevYear}-{$prevMonth}",
+                'was_blocked'    => !$resident->biometric_access,
             ]);
 
             if ($shouldUnblock) {
@@ -827,13 +842,12 @@ class PaymentController extends Controller
             Log::error('syncAccessAfterPayment failed', [
                 'resident_id' => $resident->id,
                 'error'       => $e->getMessage(),
+                'trace'       => $e->getTraceAsString(),
             ]);
         }
     }
 
-    /**
-     * Is the given month fully paid for the resident?
-     */
+
     private function isMonthFullyPaid(Resident $resident, int $month, int $year): bool
     {
         $payment = Payment::where('resident_id', $resident->id)

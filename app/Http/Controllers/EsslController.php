@@ -151,6 +151,45 @@ class EsslController extends Controller
         return response()->json($this->essl->getCommandStatus($data['command_id']));
     }
 
+    /* ═══════════════════════════════════════════════════════════
+     |  🔑 PUBLIC API — used by PaymentController
+     |  Auto block / unblock after payment save
+     ═══════════════════════════════════════════════════════════ */
+
+    /**
+     * Public wrapper for doBlock().
+     *
+     * PaymentController calls this after every payment save:
+     *   - balance = 0  →  syncResidentAccess($resident, false)  → UNBLOCK
+     *   - balance > 0  →  syncResidentAccess($resident, true)   → BLOCK
+     *
+     * @param  Resident $resident
+     * @param  bool     $block   true = block, false = unblock
+     * @return array{success: bool, message: string}
+     */
+    public function syncResidentAccess(Resident $resident, bool $block): array
+    {
+        // Reload relations if not loaded
+        if (!$resident->relationLoaded('hostel')) {
+            $resident->load('hostel');
+        }
+
+        try {
+            return $this->doBlock($resident, $block);
+        } catch (\Throwable $e) {
+            Log::error('syncResidentAccess failed', [
+                'resident_id' => $resident->id,
+                'block'       => $block,
+                'error'       => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Access sync error: ' . $e->getMessage(),
+            ];
+        }
+    }
+
     /* ───────────── Core operations ───────────── */
 
     private function validateForDevice(Resident $resident): ?string
@@ -169,9 +208,6 @@ class EsslController extends Controller
      * STEP 2: AddEmployee → device queue
      * STEP 3 (FIX #1): If DB says biometric_access = false,
      *                  immediately block on device after add.
-     *
-     * @param bool $keepBlocked  When true, re-apply block if resident is
-     *                           currently marked blocked in DB.
      */
     private function doSync(Resident $resident, bool $keepBlocked = true): array
     {
@@ -182,7 +218,7 @@ class EsslController extends Controller
             return ['success' => false, 'message' => "{$resident->name}: {$err}"];
         }
 
-        $firstSync = empty($resident->last_sync_at);
+        $firstSync  = empty($resident->last_sync_at);
         $wasBlocked = !$resident->biometric_access;
 
         // STEP 1

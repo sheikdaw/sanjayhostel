@@ -318,7 +318,7 @@
             background: linear-gradient(135deg, #059669, #10b981);
         }
 
-        /* UPI Pay button */
+        /* Pay button */
         .upi-pay-btn {
             display: flex;
             align-items: center;
@@ -335,12 +335,19 @@
             transition: all 0.2s;
             border: none;
             cursor: pointer;
+            font-family: inherit;
         }
 
         .upi-pay-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
             color: white;
+        }
+
+        .upi-pay-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .upi-pay-btn i { font-size: 1.1rem; }
@@ -434,6 +441,135 @@
             font-size: 0.65rem;
             font-weight: 600;
         }
+
+        /* QR modal */
+        .qr-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1rem;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .qr-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            max-width: 340px;
+            width: 100%;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+        }
+
+        .qr-modal-content h3 {
+            color: var(--primary);
+            font-weight: 700;
+            margin: 0 0 0.25rem;
+            font-size: 1.05rem;
+        }
+
+        .qr-modal-content .qr-amount {
+            color: #059669;
+            font-weight: 800;
+            font-size: 1.5rem;
+            font-family: 'SF Mono', monospace;
+            margin-bottom: 1rem;
+        }
+
+        .qr-modal-content img {
+            width: 250px;
+            height: 250px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 8px;
+            background: white;
+        }
+
+        .qr-modal-content .qr-note {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.75rem;
+        }
+
+        .qr-modal-close {
+            margin-top: 1rem;
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .qr-modal-close:hover {
+            background: #1a3a6b;
+        }
+
+        /* Redirect overlay */
+        .redirect-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 30, 63, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .redirect-overlay .big-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 1.5rem;
+        }
+
+        .redirect-overlay h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem;
+        }
+
+        .redirect-overlay p {
+            font-size: 0.85rem;
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        /* Gateway badge */
+        .gateway-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .gateway-badge i {
+            color: #059669;
+        }
     </style>
 </head>
 <body>
@@ -493,10 +629,18 @@
 </div>
 
 <script>
-    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    const LOOKUP_URL = "{{ route('public.payment.lookup', $encodedHostelId) }}";
-    const ENCODED_ID = "{{ $encodedHostelId }}";
+    /* ═══════════════════════════════════════════════════════════
+       CONFIG
+       ═══════════════════════════════════════════════════════════ */
+    const CSRF_TOKEN     = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const LOOKUP_URL     = "{{ route('public.payment.lookup', $encodedHostelId) }}";
+    const INITIATE_URL   = "{{ route('public.payment.initiate', $encodedHostelId) }}";
+    const SUCCESS_URL    = "{{ route('public.payment.success') }}";
+    const ENCODED_ID     = "{{ $encodedHostelId }}";
 
+    /* ═══════════════════════════════════════════════════════════
+       DOM REFS
+       ═══════════════════════════════════════════════════════════ */
     const form          = document.getElementById('phoneForm');
     const phoneInput    = document.getElementById('phoneInput');
     const submitBtn     = document.getElementById('submitBtn');
@@ -506,6 +650,15 @@
     const resultSection = document.getElementById('resultSection');
     const resultContent = document.getElementById('resultContent');
 
+    /* ═══════════════════════════════════════════════════════════
+       STATE
+       ═══════════════════════════════════════════════════════════ */
+    let currentResidentId = null;
+    let currentTotalDue   = 0;
+
+    /* ═══════════════════════════════════════════════════════════
+       LOOKUP FORM SUBMIT
+       ═══════════════════════════════════════════════════════════ */
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
 
@@ -548,6 +701,9 @@
         }
     });
 
+    /* ═══════════════════════════════════════════════════════════
+       SHOW ERROR
+       ═══════════════════════════════════════════════════════════ */
     function showError(msg) {
         errorBox.innerHTML = `
             <div class="error-box">
@@ -556,12 +712,19 @@
             </div>`;
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       RENDER RESULT
+       ═══════════════════════════════════════════════════════════ */
     function renderResult(data) {
-        const r = data.resident;
+        const r    = data.resident;
         const curr = data.current_month;
         const prev = data.previous_pending;
 
-        const statusClass = curr.status.toLowerCase();
+        // Save for payment
+        currentResidentId = r.id;
+        currentTotalDue   = parseFloat(data.total_due) || 0;
+
+        const statusClass = (curr.status || 'unpaid').toLowerCase();
 
         let html = `
             <!-- Resident Info -->
@@ -638,33 +801,21 @@
             `;
         }
 
-        // Total Due Box
-        if (data.total_due > 0) {
+        // Total Due Box + Pay Button
+        if (currentTotalDue > 0) {
             html += `
                 <div class="total-box">
                     <div class="label">Total Amount Due</div>
-                    <div class="amount">₹${formatNumber(data.total_due)}</div>
+                    <div class="amount">₹${formatNumber(currentTotalDue)}</div>
                 </div>
-            `;
 
-            // UPI Pay button
-            if (data.upi.link) {
-                html += `
-                    <a href="${data.upi.link}" class="upi-pay-btn">
-                        <i class="bi bi-phone"></i>
-                        Pay ₹${formatNumber(data.total_due)} via UPI
-                    </a>
-                `;
-            } else {
-                html += `
-                    <div class="error-box" style="margin-top:0.5rem;">
-                        <i class="bi bi-info-circle-fill" style="color:#3b82f6;"></i>
-                        <p style="color:#1e40af;">UPI not configured. Please contact hostel management.</p>
-                    </div>
-                `;
-            }
+                <button type="button" class="upi-pay-btn" id="payBtn"
+                        onclick="payNow()">
+                    <i class="bi bi-credit-card-2-front-fill"></i>
+                    Pay ₹${formatNumber(currentTotalDue)}
+                </button>
+            `;
         } else {
-            // All paid
             html += `
                 <div class="no-due-box">
                     <i class="bi bi-check-circle-fill"></i>
@@ -681,20 +832,205 @@
         resultSection.style.display = 'block';
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       PAY NOW — Call /initiate, gateway decides
+       ═══════════════════════════════════════════════════════════ */
+    async function payNow() {
+        if (!currentResidentId || currentTotalDue <= 0) {
+            alert('Invalid payment request');
+            return;
+        }
+
+        const btn = document.getElementById('payBtn');
+        if (!btn) return;
+
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Opening payment...';
+
+        try {
+            const res = await fetch(INITIATE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': CSRF_TOKEN,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    resident_id: currentResidentId,
+                    amount: currentTotalDue
+                })
+            });
+
+            const data = await res.json();
+            console.log('Initiate response:', data);
+
+            if (!data.success) {
+                alert(data.message || 'Payment initiation failed');
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                return;
+            }
+
+            /* ─────────────────────────────────────────────
+               Gateway response handling
+               ───────────────────────────────────────────── */
+
+            // 1) Redirect to Axis Bank hosted page (QR + UPI apps)
+            if (data.mode === 'redirect' && data.redirect_url) {
+                showRedirectOverlay('Redirecting to secure payment page...');
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 800);
+                return;
+            }
+
+            // 2) UPI deep-link (GPay / PhonePe / Paytm open aagum)
+            if (data.mode === 'upi_link' && data.upi_link) {
+                // Open UPI app
+                window.location.href = data.upi_link;
+
+                // Reset button after 3s
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                }, 3000);
+
+                // Show info message
+                showToast('UPI app open aagum... pay pannunga!', 'info');
+                return;
+            }
+
+            // 3) Direct QR code (if gateway returns it)
+            if (data.qr_code) {
+                showQrModal(data.qr_code, currentTotalDue);
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+                return;
+            }
+
+            // 4) Unknown mode
+            alert(data.message || 'Payment method unavailable');
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+
+        } catch (err) {
+            console.error(err);
+            alert('Network error. Please try again.');
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       QR MODAL
+       ═══════════════════════════════════════════════════════════ */
+    function showQrModal(qrData, amount) {
+        // Remove existing
+        const existing = document.querySelector('.qr-modal-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'qr-modal-overlay';
+        overlay.innerHTML = `
+            <div class="qr-modal-content">
+                <h3>Scan & Pay</h3>
+                <div class="qr-amount">₹${formatNumber(amount)}</div>
+                <img src="${qrData}" alt="QR Code">
+                <p class="qr-note">
+                    <i class="bi bi-info-circle"></i>
+                    GPay / PhonePe / Paytm la scan pannunga
+                </p>
+                <button class="qr-modal-close" onclick="this.closest('.qr-modal-overlay').remove()">
+                    Close
+                </button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       REDIRECT OVERLAY
+       ═══════════════════════════════════════════════════════════ */
+    function showRedirectOverlay(message) {
+        const existing = document.querySelector('.redirect-overlay');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'redirect-overlay';
+        overlay.innerHTML = `
+            <div class="big-spinner"></div>
+            <h3>${escapeHtml(message)}</h3>
+            <p>Please do not close this window</p>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       TOAST
+       ═══════════════════════════════════════════════════════════ */
+    function showToast(message, type = 'success') {
+        const existing = document.querySelector('.pay-toast');
+        if (existing) existing.remove();
+
+        const colors = {
+            success: { bg: '#10b981', shadow: 'rgba(16, 185, 129, 0.4)' },
+            error:   { bg: '#dc2626', shadow: 'rgba(220, 38, 38, 0.4)' },
+            info:    { bg: '#3b82f6', shadow: 'rgba(59, 130, 246, 0.4)' }
+        };
+        const c = colors[type] || colors.success;
+
+        const toast = document.createElement('div');
+        toast.className = 'pay-toast';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: ${c.bg};
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 8px 24px ${c.shadow};
+            z-index: 10001;
+            max-width: 90%;
+            text-align: center;
+        `;
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.transition = 'all 0.3s';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(20px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESET FORM
+       ═══════════════════════════════════════════════════════════ */
     function resetForm() {
         phoneInput.value = '';
         errorBox.innerHTML = '';
         resultSection.style.display = 'none';
         lookupForm.style.display = 'block';
+        currentResidentId = null;
+        currentTotalDue = 0;
     }
 
+    /* ═══════════════════════════════════════════════════════════
+       HELPERS
+       ═══════════════════════════════════════════════════════════ */
     function formatNumber(n) {
         const num = parseFloat(n) || 0;
         return num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     }
 
     function escapeHtml(str) {
-        if (!str) return '';
+        if (str === null || str === undefined) return '';
         return String(str).replace(/[&<>"']/g, function (c) {
             return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
         });
