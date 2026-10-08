@@ -212,7 +212,6 @@
         color: white;
     }
 
-    /* QR Modal */
     .pl-qr-modal .modal-content {
         border: none;
         border-radius: 16px;
@@ -237,7 +236,6 @@
         background: white;
     }
 
-    /* Empty State */
     .pl-empty {
         text-align: center;
         padding: 4rem 2rem;
@@ -248,7 +246,6 @@
     }
     .pl-empty i { font-size: 3rem; color: #d1d5db; margin-bottom: 0.75rem; }
 
-    /* Toast */
     .pl-toast {
         position: fixed;
         bottom: 24px;
@@ -279,7 +276,6 @@
 
 @section('content')
 
-{{-- PAGE HEADER --}}
 <div class="pl-page-header">
     <div>
         <h2 class="pl-page-title">
@@ -290,7 +286,6 @@
     </div>
 </div>
 
-{{-- INFO BOX --}}
 <div class="pl-info-box">
     <i class="bi bi-info-circle-fill"></i>
     <div>
@@ -300,11 +295,9 @@
     </div>
 </div>
 
-{{-- LINKS GRID --}}
 <div class="pl-grid">
     @forelse($links as $link)
         <div class="pl-card">
-            {{-- Head --}}
             <div class="pl-card-head">
                 <div class="pl-card-icon">
                     <i class="bi bi-building"></i>
@@ -319,7 +312,6 @@
                 </div>
             </div>
 
-            {{-- Body --}}
             <div class="pl-card-body">
                 <div class="pl-label">📎 Payment Link</div>
                 <div class="pl-url-box">
@@ -371,7 +363,6 @@
     @endforelse
 </div>
 
-{{-- QR MODAL --}}
 <div class="modal fade pl-qr-modal" id="qrModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width:340px;">
         <div class="modal-content">
@@ -396,9 +387,6 @@
 
 @push('scripts')
 <script>
-    // ═══════════════════════════════════════════
-    // COPY LINK
-    // ═══════════════════════════════════════════
     function copyLink(hostelId, btn) {
         const input = document.getElementById('url-' + hostelId);
         input.select();
@@ -437,18 +425,12 @@
         }
     }
 
-    // ═══════════════════════════════════════════
-    // SHOW QR
-    // ═══════════════════════════════════════════
     function showQR(hostelId, hostelName, qrUrl) {
         document.getElementById('qrHostelName').textContent = hostelName;
         document.getElementById('qrImage').src = qrUrl;
         new bootstrap.Modal(document.getElementById('qrModal')).show();
     }
 
-    // ═══════════════════════════════════════════
-    // TOAST
-    // ═══════════════════════════════════════════
     function showToast(message, type = 'success') {
         const existing = document.querySelector('.pl-toast');
         if (existing) existing.remove();

@@ -206,16 +206,13 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 |--------------------------------------------------------------------------
 */
 
-// ── 1) Static: success page ──────────────────────────────────────────
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
 
-// ── 2) Static: gateway callback (CSRF-exempt — bank can't send a token)
 Route::post('/pay/axis/callback', [PublicPaymentController::class, 'callback'])
     ->name('public.payment.callback')
     ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 
-// ── 3) Wildcard: hostel-specific routes ──────────────────────────────
 Route::get('/pay/{encodedHostelId}', [PublicPaymentController::class, 'show'])
     ->name('public.payment.show');
 

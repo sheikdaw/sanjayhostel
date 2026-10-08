@@ -44,7 +44,6 @@ class PublicPaymentController extends Controller
     {
         $orderId = (string) $request->query('order', '');
 
-        // "Success" only if the verified callback really credited this order
         $success = $orderId !== '' && $this->isOrderAlreadyApplied($orderId);
 
         return view('public.payment-success', compact('success', 'orderId'));
@@ -140,35 +139,29 @@ class PublicPaymentController extends Controller
             return response()->json(['success' => false, 'message' => 'Resident not found.'], 404);
         }
 
-        // Amount is ALWAYS computed on the server, never taken from the browser
         $dues = $this->calculateDues($resident, Carbon::now());
 
         if ($dues['total_due'] <= 0) {
             return response()->json(['success' => false, 'message' => 'No balance due. Nothing to pay.']);
         }
 
-        // Order id carries resident + start time (no database needed)
         $orderId = 'PG-' . $resident->id . '-' . now()->format('ymdHis') . '-' . strtoupper(Str::random(4));
 
         $gateway = $this->buildGatewayRequest($orderId, $dues['total_due'], $resident);
 
-        // Flat contract the blade JS expects.
-        // If your Axis integration returns a hosted page URL, set mode='redirect'
-        // and put that URL in redirect_url. Otherwise the JS auto-submits the
-        // signed form in `gateway`.
         return response()->json([
             'success'      => true,
             'order_id'     => $orderId,
-            'mode'         => 'redirect',   // 'redirect' | 'upi_link' | 'qr'
-            'redirect_url' => null,         // fill if Axis gives a hosted page URL
-            'upi_link'     => null,         // fill if Axis gives a UPI intent string
-            'qr_code'      => null,         // fill if Axis returns a QR image
-            'gateway'      => $gateway,     // { url, method, fields[] }
+            'mode'         => 'redirect',
+            'redirect_url' => null,
+            'upi_link'     => null,
+            'qr_code'      => null,
+            'gateway'      => $gateway,
         ]);
     }
 
     /* =========================================================
-     |  CALLBACK  (POST /pay/axis/callback  - called by the bank)
+     |  CALLBACK
      ========================================================= */
 
     public function callback(Request $request)
@@ -176,7 +169,6 @@ class PublicPaymentController extends Controller
         $data = $request->all();
         Log::info('Axis callback received', $data);
 
-        // 1) Verify the bank's signature
         $parsed = $this->verifyCallback($data);
         if (!$parsed) {
             Log::warning('Axis callback signature invalid', $data);
@@ -185,7 +177,6 @@ class PublicPaymentController extends Controller
 
         $orderId = (string) $parsed['order_id'];
 
-        // 2) Read resident + start time from the order id
         $order = $this->parseOrderId($orderId);
         if (!$order) {
             abort(404, 'Unknown order');
@@ -196,18 +187,16 @@ class PublicPaymentController extends Controller
             abort(404, 'Unknown resident');
         }
 
-        // 3) Apply (only if bank says success)
         $applied = false;
 
         if ($parsed['success'] && $parsed['amount'] > 0) {
-            // Lock so two simultaneous callbacks cannot both credit
             $lock = Cache::lock('axis-order-' . $orderId, 30);
 
             if ($lock->get()) {
                 try {
                     DB::transaction(function () use ($orderId, $order, $resident, $parsed, &$applied) {
                         if ($this->isOrderAlreadyApplied($orderId)) {
-                            return;     // bank retry / page refresh
+                            return;
                         }
 
                         $applied = $this->applyPaymentToLedger(
@@ -226,12 +215,10 @@ class PublicPaymentController extends Controller
             Log::info('Axis payment not successful', ['order' => $orderId, 'data' => $data]);
         }
 
-        // 4) Unblock AFTER the DB commit (never inside the transaction)
         if ($applied) {
             $this->syncAccessAfterPayment($resident);
         }
 
-        // Browser redirect (user) vs server-to-server call (bank)
         if (!$request->expectsJson()) {
             return redirect()->route('public.payment.success', ['order' => $orderId]);
         }
@@ -240,13 +227,9 @@ class PublicPaymentController extends Controller
     }
 
     /* =========================================================
-     |  AXIS BANK SPECIFIC  (ADJUST THESE TWO TO AXIS'S DOCUMENT)
+     |  AXIS BANK SPECIFIC
      ========================================================= */
 
-    /**
-     * Build the data the browser posts to Axis checkout.
-     * Field names + checksum rule come from your Axis integration document.
-     */
     private function buildGatewayRequest(string $orderId, float $amount, Resident $resident): array
     {
         $fields = [
@@ -269,10 +252,6 @@ class PublicPaymentController extends Controller
         ];
     }
 
-    /**
-     * Verify the callback from Axis.
-     * Return null if invalid, otherwise a normalised array.
-     */
     private function verifyCallback(array $data): ?array
     {
         $received = (string) ($data['signature'] ?? '');
@@ -283,7 +262,6 @@ class PublicPaymentController extends Controller
             return null;
         }
 
-        // PLACEHOLDER field names: map to Axis's response fields
         return [
             'order_id'       => $data['order_id'] ?? null,
             'amount'         => (float) ($data['amount'] ?? 0),
@@ -299,10 +277,9 @@ class PublicPaymentController extends Controller
     }
 
     /* =========================================================
-     |  ORDER ID HELPERS (stateless)
+     |  ORDER ID HELPERS
      ========================================================= */
 
-    /** PG-{residentId}-{yymmddHHMMSS}-{RAND} */
     private function parseOrderId(string $orderId): ?array
     {
         if (!preg_match('/^PG-(\d+)-(\d{12})-[A-Z0-9]{4}$/', $orderId, $m)) {
@@ -321,28 +298,22 @@ class PublicPaymentController extends Controller
         ];
     }
 
-    /** An order is "applied" if any payment row already carries its id in remark */
     private function isOrderAlreadyApplied(string $orderId): bool
     {
         return Payment::where('remark', 'LIKE', '%Online ' . $orderId . '%')->exists();
     }
 
     /* =========================================================
-     |  DUES CALCULATION (single source of truth)
+     |  DUES CALCULATION
      ========================================================= */
 
-    /**
-     * @param Carbon $asOf  "today" for this calculation. For a callback this is
-     *                      the time the payment was STARTED, so the date
-     *                      discount the resident saw is the one they get.
-     */
     private function calculateDues(Resident $resident, Carbon $asOf): array
     {
         $currentMonth = (int) $asOf->month;
         $currentYear  = (int) $asOf->year;
         $rent         = (float) $resident->rent_amount;
 
-        $allocations     = [];   // oldest month first
+        $allocations     = [];
         $previousMonths  = [];
         $previousPending = 0;
 
@@ -352,7 +323,6 @@ class PublicPaymentController extends Controller
         $paymentsByMonth = Payment::where('resident_id', $resident->id)->get()
             ->groupBy(fn($p) => $p->year . '-' . str_pad($p->month, 2, '0', STR_PAD_LEFT));
 
-        // ── Previous months (no date discount) ──
         while ($cursor->lt($currentMonthStart)) {
             $payments = $paymentsByMonth[$cursor->format('Y-m')] ?? collect();
 
@@ -376,7 +346,6 @@ class PublicPaymentController extends Controller
             $cursor->addMonth();
         }
 
-        // ── Current month ──
         $currentPayments = $paymentsByMonth[$currentMonthStart->format('Y-m')] ?? collect();
 
         $paid     = 0;
@@ -414,7 +383,7 @@ class PublicPaymentController extends Controller
                 'month'    => $currentMonth,
                 'year'     => $currentYear,
                 'amount'   => round($currentBalance, 2),
-                'discount' => round($totalDiscount, 2),   // used only if no row exists yet
+                'discount' => round($totalDiscount, 2),
                 'rent'     => $rent,
                 'fine'     => round($fine, 2),
             ];
@@ -443,13 +412,9 @@ class PublicPaymentController extends Controller
     }
 
     /* =========================================================
-     |  APPLY SUCCESSFUL PAYMENT TO THE PAYMENTS TABLE
+     |  APPLY PAYMENT
      ========================================================= */
 
-    /**
-     * Distributes the bank-confirmed amount over the dues (oldest month first).
-     * Returns true if anything was credited.
-     */
     private function applyPaymentToLedger(
         Resident $resident,
         string $orderId,
@@ -523,7 +488,6 @@ class PublicPaymentController extends Controller
         }
 
         if ($remaining > 0) {
-            // Bank took more than was due (e.g. admin recorded cash meanwhile)
             Log::warning('Axis surplus not allocated', [
                 'order'    => $orderId,
                 'resident' => $resident->id,
@@ -535,7 +499,7 @@ class PublicPaymentController extends Controller
     }
 
     /* =========================================================
-     |  AUTO UNBLOCK / BLOCK  (same rule as admin PaymentController)
+     |  AUTO UNBLOCK / BLOCK
      ========================================================= */
 
     private function syncAccessAfterPayment(?Resident $resident): void
@@ -560,7 +524,6 @@ class PublicPaymentController extends Controller
 
             $currentPaid = $this->isMonthFullyPaid($resident->id, (int) $now->month, (int) $now->year);
 
-            // Joined this month → previous month not required
             $joinDate        = $resident->joining_date ? Carbon::parse($resident->joining_date) : null;
             $joinedThisMonth = $joinDate
                 && $joinDate->year === (int) $now->year
@@ -581,9 +544,8 @@ class PublicPaymentController extends Controller
 
             /** @var \App\Http\Controllers\EsslController $essl */
             $essl = app(EsslController::class);
-            $essl->syncResidentAccess($resident, !$shouldUnblock);   // true = BLOCK, false = UNBLOCK
+            $essl->syncResidentAccess($resident, !$shouldUnblock);
         } catch (\Throwable $e) {
-            // Payment is already saved; never fail the payment because of the device
             Log::error('Public syncAccessAfterPayment failed', [
                 'resident_id' => $resident->id,
                 'error'       => $e->getMessage(),
