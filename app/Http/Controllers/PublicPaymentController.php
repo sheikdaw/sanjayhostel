@@ -150,9 +150,20 @@ class PublicPaymentController extends Controller
         // Order id carries resident + start time (no database needed)
         $orderId = 'PG-' . $resident->id . '-' . now()->format('ymdHis') . '-' . strtoupper(Str::random(4));
 
+        $gateway = $this->buildGatewayRequest($orderId, $dues['total_due'], $resident);
+
+        // Flat contract the blade JS expects.
+        // If your Axis integration returns a hosted page URL, set mode='redirect'
+        // and put that URL in redirect_url. Otherwise the JS auto-submits the
+        // signed form in `gateway`.
         return response()->json([
-            'success' => true,
-            'gateway' => $this->buildGatewayRequest($orderId, $dues['total_due'], $resident),
+            'success'      => true,
+            'order_id'     => $orderId,
+            'mode'         => 'redirect',   // 'redirect' | 'upi_link' | 'qr'
+            'redirect_url' => null,         // fill if Axis gives a hosted page URL
+            'upi_link'     => null,         // fill if Axis gives a UPI intent string
+            'qr_code'      => null,         // fill if Axis returns a QR image
+            'gateway'      => $gateway,     // { url, method, fields[] }
         ]);
     }
 

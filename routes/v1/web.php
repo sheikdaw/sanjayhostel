@@ -206,16 +206,16 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 |--------------------------------------------------------------------------
 */
 
-// ── Static routes FIRST (before the {encodedHostelId} wildcard) ──
+// ── 1) Static: success page ──────────────────────────────────────────
 Route::get('/pay/success', [PublicPaymentController::class, 'success'])
     ->name('public.payment.success');
 
-// ── Gateway callback (CSRF-exempt — the bank can't send a token) ──
+// ── 2) Static: gateway callback (CSRF-exempt — bank can't send a token)
 Route::post('/pay/axis/callback', [PublicPaymentController::class, 'callback'])
     ->name('public.payment.callback')
     ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 
-// ── Wildcard routes LAST ──
+// ── 3) Wildcard: hostel-specific routes ──────────────────────────────
 Route::get('/pay/{encodedHostelId}', [PublicPaymentController::class, 'show'])
     ->name('public.payment.show');
 
@@ -224,7 +224,6 @@ Route::post('/pay/{encodedHostelId}/lookup', [PublicPaymentController::class, 'l
 
 Route::post('/pay/{encodedHostelId}/initiate', [PublicPaymentController::class, 'initiate'])
     ->name('public.payment.initiate');
-
 /*
 |--------------------------------------------------------------------------
 | Essl / Biometric Routes

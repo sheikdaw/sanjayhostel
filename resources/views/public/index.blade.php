@@ -347,7 +347,10 @@
 
                     <button type="button"
                             class="pl-btn pl-btn-qr"
-                            onclick="showQR({{ $link['id'] }}, '{{ addslashes($link['name']) }}', '{{ $link['qr'] }}')">
+                            data-id="{{ $link['id'] }}"
+                            data-name="{{ $link['name'] }}"
+                            data-qr="{{ $link['qr'] }}"
+                            onclick="showQR(this.dataset.id, this.dataset.name, this.dataset.qr)">
                         <i class="bi bi-qr-code"></i> QR Code
                     </button>
 
@@ -411,7 +414,6 @@
         };
 
         const onSuccess = () => {
-            // Change button appearance temporarily
             const originalHTML = btn.innerHTML;
             btn.classList.add('copied');
             btn.innerHTML = '<i class="bi bi-check-lg"></i><span>Copied!</span>';
