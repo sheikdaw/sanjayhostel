@@ -3,14 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Hostel;
-use App\Models\Resident;
 use App\Models\Payment;
-use App\Services\Payment\PaymentGatewayManager;
-use App\Services\PaymentService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Log;
+use App\Models\Resident;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class PublicPaymentController extends Controller
 {
@@ -23,349 +24,33 @@ class PublicPaymentController extends Controller
     private const DATE_DISCOUNT_1_5  = 250.0;
     private const DATE_DISCOUNT_6_10 = 125.0;
 
-    public function __construct(private PaymentService $paymentService) {}
-
     /* =========================================================
-     |  SHOW — Public payment lookup page
-     |  URL: /pay/{encodedHostelId}
+     |  PAGES
      ========================================================= */
 
+    /** GET /pay/{encodedHostelId} */
     public function show(string $encodedHostelId)
     {
-        try {
-            $hostelId = Crypt::decryptString($encodedHostelId);
-        } catch (\Exception $e) {
-            abort(404, 'Invalid payment link');
-        }
-
-        $hostel = Hostel::find($hostelId);
+        $hostel = $this->resolveHostel($encodedHostelId);
         if (!$hostel) {
-            abort(404, 'Hostel not found');
+            abort(404, 'Invalid payment link');
         }
 
         return view('public.payment-lookup', compact('hostel', 'encodedHostelId'));
     }
 
-    /* =========================================================
-     |  DATE DISCOUNT helper
-     ========================================================= */
-
-    private function getDateBasedDiscount(?Carbon $asOf = null): float
+    /** GET /pay/success?order={order_id} */
+    public function success(Request $request)
     {
-        $day = (int) ($asOf ?? Carbon::now())->day;
+        $orderId = (string) $request->query('order', '');
 
-        if ($day >= 1 && $day <= 5) {
-            return self::DATE_DISCOUNT_1_5;
-        }
-        if ($day >= 6 && $day <= 10) {
-            return self::DATE_DISCOUNT_6_10;
-        }
-        return 0.0;
+        // "Success" only if the verified callback really credited this order
+        $success = $orderId !== '' && $this->isOrderAlreadyApplied($orderId);
+
+        return view('public.payment-success', compact('success', 'orderId'));
     }
 
-    /* =========================================================
-     |  LOOKUP — AJAX: Find resident by phone, return dues
-     ========================================================= */
-
-    public function lookup(Request $request, string $encodedHostelId)
-    {
-        try {
-            $hostelId = Crypt::decryptString($encodedHostelId);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
-        }
-
-        $request->validate([
-            'phone' => 'required|string|min:10|max:15',
-        ]);
-
-        $hostel = Hostel::find($hostelId);
-        if (!$hostel) {
-            return response()->json(['success' => false, 'message' => 'Hostel not found'], 404);
-        }
-
-        // Search resident by phone (last 10 digits)
-        $phone  = preg_replace('/[^0-9]/', '', $request->phone);
-        $last10 = substr($phone, -10);
-
-        $resident = Resident::with(['room', 'bed'])
-            ->where('hostel_id', $hostelId)
-            ->where('status', 'ACTIVE')
-            ->where(function ($q) use ($phone, $last10) {
-                $q->where('phone', 'LIKE', "%{$last10}%")
-                  ->orWhere('phone', $phone);
-            })
-            ->first();
-
-        if (!$resident) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No active resident found with this mobile number in this hostel.',
-            ]);
-        }
-
-        // Current month/year
-        $now          = Carbon::now();
-        $currentMonth = (int) $now->month;
-        $currentYear  = (int) $now->year;
-
-        // ------------------------------------------------------------
-        // 1) PREVIOUS PENDING (no date discount for old months)
-        // ------------------------------------------------------------
-        $previousPending = 0;
-        $previousMonths  = [];
-
-        $joinMonth         = Carbon::parse($resident->joining_date)->startOfMonth();
-        $currentMonthStart = Carbon::create($currentYear, $currentMonth, 1)->startOfMonth();
-
-        $cursor = $joinMonth->copy();
-        while ($cursor->lt($currentMonthStart)) {
-            $payments = Payment::where('resident_id', $resident->id)
-                ->where('month', $cursor->month)
-                ->where('year', $cursor->year)
-                ->get();
-
-            if ($payments->count() > 0) {
-                $due = 0;
-                foreach ($payments as $p) {
-                    $due += (float) $p->balance_amount;
-                }
-            } else {
-                $due = (float) $resident->rent_amount;
-            }
-
-            if ($due > 0) {
-                $previousPending += $due;
-                $previousMonths[] = [
-                    'label'  => $cursor->format('F Y'),
-                    'amount' => round($due, 2),
-                ];
-            }
-
-            $cursor->addMonth();
-        }
-
-        // ------------------------------------------------------------
-        // 2) CURRENT MONTH
-        // ------------------------------------------------------------
-        $currentPayments = Payment::where('resident_id', $resident->id)
-            ->where('month', $currentMonth)
-            ->where('year', $currentYear)
-            ->get();
-
-        $currentPaid     = 0;
-        $currentDiscount = 0;
-        $currentFine     = 0;
-
-        if ($currentPayments->count() > 0) {
-            foreach ($currentPayments as $p) {
-                $currentPaid     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
-                $currentDiscount += (float) $p->discount_amount;
-                $currentFine     += (float) $p->fine_amount;
-            }
-        }
-
-        $currentRent = (float) $resident->rent_amount;
-
-        // ---- Date-based flat discount ----
-        if ($currentPayments->count() > 0) {
-            $dateDiscount  = 0;
-            $totalDiscount = $currentDiscount;
-        } else {
-            $dateDiscount  = $this->getDateBasedDiscount();
-            $totalDiscount = $currentDiscount + $dateDiscount;
-        }
-
-        $currentDue = max(0, $currentRent + $currentFine - $totalDiscount);
-
-        if ($currentPayments->count() > 0) {
-            $currentBalance = max(0, $currentDue - $currentPaid);
-        } else {
-            $currentBalance = $currentDue;
-        }
-
-        // Status
-        if ($currentPayments->count() === 0) {
-            $currentStatus = 'UNPAID';
-        } elseif ($currentBalance > 0) {
-            $currentStatus = 'PARTIAL';
-        } else {
-            $currentStatus = 'PAID';
-        }
-
-        $totalDue = $previousPending + $currentBalance;
-
-        return response()->json([
-            'success'  => true,
-            'resident' => [
-                'id'           => $resident->id,
-                'name'         => $resident->name,
-                'code'         => $resident->resident_code,
-                'phone'        => $resident->phone,
-                'hostel_name'  => $hostel->hostel_name,
-                'room_no'      => $resident->room->room_no ?? 'N/A',
-                'bed_no'       => $resident->bed->bed_no ?? 'N/A',
-                'joining_date' => Carbon::parse($resident->joining_date)->format('d M Y'),
-                'rent_amount'  => $currentRent,
-            ],
-            'current_month' => [
-                'month'           => Carbon::create($currentYear, $currentMonth, 1)->format('F Y'),
-                'rent'            => round($currentRent, 2),
-                'manual_discount' => round($currentDiscount, 2),
-                'date_discount'   => round($dateDiscount, 2),
-                'total_discount'  => round($totalDiscount, 2),
-                'discount'        => round($totalDiscount, 2),
-                'fine'            => round($currentFine, 2),
-                'paid'            => round($currentPaid, 2),
-                'balance'         => round($currentBalance, 2),
-                'due'             => round($currentDue, 2),
-                'status'          => $currentStatus,
-            ],
-            'previous_pending' => [
-                'total'  => round($previousPending, 2),
-                'months' => $previousMonths,
-            ],
-            'total_due' => round($totalDue, 2),
-        ]);
-    }
-
-    /* =========================================================
-     |  INITIATE — Gateway choose pannum
-     ========================================================= */
-
-    public function initiate(Request $request, string $encodedHostelId)
-    {
-        try {
-            $hostelId = Crypt::decryptString($encodedHostelId);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
-        }
-
-        $request->validate([
-            'resident_id' => 'required|integer|exists:residents,id',
-            'amount'      => 'required|numeric|min:1',
-        ]);
-
-        $hostel   = Hostel::findOrFail($hostelId);
-        $resident = Resident::findOrFail($request->resident_id);
-
-        // Security: resident must belong to this hostel
-        if ((int) $resident->hostel_id !== (int) $hostel->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Resident does not belong to this hostel.',
-            ], 403);
-        }
-
-        $amount  = (float) $request->amount;
-        $gateway = PaymentGatewayManager::driver();
-
-        $result = $gateway->createOrder($resident, $hostel, $amount, [
-            'resident_id' => $resident->id,
-            'hostel_id'   => $hostel->id,
-        ]);
-
-        $result['gateway'] = $gateway->getName();
-
-        return response()->json($result);
-    }
-
-    /* =========================================================
-     |  WEBHOOK — Gateway server-to-server callback
-     ========================================================= */
-
-    public function webhook(Request $request, string $gateway)
-    {
-        $rawBody = $request->getContent();
-        $headers = $request->headers->all();
-
-        $driver = match ($gateway) {
-            'axis'  => new \App\Services\Payment\AxisBankGateway(),
-            default => null,
-        };
-
-        if (!$driver) {
-            return response()->json(['status' => 'unknown gateway'], 400);
-        }
-
-        // Verify signature
-        if (!$driver->verifyWebhook($headers, $rawBody)) {
-            Log::warning("Webhook signature failed: {$gateway}");
-            return response()->json(['status' => 'invalid signature'], 400);
-        }
-
-        $payload = json_decode($rawBody, true) ?? [];
-        $parsed  = $driver->parseWebhook($payload);
-
-        if (empty($parsed['success'])) {
-            return response()->json(['status' => 'ignored']);
-        }
-
-        // Find resident
-        $resident = null;
-        if (!empty($parsed['resident_id'])) {
-            $resident = Resident::find($parsed['resident_id']);
-        }
-
-        if (!$resident) {
-            Log::warning('Webhook: resident not found', $parsed);
-            return response()->json(['status' => 'resident not found']);
-        }
-
-        // Record payment + auto block/unblock
-        $this->paymentService->recordSuccessfulPayment(
-            $resident,
-            (float) $parsed['amount'],
-            $parsed['transaction_id'] ?: $parsed['order_id'],
-            $gateway,
-            $parsed
-        );
-
-        return response()->json(['status' => 'ok']);
-    }
-
-    /* =========================================================
-     |  CALLBACK — User returns from Axis page
-     |  NOTE: No {gateway} param — route already fixed to /axis
-     ========================================================= */
-
-    public function callback(Request $request)
-    {
-        Log::info('Payment callback received', [
-            'query' => $request->query(),
-        ]);
-
-        return redirect()->route('public.payment.success');
-    }
-
-    /* =========================================================
-     |  CANCEL — User cancelled payment on Axis page
-     ========================================================= */
-
-    public function cancel(Request $request)
-    {
-        Log::info('Payment cancelled by user', [
-            'query' => $request->query(),
-        ]);
-
-        return redirect()
-            ->route('public.payment.success')
-            ->with('error', 'Payment was cancelled.');
-    }
-
-    /* =========================================================
-     |  SUCCESS page
-     ========================================================= */
-
-    public function success()
-    {
-        return view('public.payment-success');
-    }
-
-    /* =========================================================
-     |  INDEX — Payment links list (admin panel)
-     ========================================================= */
-
+    /** Admin: QR code index */
     public function index()
     {
         $user = auth()->user();
@@ -375,11 +60,8 @@ class PublicPaymentController extends Controller
             $hostelQuery->whereIn('id', $user->hostel_ids ?? []);
         }
 
-        $hostels = $hostelQuery->get();
-
-        $links = $hostels->map(function ($hostel) {
-            $encodedId = Crypt::encryptString($hostel->id);
-            $url       = url('/pay/' . $encodedId);
+        $links = $hostelQuery->get()->map(function ($hostel) {
+            $url = url('/pay/' . Crypt::encryptString($hostel->id));
 
             return [
                 'id'     => $hostel->id,
@@ -395,5 +77,560 @@ class PublicPaymentController extends Controller
         });
 
         return view('public.index', compact('links'));
+    }
+
+    /* =========================================================
+     |  LOOKUP (AJAX)
+     ========================================================= */
+
+    public function lookup(Request $request, string $encodedHostelId)
+    {
+        $hostel = $this->resolveHostel($encodedHostelId);
+        if (!$hostel) {
+            return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
+        }
+
+        $request->validate(['phone' => 'required|string|min:10|max:15']);
+
+        $resident = $this->findResident($hostel->id, $request->phone);
+        if (!$resident) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active resident found with this mobile number in this hostel.',
+            ]);
+        }
+
+        $dues = $this->calculateDues($resident, Carbon::now());
+
+        return response()->json([
+            'success'  => true,
+            'resident' => [
+                'id'           => $resident->id,
+                'name'         => $resident->name,
+                'code'         => $resident->resident_code,
+                'phone'        => $resident->phone,
+                'hostel_name'  => $hostel->hostel_name,
+                'room_no'      => $resident->room->room_no ?? 'N/A',
+                'bed_no'       => $resident->bed->bed_no ?? 'N/A',
+                'joining_date' => Carbon::parse($resident->joining_date)->format('d M Y'),
+                'rent_amount'  => (float) $resident->rent_amount,
+            ],
+            'current_month'    => $dues['current_month'],
+            'previous_pending' => $dues['previous_pending'],
+            'total_due'        => $dues['total_due'],
+            'can_pay'          => $dues['total_due'] > 0,
+        ]);
+    }
+
+    /* =========================================================
+     |  INITIATE PAYMENT  (POST /pay/{enc}/initiate)
+     ========================================================= */
+
+    public function initiate(Request $request, string $encodedHostelId)
+    {
+        $hostel = $this->resolveHostel($encodedHostelId);
+        if (!$hostel) {
+            return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
+        }
+
+        $request->validate(['phone' => 'required|string|min:10|max:15']);
+
+        $resident = $this->findResident($hostel->id, $request->phone);
+        if (!$resident) {
+            return response()->json(['success' => false, 'message' => 'Resident not found.'], 404);
+        }
+
+        // Amount is ALWAYS computed on the server, never taken from the browser
+        $dues = $this->calculateDues($resident, Carbon::now());
+
+        if ($dues['total_due'] <= 0) {
+            return response()->json(['success' => false, 'message' => 'No balance due. Nothing to pay.']);
+        }
+
+        // Order id carries resident + start time (no database needed)
+        $orderId = 'PG-' . $resident->id . '-' . now()->format('ymdHis') . '-' . strtoupper(Str::random(4));
+
+        return response()->json([
+            'success' => true,
+            'gateway' => $this->buildGatewayRequest($orderId, $dues['total_due'], $resident),
+        ]);
+    }
+
+    /* =========================================================
+     |  CALLBACK  (POST /pay/axis/callback  - called by the bank)
+     ========================================================= */
+
+    public function callback(Request $request)
+    {
+        $data = $request->all();
+        Log::info('Axis callback received', $data);
+
+        // 1) Verify the bank's signature
+        $parsed = $this->verifyCallback($data);
+        if (!$parsed) {
+            Log::warning('Axis callback signature invalid', $data);
+            abort(400, 'Invalid signature');
+        }
+
+        $orderId = (string) $parsed['order_id'];
+
+        // 2) Read resident + start time from the order id
+        $order = $this->parseOrderId($orderId);
+        if (!$order) {
+            abort(404, 'Unknown order');
+        }
+
+        $resident = Resident::with('hostel')->find($order['resident_id']);
+        if (!$resident) {
+            abort(404, 'Unknown resident');
+        }
+
+        // 3) Apply (only if bank says success)
+        $applied = false;
+
+        if ($parsed['success'] && $parsed['amount'] > 0) {
+            // Lock so two simultaneous callbacks cannot both credit
+            $lock = Cache::lock('axis-order-' . $orderId, 30);
+
+            if ($lock->get()) {
+                try {
+                    DB::transaction(function () use ($orderId, $order, $resident, $parsed, &$applied) {
+                        if ($this->isOrderAlreadyApplied($orderId)) {
+                            return;     // bank retry / page refresh
+                        }
+
+                        $applied = $this->applyPaymentToLedger(
+                            $resident,
+                            $orderId,
+                            (float) $parsed['amount'],
+                            $parsed['gateway_txn_id'],
+                            $order['started_at']
+                        );
+                    });
+                } finally {
+                    $lock->release();
+                }
+            }
+        } else {
+            Log::info('Axis payment not successful', ['order' => $orderId, 'data' => $data]);
+        }
+
+        // 4) Unblock AFTER the DB commit (never inside the transaction)
+        if ($applied) {
+            $this->syncAccessAfterPayment($resident);
+        }
+
+        // Browser redirect (user) vs server-to-server call (bank)
+        if (!$request->expectsJson()) {
+            return redirect()->route('public.payment.success', ['order' => $orderId]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /* =========================================================
+     |  AXIS BANK SPECIFIC  (ADJUST THESE TWO TO AXIS'S DOCUMENT)
+     ========================================================= */
+
+    /**
+     * Build the data the browser posts to Axis checkout.
+     * Field names + checksum rule come from your Axis integration document.
+     */
+    private function buildGatewayRequest(string $orderId, float $amount, Resident $resident): array
+    {
+        $fields = [
+            'merchant_id'    => config('services.axis.merchant_id'),
+            'order_id'       => $orderId,
+            'amount'         => number_format($amount, 2, '.', ''),
+            'currency'       => 'INR',
+            'customer_name'  => $resident->name,
+            'customer_phone' => preg_replace('/\D/', '', (string) $resident->phone),
+            'return_url'     => route('public.payment.callback'),
+        ];
+
+        // PLACEHOLDER signing: replace with Axis's exact checksum/encryption method
+        $fields['signature'] = $this->sign($fields);
+
+        return [
+            'url'    => config('services.axis.payment_url'),
+            'method' => 'POST',
+            'fields' => $fields,
+        ];
+    }
+
+    /**
+     * Verify the callback from Axis.
+     * Return null if invalid, otherwise a normalised array.
+     */
+    private function verifyCallback(array $data): ?array
+    {
+        $received = (string) ($data['signature'] ?? '');
+        $payload  = collect($data)->except(['signature', '_token'])->all();
+
+        // PLACEHOLDER: use Axis's exact verification method
+        if (!hash_equals($this->sign($payload), $received)) {
+            return null;
+        }
+
+        // PLACEHOLDER field names: map to Axis's response fields
+        return [
+            'order_id'       => $data['order_id'] ?? null,
+            'amount'         => (float) ($data['amount'] ?? 0),
+            'gateway_txn_id' => $data['txn_id'] ?? null,
+            'success'        => strtoupper((string) ($data['status'] ?? '')) === 'SUCCESS',
+        ];
+    }
+
+    private function sign(array $fields): string
+    {
+        ksort($fields);
+        return hash_hmac('sha256', http_build_query($fields), (string) config('services.axis.secret_key'));
+    }
+
+    /* =========================================================
+     |  ORDER ID HELPERS (stateless)
+     ========================================================= */
+
+    /** PG-{residentId}-{yymmddHHMMSS}-{RAND} */
+    private function parseOrderId(string $orderId): ?array
+    {
+        if (!preg_match('/^PG-(\d+)-(\d{12})-[A-Z0-9]{4}$/', $orderId, $m)) {
+            return null;
+        }
+
+        try {
+            $startedAt = Carbon::createFromFormat('ymdHis', $m[2]);
+        } catch (\Exception $e) {
+            return null;
+        }
+
+        return [
+            'resident_id' => (int) $m[1],
+            'started_at'  => $startedAt,
+        ];
+    }
+
+    /** An order is "applied" if any payment row already carries its id in remark */
+    private function isOrderAlreadyApplied(string $orderId): bool
+    {
+        return Payment::where('remark', 'LIKE', '%Online ' . $orderId . '%')->exists();
+    }
+
+    /* =========================================================
+     |  DUES CALCULATION (single source of truth)
+     ========================================================= */
+
+    /**
+     * @param Carbon $asOf  "today" for this calculation. For a callback this is
+     *                      the time the payment was STARTED, so the date
+     *                      discount the resident saw is the one they get.
+     */
+    private function calculateDues(Resident $resident, Carbon $asOf): array
+    {
+        $currentMonth = (int) $asOf->month;
+        $currentYear  = (int) $asOf->year;
+        $rent         = (float) $resident->rent_amount;
+
+        $allocations     = [];   // oldest month first
+        $previousMonths  = [];
+        $previousPending = 0;
+
+        $cursor            = Carbon::parse($resident->joining_date)->startOfMonth();
+        $currentMonthStart = Carbon::create($currentYear, $currentMonth, 1)->startOfMonth();
+
+        $paymentsByMonth = Payment::where('resident_id', $resident->id)->get()
+            ->groupBy(fn($p) => $p->year . '-' . str_pad($p->month, 2, '0', STR_PAD_LEFT));
+
+        // ── Previous months (no date discount) ──
+        while ($cursor->lt($currentMonthStart)) {
+            $payments = $paymentsByMonth[$cursor->format('Y-m')] ?? collect();
+
+            $due = $payments->count() > 0
+                ? (float) $payments->sum('balance_amount')
+                : $rent;
+
+            if ($due > 0) {
+                $previousPending += $due;
+                $previousMonths[] = ['label' => $cursor->format('F Y'), 'amount' => round($due, 2)];
+                $allocations[]    = [
+                    'month'    => (int) $cursor->month,
+                    'year'     => (int) $cursor->year,
+                    'amount'   => round($due, 2),
+                    'discount' => 0,
+                    'rent'     => $rent,
+                    'fine'     => 0,
+                ];
+            }
+
+            $cursor->addMonth();
+        }
+
+        // ── Current month ──
+        $currentPayments = $paymentsByMonth[$currentMonthStart->format('Y-m')] ?? collect();
+
+        $paid     = 0;
+        $discount = 0;
+        $fine     = 0;
+        foreach ($currentPayments as $p) {
+            $paid     += (float) $p->cash_paid_amount + (float) $p->upi_paid_amount;
+            $discount += (float) $p->discount_amount;
+            $fine     += (float) $p->fine_amount;
+        }
+
+        if ($currentPayments->count() > 0) {
+            $dateDiscount  = 0;
+            $totalDiscount = $discount;
+        } else {
+            $dateDiscount  = $this->getDateBasedDiscount($asOf);
+            $totalDiscount = $discount + $dateDiscount;
+        }
+
+        $currentDue     = max(0, $rent + $fine - $totalDiscount);
+        $currentBalance = $currentPayments->count() > 0
+            ? max(0, $currentDue - $paid)
+            : $currentDue;
+
+        if ($currentPayments->count() === 0) {
+            $status = 'UNPAID';
+        } elseif ($currentBalance > 0) {
+            $status = 'PARTIAL';
+        } else {
+            $status = 'PAID';
+        }
+
+        if ($currentBalance > 0) {
+            $allocations[] = [
+                'month'    => $currentMonth,
+                'year'     => $currentYear,
+                'amount'   => round($currentBalance, 2),
+                'discount' => round($totalDiscount, 2),   // used only if no row exists yet
+                'rent'     => $rent,
+                'fine'     => round($fine, 2),
+            ];
+        }
+
+        return [
+            'current_month' => [
+                'month'           => $currentMonthStart->format('F Y'),
+                'rent'            => round($rent, 2),
+                'manual_discount' => round($discount, 2),
+                'date_discount'   => round($dateDiscount, 2),
+                'total_discount'  => round($totalDiscount, 2),
+                'fine'            => round($fine, 2),
+                'paid'            => round($paid, 2),
+                'balance'         => round($currentBalance, 2),
+                'due'             => round($currentDue, 2),
+                'status'          => $status,
+            ],
+            'previous_pending' => [
+                'total'  => round($previousPending, 2),
+                'months' => $previousMonths,
+            ],
+            'total_due'   => round($previousPending + $currentBalance, 2),
+            'allocations' => $allocations,
+        ];
+    }
+
+    /* =========================================================
+     |  APPLY SUCCESSFUL PAYMENT TO THE PAYMENTS TABLE
+     ========================================================= */
+
+    /**
+     * Distributes the bank-confirmed amount over the dues (oldest month first).
+     * Returns true if anything was credited.
+     */
+    private function applyPaymentToLedger(
+        Resident $resident,
+        string $orderId,
+        float $paidAmount,
+        ?string $gatewayTxnId,
+        Carbon $startedAt
+    ): bool {
+        $dues      = $this->calculateDues($resident, $startedAt);
+        $remaining = round($paidAmount, 2);
+        $credited  = false;
+
+        foreach ($dues['allocations'] as $alloc) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $credit = min($remaining, (float) $alloc['amount']);
+            if ($credit <= 0) {
+                continue;
+            }
+
+            $payment = Payment::where('resident_id', $resident->id)
+                ->where('month', $alloc['month'])
+                ->where('year', $alloc['year'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                $credit  = min($credit, (float) $payment->balance_amount);
+                $balance = max(0, (float) $payment->balance_amount - $credit);
+                $cash    = (float) $payment->cash_paid_amount;
+                $upi     = (float) $payment->upi_paid_amount + $credit;
+
+                $payment->update([
+                    'upi_paid_amount' => $upi,
+                    'balance_amount'  => $balance,
+                    'payment_type'    => $cash > 0 ? 'both' : 'upi',
+                    'transaction_id'  => $gatewayTxnId ?: $orderId,
+                    'status'          => $balance > 0 ? 'PARTIAL' : 'PAID',
+                    'remark'          => trim(($payment->remark ? $payment->remark . ' | ' : '') . 'Online ' . $orderId),
+                ]);
+            } else {
+                $payable = max(0, (float) $alloc['rent'] + (float) $alloc['fine'] - (float) $alloc['discount']);
+                $balance = max(0, $payable - $credit);
+
+                do {
+                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+                } while (Payment::where('receipt_no', $receiptNo)->exists());
+
+                Payment::create([
+                    'resident_id'      => $resident->id,
+                    'month'            => $alloc['month'],
+                    'year'             => $alloc['year'],
+                    'receipt_no'       => $receiptNo,
+                    'rent_amount'      => $alloc['rent'],
+                    'discount_amount'  => $alloc['discount'],
+                    'fine_amount'      => $alloc['fine'],
+                    'cash_paid_amount' => 0,
+                    'upi_paid_amount'  => $credit,
+                    'balance_amount'   => $balance,
+                    'payment_date'     => now()->toDateString(),
+                    'transaction_id'   => $gatewayTxnId ?: $orderId,
+                    'payment_type'     => 'upi',
+                    'remark'           => 'Online ' . $orderId,
+                    'status'           => $balance > 0 ? 'PARTIAL' : 'PAID',
+                ]);
+            }
+
+            $remaining = round($remaining - $credit, 2);
+            $credited  = true;
+        }
+
+        if ($remaining > 0) {
+            // Bank took more than was due (e.g. admin recorded cash meanwhile)
+            Log::warning('Axis surplus not allocated', [
+                'order'    => $orderId,
+                'resident' => $resident->id,
+                'surplus'  => $remaining,
+            ]);
+        }
+
+        return $credited;
+    }
+
+    /* =========================================================
+     |  AUTO UNBLOCK / BLOCK  (same rule as admin PaymentController)
+     ========================================================= */
+
+    private function syncAccessAfterPayment(?Resident $resident): void
+    {
+        if (!$resident) {
+            return;
+        }
+
+        try {
+            $resident->refresh();
+            $resident->load('hostel');
+
+            if ($resident->status !== 'ACTIVE') {
+                return;
+            }
+            if (!$resident->hostel || !$resident->hostel->biometric_device_id) {
+                return;
+            }
+
+            $now      = now();
+            $prevDate = $now->copy()->subMonthNoOverflow();
+
+            $currentPaid = $this->isMonthFullyPaid($resident->id, (int) $now->month, (int) $now->year);
+
+            // Joined this month → previous month not required
+            $joinDate        = $resident->joining_date ? Carbon::parse($resident->joining_date) : null;
+            $joinedThisMonth = $joinDate
+                && $joinDate->year === (int) $now->year
+                && $joinDate->month === (int) $now->month;
+
+            $prevPaid = $joinedThisMonth
+                ? true
+                : $this->isMonthFullyPaid($resident->id, (int) $prevDate->month, (int) $prevDate->year);
+
+            $shouldUnblock = $currentPaid && $prevPaid;
+
+            Log::info('Public payment access sync', [
+                'resident_id'    => $resident->id,
+                'current_paid'   => $currentPaid,
+                'prev_paid'      => $prevPaid,
+                'should_unblock' => $shouldUnblock,
+            ]);
+
+            /** @var \App\Http\Controllers\EsslController $essl */
+            $essl = app(EsslController::class);
+            $essl->syncResidentAccess($resident, !$shouldUnblock);   // true = BLOCK, false = UNBLOCK
+        } catch (\Throwable $e) {
+            // Payment is already saved; never fail the payment because of the device
+            Log::error('Public syncAccessAfterPayment failed', [
+                'resident_id' => $resident->id,
+                'error'       => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function isMonthFullyPaid(int $residentId, int $month, int $year): bool
+    {
+        $payment = Payment::where('resident_id', $residentId)
+            ->where('month', $month)
+            ->where('year', $year)
+            ->first();
+
+        if (!$payment) {
+            return false;
+        }
+
+        $totalPaid = (float) $payment->cash_paid_amount + (float) $payment->upi_paid_amount;
+
+        return (float) $payment->balance_amount <= 0 && $totalPaid > 0;
+    }
+
+    /* =========================================================
+     |  HELPERS
+     ========================================================= */
+
+    private function resolveHostel(string $encodedHostelId): ?Hostel
+    {
+        try {
+            return Hostel::find(Crypt::decryptString($encodedHostelId));
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function findResident(int|string $hostelId, string $rawPhone): ?Resident
+    {
+        $phone  = preg_replace('/[^0-9]/', '', $rawPhone);
+        $last10 = substr($phone, -10);
+
+        return Resident::with(['room', 'bed'])
+            ->where('hostel_id', $hostelId)
+            ->where('status', 'ACTIVE')
+            ->where(function ($q) use ($phone, $last10) {
+                $q->where('phone', 'LIKE', "%{$last10}%")
+                  ->orWhere('phone', $phone);
+            })
+            ->first();
+    }
+
+    private function getDateBasedDiscount(?Carbon $asOf = null): float
+    {
+        $day = (int) ($asOf ?? Carbon::now())->day;
+
+        if ($day >= 1 && $day <= 5)  return self::DATE_DISCOUNT_1_5;
+        if ($day >= 6 && $day <= 10) return self::DATE_DISCOUNT_6_10;
+
+        return 0.0;
     }
 }
