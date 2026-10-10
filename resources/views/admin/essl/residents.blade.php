@@ -307,23 +307,24 @@
     /* Toast */
     .es-toast {
         position: fixed;
-        top: 20px;
-        right: 20px;
-        z-index: 9999;
-        padding: 12px 18px;
-        border-radius: 10px;
+        top: 24px;
+        right: 24px;
+        z-index: 2147483647;
+        padding: 14px 20px;
+        border-radius: 12px;
         color: white;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         font-weight: 600;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-        max-width: 420px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        max-width: 480px;
         word-wrap: break-word;
+        line-height: 1.4;
         animation: es-slide-in 0.25s ease-out;
     }
     .es-toast.success { background: linear-gradient(135deg, #10b981, #059669); }
     .es-toast.error   { background: linear-gradient(135deg, #ef4444, #dc2626); }
     @keyframes es-slide-in {
-        from { transform: translateX(20px); opacity: 0; }
+        from { transform: translateX(30px); opacity: 0; }
         to   { transform: translateX(0);    opacity: 1; }
     }
 
@@ -403,7 +404,7 @@
 @push('scripts')
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
-    /* ───────── URL constants (same as before) ───────── */
+    /* ───────── URL constants ───────── */
 
     const URL_GET         = "{{ route('admin.essl.get-residents') }}";
     const URL_SYNC        = "{{ route('admin.essl.resident.sync') }}";
@@ -414,7 +415,7 @@
     const URL_CMD_STATUS  = "{{ route('admin.essl.command-status') }}";
     const CSRF            = "{{ csrf_token() }}";
 
-    const BULK_CHUNK      = 50;   // server max:100
+    const BULK_CHUNK      = 50;
 
     /* ───────── helpers ───────── */
 
@@ -447,14 +448,24 @@
         }
     }
 
+    // ✅ FIXED: Toast always visible with max z-index, longer duration
     function toast(msg, ok) {
+        $('.es-toast').remove();
+
         var $t = $('<div class="es-toast"></div>')
             .addClass(ok ? 'success' : 'error')
-            .text(msg)
+            .text(msg || 'No message returned')
+            .css({
+                'position': 'fixed',
+                'top': '24px',
+                'right': '24px',
+                'z-index': 2147483647
+            })
             .appendTo('body');
+
         setTimeout(function () {
-            $t.fadeOut(300, function () { $(this).remove(); });
-        }, 4500);
+            $t.fadeOut(400, function () { $(this).remove(); });
+        }, 6000);
     }
 
     function bulkMsg(msg, ok) {
@@ -528,15 +539,21 @@
         ids.forEach(function (id) {
             $('.status-btn[data-id="' + id + '"]:not(.permanent)')
                 .prop('disabled', false).removeClass('syncing');
-            $('.sync-btn[data-id="' + id + '"]').prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync');
+            $('.sync-btn[data-id="' + id + '"]').prop('disabled', false)
+                .html('<i class="bi bi-arrow-repeat"></i> Sync');
         });
     }
 
+    // ✅ FIXED: null-safe apply
     function applyResults(results) {
         (results || []).forEach(function (x) {
-            setStatusBtn(x.id, x.unblocked);
+            if (typeof x.unblocked !== 'undefined') {
+                setStatusBtn(x.id, x.unblocked);
+            }
             setSyncTime(x.id, x.last_sync_at);
-            $('.sync-btn[data-id="' + x.id + '"]').prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync');
+            $('.sync-btn[data-id="' + x.id + '"]')
+                .prop('disabled', false)
+                .html('<i class="bi bi-arrow-repeat"></i> Sync');
         });
     }
 
@@ -696,14 +713,16 @@
         });
     });
 
-    /* ───────── 3. SINGLE SYNC ───────── */
+    /* ───────── 3. SINGLE SYNC (FIXED: updates status pill too) ───────── */
 
     $(document).on('click', '.sync-btn', function () {
         var btn = $(this);
         if (btn.prop('disabled')) return;
 
         var id = btn.data('id');
-        btn.prop('disabled', true).text('...');
+        btn.prop('disabled', true).html(
+            '<span class="es-spinner" style="border-color:#2563eb;border-top-color:transparent;width:10px;height:10px;"></span>'
+        );
 
         $.ajax({
             url: URL_SYNC,
@@ -711,6 +730,12 @@
             data: { _token: CSRF, resident_id: id },
             success: function (res) {
                 btn.prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync');
+
+                // ✅ Update the status pill (BLOCKED / UNBLOCKED)
+                if (typeof res.unblocked !== 'undefined') {
+                    setStatusBtn(id, res.unblocked);
+                }
+
                 setSyncTime(id, res.last_sync_at);
                 toast(res.message, res.success);
             },
@@ -722,7 +747,7 @@
         });
     });
 
-    /* ───────── 4. BULK BLOCK / UNBLOCK (chunked) ───────── */
+    /* ───────── 4. BULK BLOCK / UNBLOCK ───────── */
 
     function bulkBlock(block) {
         var ids = selectedIds();
@@ -748,7 +773,10 @@
                     failed === 0
                 );
                 clearSelection();
-                loadResidents($('#hostel_id').val() || 'all');
+                // ✅ Delayed refresh — keeps toasts visible
+                setTimeout(function () {
+                    loadResidents($('#hostel_id').val() || 'all');
+                }, 1200);
                 return;
             }
 
@@ -780,7 +808,7 @@
     $('#bulkBlock').on('click', function () { bulkBlock(true); });
     $('#bulkUnblock').on('click', function () { bulkBlock(false); });
 
-    /* ───────── 5. BULK SYNC (chunked) ───────── */
+    /* ───────── 5. BULK SYNC ───────── */
 
     $('#bulkSync').on('click', function () {
         var ids = selectedIds();
@@ -805,7 +833,10 @@
                     failed === 0
                 );
                 clearSelection();
-                loadResidents($('#hostel_id').val() || 'all');
+                // ✅ Delayed refresh
+                setTimeout(function () {
+                    loadResidents($('#hostel_id').val() || 'all');
+                }, 1200);
                 return;
             }
 
@@ -843,20 +874,30 @@
         if (!confirm('Sync all ACTIVE residents of this hostel?')) return;
 
         var btn = $(this);
-        btn.prop('disabled', true).html('<span class="es-spinner" style="border-top-color:#fff;"></span> Syncing...');
+        btn.prop('disabled', true).html(
+            '<span class="es-spinner" style="border-top-color:#fff;"></span> Syncing...'
+        );
 
         $.ajax({
             url: URL_HOSTEL_SYNC,
             type: "POST",
             data: { _token: CSRF, hostel_id: hostelId },
             success: function (res) {
-                btn.prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync Whole Hostel');
+                btn.prop('disabled', false).html(
+                    '<i class="bi bi-arrow-repeat"></i> Sync Whole Hostel'
+                );
                 bulkMsg(res.message, res.success);
-                loadResidents(hostelId);
+
+                // ✅ Delayed refresh
+                setTimeout(function () {
+                    loadResidents(hostelId);
+                }, 1200);
             },
             error: function (xhr) {
                 console.log(xhr.responseText);
-                btn.prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync Whole Hostel');
+                btn.prop('disabled', false).html(
+                    '<i class="bi bi-arrow-repeat"></i> Sync Whole Hostel'
+                );
                 bulkMsg(errMsg(xhr), false);
             }
         });
