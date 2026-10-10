@@ -80,6 +80,10 @@
         border-color: var(--sanjay-gold);
         background-color: #fffbeb;
     }
+    input.rs-filter-select {
+        background-image: none;
+        padding-right: 0.85rem;
+    }
 
     .rs-btn-primary {
         display: inline-flex;
@@ -593,7 +597,6 @@
     .rs-context-item.success:hover { background: #f0fdf4; }
     .rs-context-item i { font-size: 0.85rem; width: 16px; }
 
-    /* 🔑 Employee-code regenerate button */
     #regenerateEmpCodeBtn {
         padding: 0 0.85rem;
         flex-shrink: 0;
@@ -613,7 +616,6 @@
         pointer-events: none;
     }
 
-    /* 🔑 Regen All button */
     #regenAllBtn.spinning i {
         display: inline-block;
         animation: rs-spin 0.8s linear infinite;
@@ -621,6 +623,114 @@
     #regenAllBtn:disabled {
         opacity: 0.6;
         cursor: not-allowed;
+    }
+
+    #exportDropdownMenu .rs-context-item {
+        border-bottom: 1px solid #f3f4f6;
+    }
+    #exportDropdownMenu .rs-context-item:last-child {
+        border-bottom: none;
+    }
+
+    /* ============================================
+       🏠 VACANCY REPORT STYLES
+       ============================================ */
+    .v-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+    }
+    .v-summary-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 0.55rem 0.7rem;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    .v-summary-card:hover {
+        border-color: var(--sanjay-gold);
+        transform: translateY(-1px);
+    }
+    .v-summary-label {
+        font-size: 0.62rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+    .v-summary-value {
+        font-size: 1.15rem;
+        font-weight: 700;
+        font-family: 'DM Mono', monospace;
+    }
+
+    .v-table-wrap {
+        max-height: 55vh;
+        overflow: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: white;
+    }
+    .v-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+    }
+    .v-table thead th {
+        position: sticky;
+        top: 0;
+        background: #0a1e3f;
+        color: white;
+        padding: 8px 8px;
+        text-align: left;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        z-index: 2;
+        white-space: nowrap;
+    }
+    .v-table thead th.text-center { text-align: center; }
+    .v-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+    }
+    .v-table tbody tr:hover td {
+        background: #fffbeb;
+    }
+    .v-table .room-cell {
+        font-weight: 700;
+        color: var(--sanjay-primary);
+        font-family: 'DM Mono', monospace;
+    }
+    .v-table .hostel-cell {
+        font-weight: 600;
+        color: #374151;
+    }
+    .v-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.65rem;
+        font-weight: 700;
+    }
+    .v-badge-full    { background: #dcfce7; color: #166534; }
+    .v-badge-partial { background: #fef3c7; color: #92400e; }
+    .v-badge-vacant  { background: #fee2e2; color: #991b1b; }
+    .v-badge-occ     { background: #dcfce7; color: #166534; }
+    .v-badge-bed-vac { background: #f3f4f6; color: #4b5563; }
+    .v-resident-name {
+        font-weight: 600;
+        color: #111827;
+    }
+    .v-resident-code {
+        font-size: 0.65rem;
+        color: #9ca3af;
+        font-family: 'DM Mono', monospace;
     }
 
     @media (max-width: 768px) {
@@ -640,7 +750,7 @@
             <i class="bi bi-people"></i>
             Resident Management
         </h2>
-        <p class="rs-page-subtitle">Manage residents — vacated are hidden by default (use Status filter to view)</p>
+        <p class="rs-page-subtitle">Manage residents — sorted by room number • vacated hidden by default</p>
     </div>
     <button type="button" class="rs-btn-primary" onclick="openCreateModal()">
         <i class="bi bi-person-plus"></i>
@@ -679,9 +789,38 @@
             id="regenAllBtn"
             class="rs-btn rs-btn-outline"
             onclick="regenerateAllEmployeeCodes()"
-            title="Regenerate employee codes for all residents (format: {hostel prefix}{resident id})">
+            title="Regenerate employee codes for all residents">
         <i class="bi bi-arrow-repeat"></i> Regen All
     </button>
+
+    {{-- 🏠 VACANCY REPORT BUTTON --}}
+    <button type="button"
+            class="rs-btn rs-btn-outline"
+            onclick="openVacancyModal()"
+            title="Room vacancy & allocation report">
+        <i class="bi bi-grid-3x3-gap"></i> Vacancy Report
+    </button>
+
+    {{-- 📥 EXPORT DROPDOWN --}}
+    <div class="dropdown" style="display:inline-block; position:relative;">
+        <button type="button"
+                class="rs-btn rs-btn-outline"
+                onclick="toggleExportMenu(event)"
+                title="Export filtered residents">
+            <i class="bi bi-download"></i> Export
+        </button>
+        <div id="exportDropdownMenu"
+             style="display:none; position:absolute; top:calc(100% + 4px); right:0; z-index:100;
+                    background:white; border:1px solid #e5e7eb; border-radius:9px;
+                    box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:190px; overflow:hidden;">
+            <button type="button" class="rs-context-item" onclick="exportResidents('excel')">
+                <i class="bi bi-file-earmark-excel" style="color:#059669;"></i> Export Excel (CSV)
+            </button>
+            <button type="button" class="rs-context-item" onclick="exportResidents('pdf')">
+                <i class="bi bi-file-earmark-pdf" style="color:#dc2626;"></i> Export PDF
+            </button>
+        </div>
+    </div>
 
     <span style="margin-left:auto; font-size:0.75rem; color:#9ca3af;" id="rsCountLabel">
         {{ $residents->count() }} residents
@@ -1159,6 +1298,94 @@
     </button>
 </div>
 
+{{-- 🏠 VACANCY / ALLOCATION REPORT MODAL --}}
+<div class="modal fade rs-modal" id="vacancyModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width:1200px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                    Room Vacancy & Allocation Report
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                {{-- Filters --}}
+                <div class="rs-toolbar" style="margin-bottom:1rem;">
+                    <select class="rs-filter-select" id="vHostelFilter">
+                        <option value="">All Hostels</option>
+                    </select>
+                    <input type="text" class="rs-filter-select" id="vRoomFilter"
+                           placeholder="Room No (e.g. G1)" style="min-width:130px;">
+                    <input type="text" class="rs-filter-select" id="vBedFilter"
+                           placeholder="Bed No" style="min-width:100px;">
+                    <select class="rs-filter-select" id="vStatusFilter">
+                        <option value="">All Status</option>
+                        <option value="FULL">Fully Occupied</option>
+                        <option value="PARTIAL">Partially Occupied</option>
+                        <option value="VACANT">Fully Vacant</option>
+                    </select>
+                    <input type="text" class="rs-filter-select" id="vSearchFilter"
+                           placeholder="Search resident..." style="min-width:160px;">
+
+                    <button type="button" class="rs-btn rs-btn-outline" onclick="loadVacancyReport()">
+                        <i class="bi bi-funnel"></i> Apply
+                    </button>
+                    <button type="button" class="rs-btn rs-btn-outline" onclick="resetVacancyFilters()">
+                        <i class="bi bi-x-circle"></i> Reset
+                    </button>
+                </div>
+
+                {{-- Summary cards --}}
+                <div class="v-summary-grid" id="vacancySummary"></div>
+
+                {{-- Result table --}}
+                <div class="v-table-wrap">
+                    <table class="v-table">
+                        <thead>
+                            <tr>
+                                <th>Hostel</th>
+                                <th>Room</th>
+                                <th>Status</th>
+                                <th class="text-center">Total</th>
+                                <th class="text-center">Occupied</th>
+                                <th class="text-center">Vacant</th>
+                                <th>Bed</th>
+                                <th>Bed Status</th>
+                                <th>Resident</th>
+                                <th>Phone</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vacancyTbody">
+                            <tr>
+                                <td colspan="10" style="text-align:center; padding:20px; color:#9ca3af;">
+                                    Loading...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="justify-content:space-between;">
+                <span style="font-size:0.75rem; color:#9ca3af;" id="vacancyCountLabel"></span>
+                <div style="display:flex; gap:0.5rem;">
+                    <button type="button" class="rs-btn rs-btn-outline" onclick="exportVacancy('excel')">
+                        <i class="bi bi-file-earmark-excel" style="color:#059669;"></i> Excel
+                    </button>
+                    <button type="button" class="rs-btn rs-btn-outline" onclick="exportVacancy('pdf')">
+                        <i class="bi bi-file-earmark-pdf" style="color:#dc2626;"></i> PDF
+                    </button>
+                    <button type="button" class="rs-btn rs-btn-outline" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i> Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -1542,10 +1769,6 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async func
     }
 });
 
-/* =========================================================
- |  🔑 REGENERATE EMPLOYEE CODE (single resident)
- ========================================================= */
-
 async function regenerateEmployeeCode() {
     const id = document.getElementById('residentId').value;
 
@@ -1595,12 +1818,8 @@ async function regenerateEmployeeCode() {
     }
 }
 
-/* =========================================================
- |  🔑 REGENERATE ALL EMPLOYEE CODES (bulk)
- ========================================================= */
-
 async function regenerateAllEmployeeCodes() {
-    if (!confirm('Regenerate employee codes for ALL residents?\n\nFormat: {hostel prefix}{resident id}\nExample: 1000 + id 5 = 10005')) {
+    if (!confirm('Regenerate employee codes for ALL residents?\n\nFormat: {hostel prefix}{resident id}')) {
         return;
     }
 
@@ -1638,9 +1857,41 @@ async function regenerateAllEmployeeCodes() {
     }
 }
 
-/* =========================================================
- |  FILTERS
- ========================================================= */
+function toggleExportMenu(event) {
+    event.stopPropagation();
+    var menu = document.getElementById('exportDropdownMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+
+function hideExportMenu() {
+    var menu = document.getElementById('exportDropdownMenu');
+    if (menu) menu.style.display = 'none';
+}
+
+document.addEventListener('click', hideExportMenu);
+
+function exportResidents(format) {
+    hideExportMenu();
+
+    var status   = document.getElementById('rsStatusFilter').value;
+    var hostelId = document.getElementById('rsHostelFilter').value;
+    var food     = document.getElementById('rsFoodFilter').value;
+    var search   = document.getElementById('rsSearchInput').value.trim();
+
+    var params = new URLSearchParams();
+    if (status)   params.append('status', status);
+    if (hostelId) params.append('hostel_id', hostelId);
+    if (food)     params.append('food_status', food);
+    if (search)   params.append('search', search);
+
+    var url = (format === 'pdf')
+        ? BASE_URL + '/export/pdf?' + params.toString()
+        : BASE_URL + '/export/excel?' + params.toString();
+
+    window.location.href = url;
+
+    showToast('Exporting residents (' + format.toUpperCase() + ')...', 'success');
+}
 
 var statusFilter = document.getElementById('rsStatusFilter');
 statusFilter.addEventListener('change', function() {
@@ -1695,10 +1946,6 @@ function updateCountLabel(count) {
 searchInput.addEventListener('input', applyClientFilters);
 hostelFilter.addEventListener('change', applyClientFilters);
 foodFilter.addEventListener('change', applyClientFilters);
-
-/* =========================================================
- |  CONTEXT MENU
- ========================================================= */
 
 var contextMenu = document.getElementById('cardContextMenu');
 
@@ -1756,5 +2003,197 @@ document.addEventListener('click', hideContextMenu);
 document.addEventListener('scroll', hideContextMenu, true);
 
 document.addEventListener('DOMContentLoaded', function() { updateCountLabel(); });
+
+/* =========================================================
+ |  🏠 VACANCY / ALLOCATION REPORT
+ ========================================================= */
+
+var vacancyModalInstance = null;
+
+function openVacancyModal() {
+    if (!vacancyModalInstance) {
+        vacancyModalInstance = new bootstrap.Modal(document.getElementById('vacancyModal'));
+    }
+
+    // Copy hostel options from main filter (only once)
+    var $h = document.getElementById('vHostelFilter');
+    if ($h.options.length <= 1) {
+        document.querySelectorAll('#rsHostelFilter option').forEach(function (opt) {
+            if (!opt.value) return;
+            var o = document.createElement('option');
+            o.value = opt.value;
+            o.textContent = opt.textContent;
+            $h.appendChild(o);
+        });
+    }
+
+    vacancyModalInstance.show();
+    loadVacancyReport();
+}
+
+function buildVacancyParams() {
+    var p = new URLSearchParams();
+    var h = document.getElementById('vHostelFilter').value;
+    var r = document.getElementById('vRoomFilter').value.trim();
+    var b = document.getElementById('vBedFilter').value.trim();
+    var s = document.getElementById('vStatusFilter').value;
+    var q = document.getElementById('vSearchFilter').value.trim();
+
+    if (h) p.append('hostel_id', h);
+    if (r) p.append('room_no', r);
+    if (b) p.append('bed_no', b);
+    if (s) p.append('status', s);
+    if (q) p.append('search', q);
+    return p;
+}
+
+async function loadVacancyReport() {
+    var tbody = document.getElementById('vacancyTbody');
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#9ca3af;">Loading...</td></tr>';
+
+    try {
+        var res = await fetch(BASE_URL + '/vacancy-report?' + buildVacancyParams().toString(), {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
+        });
+        var data = await res.json();
+
+        if (!data.success) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626;">Failed to load</td></tr>';
+            return;
+        }
+
+        renderVacancySummary(data.summary);
+        renderVacancyRows(data.rows);
+
+        document.getElementById('vacancyCountLabel').textContent =
+            data.rows.length + ' rooms • ' + data.summary.total_beds + ' beds • ' +
+            data.summary.occupancy_rate + '% occupancy';
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#dc2626;">Network error</td></tr>';
+    }
+}
+
+function renderVacancySummary(s) {
+    var el = document.getElementById('vacancySummary');
+    var cards = [
+        { label: 'Total Rooms',  value: s.total_rooms,      color: '#0a1e3f' },
+        { label: 'Total Beds',   value: s.total_beds,       color: '#0a1e3f' },
+        { label: 'Occupied',     value: s.occupied_beds,    color: '#059669' },
+        { label: 'Vacant',       value: s.vacant_beds,      color: '#dc2626' },
+        { label: 'Full Rooms',   value: s.fully_occupied,   color: '#059669' },
+        { label: 'Partial',      value: s.partial_occupied, color: '#f59e0b' },
+        { label: 'Empty Rooms',  value: s.fully_vacant,     color: '#dc2626' },
+        { label: 'Occupancy',    value: s.occupancy_rate + '%', color: '#c5a028' },
+    ];
+
+    el.innerHTML = cards.map(function (c) {
+        return '<div class="v-summary-card">' +
+               '<div class="v-summary-label">' + c.label + '</div>' +
+               '<div class="v-summary-value" style="color:' + c.color + ';">' + c.value + '</div>' +
+               '</div>';
+    }).join('');
+}
+
+function renderVacancyRows(rows) {
+    var tbody = document.getElementById('vacancyTbody');
+
+    if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#9ca3af;">No rooms found for this filter</td></tr>';
+        return;
+    }
+
+    var roomBadgeClass = {
+        'FULL':    'v-badge-full',
+        'PARTIAL': 'v-badge-partial',
+        'VACANT':  'v-badge-vacant',
+    };
+
+    var html = '';
+    rows.forEach(function (room) {
+        var rowspan = room.beds.length;
+
+        room.beds.forEach(function (bed, idx) {
+            var isFirst = idx === 0;
+
+            var bedBadge = bed.status === 'OCCUPIED'
+                ? '<span class="v-badge v-badge-occ">OCCUPIED</span>'
+                : '<span class="v-badge v-badge-bed-vac">VACANT</span>';
+
+            html += '<tr>';
+
+            if (isFirst) {
+                html += '<td rowspan="' + rowspan + '" class="hostel-cell">' + room.hostel_name + '</td>';
+                html += '<td rowspan="' + rowspan + '" class="room-cell">' + room.room_no + '</td>';
+                html += '<td rowspan="' + rowspan + '">' +
+                        '<span class="v-badge ' + (roomBadgeClass[room.room_status] || '') + '">' +
+                        room.room_status + '</span></td>';
+                html += '<td rowspan="' + rowspan + '" style="text-align:center; font-weight:700;">' +
+                        room.total_beds + '</td>';
+                html += '<td rowspan="' + rowspan + '" style="text-align:center; color:#059669; font-weight:700;">' +
+                        room.occupied_count + '</td>';
+                html += '<td rowspan="' + rowspan + '" style="text-align:center; color:#dc2626; font-weight:700;">' +
+                        room.vacant_count + '</td>';
+            }
+
+            html += '<td>' + bed.bed_no +
+                    ' <span style="color:#9ca3af; font-size:0.7rem;">(' + bed.bed_type + ')</span></td>';
+            html += '<td>' + bedBadge + '</td>';
+
+            if (bed.resident_name) {
+                html += '<td>' +
+                        '<div class="v-resident-name">' + bed.resident_name + '</div>' +
+                        '<div class="v-resident-code">' + bed.resident_code + '</div>' +
+                        '</td>';
+            } else {
+                html += '<td style="color:#9ca3af;">—</td>';
+            }
+
+            html += '<td>' + (bed.phone || '<span style="color:#9ca3af;">—</span>') + '</td>';
+            html += '</tr>';
+        });
+    });
+
+    tbody.innerHTML = html;
+}
+
+function resetVacancyFilters() {
+    document.getElementById('vHostelFilter').value = '';
+    document.getElementById('vRoomFilter').value = '';
+    document.getElementById('vBedFilter').value = '';
+    document.getElementById('vStatusFilter').value = '';
+    document.getElementById('vSearchFilter').value = '';
+    loadVacancyReport();
+}
+
+function exportVacancy(format) {
+    var params = buildVacancyParams().toString();
+    var url = (format === 'pdf')
+        ? BASE_URL + '/vacancy-report/export/pdf?' + params
+        : BASE_URL + '/vacancy-report/export/excel?' + params;
+
+    window.location.href = url;
+    showToast('Exporting vacancy report (' + format.toUpperCase() + ')...', 'success');
+}
+
+// Enter key applies filter; dropdowns auto-apply
+document.addEventListener('DOMContentLoaded', function () {
+    ['vRoomFilter', 'vBedFilter', 'vSearchFilter'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    loadVacancyReport();
+                }
+            });
+        }
+    });
+
+    ['vHostelFilter', 'vStatusFilter'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', loadVacancyReport);
+    });
+});
 </script>
 @endpush

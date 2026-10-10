@@ -13,4 +13,9 @@ class Bed extends Model
 
     public function room()      { return $this->belongsTo(Room::class); }
     public function residents() { return $this->hasMany(Resident::class); }
+    public function resident()
+{
+    return $this->hasOne(Resident::class, 'bed_id')
+        ->where('status', 'ACTIVE');
+}
 }

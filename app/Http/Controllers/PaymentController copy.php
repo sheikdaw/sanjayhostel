@@ -42,23 +42,14 @@ class PaymentController extends Controller
 
     private function getDateBasedDiscount(?Carbon $asOf = null): float
     {
-        $date = ($asOf ?? Carbon::now())->copy();
-
-        // Current month and year check
-        if (!$date->isSameMonth(Carbon::now())) {
-            return 0.0;
-        }
-
-        $day = (int) $date->day;
+        $day = (int) ($asOf ?? Carbon::now())->day;
 
         if ($day >= 1 && $day <= 5) {
             return self::DATE_DISCOUNT_1_5;
         }
-
         if ($day >= 6 && $day <= 10) {
             return self::DATE_DISCOUNT_6_10;
         }
-
         return 0.0;
     }
 

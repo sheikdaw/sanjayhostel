@@ -135,48 +135,55 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::patch('/{id}/toggle-status', [BedController::class, 'toggleStatus'])->name('toggle-status');
     });
 
-    // ----- Residents -----
-    // ⚠️ ORDER MATTERS: specific (static) routes MUST come before /{id} wildcards.
-    Route::prefix('residents')->name('residents.')->group(function () {
+   Route::prefix('residents')->name('residents.')->group(function () {
 
         // 🔑 SPECIFIC ROUTES FIRST
         Route::patch(
             '/regenerate-all-employee-codes',
             [ResidentController::class, 'regenerateAllEmployeeCodes']
-        )
-            ->name('regenerate-all-employee-codes');
+        )->name('regenerate-all-employee-codes');
 
         Route::get(
             '/vacant-beds/{roomId}',
             [ResidentController::class, 'getVacantBeds']
-        )
-            ->name('vacant-beds');
+        )->name('vacant-beds');
+
+        // 🔑 EXPORT ROUTES
+        Route::get('/export/excel', [ResidentController::class, 'exportExcel'])->name('export.excel');
+        Route::get('/export/pdf',   [ResidentController::class, 'exportPdf'])->name('export.pdf');
+
+        // 🏠 VACANCY / ALLOCATION REPORT
+        Route::get(
+            '/vacancy-report',
+            [ResidentController::class, 'vacancyReport']
+        )->name('vacancy-report');
+
+        Route::get(
+            '/vacancy-report/export/excel',
+            [ResidentController::class, 'exportVacancyExcel']
+        )->name('vacancy-report.export.excel');
+
+        Route::get(
+            '/vacancy-report/export/pdf',
+            [ResidentController::class, 'exportVacancyPdf']
+        )->name('vacancy-report.export.pdf');
+
+        // 🔑 LIVE FILTER (AJAX endpoint — returns JSON)
+        Route::get('/filter', [ResidentController::class, 'filter'])->name('filter');
 
         // ----- Standard CRUD -----
         Route::get('/',      [ResidentController::class, 'index'])->name('index');
         Route::post('/',     [ResidentController::class, 'store'])->name('store');
 
-        // 🔑 WILDCARD ROUTES AFTER
         Route::get('/{id}',  [ResidentController::class, 'show'])->name('show');
         Route::put('/{id}',  [ResidentController::class, 'update'])->name('update');
         Route::delete('/{id}', [ResidentController::class, 'destroy'])->name('destroy');
 
-        Route::patch(
-            '/{id}/vacate',
-            [ResidentController::class, 'vacate']
-        )->name('vacate');
-
-        Route::patch(
-            '/{id}/reactivate',
-            [ResidentController::class, 'reactivate']
-        )->name('reactivate');
-
-        Route::patch(
-            '/{id}/regenerate-employee-code',
-            [ResidentController::class, 'regenerateEmployeeCode']
-        )
-            ->name('regenerate-employee-code');
+        Route::patch('/{id}/vacate', [ResidentController::class, 'vacate'])->name('vacate');
+        Route::patch('/{id}/reactivate', [ResidentController::class, 'reactivate'])->name('reactivate');
+        Route::patch('/{id}/regenerate-employee-code', [ResidentController::class, 'regenerateEmployeeCode'])->name('regenerate-employee-code');
     });
+
 
     // ----- Payments -----
     Route::prefix('payments')->name('payments.')->group(function () {

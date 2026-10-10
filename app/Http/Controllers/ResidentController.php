@@ -11,30 +11,19 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ResidentController extends Controller
 {
-    /**
-     * Display resident management page.
-     * Vacated residents are HIDDEN by default (only shown when filter applied).
-     */
+    /* =========================================================
+     |  INDEX
+     ========================================================= */
+
     public function index(Request $request)
     {
         $user = auth()->user();
 
-        $query = Resident::with(['hostel', 'room', 'bed'])
-            ->orderBy('created_at', 'desc');
-
-        if (!$user->isAdmin()) {
-            $query->whereIn('hostel_id', $user->hostel_ids ?? []);
-        }
-
-        $statusFilter = $request->input('status', 'active');
-        if ($statusFilter && $statusFilter !== 'all') {
-            $query->where('status', strtoupper($statusFilter));
-        }
-
-        $residents = $query->get();
+        $residents = $this->buildFilteredQuery($request)->get();
 
         $hostelQuery = Hostel::orderBy('hostel_name');
         if (!$user->isAdmin()) {
@@ -74,6 +63,7 @@ class ResidentController extends Controller
 
         $nextResidentCode = $this->generateResidentCode();
         $nextEmployeeCode = 'Auto-generated on save';
+        $statusFilter     = $request->input('status', 'active');
 
         return view('admin.residents.index', compact(
             'residents',
@@ -86,9 +76,73 @@ class ResidentController extends Controller
         ));
     }
 
-    /**
-     * Store new resident — codes are auto-generated.
-     */
+    /* =========================================================
+     |  LIVE FILTER (AJAX)
+     ========================================================= */
+
+    public function filter(Request $request)
+    {
+        $residents = $this->buildFilteredQuery($request)->get();
+
+        $html = view('admin.residents._cards', compact('residents'))->render();
+
+        return response()->json([
+            'success' => true,
+            'count'   => $residents->count(),
+            'html'    => $html,
+        ]);
+    }
+
+    /* =========================================================
+     |  SHARED FILTER BUILDER (Room No → Bed No → Name)
+     ========================================================= */
+
+    protected function buildFilteredQuery(Request $request)
+    {
+        $user = auth()->user();
+
+        $query = Resident::with(['hostel', 'room', 'bed'])
+            ->leftJoin('rooms as r_ord', 'residents.room_id', '=', 'r_ord.id')
+            ->leftJoin('beds as b_ord', 'residents.bed_id', '=', 'b_ord.id')
+            ->orderByRaw('CAST(r_ord.room_no AS UNSIGNED) ASC')
+            ->orderByRaw('CAST(b_ord.bed_no AS UNSIGNED) ASC')
+            ->orderBy('residents.name', 'ASC')
+            ->select('residents.*');
+
+        if (!$user->isAdmin()) {
+            $query->whereIn('residents.hostel_id', $user->hostel_ids ?? []);
+        }
+
+        $statusFilter = $request->input('status', 'active');
+        if ($statusFilter && $statusFilter !== 'all') {
+            $query->where('residents.status', strtoupper($statusFilter));
+        }
+
+        if ($request->filled('hostel_id')) {
+            $query->where('residents.hostel_id', $request->hostel_id);
+        }
+
+        if ($request->filled('food_status')) {
+            $query->where('residents.food_status', $request->food_status);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('residents.name', 'like', "%{$search}%")
+                  ->orWhere('residents.resident_code', 'like', "%{$search}%")
+                  ->orWhere('residents.phone', 'like', "%{$search}%")
+                  ->orWhere('residents.employee_code', 'like', "%{$search}%");
+            });
+        }
+
+        return $query;
+    }
+
+    /* =========================================================
+     |  STORE
+     ========================================================= */
+
     public function store(Request $request)
     {
         $autoResidentCode = $this->generateResidentCode();
@@ -130,7 +184,6 @@ class ResidentController extends Controller
             'deposit_amount'   => 'nullable|numeric|min:0',
             'status'           => 'nullable|in:ACTIVE,VACATED',
             'biometric_access' => 'nullable|boolean',
-
             'profile_image'        => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
             'aadhar_document'      => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
             'application_document' => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
@@ -161,15 +214,11 @@ class ResidentController extends Controller
             $data['biometric_access'] = $request->has('biometric_access') ? (bool) $request->biometric_access : true;
             $data['deposit_amount']   = $data['deposit_amount'] ?? 0;
 
-            // Step 1 — insert with employee_code = null (column is nullable)
             $data['employee_code'] = null;
             $resident = Resident::create($data);
 
-            // Step 2 — build the employee code from hostel prefix + resident id
             $employeeCode = $this->generateEmployeeCode($resident->hostel_id, $resident->id);
             $employeeCode = $this->ensureUniqueEmployeeCode($employeeCode, $resident->id);
-
-            // Step 3 — persist it
             $resident->update(['employee_code' => $employeeCode]);
 
             $this->markBedOccupied($resident->bed_id);
@@ -184,7 +233,6 @@ class ResidentController extends Controller
                 'message'  => 'Resident registered successfully! Code: ' . $resident->resident_code,
                 'resident' => $resident,
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -194,9 +242,10 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Show single resident.
-     */
+    /* =========================================================
+     |  SHOW
+     ========================================================= */
+
     public function show($id)
     {
         try {
@@ -215,9 +264,10 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Update resident — codes remain unchanged.
-     */
+    /* =========================================================
+     |  UPDATE
+     ========================================================= */
+
     public function update(Request $request, $id)
     {
         $resident = Resident::findOrFail($id);
@@ -257,7 +307,6 @@ class ResidentController extends Controller
                 Rule::unique('residents', 'employee_code')->ignore($id),
             ],
             'biometric_access' => 'nullable|boolean',
-
             'profile_image'        => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
             'aadhar_document'      => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
             'application_document' => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:5120',
@@ -328,7 +377,6 @@ class ResidentController extends Controller
                 'message'  => 'Resident updated successfully!',
                 'resident' => $resident,
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -338,9 +386,10 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Delete resident.
-     */
+    /* =========================================================
+     |  DESTROY
+     ========================================================= */
+
     public function destroy($id)
     {
         try {
@@ -381,7 +430,6 @@ class ResidentController extends Controller
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -390,9 +438,10 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Vacate resident.
-     */
+    /* =========================================================
+     |  VACATE
+     ========================================================= */
+
     public function vacate($id)
     {
         try {
@@ -428,7 +477,6 @@ class ResidentController extends Controller
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -437,9 +485,10 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Reactivate vacated resident.
-     */
+    /* =========================================================
+     |  REACTIVATE
+     ========================================================= */
+
     public function reactivate($id)
     {
         try {
@@ -483,7 +532,6 @@ class ResidentController extends Controller
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -492,9 +540,10 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Get vacant beds for a room (AJAX).
-     */
+    /* =========================================================
+     |  VACANT BEDS
+     ========================================================= */
+
     public function getVacantBeds($roomId)
     {
         $room = Room::find($roomId);
@@ -511,14 +560,105 @@ class ResidentController extends Controller
     }
 
     /* =========================================================
-     |  🔑 EMPLOYEE CODE REGENERATION
+     |  📥 EXPORT EXCEL (CSV)
      ========================================================= */
 
-    /**
-     * Regenerate the employee_code for a single resident.
-     * Format: {hostel.employee_code_prefix} + {resident.id}  (numeric addition)
-     * Example: prefix 1000 + id 5 → 1005
-     */
+    public function exportExcel(Request $request)
+    {
+        $residents = $this->buildFilteredQuery($request)->get();
+
+        $filename = 'residents_' . now()->format('Y-m-d_His') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Pragma'              => 'no-cache',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
+        ];
+
+        $columns = [
+            'Resident Code', 'Employee Code', 'Name', 'Phone', 'Parent Phone',
+            'Email', 'Aadhaar No', 'Address', 'DOB', 'Joining Date', 'Vacate Date',
+            'Hostel', 'Room No', 'Bed No', 'Food Status', 'Rent Amount',
+            'Deposit Amount', 'Status', 'Biometric', 'Created At',
+        ];
+
+        $callback = function () use ($residents, $columns) {
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($file, $columns);
+
+            foreach ($residents as $r) {
+                fputcsv($file, [
+                    $r->resident_code,
+                    $r->employee_code,
+                    $r->name,
+                    $r->phone,
+                    $r->parentsphone,
+                    $r->email,
+                    $r->aadhaar_no,
+                    $r->address,
+                    $r->dob ? $r->dob->format('Y-m-d') : '',
+                    $r->joining_date ? $r->joining_date->format('Y-m-d') : '',
+                    $r->vacate_date ? $r->vacate_date->format('Y-m-d') : '',
+                    $r->hostel->hostel_name ?? '',
+                    $r->room->room_no ?? '',
+                    $r->bed->bed_no ?? '',
+                    $r->food_status === 'WITH_FOOD' ? 'With Food' : 'Without Food',
+                    $r->rent_amount,
+                    $r->deposit_amount,
+                    ucfirst(strtolower($r->status)),
+                    $r->biometric_access ? 'Yes' : 'No',
+                    $r->created_at ? $r->created_at->format('Y-m-d H:i') : '',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /* =========================================================
+     |  📥 EXPORT PDF
+     ========================================================= */
+
+    public function exportPdf(Request $request)
+    {
+        $residents = $this->buildFilteredQuery($request)->get();
+
+        $filters = [
+            'status'      => $request->input('status', 'active'),
+            'hostel'      => null,
+            'food_status' => $request->input('food_status'),
+            'search'      => $request->input('search'),
+        ];
+
+        if ($request->filled('hostel_id')) {
+            $filters['hostel'] = Hostel::find($request->hostel_id)?->hostel_name;
+        }
+
+        $pdf = Pdf::loadView('admin.residents.pdf', [
+            'residents' => $residents,
+            'filters'   => $filters,
+            'generated' => now()->format('d M Y, h:i A'),
+        ])
+        ->setPaper('a4', 'landscape')
+        ->setOptions([
+            'isRemoteEnabled' => true,
+            'defaultFont'     => 'DejaVu Sans',
+        ]);
+
+        $filename = 'residents_' . now()->format('Y-m-d_His') . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    /* =========================================================
+     |  🔑 REGENERATE EMPLOYEE CODE (single)
+     ========================================================= */
+
     public function regenerateEmployeeCode($id)
     {
         try {
@@ -551,12 +691,10 @@ class ResidentController extends Controller
                     'message'       => 'Employee code regenerated: ' . $newCode,
                     'employee_code' => $newCode,
                 ]);
-
             } catch (\Exception $e) {
                 DB::rollBack();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -565,9 +703,10 @@ class ResidentController extends Controller
         }
     }
 
-    /**
-     * Regenerate employee_codes for all residents (optionally filtered by hostel).
-     */
+    /* =========================================================
+     |  🔑 REGENERATE ALL EMPLOYEE CODES
+     ========================================================= */
+
     public function regenerateAllEmployeeCodes(Request $request)
     {
         $user = auth()->user();
@@ -608,7 +747,6 @@ class ResidentController extends Controller
                 'updated' => $updated,
                 'failed'  => $failed,
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -619,12 +757,277 @@ class ResidentController extends Controller
     }
 
     /* =========================================================
+     |  🏠 VACANCY REPORT — JSON (AJAX)
+     ========================================================= */
+
+    public function vacancyReport(Request $request)
+    {
+        $data = $this->buildVacancyData($request);
+
+        return response()->json([
+            'success' => true,
+            'rows'    => $data['rows'],
+            'summary' => $data['summary'],
+        ]);
+    }
+
+    /* =========================================================
+     |  🏠 VACANCY DATA BUILDER (shared)
+     ========================================================= */
+
+    protected function buildVacancyData(Request $request): array
+    {
+        $user = auth()->user();
+
+        $hostelId = $request->input('hostel_id');
+        $roomNo   = $request->input('room_no');
+        $bedNo    = $request->input('bed_no');
+        $status   = strtoupper($request->input('status') ?? '');
+        $search   = $request->input('search');
+
+        // Rooms + beds + beds.resident (ACTIVE only)
+        $roomQuery = Room::with([
+            'hostel',
+            'roomType',
+            'beds' => function ($q) {
+                $q->orderByRaw('CAST(bed_no AS UNSIGNED) ASC');
+            },
+            'beds.resident' => function ($q) {
+                $q->where('status', 'ACTIVE');
+            },
+        ])->orderByRaw('CAST(room_no AS UNSIGNED) ASC');
+
+        if (!$user->isAdmin()) {
+            $roomQuery->whereIn('hostel_id', $user->hostel_ids ?? []);
+        }
+        if ($hostelId) {
+            $roomQuery->where('hostel_id', $hostelId);
+        }
+        if ($roomNo) {
+            $roomQuery->where('room_no', 'LIKE', "%{$roomNo}%");
+        }
+        if ($bedNo) {
+            $roomQuery->whereHas('beds', function ($q) use ($bedNo) {
+                $q->where('bed_no', 'LIKE', "%{$bedNo}%");
+            });
+        }
+
+        $rooms = $roomQuery->get();
+
+        $rows = [];
+        $summary = [
+            'total_rooms'      => 0,
+            'total_beds'       => 0,
+            'occupied_beds'    => 0,
+            'vacant_beds'      => 0,
+            'fully_occupied'   => 0,
+            'partial_occupied' => 0,
+            'fully_vacant'     => 0,
+            'occupancy_rate'   => 0,
+        ];
+
+        foreach ($rooms as $room) {
+            $bedsArr       = [];
+            $occupiedCount = 0;
+            $vacantCount   = 0;
+
+            foreach ($room->beds as $bed) {
+                $resident = $bed->resident;
+
+                if ($resident) {
+                    $occupiedCount++;
+                    $bedsArr[] = [
+                        'bed_id'        => $bed->id,
+                        'bed_no'        => $bed->bed_no,
+                        'bed_type'      => $bed->bed_type,
+                        'status'        => 'OCCUPIED',
+                        'resident_id'   => $resident->id,
+                        'resident_code' => $resident->resident_code,
+                        'resident_name' => $resident->name,
+                        'phone'         => $resident->phone,
+                        'joining_date'  => $resident->joining_date
+                            ? $resident->joining_date->format('d M Y')
+                            : null,
+                        'rent_amount'   => (float) $resident->rent_amount,
+                        'food_status'   => $resident->food_status,
+                    ];
+                } else {
+                    $vacantCount++;
+                    $bedsArr[] = [
+                        'bed_id'        => $bed->id,
+                        'bed_no'        => $bed->bed_no,
+                        'bed_type'      => $bed->bed_type,
+                        'status'        => 'VACANT',
+                        'resident_id'   => null,
+                        'resident_code' => null,
+                        'resident_name' => null,
+                        'phone'         => null,
+                        'joining_date'  => null,
+                        'rent_amount'   => null,
+                        'food_status'   => null,
+                    ];
+                }
+            }
+
+            $totalBeds = count($bedsArr);
+            if ($totalBeds === 0) continue;
+
+            if ($occupiedCount === 0) {
+                $roomStatus = 'VACANT';
+                $summary['fully_vacant']++;
+            } elseif ($occupiedCount >= $totalBeds) {
+                $roomStatus = 'FULL';
+                $summary['fully_occupied']++;
+            } else {
+                $roomStatus = 'PARTIAL';
+                $summary['partial_occupied']++;
+            }
+
+            if ($status && $status !== 'ALL' && $status !== $roomStatus) {
+                continue;
+            }
+
+            if ($search) {
+                $needle   = strtolower($search);
+                $haystack = strtolower(
+                    ($room->hostel->hostel_name ?? '') . ' ' .
+                    $room->room_no . ' ' .
+                    implode(' ', array_map(fn($b) => (string)($b['resident_name'] ?? ''), $bedsArr)) . ' ' .
+                    implode(' ', array_map(fn($b) => (string)($b['resident_code'] ?? ''), $bedsArr))
+                );
+                if (strpos($haystack, $needle) === false) {
+                    continue;
+                }
+            }
+
+            $rows[] = [
+                'room_id'        => $room->id,
+                'hostel_id'      => $room->hostel_id,
+                'hostel_name'    => $room->hostel->hostel_name ?? 'N/A',
+                'room_no'        => $room->room_no,
+                'room_type'      => $room->roomType->name ?? ($room->room_type->name ?? null),
+                'total_beds'     => $totalBeds,
+                'occupied_count' => $occupiedCount,
+                'vacant_count'   => $vacantCount,
+                'room_status'    => $roomStatus,
+                'beds'           => $bedsArr,
+            ];
+
+            $summary['total_rooms']++;
+            $summary['total_beds']    += $totalBeds;
+            $summary['occupied_beds'] += $occupiedCount;
+            $summary['vacant_beds']   += $vacantCount;
+        }
+
+        if ($summary['total_beds'] > 0) {
+            $summary['occupancy_rate'] = round(
+                ($summary['occupied_beds'] / $summary['total_beds']) * 100,
+                1
+            );
+        }
+
+        return ['rows' => $rows, 'summary' => $summary];
+    }
+
+    /* =========================================================
+     |  📥 EXPORT VACANCY EXCEL (CSV)
+     ========================================================= */
+
+    public function exportVacancyExcel(Request $request)
+    {
+        $data    = $this->buildVacancyData($request);
+        $rows    = $data['rows'];
+        $summary = $data['summary'];
+
+        $filename = 'vacancy-allocation_' . now()->format('Y-m-d_His') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($rows, $summary) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            fputcsv($out, ['ROOM VACANCY & ALLOCATION REPORT']);
+            fputcsv($out, ['Generated', now()->format('d M Y, h:i A')]);
+            fputcsv($out, []);
+            fputcsv($out, ['Total Rooms',        $summary['total_rooms']]);
+            fputcsv($out, ['Total Beds',         $summary['total_beds']]);
+            fputcsv($out, ['Occupied Beds',      $summary['occupied_beds']]);
+            fputcsv($out, ['Vacant Beds',        $summary['vacant_beds']]);
+            fputcsv($out, ['Fully Occupied',     $summary['fully_occupied']]);
+            fputcsv($out, ['Partially Occupied', $summary['partial_occupied']]);
+            fputcsv($out, ['Fully Vacant',       $summary['fully_vacant']]);
+            fputcsv($out, ['Occupancy Rate',     $summary['occupancy_rate'] . '%']);
+            fputcsv($out, []);
+
+            fputcsv($out, [
+                'S.No', 'Hostel', 'Room No', 'Room Type', 'Room Status',
+                'Total Beds', 'Occupied', 'Vacant',
+                'Bed No', 'Bed Type', 'Bed Status',
+                'Resident Code', 'Resident Name', 'Phone',
+                'Joining Date', 'Rent', 'Food',
+            ]);
+
+            $sno = 1;
+            foreach ($rows as $room) {
+                foreach ($room['beds'] as $bed) {
+                    fputcsv($out, [
+                        $sno++,
+                        $room['hostel_name'],
+                        $room['room_no'],
+                        $room['room_type'] ?? '—',
+                        $room['room_status'],
+                        $room['total_beds'],
+                        $room['occupied_count'],
+                        $room['vacant_count'],
+                        $bed['bed_no'],
+                        $bed['bed_type'],
+                        $bed['status'],
+                        $bed['resident_code'] ?? '—',
+                        $bed['resident_name'] ?? '—',
+                        $bed['phone'] ?? '—',
+                        $bed['joining_date'] ?? '—',
+                        $bed['rent_amount'] !== null ? number_format($bed['rent_amount'], 2) : '—',
+                        $bed['food_status'] ?? '—',
+                    ]);
+                }
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /* =========================================================
+     |  📥 EXPORT VACANCY PDF
+     ========================================================= */
+
+    public function exportVacancyPdf(Request $request)
+    {
+        $data = $this->buildVacancyData($request);
+
+        $pdf = Pdf::loadView('admin.residents.vacancy-pdf', [
+            'rows'      => $data['rows'],
+            'summary'   => $data['summary'],
+            'generated' => now()->format('d M Y, h:i A'),
+        ])
+        ->setPaper('a4', 'landscape')
+        ->setOptions([
+            'isRemoteEnabled' => true,
+            'defaultFont'     => 'DejaVu Sans',
+        ]);
+
+        return $pdf->download('vacancy-allocation_' . now()->format('Y-m-d_His') . '.pdf');
+    }
+
+    /* =========================================================
      |  AUTO-GENERATORS
      ========================================================= */
 
-    /**
-     * Generate the next resident code: RES-0001, RES-0002, ...
-     */
     protected function generateResidentCode(): string
     {
         $prefix  = 'RES-';
@@ -650,16 +1053,9 @@ class ResidentController extends Controller
         return $code;
     }
 
-    /**
-     * Generate employee code = {hostel.employee_code_prefix} + {resident.id}.
-     *
-     * ⚠️ NOTE: This is NUMERIC ADDITION (not concatenation).
-     * Example: prefix 1000 + id 5 → 1005
-     *          prefix 1000 + id 40 → 1040
-     */
     protected function generateEmployeeCode($hostelId, int $residentId): string
     {
-        $prefix = 1000; // default fallback (integer)
+        $prefix = 1000;
 
         if ($hostelId) {
             $hostel = Hostel::find($hostelId);
@@ -668,15 +1064,9 @@ class ResidentController extends Controller
             }
         }
 
-        // ➕ NUMERIC ADDITION (not string concatenation)
         return (string) ($prefix + $residentId);
     }
 
-    /**
-     * Ensure the generated employee code is unique.
-     * @param  string    $code
-     * @param  int|null  $ignoreId  Skip this resident id (for updates)
-     */
     protected function ensureUniqueEmployeeCode(string $code, ?int $ignoreId = null): string
     {
         $check = function ($candidate) use ($ignoreId) {
@@ -691,7 +1081,6 @@ class ResidentController extends Controller
             return $code;
         }
 
-        // If collision, append suffix -1, -2, ...
         $suffix = 1;
         do {
             $candidate = $code . '-' . $suffix;
