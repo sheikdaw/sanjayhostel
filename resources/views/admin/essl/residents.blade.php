@@ -1,103 +1,409 @@
-<!DOCTYPE html>
-<html>
+@extends('layouts.office')
 
-<head>
-    <title>ESSL - Residents</title>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+@section('title', 'ESSL — Biometric Access')
+@section('page_title', 'Biometric Access')
 
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; color: #222; }
-        h2 { margin-bottom: 20px; }
+@push('styles')
+<style>
+    .es-page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .es-page-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--sanjay-primary);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .es-page-title i { color: var(--sanjay-gold); }
+    .es-page-subtitle { font-size: 0.8rem; color: #6b7280; margin: 0.25rem 0 0 0; }
 
-        .filter, .bulk-bar {
-            background: #fff; padding: 15px; border: 1px solid #ddd;
-            border-radius: 6px; margin-bottom: 15px;
-        }
-        .filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        select { padding: 9px 12px; min-width: 280px; border: 1px solid #bbb;
-                 border-radius: 4px; font-size: 14px; }
-        .loading { display: none; color: #666; }
+    .es-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
 
-        .bulk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .btn { border: 0; padding: 8px 16px; border-radius: 5px; font-weight: bold;
-               cursor: pointer; color: #fff; font-size: 13px; }
-        .btn.green { background: #16a34a; }
-        .btn.red { background: #dc2626; }
-        .btn.blue { background: #2563eb; }
-        .btn.dark { background: #374151; }
-        .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .es-filter-select {
+        padding: 0.55rem 2rem 0.55rem 0.85rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        background: white;
+        color: #374151;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        min-width: 240px;
+    }
+    .es-filter-select:focus {
+        outline: none;
+        border-color: var(--sanjay-gold);
+        box-shadow: 0 0 0 3px rgba(197, 160, 40, 0.1);
+    }
 
-        table { border-collapse: collapse; width: 100%; background: #fff; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
-        th { background: #f4f4f4; }
-        tr:hover { background: #fafafa; }
-        tr.selected { background: #eff6ff; }
-        tr.inactive { background: #fafafa; color: #888; }
+    .es-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.6rem 1.15rem;
+        border-radius: 9px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        white-space: nowrap;
+    }
+    .es-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .es-btn-dark {
+        background: linear-gradient(135deg, var(--sanjay-primary), #1a3a6b);
+        color: white;
+    }
+    .es-btn-dark:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(10, 30, 63, 0.25);
+        color: white;
+    }
+    .es-btn-gold {
+        background: linear-gradient(135deg, var(--sanjay-gold), #d4af37);
+        color: var(--sanjay-primary);
+    }
+    .es-btn-gold:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(197, 160, 40, 0.35);
+    }
+    .es-btn-outline { background: white; color: #6b7280; border: 1px solid #e5e7eb; }
+    .es-btn-outline:hover:not(:disabled) { background: #f9fafb; color: #374151; }
+    .es-btn-green { background: #10b981; color: white; }
+    .es-btn-green:hover:not(:disabled) { background: #059669; transform: translateY(-1px); }
+    .es-btn-red { background: #ef4444; color: white; }
+    .es-btn-red:hover:not(:disabled) { background: #dc2626; transform: translateY(-1px); }
+    .es-btn-blue { background: #3b82f6; color: white; }
+    .es-btn-blue:hover:not(:disabled) { background: #2563eb; transform: translateY(-1px); }
 
-        .status-btn { border: 0; padding: 7px 14px; border-radius: 5px;
-                      font-size: 12px; font-weight: bold; cursor: pointer; }
-        .status-btn.unblocked { background: #dcfce7; color: #15803d; }
-        .status-btn.blocked { background: #fee2e2; color: #dc2626; }
-        .status-btn.syncing { background: #e5e7eb; color: #555; cursor: wait; }
-        .status-btn.permanent { background: #e5e7eb; color: #6b7280; cursor: not-allowed; }
+    /* Bulk bar */
+    .es-bulk-bar {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .es-bulk-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.75rem;
+        background: #fffbeb;
+        border: 1px solid rgba(197, 160, 40, 0.3);
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--sanjay-primary);
+        font-family: 'DM Mono', monospace;
+    }
+    .es-bulk-msg {
+        margin-left: auto;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .es-bulk-msg.success { color: #059669; }
+    .es-bulk-msg.error   { color: #dc2626; }
 
-        .sync-btn { border: 1px solid #2563eb; background: #fff; color: #2563eb;
-                    padding: 6px 12px; border-radius: 5px; font-size: 12px;
-                    font-weight: bold; cursor: pointer; }
-        .sync-btn:disabled, .status-btn:disabled { opacity: .6; cursor: wait; }
-        .status-btn.permanent:disabled { opacity: 1; cursor: not-allowed; }
+    /* Table card */
+    .es-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .es-table-wrap { overflow-x: auto; }
+    .es-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+    }
+    .es-table thead th {
+        background: #0a1e3f;
+        color: white;
+        padding: 10px 12px;
+        text-align: left;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        white-space: nowrap;
+    }
+    .es-table thead th.es-check-col {
+        width: 42px;
+        text-align: center;
+    }
+    .es-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+        color: #374151;
+    }
+    .es-table tbody tr { transition: background 0.15s; }
+    .es-table tbody tr:hover { background: #fffbeb; }
+    .es-table tbody tr.selected { background: #eff6ff; }
+    .es-table tbody tr.inactive {
+        background: #fafafa;
+        color: #9ca3af;
+    }
+    .es-table tbody tr.inactive td { color: #9ca3af; }
+    .es-table .es-name {
+        font-weight: 600;
+        color: var(--sanjay-primary);
+    }
+    .es-table .es-code {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.75rem;
+        color: #6b7280;
+        background: #f9fafb;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    .es-table .es-room {
+        font-weight: 600;
+        color: var(--sanjay-gold);
+    }
+    .es-table .es-muted { color: #9ca3af; font-size: 0.72rem; }
 
-        .empty { background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 6px; }
-        .total { margin-top: 15px; }
-        .success { color: #16a34a; }
-        .error { color: #dc2626; }
-        #bulkMessage { font-size: 13px; }
-        .muted { color: #888; font-size: 12px; }
+    /* Checkbox */
+    .es-checkbox {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: var(--sanjay-gold);
+    }
+    .es-checkbox:disabled { cursor: not-allowed; opacity: 0.4; }
 
-        .toast {
-            position: fixed; top: 20px; right: 20px; z-index: 9999;
-            padding: 12px 20px; border-radius: 6px; color: #fff;
-            font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            max-width: 400px; word-wrap: break-word;
-        }
-        .toast.success { background: #16a34a; }
-        .toast.error { background: #dc2626; }
-    </style>
-</head>
+    /* Status pills */
+    .es-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        font-family: inherit;
+    }
+    .es-status:disabled { cursor: wait; opacity: 0.65; }
+    .es-status.unblocked { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .es-status.unblocked:hover:not(:disabled) { background: #bbf7d0; }
+    .es-status.blocked { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .es-status.blocked:hover:not(:disabled) { background: #fecaca; }
+    .es-status.syncing { background: #f3f4f6; color: #4b5563; border-color: #e5e7eb; }
+    .es-status.permanent {
+        background: #f3f4f6;
+        color: #6b7280;
+        border-color: #e5e7eb;
+        cursor: not-allowed;
+    }
+    .es-status-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+    }
 
-<body>
+    /* Sync button */
+    .es-sync-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid #3b82f6;
+        background: white;
+        color: #2563eb;
+        font-size: 0.7rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .es-sync-btn:hover:not(:disabled) { background: #eff6ff; }
+    .es-sync-btn:disabled { opacity: 0.55; cursor: wait; }
 
-<h2>Residents - ESSL Biometric Access</h2>
+    /* Empty / loading */
+    .es-empty {
+        text-align: center;
+        padding: 3rem 2rem;
+        background: white;
+        border-radius: 14px;
+        border: 2px dashed #e5e7eb;
+    }
+    .es-empty-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(197, 160, 40, 0.1), rgba(10, 30, 63, 0.05));
+        color: var(--sanjay-gold);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        margin: 0 auto 1rem;
+    }
+    .es-empty h5 { color: var(--sanjay-primary); font-weight: 700; margin-bottom: 0.5rem; }
+    .es-empty p { color: #6b7280; font-size: 0.85rem; margin: 0; }
+    .es-empty.error { border-color: #fecaca; }
+    .es-empty.error .es-empty-icon { background: #fef2f2; color: #dc2626; }
+
+    /* Total row */
+    .es-total {
+        padding: 0.75rem 1rem;
+        background: #fafbfc;
+        border-top: 1px solid #f3f4f6;
+        font-size: 0.78rem;
+        color: #6b7280;
+    }
+    .es-total strong { color: var(--sanjay-primary); }
+
+    /* Spinner */
+    .es-loading {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.78rem;
+        color: #9ca3af;
+    }
+    .es-spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid #e5e7eb;
+        border-top-color: var(--sanjay-gold);
+        border-radius: 50%;
+        animation: es-spin 0.6s linear infinite;
+        display: inline-block;
+    }
+    @keyframes es-spin { to { transform: rotate(360deg); } }
+
+    /* Toast */
+    .es-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        padding: 12px 18px;
+        border-radius: 10px;
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        max-width: 420px;
+        word-wrap: break-word;
+        animation: es-slide-in 0.25s ease-out;
+    }
+    .es-toast.success { background: linear-gradient(135deg, #10b981, #059669); }
+    .es-toast.error   { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    @keyframes es-slide-in {
+        from { transform: translateX(20px); opacity: 0; }
+        to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    @media (max-width: 768px) {
+        .es-toolbar { flex-direction: column; align-items: stretch; }
+        .es-filter-select { width: 100%; }
+        .es-bulk-bar { flex-direction: column; align-items: stretch; }
+        .es-bulk-msg { margin-left: 0; }
+    }
+</style>
+@endpush
+
+@section('content')
+
+<div class="es-page-header">
+    <div>
+        <h2 class="es-page-title">
+            <i class="bi bi-fingerprint"></i>
+            Biometric Access Management
+        </h2>
+        <p class="es-page-subtitle">Sync residents to eSSL devices • Block / unblock biometric entry</p>
+    </div>
+</div>
 
 @if ($hostels->isEmpty())
-    <div class="empty">No active hostels found.</div>
+    <div class="es-empty">
+        <div class="es-empty-icon"><i class="bi bi-building"></i></div>
+        <h5>No Active Hostels</h5>
+        <p>Add a hostel to manage biometric access.</p>
+    </div>
 @else
-    <div class="filter">
-        <label for="hostel_id"><strong>Select Hostel:</strong></label>
-        <select id="hostel_id">
+
+    {{-- Toolbar --}}
+    <div class="es-toolbar">
+        <select class="es-filter-select" id="hostel_id">
             <option value="all">All Hostels</option>
             @foreach ($hostels as $hostel)
                 <option value="{{ $hostel->id }}">{{ $hostel->hostel_name }}</option>
             @endforeach
         </select>
-        <button type="button" class="btn dark" id="syncHostelBtn" disabled>Sync Whole Hostel</button>
-        <span id="loading" class="loading">Loading...</span>
+
+        <button type="button" class="es-btn es-btn-dark" id="syncHostelBtn" disabled>
+            <i class="bi bi-arrow-repeat"></i> Sync Whole Hostel
+        </button>
+
+        <span id="loading" class="es-loading" style="display:none;">
+            <span class="es-spinner"></span> Loading residents...
+        </span>
     </div>
+
+    {{-- Bulk actions --}}
+    <div class="es-bulk-bar">
+        <span class="es-bulk-count">
+            <i class="bi bi-check2-square"></i>
+            <span id="selectedCount">0</span> selected
+        </span>
+
+        <button type="button" class="es-btn es-btn-green" id="bulkUnblock" disabled>
+            <i class="bi bi-unlock"></i> Unblock Selected
+        </button>
+        <button type="button" class="es-btn es-btn-red" id="bulkBlock" disabled>
+            <i class="bi bi-lock"></i> Block Selected
+        </button>
+        <button type="button" class="es-btn es-btn-blue" id="bulkSync" disabled>
+            <i class="bi bi-arrow-repeat"></i> Sync Selected
+        </button>
+
+        <span id="bulkMessage" class="es-bulk-msg"></span>
+    </div>
+
+    <div id="residentTable"></div>
+
 @endif
 
-<div class="bulk-bar">
-    <strong>Selected: <span id="selectedCount">0</span></strong>
-    <button type="button" class="btn green" id="bulkUnblock" disabled>Unblock Selected</button>
-    <button type="button" class="btn red" id="bulkBlock" disabled>Block Selected</button>
-    <button type="button" class="btn blue" id="bulkSync" disabled>Sync Selected</button>
-    <span id="bulkMessage"></span>
-</div>
+@endsection
 
-<div id="residentTable"></div>
-
+@push('scripts')
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
-    /* ───────── URL constants ───────── */
+    /* ───────── URL constants (same as before) ───────── */
 
     const URL_GET         = "{{ route('admin.essl.get-residents') }}";
     const URL_SYNC        = "{{ route('admin.essl.resident.sync') }}";
@@ -122,15 +428,16 @@
     }
 
     function fmtDate(d) {
-        return d ? esc(String(d).replace('T', ' ').substring(0, 16))
-                 : '<span class="muted">Never</span>';
+        return d
+            ? esc(String(d).replace('T', ' ').substring(0, 16))
+            : '<span class="es-muted">Never</span>';
     }
 
     function setStatusBtn(id, unblocked) {
         $('.status-btn[data-id="' + id + '"]:not(.permanent)')
             .removeClass('blocked unblocked syncing')
             .addClass(unblocked ? 'unblocked' : 'blocked')
-            .text(unblocked ? 'UNBLOCKED' : 'BLOCKED')
+            .html('<span class="es-status-dot"></span>' + (unblocked ? 'UNBLOCKED' : 'BLOCKED'))
             .prop('disabled', false);
     }
 
@@ -141,7 +448,7 @@
     }
 
     function toast(msg, ok) {
-        var $t = $('<div class="toast"></div>')
+        var $t = $('<div class="es-toast"></div>')
             .addClass(ok ? 'success' : 'error')
             .text(msg)
             .appendTo('body');
@@ -151,8 +458,10 @@
     }
 
     function bulkMsg(msg, ok) {
-        $('#bulkMessage').removeClass('success error')
-            .addClass(ok ? 'success' : 'error').text(msg);
+        $('#bulkMessage')
+            .removeClass('success error')
+            .addClass(ok ? 'success' : 'error')
+            .text(msg);
         setTimeout(function () { $('#bulkMessage').text(''); }, 8000);
     }
 
@@ -164,13 +473,9 @@
         return 'Something went wrong.';
     }
 
-    /* ───────── chunk helper (FIX #4) ───────── */
-
     function chunkArray(arr, size) {
         var out = [];
-        for (var i = 0; i < arr.length; i += size) {
-            out.push(arr.slice(i, i + size));
-        }
+        for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
         return out;
     }
 
@@ -213,7 +518,8 @@
     function lockRows(ids) {
         ids.forEach(function (id) {
             $('.status-btn[data-id="' + id + '"]:not(.permanent)')
-                .prop('disabled', true).addClass('syncing').text('SYNCING...');
+                .prop('disabled', true).addClass('syncing')
+                .html('<span class="es-spinner" style="border-top-color:#6b7280;"></span> SYNCING');
             $('.sync-btn[data-id="' + id + '"]').prop('disabled', true).text('...');
         });
     }
@@ -222,7 +528,7 @@
         ids.forEach(function (id) {
             $('.status-btn[data-id="' + id + '"]:not(.permanent)')
                 .prop('disabled', false).removeClass('syncing');
-            $('.sync-btn[data-id="' + id + '"]').prop('disabled', false).text('Sync');
+            $('.sync-btn[data-id="' + id + '"]').prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync');
         });
     }
 
@@ -230,7 +536,7 @@
         (results || []).forEach(function (x) {
             setStatusBtn(x.id, x.unblocked);
             setSyncTime(x.id, x.last_sync_at);
-            $('.sync-btn[data-id="' + x.id + '"]').prop('disabled', false).text('Sync');
+            $('.sync-btn[data-id="' + x.id + '"]').prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync');
         });
     }
 
@@ -248,7 +554,13 @@
                 $('#loading').hide();
 
                 if (!res.success || !res.residents || res.residents.length === 0) {
-                    $('#residentTable').html('<div class="empty">No residents found.</div>');
+                    $('#residentTable').html(
+                        '<div class="es-empty">' +
+                            '<div class="es-empty-icon"><i class="bi bi-people"></i></div>' +
+                            '<h5>No Residents Found</h5>' +
+                            '<p>Try a different hostel or add residents.</p>' +
+                        '</div>'
+                    );
                     updateSelectedCount();
                     return;
                 }
@@ -259,7 +571,13 @@
             error: function (xhr) {
                 console.log(xhr.responseText);
                 $('#loading').hide();
-                $('#residentTable').html('<div class="empty error">Failed to load residents.</div>');
+                $('#residentTable').html(
+                    '<div class="es-empty error">' +
+                        '<div class="es-empty-icon"><i class="bi bi-exclamation-triangle"></i></div>' +
+                        '<h5>Failed to Load</h5>' +
+                        '<p>Please try again.</p>' +
+                    '</div>'
+                );
                 updateSelectedCount();
             }
         });
@@ -267,13 +585,15 @@
 
     function renderTable(residents, total) {
         var html = '' +
-            '<table>' +
+            '<div class="es-card">' +
+            '<div class="es-table-wrap">' +
+            '<table class="es-table">' +
                 '<thead>' +
                     '<tr>' +
-                        '<th><input type="checkbox" id="selectAll"></th>' +
+                        '<th class="es-check-col"><input type="checkbox" id="selectAll" class="es-checkbox"></th>' +
                         '<th>#</th>' +
                         '<th>Name</th>' +
-                        '<th>Employee Code</th>' +
+                        '<th>Emp. Code</th>' +
                         '<th>Hostel</th>' +
                         '<th>Room</th>' +
                         '<th>Bed</th>' +
@@ -291,31 +611,36 @@
 
             if (isActive) {
                 accessCell =
-                    '<button type="button" class="status-btn ' +
+                    '<button type="button" class="es-status status-btn ' +
                         (isAllowed ? 'unblocked' : 'blocked') + '" data-id="' + r.id + '">' +
+                        '<span class="es-status-dot"></span>' +
                         (isAllowed ? 'UNBLOCKED' : 'BLOCKED') +
                     '</button>';
 
-                syncCell = '<button type="button" class="sync-btn" data-id="' + r.id + '">Sync</button>';
+                syncCell = '<button type="button" class="es-sync-btn sync-btn" data-id="' + r.id + '">' +
+                                '<i class="bi bi-arrow-repeat"></i> Sync' +
+                           '</button>';
             } else {
                 accessCell =
-                    '<button type="button" class="status-btn permanent" disabled ' +
+                    '<button type="button" class="es-status permanent" disabled ' +
                         'title="Resident is ' + esc(r.status) + '">' +
-                        'BLOCKED (' + esc(r.status) + ')' +
+                        '<i class="bi bi-lock-fill"></i> BLOCKED (' + esc(r.status) + ')' +
                     '</button>';
-                syncCell = '<span class="muted">-</span>';
+                syncCell = '<span class="es-muted">—</span>';
             }
 
             html +=
                 '<tr data-id="' + r.id + '" class="' + (isActive ? '' : 'inactive') + '">' +
-                    '<td><input type="checkbox" class="row-check" value="' + r.id + '" ' +
-                        (isActive ? '' : 'disabled') + '></td>' +
+                    '<td class="es-check-col">' +
+                        '<input type="checkbox" class="row-check es-checkbox" value="' + r.id + '" ' +
+                            (isActive ? '' : 'disabled') + '>' +
+                    '</td>' +
                     '<td>' + (i + 1) + '</td>' +
-                    '<td>' + esc(r.name) + '</td>' +
-                    '<td>' + esc(r.employee_code) + '</td>' +
+                    '<td class="es-name">' + esc(r.name) + '</td>' +
+                    '<td><span class="es-code">' + esc(r.employee_code) + '</span></td>' +
                     '<td>' + esc(r.hostel ? r.hostel.hostel_name : null) + '</td>' +
-                    '<td>' + esc(r.room ? r.room.room_no : null) + '</td>' +
-                    '<td>' + esc(r.bed ? r.bed.bed_no : null) + '</td>' +
+                    '<td class="es-room">' + esc(r.room ? r.room.room_no : null) + '</td>' +
+                    '<td class="es-room">' + esc(r.bed ? r.bed.bed_no : null) + '</td>' +
                     '<td class="last-sync">' + fmtDate(r.last_sync_at) + '</td>' +
                     '<td>' + syncCell + '</td>' +
                     '<td>' + accessCell + '</td>' +
@@ -325,7 +650,9 @@
         html +=
                 '</tbody>' +
             '</table>' +
-            '<div class="total"><strong>Total:</strong> ' + total + '</div>';
+            '</div>' +
+            '<div class="es-total"><strong>Total:</strong> ' + total + ' resident(s)</div>' +
+            '</div>';
 
         $('#residentTable').html(html);
     }
@@ -383,13 +710,13 @@
             type: "POST",
             data: { _token: CSRF, resident_id: id },
             success: function (res) {
-                btn.prop('disabled', false).text('Sync');
+                btn.prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync');
                 setSyncTime(id, res.last_sync_at);
                 toast(res.message, res.success);
             },
             error: function (xhr) {
                 console.log(xhr.responseText);
-                btn.prop('disabled', false).text('Sync');
+                btn.prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync');
                 toast(errMsg(xhr), false);
             }
         });
@@ -516,20 +843,20 @@
         if (!confirm('Sync all ACTIVE residents of this hostel?')) return;
 
         var btn = $(this);
-        btn.prop('disabled', true).text('Syncing...');
+        btn.prop('disabled', true).html('<span class="es-spinner" style="border-top-color:#fff;"></span> Syncing...');
 
         $.ajax({
             url: URL_HOSTEL_SYNC,
             type: "POST",
             data: { _token: CSRF, hostel_id: hostelId },
             success: function (res) {
-                btn.prop('disabled', false).text('Sync Whole Hostel');
+                btn.prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync Whole Hostel');
                 bulkMsg(res.message, res.success);
                 loadResidents(hostelId);
             },
             error: function (xhr) {
                 console.log(xhr.responseText);
-                btn.prop('disabled', false).text('Sync Whole Hostel');
+                btn.prop('disabled', false).html('<i class="bi bi-arrow-repeat"></i> Sync Whole Hostel');
                 bulkMsg(errMsg(xhr), false);
             }
         });
@@ -539,7 +866,4 @@
 
     loadResidents('all');
 </script>
-
-</body>
-
-</html>
+@endpush
