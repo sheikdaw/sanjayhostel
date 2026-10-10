@@ -77,20 +77,196 @@ class ResidentController extends Controller
     }
 
     /* =========================================================
-     |  LIVE FILTER (AJAX)
+     |  🔄 LIVE FILTER / LIVE LIST (AJAX — returns cards HTML)
      ========================================================= */
 
     public function filter(Request $request)
     {
         $residents = $this->buildFilteredQuery($request)->get();
 
-        $html = view('admin.residents._cards', compact('residents'))->render();
-
         return response()->json([
             'success' => true,
             'count'   => $residents->count(),
-            'html'    => $html,
+            'html'    => $this->buildCardsHtml($residents, $request),
         ]);
+    }
+
+    /* =========================================================
+     |  🔧 BUILD CARDS HTML (inline — no extra blade file)
+     ========================================================= */
+
+    protected function buildCardsHtml($residents, Request $request): string
+    {
+        if ($residents->isEmpty()) {
+            $status = $request->input('status', 'active');
+
+            $msg = $status === 'active'
+                ? 'No active residents. Try changing the Status filter to "All Residents".'
+                : ($status === 'vacated'
+                    ? 'No vacated residents found.'
+                    : 'Get started by adding your first resident.');
+
+            return '<div class="rs-empty">'
+                 .   '<div class="rs-empty-icon"><i class="bi bi-people"></i></div>'
+                 .   '<h5>No Residents</h5>'
+                 .   '<p>' . e($msg) . '</p>'
+                 .   '<button type="button" class="rs-btn-primary" onclick="openCreateModal()">'
+                 .     '<i class="bi bi-person-plus"></i> Add Resident'
+                 .   '</button>'
+                 . '</div>';
+        }
+
+        $html = '';
+        foreach ($residents as $resident) {
+            $html .= $this->renderResidentCard($resident);
+        }
+        return $html;
+    }
+
+    protected function renderResidentCard(Resident $resident): string
+    {
+        $statusLower = strtolower($resident->status);
+        $foodLower   = strtolower($resident->food_status);
+        $initial     = strtoupper(substr($resident->name, 0, 2));
+
+        $hasImage = $resident->profile_image
+            && file_exists(public_path('assets/residents/' . $resident->profile_image));
+
+        $avatar = $hasImage
+            ? '<img src="' . e(asset('assets/residents/' . $resident->profile_image)) . '" alt="' . e($resident->name) . '">'
+            : e($initial);
+
+        $hostelName = $resident->hostel->hostel_name ?? 'N/A';
+        $roomNo     = $resident->room->room_no ?? 'N/A';
+        $bedNo      = $resident->bed->bed_no ?? 'N/A';
+        $joined     = $resident->joining_date
+            ? $resident->joining_date->format('d M Y')
+            : 'N/A';
+        $createdAt  = $resident->created_at
+            ? $resident->created_at->format('d M Y')
+            : '';
+        $rent       = number_format((float) $resident->rent_amount, 0);
+        $deposit    = number_format((float) $resident->deposit_amount, 0);
+
+        $resId     = (int) $resident->id;
+        $safeName  = e(addslashes($resident->name));
+        $dataRoom  = e(strtolower($roomNo));
+        $dataBed   = e(strtolower($bedNo));
+
+        $foodIcon = $resident->food_status === 'WITH_FOOD' ? 'egg-fried' : 'cup-hot';
+        $foodText = $resident->food_status === 'WITH_FOOD' ? 'With Food' : 'Without Food';
+
+        $bioBadge = $resident->biometric_access
+            ? '<span class="rs-badge biometric"><i class="bi bi-fingerprint"></i> Bio</span>'
+            : '';
+
+        $vacatedRow = '';
+        if ($resident->status === 'VACATED' && $resident->vacate_date) {
+            $vacatedRow = '<div class="rs-card-detail">'
+                . '<i class="bi bi-box-arrow-right" style="color:#ef4444;"></i>'
+                . '<span style="color:#ef4444;">Vacated '
+                . e($resident->vacate_date->format('d M Y'))
+                . '</span></div>';
+        }
+
+        $actionBtn = $resident->status === 'ACTIVE'
+            ? '<button type="button" class="rs-icon-btn vacate" onclick="openVacateModal(' . $resId . ', \'' . $safeName . '\')" title="Vacate"><i class="bi bi-box-arrow-right"></i></button>'
+            : '<button type="button" class="rs-icon-btn reactivate" onclick="reactivateResident(' . $resId . ', \'' . $safeName . '\')" title="Reactivate"><i class="bi bi-arrow-clockwise"></i></button>';
+
+        return <<<HTML
+<div class="rs-card {$statusLower}"
+     data-id="{$resId}"
+     data-name="{$this->e(strtolower($resident->name))}"
+     data-code="{$this->e(strtolower($resident->resident_code))}"
+     data-phone="{$this->e($resident->phone)}"
+     data-hostel-id="{$resId}"
+     data-status="{$this->e($resident->status)}"
+     data-food="{$this->e($resident->food_status)}"
+     data-room="{$dataRoom}"
+     data-bed="{$dataBed}">
+
+    <div class="rs-card-head">
+        <div class="rs-avatar">{$avatar}</div>
+        <div class="rs-card-title-wrap">
+            <h3 class="rs-card-title" title="{$this->e($resident->name)}">{$this->e($resident->name)}</h3>
+            <div class="rs-card-code">{$this->e($resident->resident_code)}</div>
+        </div>
+        <div class="rs-card-menu">
+            <button type="button" class="rs-card-menu-btn" onclick="toggleCardMenu(event, {$resId})">
+                <i class="bi bi-three-dots-vertical"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="rs-card-body">
+        <div class="rs-badges">
+            <span class="rs-badge {$statusLower}">
+                <span class="rs-badge-dot"></span>
+                {$this->e(ucfirst($statusLower))}
+            </span>
+            <span class="rs-badge {$foodLower}">
+                <i class="bi bi-{$foodIcon}"></i>
+                {$this->e($foodText)}
+            </span>
+            {$bioBadge}
+        </div>
+
+        <div class="rs-card-detail">
+            <i class="bi bi-telephone"></i>
+            <span>{$this->e($resident->phone)}</span>
+        </div>
+
+        <div class="rs-card-detail">
+            <i class="bi bi-building"></i>
+            <span>{$this->e($hostelName)}</span>
+        </div>
+
+        <div class="rs-card-detail">
+            <i class="bi bi-door-open"></i>
+            <span>Room {$this->e($roomNo)} • Bed {$this->e($bedNo)}</span>
+        </div>
+
+        <div class="rs-card-detail">
+            <i class="bi bi-calendar-event"></i>
+            <span>Joined {$this->e($joined)}</span>
+        </div>
+
+        {$vacatedRow}
+
+        <div class="rs-rent-box">
+            <div>
+                <div class="rs-rent-label">Monthly Rent</div>
+                <div class="rs-rent-value">₹{$rent}<small> /mo</small></div>
+            </div>
+            <div style="text-align:right;">
+                <div class="rs-rent-label">Deposit</div>
+                <div class="rs-rent-value" style="color:#3b82f6;">₹{$deposit}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="rs-card-footer">
+        <span style="font-size:0.68rem; color:#9ca3af;">
+            <i class="bi bi-clock"></i>
+            {$this->e($createdAt)}
+        </span>
+        <div class="rs-card-actions">
+            {$actionBtn}
+            <button type="button" class="rs-icon-btn edit" onclick="openEditModal({$resId})" title="Edit">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button type="button" class="rs-icon-btn delete" onclick="openDeleteModal({$resId}, '{$safeName}')" title="Delete">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+</div>
+HTML;
+    }
+
+    protected function e($value): string
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     }
 
     /* =========================================================
@@ -788,7 +964,7 @@ class ResidentController extends Controller
     }
 
     /* =========================================================
-     |  🏠 VACANCY DATA BUILDER (shared)
+     |  🏠 VACANCY DATA BUILDER
      ========================================================= */
 
     protected function buildVacancyData(Request $request): array

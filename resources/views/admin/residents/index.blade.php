@@ -110,6 +110,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
         gap: 1rem;
+        transition: opacity 0.2s;
     }
 
     .rs-card {
@@ -609,28 +610,17 @@
         display: inline-block;
         transition: transform 0.6s;
     }
-    #regenerateEmpCodeBtn.spinning i {
-        transform: rotate(360deg);
-    }
-    #regenerateEmpCodeBtn.spinning {
-        pointer-events: none;
-    }
+    #regenerateEmpCodeBtn.spinning i { transform: rotate(360deg); }
+    #regenerateEmpCodeBtn.spinning { pointer-events: none; }
 
     #regenAllBtn.spinning i {
         display: inline-block;
         animation: rs-spin 0.8s linear infinite;
     }
-    #regenAllBtn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
+    #regenAllBtn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    #exportDropdownMenu .rs-context-item {
-        border-bottom: 1px solid #f3f4f6;
-    }
-    #exportDropdownMenu .rs-context-item:last-child {
-        border-bottom: none;
-    }
+    #exportDropdownMenu .rs-context-item { border-bottom: 1px solid #f3f4f6; }
+    #exportDropdownMenu .rs-context-item:last-child { border-bottom: none; }
 
     /* ============================================
        🏠 VACANCY REPORT
@@ -776,13 +766,11 @@
         <option value="WITHOUT_FOOD">Without Food</option>
     </select>
 
-    {{-- 🆕 ROOM & BED FILTERS --}}
     <input type="text" class="rs-filter-select" id="rsRoomFilter"
            placeholder="Room No" style="min-width:100px; max-width:120px;">
     <input type="text" class="rs-filter-select" id="rsBedFilter"
            placeholder="Bed No" style="min-width:90px; max-width:110px;">
 
-    {{-- 🔑 REGEN ALL BUTTON --}}
     <button type="button"
             id="regenAllBtn"
             class="rs-btn rs-btn-outline"
@@ -791,7 +779,6 @@
         <i class="bi bi-arrow-repeat"></i> Regen All
     </button>
 
-    {{-- 🏠 VACANCY REPORT BUTTON --}}
     <button type="button"
             class="rs-btn rs-btn-outline"
             onclick="openVacancyModal()"
@@ -799,7 +786,6 @@
         <i class="bi bi-grid-3x3-gap"></i> Vacancy Report
     </button>
 
-    {{-- 📥 EXPORT DROPDOWN --}}
     <div class="dropdown" style="display:inline-block; position:relative;">
         <button type="button"
                 class="rs-btn rs-btn-outline"
@@ -1407,6 +1393,64 @@ function showToast(message, type) {
     }
 }
 
+/* =========================================================
+ |  🔄 LIVE REFRESH (keeps filters, re-renders cards)
+ ========================================================= */
+
+let liveRefreshInFlight = false;
+
+async function liveRefresh() {
+    if (liveRefreshInFlight) return;
+    liveRefreshInFlight = true;
+
+    var grid = document.getElementById('rsGrid');
+    if (!grid) { liveRefreshInFlight = false; return; }
+
+    grid.style.opacity = '0.45';
+    grid.style.pointerEvents = 'none';
+
+    try {
+        var params = new URLSearchParams();
+
+        var status   = document.getElementById('rsStatusFilter').value || 'active';
+        var hostelId = document.getElementById('rsHostelFilter').value;
+        var food     = document.getElementById('rsFoodFilter').value;
+        var search   = document.getElementById('rsSearchInput').value.trim();
+        var roomNo   = document.getElementById('rsRoomFilter').value.trim();
+        var bedNo    = document.getElementById('rsBedFilter').value.trim();
+
+        params.append('status', status);
+        if (hostelId) params.append('hostel_id', hostelId);
+        if (food)     params.append('food_status', food);
+        if (search)   params.append('search', search);
+        if (roomNo)   params.append('room_no', roomNo);
+        if (bedNo)    params.append('bed_no', bedNo);
+
+        var res = await fetch(BASE_URL + '/filter?' + params.toString(), {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
+        });
+        var data = await res.json();
+
+        if (data.success) {
+            grid.innerHTML = data.html;
+            // Re-apply client-side filters (search/room/bed are already server-side,
+            // but keeping this ensures consistency)
+            applyClientFilters();
+        }
+    } catch (err) {
+        console.error('liveRefresh error', err);
+        showToast('Failed to refresh list', 'error');
+    } finally {
+        grid.style.opacity = '';
+        grid.style.pointerEvents = '';
+        liveRefreshInFlight = false;
+    }
+}
+
+/* =========================================================
+ |  ROOM / BED HELPERS (for create/edit modal)
+ ========================================================= */
+
 function loadRoomsForHostel(hostelId, selectedRoomId) {
     selectedRoomId = selectedRoomId || null;
     const $roomSelect = document.getElementById('room_id');
@@ -1436,9 +1480,7 @@ function loadRoomsForHostel(hostelId, selectedRoomId) {
         $roomSelect.appendChild(opt);
     });
 
-    if (selectedRoomId) {
-        loadBedsForRoom(selectedRoomId);
-    }
+    if (selectedRoomId) loadBedsForRoom(selectedRoomId);
 }
 
 function loadBedsForRoom(roomId) {
@@ -1465,6 +1507,10 @@ function loadBedsForRoom(roomId) {
     });
     $bedSelect.disabled = false;
 }
+
+/* =========================================================
+ |  CREATE / EDIT MODAL
+ ========================================================= */
 
 function openCreateModal() {
     resetForm();
@@ -1515,7 +1561,6 @@ async function openEditModal(id) {
             document.getElementById('dob').value = r.dob ? r.dob.substring(0, 10) : '';
             document.getElementById('joining_date').value = r.joining_date ? r.joining_date.substring(0, 10) : '';
             document.getElementById('vacate_date').value = r.vacate_date ? r.vacate_date.substring(0, 10) : '';
-
             document.getElementById('biometric_access').checked = !!r.biometric_access;
 
             document.getElementById('hostel_id').value = r.hostel_id;
@@ -1635,7 +1680,9 @@ document.getElementById('residentForm').addEventListener('submit', async functio
         if (data.success) {
             showToast(data.message, 'success');
             bootstrap.Modal.getInstance(document.getElementById('residentModal')).hide();
-            setTimeout(function() { window.location.reload(); }, 700);
+
+            // ✅ No page reload — live refresh keeps filters
+            liveRefresh();
         } else {
             if (data.errors) {
                 Object.keys(data.errors).forEach(function(field) {
@@ -1657,6 +1704,10 @@ document.getElementById('residentForm').addEventListener('submit', async functio
         submitText.textContent = originalText;
     }
 });
+
+/* =========================================================
+ |  VACATE
+ ========================================================= */
 
 function openVacateModal(id, name) {
     currentVacateId = id;
@@ -1684,7 +1735,7 @@ document.getElementById('confirmVacateBtn').addEventListener('click', async func
         if (data.success) {
             showToast(data.message, 'success');
             bootstrap.Modal.getInstance(document.getElementById('vacateModal')).hide();
-            setTimeout(function() { window.location.reload(); }, 700);
+            liveRefresh();
         } else {
             showToast(data.message || 'Failed to vacate', 'error');
         }
@@ -1698,6 +1749,10 @@ document.getElementById('confirmVacateBtn').addEventListener('click', async func
     }
 });
 
+/* =========================================================
+ |  REACTIVATE
+ ========================================================= */
+
 async function reactivateResident(id, name) {
     if (!confirm('Reactivate "' + name + '"? Make sure their bed is still vacant.')) return;
 
@@ -1710,7 +1765,7 @@ async function reactivateResident(id, name) {
 
         if (data.success) {
             showToast(data.message, 'success');
-            setTimeout(function() { window.location.reload(); }, 700);
+            liveRefresh();
         } else {
             showToast(data.message || 'Failed to reactivate', 'error');
         }
@@ -1719,6 +1774,10 @@ async function reactivateResident(id, name) {
         showToast('Network error', 'error');
     }
 }
+
+/* =========================================================
+ |  DELETE
+ ========================================================= */
 
 function openDeleteModal(id, name) {
     currentDeleteId = id;
@@ -1746,13 +1805,7 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async func
         if (data.success) {
             showToast(data.message, 'success');
             bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
-
-            var card = document.querySelector('.rs-card[data-id="' + currentDeleteId + '"]');
-            if (card) {
-                card.style.transition = 'all 0.3s';
-                card.style.opacity = '0';
-                setTimeout(function() { card.remove(); updateCountLabel(); }, 300);
-            }
+            liveRefresh();
         } else {
             showToast(data.message || 'Failed to delete', 'error');
         }
@@ -1765,6 +1818,10 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async func
         currentDeleteId = null;
     }
 });
+
+/* =========================================================
+ |  REGEN EMPLOYEE CODE
+ ========================================================= */
 
 async function regenerateEmployeeCode() {
     const id = document.getElementById('residentId').value;
@@ -1840,7 +1897,7 @@ async function regenerateAllEmployeeCodes() {
 
         if (data.success) {
             showToast(data.message, 'success');
-            setTimeout(function () { window.location.reload(); }, 900);
+            liveRefresh();
         } else {
             showToast(data.message || 'Failed to regenerate', 'error');
         }
@@ -1853,6 +1910,10 @@ async function regenerateAllEmployeeCodes() {
         btn.innerHTML = originalHTML;
     }
 }
+
+/* =========================================================
+ |  EXPORT
+ ========================================================= */
 
 function toggleExportMenu(event) {
     event.stopPropagation();
@@ -1894,18 +1955,16 @@ function exportResidents(format) {
     showToast('Exporting residents (' + format.toUpperCase() + ')...', 'success');
 }
 
-var statusFilter = document.getElementById('rsStatusFilter');
-statusFilter.addEventListener('change', function() {
-    var url = new URL(window.location.href);
-    url.searchParams.set('status', this.value);
-    window.location.href = url.toString();
-});
+/* =========================================================
+ |  CLIENT FILTERS (live, no reload)
+ ========================================================= */
 
 var searchInput  = document.getElementById('rsSearchInput');
 var hostelFilter = document.getElementById('rsHostelFilter');
 var foodFilter   = document.getElementById('rsFoodFilter');
 var roomFilter   = document.getElementById('rsRoomFilter');
 var bedFilter    = document.getElementById('rsBedFilter');
+var statusFilter = document.getElementById('rsStatusFilter');
 
 function applyClientFilters() {
     var search   = searchInput.value.toLowerCase().trim();
@@ -1956,11 +2015,21 @@ function updateCountLabel(count) {
     }
 }
 
-searchInput.addEventListener('input',   applyClientFilters);
+// Live (client-side) — no reload
+searchInput.addEventListener('input',  applyClientFilters);
 hostelFilter.addEventListener('change', applyClientFilters);
-foodFilter.addEventListener('change',   applyClientFilters);
-roomFilter.addEventListener('input',    applyClientFilters);
-bedFilter.addEventListener('input',     applyClientFilters);
+foodFilter.addEventListener('change',  applyClientFilters);
+roomFilter.addEventListener('input',   applyClientFilters);
+bedFilter.addEventListener('input',    applyClientFilters);
+
+// Status change → server refresh (so DB pagination/filter is correct)
+statusFilter.addEventListener('change', function () {
+    liveRefresh();
+});
+
+/* =========================================================
+ |  CONTEXT MENU
+ ========================================================= */
 
 var contextMenu = document.getElementById('cardContextMenu');
 
