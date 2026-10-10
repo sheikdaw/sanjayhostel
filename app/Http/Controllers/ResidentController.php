@@ -94,7 +94,7 @@ class ResidentController extends Controller
     }
 
     /* =========================================================
-     |  SHARED FILTER BUILDER (Room No → Bed No → Name)
+     |  SHARED FILTER BUILDER
      ========================================================= */
 
     protected function buildFilteredQuery(Request $request)
@@ -124,6 +124,20 @@ class ResidentController extends Controller
 
         if ($request->filled('food_status')) {
             $query->where('residents.food_status', $request->food_status);
+        }
+
+        if ($request->filled('room_no')) {
+            $roomNo = $request->room_no;
+            $query->whereHas('room', function ($q) use ($roomNo) {
+                $q->where('room_no', 'LIKE', "%{$roomNo}%");
+            });
+        }
+
+        if ($request->filled('bed_no')) {
+            $bedNo = $request->bed_no;
+            $query->whereHas('bed', function ($q) use ($bedNo) {
+                $q->where('bed_no', 'LIKE', "%{$bedNo}%");
+            });
         }
 
         if ($request->filled('search')) {
@@ -633,6 +647,8 @@ class ResidentController extends Controller
             'hostel'      => null,
             'food_status' => $request->input('food_status'),
             'search'      => $request->input('search'),
+            'room_no'     => $request->input('room_no'),
+            'bed_no'      => $request->input('bed_no'),
         ];
 
         if ($request->filled('hostel_id')) {
@@ -785,7 +801,6 @@ class ResidentController extends Controller
         $status   = strtoupper($request->input('status') ?? '');
         $search   = $request->input('search');
 
-        // Rooms + beds + beds.resident (ACTIVE only)
         $roomQuery = Room::with([
             'hostel',
             'roomType',
@@ -905,7 +920,7 @@ class ResidentController extends Controller
                 'hostel_id'      => $room->hostel_id,
                 'hostel_name'    => $room->hostel->hostel_name ?? 'N/A',
                 'room_no'        => $room->room_no,
-                'room_type'      => $room->roomType->name ?? ($room->room_type->name ?? null),
+                'room_type'      => $room->roomType->name ?? null,
                 'total_beds'     => $totalBeds,
                 'occupied_count' => $occupiedCount,
                 'vacant_count'   => $vacantCount,

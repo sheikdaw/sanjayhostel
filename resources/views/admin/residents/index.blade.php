@@ -633,7 +633,7 @@
     }
 
     /* ============================================
-       🏠 VACANCY REPORT STYLES
+       🏠 VACANCY REPORT
        ============================================ */
     .v-summary-grid {
         display: grid;
@@ -699,18 +699,13 @@
         border-bottom: 1px solid #f3f4f6;
         vertical-align: middle;
     }
-    .v-table tbody tr:hover td {
-        background: #fffbeb;
-    }
+    .v-table tbody tr:hover td { background: #fffbeb; }
     .v-table .room-cell {
         font-weight: 700;
         color: var(--sanjay-primary);
         font-family: 'DM Mono', monospace;
     }
-    .v-table .hostel-cell {
-        font-weight: 600;
-        color: #374151;
-    }
+    .v-table .hostel-cell { font-weight: 600; color: #374151; }
     .v-badge {
         display: inline-block;
         padding: 2px 8px;
@@ -723,10 +718,7 @@
     .v-badge-vacant  { background: #fee2e2; color: #991b1b; }
     .v-badge-occ     { background: #dcfce7; color: #166534; }
     .v-badge-bed-vac { background: #f3f4f6; color: #4b5563; }
-    .v-resident-name {
-        font-weight: 600;
-        color: #111827;
-    }
+    .v-resident-name { font-weight: 600; color: #111827; }
     .v-resident-code {
         font-size: 0.65rem;
         color: #9ca3af;
@@ -784,6 +776,12 @@
         <option value="WITHOUT_FOOD">Without Food</option>
     </select>
 
+    {{-- 🆕 ROOM & BED FILTERS --}}
+    <input type="text" class="rs-filter-select" id="rsRoomFilter"
+           placeholder="Room No" style="min-width:100px; max-width:120px;">
+    <input type="text" class="rs-filter-select" id="rsBedFilter"
+           placeholder="Bed No" style="min-width:90px; max-width:110px;">
+
     {{-- 🔑 REGEN ALL BUTTON --}}
     <button type="button"
             id="regenAllBtn"
@@ -836,7 +834,9 @@
          data-phone="{{ $resident->phone }}"
          data-hostel-id="{{ $resident->hostel_id }}"
          data-status="{{ $resident->status }}"
-         data-food="{{ $resident->food_status }}">
+         data-food="{{ $resident->food_status }}"
+         data-room="{{ strtolower($resident->room->room_no ?? '') }}"
+         data-bed="{{ strtolower($resident->bed->bed_no ?? '') }}">
 
         <div class="rs-card-head">
             <div class="rs-avatar">
@@ -1311,7 +1311,6 @@
             </div>
 
             <div class="modal-body">
-                {{-- Filters --}}
                 <div class="rs-toolbar" style="margin-bottom:1rem;">
                     <select class="rs-filter-select" id="vHostelFilter">
                         <option value="">All Hostels</option>
@@ -1337,10 +1336,8 @@
                     </button>
                 </div>
 
-                {{-- Summary cards --}}
                 <div class="v-summary-grid" id="vacancySummary"></div>
 
-                {{-- Result table --}}
                 <div class="v-table-wrap">
                     <table class="v-table">
                         <thead>
@@ -1877,12 +1874,16 @@ function exportResidents(format) {
     var hostelId = document.getElementById('rsHostelFilter').value;
     var food     = document.getElementById('rsFoodFilter').value;
     var search   = document.getElementById('rsSearchInput').value.trim();
+    var roomNo   = document.getElementById('rsRoomFilter').value.trim();
+    var bedNo    = document.getElementById('rsBedFilter').value.trim();
 
     var params = new URLSearchParams();
     if (status)   params.append('status', status);
     if (hostelId) params.append('hostel_id', hostelId);
     if (food)     params.append('food_status', food);
     if (search)   params.append('search', search);
+    if (roomNo)   params.append('room_no', roomNo);
+    if (bedNo)    params.append('bed_no', bedNo);
 
     var url = (format === 'pdf')
         ? BASE_URL + '/export/pdf?' + params.toString()
@@ -1900,29 +1901,41 @@ statusFilter.addEventListener('change', function() {
     window.location.href = url.toString();
 });
 
-var searchInput = document.getElementById('rsSearchInput');
+var searchInput  = document.getElementById('rsSearchInput');
 var hostelFilter = document.getElementById('rsHostelFilter');
-var foodFilter = document.getElementById('rsFoodFilter');
+var foodFilter   = document.getElementById('rsFoodFilter');
+var roomFilter   = document.getElementById('rsRoomFilter');
+var bedFilter    = document.getElementById('rsBedFilter');
 
 function applyClientFilters() {
-    var search = searchInput.value.toLowerCase().trim();
+    var search   = searchInput.value.toLowerCase().trim();
     var hostelId = hostelFilter.value;
-    var food = foodFilter.value;
+    var food     = foodFilter.value;
+    var roomNo   = roomFilter.value.toLowerCase().trim();
+    var bedNo    = bedFilter.value.toLowerCase().trim();
 
     var visible = 0;
 
     document.querySelectorAll('.rs-card').forEach(function(card) {
-        var name = card.getAttribute('data-name');
-        var code = card.getAttribute('data-code');
-        var phone = card.getAttribute('data-phone');
-        var cardHostelId = card.getAttribute('data-hostel-id');
-        var cardFood = card.getAttribute('data-food');
+        var name         = card.getAttribute('data-name') || '';
+        var code         = card.getAttribute('data-code') || '';
+        var phone        = card.getAttribute('data-phone') || '';
+        var cardHostelId = card.getAttribute('data-hostel-id') || '';
+        var cardFood     = card.getAttribute('data-food') || '';
+        var cardRoom     = card.getAttribute('data-room') || '';
+        var cardBed      = card.getAttribute('data-bed') || '';
 
-        var matchSearch = !search || name.indexOf(search) > -1 || code.indexOf(search) > -1 || phone.indexOf(search) > -1;
+        var matchSearch = !search ||
+            name.indexOf(search) > -1 ||
+            code.indexOf(search) > -1 ||
+            phone.indexOf(search) > -1;
+
         var matchHostel = !hostelId || cardHostelId === hostelId;
-        var matchFood = !food || cardFood === food;
+        var matchFood   = !food     || cardFood === food;
+        var matchRoom   = !roomNo   || cardRoom.indexOf(roomNo) > -1;
+        var matchBed    = !bedNo    || cardBed.indexOf(bedNo) > -1;
 
-        if (matchSearch && matchHostel && matchFood) {
+        if (matchSearch && matchHostel && matchFood && matchRoom && matchBed) {
             card.style.display = '';
             visible++;
         } else {
@@ -1943,9 +1956,11 @@ function updateCountLabel(count) {
     }
 }
 
-searchInput.addEventListener('input', applyClientFilters);
+searchInput.addEventListener('input',   applyClientFilters);
 hostelFilter.addEventListener('change', applyClientFilters);
-foodFilter.addEventListener('change', applyClientFilters);
+foodFilter.addEventListener('change',   applyClientFilters);
+roomFilter.addEventListener('input',    applyClientFilters);
+bedFilter.addEventListener('input',     applyClientFilters);
 
 var contextMenu = document.getElementById('cardContextMenu');
 
@@ -2015,7 +2030,6 @@ function openVacancyModal() {
         vacancyModalInstance = new bootstrap.Modal(document.getElementById('vacancyModal'));
     }
 
-    // Copy hostel options from main filter (only once)
     var $h = document.getElementById('vHostelFilter');
     if ($h.options.length <= 1) {
         document.querySelectorAll('#rsHostelFilter option').forEach(function (opt) {
@@ -2176,7 +2190,6 @@ function exportVacancy(format) {
     showToast('Exporting vacancy report (' + format.toUpperCase() + ')...', 'success');
 }
 
-// Enter key applies filter; dropdowns auto-apply
 document.addEventListener('DOMContentLoaded', function () {
     ['vRoomFilter', 'vBedFilter', 'vSearchFilter'].forEach(function (id) {
         var el = document.getElementById(id);
