@@ -336,7 +336,6 @@
                        class="pl-btn pl-btn-secondary">
                         <i class="bi bi-box-arrow-up-right"></i> Open
                     </a>
-
                     <button type="button"
                             class="pl-btn pl-btn-qr"
                             data-id="{{ $link['id'] }}"
