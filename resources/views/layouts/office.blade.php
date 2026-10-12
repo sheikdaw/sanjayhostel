@@ -211,7 +211,7 @@
                     {{-- System Management --}}
                     <div class="ol-nav-section">System</div>
 
-                    <a href="#" class="ol-nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.users.index') }}" class="ol-nav-item {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                         <i class="bi bi-person-badge"></i>
                         <span class="ol-nav-label">Users</span>
                     </a>

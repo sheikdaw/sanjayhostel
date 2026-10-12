@@ -205,6 +205,17 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::prefix('payment-links')->name('payment-links.')->group(function () {
         Route::get('/', [PublicPaymentController::class, 'index'])->name('index');
     });
+
+
+      Route::prefix('users')->name('users.')->group(function () {
+        Route::get('/',                     [AdminUserController::class, 'index'])->name('index');
+        Route::post('/',                    [AdminUserController::class, 'store'])->name('store');
+        Route::get('/{id}',                 [AdminUserController::class, 'show'])->name('show');
+        Route::put('/{id}',                 [AdminUserController::class, 'update'])->name('update');
+        Route::delete('/{id}',              [AdminUserController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/toggle-status', [AdminUserController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/{id}/hostels',         [AdminUserController::class, 'getUserHostels'])->name('hostels');
+    });
 });
 
 /*
