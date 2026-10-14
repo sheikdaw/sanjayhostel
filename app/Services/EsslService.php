@@ -22,7 +22,6 @@ class EsslService
     {
         $c = config('services.essl');
 
-        // Graceful: don't throw — let page load with a friendly error
         $this->url            = (string) ($c['url']            ?? '');
         $this->apiKey         = (string) ($c['api_key']        ?? '11');
         $this->username       = (string) ($c['username']       ?? '');
@@ -63,6 +62,14 @@ class EsslService
         return $result;
     }
 
+    /**
+     * Block / Unblock a user on the device.
+     *
+     * IsBlock encoding:
+     *   "True"  / "False"  → HTTP 500 FormatException (W3C-strict SOAP layer)
+     *   "true"  / "false"  → accepted by SOAP but middleware coerces to false
+     *   "1"     / "0"      → works on this server build
+     */
     public function blockUnblock(string $employeeCode, string $name, string $serial, bool $block): array
     {
         $sentCommandId = (string) random_int(1, self::INT32_MAX);
@@ -72,7 +79,7 @@ class EsslService
             'EmployeeCode' => $employeeCode,
             'EmployeeName' => $name,
             'SerialNumber' => $serial,
-            'IsBlock'      => $block ? 'true' : 'false',
+            'IsBlock'      => $block ? '1' : '0',
             'UserName'     => $this->username,
             'UserPassword' => $this->password,
             'CommandId'    => $sentCommandId,
@@ -128,15 +135,6 @@ class EsslService
             'UserName'                  => $this->username,
             'UserPassword'              => $this->password,
             'ErrorMessage'              => '',
-        ]);
-    }
-
-    public function getCommandStatus(string $commandId): array
-    {
-        return $this->call('GetCommandStatus', [
-            'CommandId'    => $commandId,
-            'UserName'     => $this->username,
-            'UserPassword' => $this->password,
         ]);
     }
 
@@ -237,7 +235,11 @@ class EsslService
 
         $result = $this->extract($raw, "{$method}Result")
                ?? $this->extract($raw, 'AddMultipleEmployeeToDBResult')
-               ?? $this->extract($raw, 'AddMultipleEmployeesToDBResult');
+               ?? $this->extract($raw, 'AddMultipleEmployeesToDBResult')
+               ?? $this->extract($raw, 'BlockUnblockUserResult')
+               ?? $this->extract($raw, 'AddEmployeeResult')
+               ?? $this->extract($raw, 'DeleteUserResult')
+               ?? $this->extract($raw, 'DeleteMultipleEmployeesResult');
 
         $commandId = $this->extract($raw, 'CommandId') ?? $this->extract($raw, 'CommandIds');
         $errStatus = $this->extract($raw, 'ErrorStatus') ?? $this->extract($raw, 'ErrorMessage');
@@ -254,8 +256,8 @@ class EsslService
         $errStatus = $errStatus !== null ? trim($errStatus) : '';
         $resultStr = trim((string) $result);
 
-        // ── Stronger success detection ──
-        $hasError = $errStatus !== '' || $this->looksLikeError($resultStr);
+        $hasError  = $errStatus !== '' || $this->looksLikeError($resultStr);
+        $isQueued  = !$hasError && $commandId !== null && $commandId !== '';
 
         $ok = !$hasError;
 
@@ -263,19 +265,19 @@ class EsslService
         if ($errStatus !== '') {
             $message .= ($message ? ' | ' : '') . 'ErrorStatus: ' . $errStatus;
         }
+        if ($isQueued) {
+            $message .= ($message ? ' | ' : '') . "queued (Cmd#{$commandId})";
+        }
 
         return [
             'success'    => $ok,
+            'queued'     => $isQueued,
             'message'    => $message ?: ($ok ? 'Success' : 'Failed'),
             'command_id' => $commandId,
             'raw'        => $raw,
         ];
     }
 
-    /**
-     * Detect failure even when ErrorStatus is empty but Result text
-     * contains an obvious error phrase.
-     */
     private function looksLikeError(string $text): bool
     {
         if ($text === '') return false;
@@ -289,9 +291,9 @@ class EsslService
             'employee not found',
             'device not found',
             'serial number not',
-            'failed',
-            'error',
             'not exist',
+            'operation failed',
+            'request failed',
         ];
 
         $lower = strtolower($text);

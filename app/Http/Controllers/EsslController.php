@@ -142,34 +142,12 @@ class EsslController extends Controller
         );
     }
 
-    /* ───────────── Command status ───────────── */
-
-    public function commandStatus(Request $request): JsonResponse
-    {
-        $data = $request->validate(['command_id' => 'required|string']);
-
-        return response()->json($this->essl->getCommandStatus($data['command_id']));
-    }
-
     /* ═══════════════════════════════════════════════════════════
      |  🔑 PUBLIC API — used by PaymentController
-     |  Auto block / unblock after payment save
      ═══════════════════════════════════════════════════════════ */
 
-    /**
-     * Public wrapper for doBlock().
-     *
-     * PaymentController calls this after every payment save:
-     *   - balance = 0  →  syncResidentAccess($resident, false)  → UNBLOCK
-     *   - balance > 0  →  syncResidentAccess($resident, true)   → BLOCK
-     *
-     * @param  Resident $resident
-     * @param  bool     $block   true = block, false = unblock
-     * @return array{success: bool, message: string}
-     */
     public function syncResidentAccess(Resident $resident, bool $block): array
     {
-        // Reload relations if not loaded
         if (!$resident->relationLoaded('hostel')) {
             $resident->load('hostel');
         }
@@ -204,10 +182,17 @@ class EsslController extends Controller
     }
 
     /**
-     * STEP 1: AddMultipleEmployeesToDB (first sync only)
-     * STEP 2: AddEmployee → device queue
-     * STEP 3 (FIX #1): If DB says biometric_access = false,
-     *                  immediately block on device after add.
+     * Sync a resident to the device.
+     *
+     * Fire-and-forget. No GetCommandStatus polling.
+     *
+     * Steps:
+     *   1. AddMultipleEmployeesToDB (first sync only — synchronous web DB call)
+     *   2. AddEmployee            → queue to device
+     *   3. BlockUnblockUser(true) → queue to device (if DB says blocked)
+     *
+     * Commands queue in order (CommandId is monotonic), so the device always
+     * processes AddEmployee before BlockUnblockUser. No race, no poll.
      */
     private function doSync(Resident $resident, bool $keepBlocked = true): array
     {
@@ -221,7 +206,7 @@ class EsslController extends Controller
         $firstSync  = empty($resident->last_sync_at);
         $wasBlocked = !$resident->biometric_access;
 
-        // STEP 1
+        // STEP 1 — web DB (first time only)
         if ($firstSync) {
             $db = $this->essl->addEmployeeToDb([
                 'code'        => $resident->employee_code,
@@ -246,7 +231,7 @@ class EsslController extends Controller
             }
         }
 
-        // STEP 2 — device add
+        // STEP 2 — queue AddEmployee to device
         $res = $this->essl->addEmployee(
             (string) $resident->employee_code,
             $resident->name,
@@ -255,18 +240,17 @@ class EsslController extends Controller
         );
 
         if (empty($res['success'])) {
-            $msg = ($firstSync ? 'Added to web DB' : 'Re-synced')
-                 . ', device FAILED: ' . ($res['message'] ?? 'unknown');
+            $msg   = ($firstSync ? 'Added to web DB' : 'Re-synced')
+                   . ', device FAILED: ' . ($res['message'] ?? 'unknown');
             $cmdId = $res['server_command_id'] ?? $res['sent_command_id'] ?? null;
             if ($cmdId) $msg .= " (Cmd#{$cmdId})";
 
             return ['success' => false, 'message' => "{$resident->name}: {$msg}"];
         }
 
-        $resident->last_sync_at = now();
-        $resident->save();
+        $addCmdId = $res['server_command_id'] ?? $res['sent_command_id'] ?? null;
 
-        // STEP 3 (FIX #1) — re-apply block on device if DB says blocked
+        // STEP 3 — queue BlockUnblockUser(true) right after (no poll)
         $blockMsg = '';
         if ($keepBlocked && $wasBlocked) {
             $b = $this->essl->blockUnblock(
@@ -275,21 +259,29 @@ class EsslController extends Controller
                 $resident->hostel->biometric_device_id,
                 true
             );
-            $blockMsg = !empty($b['success'])
-                ? ' + re-blocked on device'
-                : ' (re-block failed: ' . ($b['message'] ?? 'unknown') . ')';
+
+            if (!empty($b['success'])) {
+                $bCmdId   = $b['server_command_id'] ?? $b['sent_command_id'] ?? null;
+                $blockMsg = ' + block queued' . ($bCmdId ? " (Cmd#{$bCmdId})" : '');
+            } else {
+                $blockMsg = ' (block queue FAILED: ' . ($b['message'] ?? 'unknown') . ')';
+            }
         }
 
-        $msg = ($firstSync ? 'Added to web DB' : 'Re-synced') . ' + queued to device' . $blockMsg;
-        $cmdId = $res['server_command_id'] ?? $res['sent_command_id'] ?? null;
-        if ($cmdId) $msg .= " (Cmd#{$cmdId})";
+        // Mark synced immediately — device will catch up on its next poll
+        $resident->last_sync_at = now();
+        $resident->save();
+
+        $msg = ($firstSync ? 'Added to web DB' : 'Re-synced')
+             . ($addCmdId ? " (Cmd#{$addCmdId})" : '')
+             . $blockMsg;
 
         return ['success' => true, 'message' => "{$resident->name}: {$msg}"];
     }
 
     /**
      * Block / Unblock on the device.
-     * Non-ACTIVE resident → permanent block (unblock rejected).
+     * Fire-and-forget. No polling — device applies on next poll cycle.
      */
     private function doBlock(Resident $resident, bool $block): array
     {
@@ -320,7 +312,6 @@ class EsslController extends Controller
                 ];
             }
 
-            // Unblock → must first push (FIX #2: keepBlocked=false so no extra block)
             $add = $this->doSync($resident, false);
             if (!$add['success']) return $add;
 
@@ -329,36 +320,43 @@ class EsslController extends Controller
 
         $res = $this->essl->blockUnblock($code, $resident->name, $serial, $block);
 
-        // Fallback: unblock failed → employee not on device → sync, retry
+        // Unblock fallback: user not on device → push then retry
         if (!$block
             && empty($res['success'])
             && stripos($res['message'] ?? '', 'not found') !== false) {
 
-            $add = $this->doSync($resident, false);   // FIX #2
+            $add = $this->doSync($resident, false);
             if ($add['success']) {
                 $resident->refresh();
                 $res = $this->essl->blockUnblock($code, $resident->name, $serial, false);
             }
         }
 
-        if (!empty($res['success'])) {
-            $resident->biometric_access = !$block;
-            $resident->last_sync_at     = now();
-
-            if ($block) {
-                $resident->access_disabled_at = now();
-            } else {
-                $resident->access_enabled_at = now();
-            }
-
-            $resident->save();
+        if (empty($res['success'])) {
+            $msg   = $res['message'] ?? 'unknown';
+            $cmdId = $res['server_command_id'] ?? $res['command_id'] ?? null;
+            if ($cmdId) $msg .= " (Cmd#{$cmdId})";
+            return ['success' => false, 'message' => "{$resident->name}: {$msg}"];
         }
 
-        $msg = $res['message'] ?? 'unknown';
+        // Queue accepted → update DB immediately
+        $resident->biometric_access = !$block;
+        $resident->last_sync_at     = now();
+
+        if ($block) {
+            $resident->access_disabled_at = now();
+        } else {
+            $resident->access_enabled_at = now();
+        }
+
+        $resident->save();
+
+        $verb  = $block ? 'blocked (queued)' : 'unblocked (queued)';
+        $msg   = "{$resident->name}: {$verb}";
         $cmdId = $res['server_command_id'] ?? $res['command_id'] ?? null;
         if ($cmdId) $msg .= " (Cmd#{$cmdId})";
 
-        return ['success' => !empty($res['success']), 'message' => "{$resident->name}: {$msg}"];
+        return ['success' => true, 'message' => $msg];
     }
 
     /* ───────────── Helpers ───────────── */
