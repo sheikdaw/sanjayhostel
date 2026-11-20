@@ -276,3 +276,19 @@ Route::middleware(['auth'])->prefix('essl-test')->name('essl-test.')->group(func
     Route::post('/add-one/{id}', [EsslTestController::class, 'addOne'])->name('add-one');
     Route::get('/command/{id}',  [EsslTestController::class, 'command'])->name('command');
 });
+
+
+
+
+
+// Page — resident opens this link
+Route::get('/self-pay/{encodedHostelId}', [PublicPaymentController::class, 'selfPayPage'])
+    ->name('public.self-pay.show');
+
+// AJAX — lookup dues (same as existing lookup but new name)
+Route::post('/self-pay/{encodedHostelId}/lookup', [PublicPaymentController::class, 'selfPayLookup'])
+    ->name('public.self-pay.lookup');
+
+// AJAX — submit manual UPI payment
+Route::post('/self-pay/{encodedHostelId}/submit', [PublicPaymentController::class, 'selfPaySubmit'])
+    ->name('public.self-pay.submit');

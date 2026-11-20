@@ -718,4 +718,231 @@ class PublicPaymentController extends Controller
             })
             ->first();
     }
+
+
+
+
+    //self
+    /* =========================================================
+ |  SELF PAYMENT ENTRY (NEW — no gateway)
+ ========================================================= */
+
+public function selfPayPage(string $encodedHostelId)
+{
+    $hostel = $this->resolveHostel($encodedHostelId);
+    if (!$hostel) {
+        abort(404, 'Invalid payment link');
+    }
+
+    return view('public.self-pay', compact('hostel', 'encodedHostelId'));
+}
+public function selfPayLookup(Request $request, string $encodedHostelId)
+{
+    $hostel = $this->resolveHostel($encodedHostelId);
+    if (!$hostel) {
+        return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
+    }
+
+    $request->validate([
+        'phone'        => 'required|string|min:10|max:15',
+        'payment_date' => 'nullable|date|before_or_equal:today',
+    ]);
+
+    $resident = $this->findResident($hostel->id, $request->phone);
+    if (!$resident) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No active resident found with this mobile number in this hostel.',
+        ]);
+    }
+
+    // 🔑 Date from form (fallback to today)
+    $asOf = $request->filled('payment_date')
+        ? Carbon::parse($request->payment_date, config('app.timezone', 'Asia/Kolkata'))->startOfDay()
+        : Carbon::now(config('app.timezone', 'Asia/Kolkata'));
+
+    $dues = $this->calculateDues($resident, $asOf);
+
+    return response()->json([
+        'success'  => true,
+        'as_of'    => $asOf->format('d M Y'),
+        'as_of_day'=> $asOf->day,
+        'resident' => [
+            'id'           => $resident->id,
+            'name'         => $resident->name,
+            'code'         => $resident->resident_code,
+            'phone'        => $resident->phone,
+            'hostel_name'  => $hostel->hostel_name,
+            'room_no'      => $resident->room->room_no ?? 'N/A',
+            'bed_no'       => $resident->bed->bed_no ?? 'N/A',
+            'joining_date' => Carbon::parse($resident->joining_date)->format('d M Y'),
+            'rent_amount'  => (float) $resident->rent_amount,
+        ],
+        'current_month'    => $dues['current_month'],
+        'previous_pending' => $dues['previous_pending'],
+        'total_due'        => $dues['total_due'],
+        'can_pay'          => $dues['total_due'] > 0,
+    ]);
+}
+public function selfPaySubmit(Request $request, string $encodedHostelId)
+{
+    $hostel = $this->resolveHostel($encodedHostelId);
+    if (!$hostel) {
+        return response()->json(['success' => false, 'message' => 'Invalid link'], 400);
+    }
+
+    $data = $request->validate([
+        'phone'          => 'required|string|min:10|max:15',
+        'amount'         => 'required|numeric|min:1',
+        'transaction_id' => 'required|string|min:6|max:100',
+        'note'           => 'nullable|string|max:255',
+        'payment_date'   => 'required|date|before_or_equal:today',
+    ]);
+
+    $resident = $this->findResident($hostel->id, $data['phone']);
+    if (!$resident) {
+        return response()->json(['success' => false, 'message' => 'Resident not found.'], 404);
+    }
+
+    // Duplicate UTR check
+    $dup = Payment::whereHas('resident', fn ($q) => $q->where('hostel_id', $hostel->id))
+        ->where('transaction_id', $data['transaction_id'])
+        ->exists();
+    if ($dup) {
+        return response()->json([
+            'success' => false,
+            'message' => 'This transaction ID was already submitted.',
+        ], 422);
+    }
+
+    $asOf = Carbon::parse($data['payment_date'], config('app.timezone', 'Asia/Kolkata'))->startOfDay();
+    $dues = $this->calculateDues($resident, $asOf);
+
+    if ($dues['total_due'] <= 0) {
+        return response()->json(['success' => false, 'message' => 'No balance due for this date.']);
+    }
+
+    $amount = round((float) $data['amount'], 2);
+    if ($amount > $dues['total_due'] + 0.01) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Amount exceeds total due of ₹' . number_format($dues['total_due'], 2),
+        ], 422);
+    }
+
+    DB::beginTransaction();
+    try {
+        $remaining = $amount;
+        $touched   = [];
+        $tag       = '[SELF-PAY-PENDING] ';
+        $paymentDate = Carbon::parse($data['payment_date'])->toDateString();
+
+        foreach ($dues['allocations'] as $alloc) {
+            if ($remaining <= 0) break;
+
+            $credit = min($remaining, (float) $alloc['amount']);
+            if ($credit <= 0) continue;
+
+            // ✅ FIX: Where + first() → null-ஆ இருந்தா create
+            $payment = Payment::where('resident_id', $resident->id)
+                ->where('month', $alloc['month'])
+                ->where('year', $alloc['year'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment) {
+                // Existing row → update
+                $credit = min($credit, (float) $payment->balance_amount);
+                if ($credit <= 0) continue;
+
+                $balance = max(0, (float) $payment->balance_amount - $credit);
+
+                $newRemark = substr(
+                    $tag . 'UPI ' . $data['transaction_id']
+                        . ($data['note'] ? ' | ' . $data['note'] : '')
+                        . ($payment->remark ? ' | ' . $payment->remark : ''),
+                    0, 255
+                );
+
+                $payment->update([
+                    'upi_paid_amount' => (float) $payment->upi_paid_amount + $credit,
+                    'balance_amount'  => $balance,
+                    'payment_type'    => ((float) $payment->cash_paid_amount > 0) ? 'both' : 'upi',
+                    'transaction_id'  => $data['transaction_id'],
+                    'status'          => $balance > 0 ? 'PARTIAL' : 'PAID',
+                    'remark'          => $newRemark,
+                ]);
+                $touched[] = $payment->id;
+            } else {
+                // ✅ No row → create
+                $payable = max(0,
+                    (float) ($alloc['rent'] ?? 0)
+                    + (float) ($alloc['fine'] ?? 0)
+                    - (float) ($alloc['discount'] ?? 0)
+                );
+                $balance = max(0, $payable - $credit);
+
+                do {
+                    $receiptNo = 'RCPT-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+                } while (Payment::where('receipt_no', $receiptNo)->exists());
+
+                // ✅ FIX: $payment = Payment::create(...) — return value assign!
+                $payment = Payment::create([
+                    'resident_id'      => $resident->id,
+                    'month'            => $alloc['month'],
+                    'year'             => $alloc['year'],
+                    'receipt_no'       => $receiptNo,
+                    'rent_amount'      => $alloc['rent'] ?? $resident->rent_amount,
+                    'discount_amount'  => $alloc['discount'] ?? 0,
+                    'fine_amount'      => $alloc['fine'] ?? 0,
+                    'cash_paid_amount' => 0,
+                    'upi_paid_amount'  => $credit,
+                    'balance_amount'   => $balance,
+                    'payment_date'     => $paymentDate,
+                    'transaction_id'   => $data['transaction_id'],
+                    'payment_type'     => 'upi',
+                    'status'           => $balance > 0 ? 'PARTIAL' : 'PAID',
+                    'remark'           => substr(
+                        $tag . 'UPI ' . $data['transaction_id']
+                            . ($data['note'] ? ' | ' . $data['note'] : ''),
+                        0, 255
+                    ),
+                ]);
+
+                $touched[] = $payment->id;
+            }
+
+            $remaining = round($remaining - $credit, 2);
+        }
+
+        if (empty($touched)) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Nothing could be credited. Please check amount / dues.',
+            ], 422);
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'success'     => true,
+            'message'     => 'Payment submitted. Admin will verify shortly.',
+            'receipt_ids' => $touched,
+        ]);
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        Log::error('Self-pay submit failed', [
+            'err'  => $e->getMessage(),
+            'line' => $e->getLine(),
+            'file' => basename($e->getFile()),
+            'data' => $data,
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Server error. Try again.',
+        ], 500);
+    }
+}
 }
